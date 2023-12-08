@@ -192,10 +192,13 @@ positive_results <- result_info |>
     Genotype %in% grep(pattern = "SUFU",
                        x = Genotype,
                        value = TRUE) ~"SUFU"),
-    target_gene_dq = str_extract(Genotype, dq_regex, group = 4))
+    target_gene_dq = str_extract(Genotype, dq_regex, group = 4)) |> 
+  left_join(cnv_info_disease_codes |> 
+              select(LABNO, DISEASE ), by = "LABNO",
+            relationship = "many-to-many")
 
 positive_results |> 
-  count(target_gene)
+  count(target_gene, DISEASE)
 
 # Qiaseq Primers --------------------------------------------------------------------
 
