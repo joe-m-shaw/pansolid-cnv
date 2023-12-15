@@ -144,9 +144,22 @@ results_tbl <- tbl(dbi_con,
                      schema = "dbo",
                      table = "ResultsAccess"))
 
+all_results <- results_tbl |> 
+  select(-c(GENOCOMM, QUALCOMM, WithdrawReason, EditReason)) |> 
+  collect()
+
+myc_results <- all_results |> 
+  filter(Genotype %in% grep(pattern = "MYC", x = Genotype, value = TRUE))
+
 result_info <- results_tbl |> 
-  select(LABNO, TEST, Genotype, Genotype2, GENOCOMM) |> 
+  select(LABNO, TEST, TESTTYPE, Genotype, Genotype2, GENOCOMM) |> 
   filter(LABNO %in% cnv_sample_ids) |> 
+  collect()
+
+# New idea - get all Core results with positive results
+testtype_19 <- results_tbl |> 
+  select(LABNO, TEST, TESTTYPE, Genotype, Genotype2, GENOCOMM) |> 
+  filter(TESTTYPE == 19) |> 
   collect()
 
 dq_regex <- regex(
@@ -162,7 +175,7 @@ dq_regex <- regex(
   comments = TRUE
 )
 
-positive_results <- result_info |> 
+positive_results <- testtype_19 |> 
   filter(Genotype %in% grep(pattern = "DQ", x = Genotype, value = TRUE)) |> 
   filter(Genotype %in% grep(pattern = "ERBB2|EGFR|MYC|MET|ARID1A|SUFU",
                             x = Genotype,
@@ -192,10 +205,10 @@ positive_results <- result_info |>
     Genotype %in% grep(pattern = "SUFU",
                        x = Genotype,
                        value = TRUE) ~"SUFU"),
-    target_gene_dq = str_extract(Genotype, dq_regex, group = 4)) |> 
-  left_join(cnv_info_disease_codes |> 
-              select(LABNO, DISEASE ), by = "LABNO",
-            relationship = "many-to-many")
+    target_gene_dq = str_extract(Genotype, dq_regex, group = 4)) 
+
+positive_results |> 
+  count(target_gene)
 
 positive_results |> 
   count(target_gene, DISEASE)
