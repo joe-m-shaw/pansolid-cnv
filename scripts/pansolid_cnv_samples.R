@@ -201,4 +201,16 @@ samples_pansolid_core_filtered |>
 
 samples_pansolid_core_filtered |> 
   count(target_gene)
+
+samples_pansolid_core |> 
+  filter(!is.na(target_gene)) |> 
+  ggplot(aes(x = reorder(sample_id, target_gene_dq), y = target_gene_dq)) +
+  geom_jitter() +
+  facet_wrap(~target_gene) +
+  ylim(0, 120) +
+  theme(axis.text.x = element_blank())
+
+
+
+
   
