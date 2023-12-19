@@ -1,0 +1,19 @@
+---
+title: "Quarto"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## Quarto
+
+*"Under the hood, prose in Quarto documents (.qmd files) is written in Markdown, a lightweight set of conventions for formatting plain text files."*
+
+Control+alt+I is a useful shortcut for creating a code chunk.
+
+*"Your chunk labels should be short but evocative and should not contain spaces. We recommend using dashes (-) to separate words (instead of underscores, \_) and avoiding other special characters in chunk labels."*
+
+```{r}
+1 + 1
+```
