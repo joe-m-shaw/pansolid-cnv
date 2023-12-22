@@ -1,7 +1,7 @@
 ---
 title: "PanSolid CNV Analysis"
 author: "Joe Shaw"
-format: pdf
+format: html
 editor: visual
 ---
 
@@ -10,11 +10,23 @@ editor: visual
 This Quarto document is a notebook for organising analysis of somatic CNVs from a CLC Genomics Workbench pipeline (Qiagen).
 
 ```{r}
+#| label: packages
+#| include: FALSE
 
 library(tidyverse)
 library(readxl)
 
 source("C:/Users/joseph.shaw2/Documents/pansolid_cnv_validation/functions/cnv_functions.R")
+
+```
+
+## Results
+
+I've taken the PanSolid CLCL results from the output of the CLC pipeline on the "coarse" setting.
+
+```{r}
+#| label: load-results
+#| include: FALSE
 
 datapath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/00_Amplifications_Fine_vs_Coarse/"
 
@@ -115,8 +127,11 @@ collated_coarse <- all_files |>
 
 ```
 
+For the Core panel, I've directly queried DLMS and extracted the CNV results from the free-type "Genotype" field.
 
 ```{r}
+#| label: core-results
+#| include: FALSE
 
 dbi_con <- DBI::dbConnect(
   drv = odbc::odbc(),
@@ -128,7 +143,7 @@ results_tbl <- tbl(dbi_con,
                      schema = "dbo",
                      table = "ResultsAccess"))
 
-sample_ids <- unique(collated$sample)
+sample_ids <- unique(collated_coarse$sample)
 
 core_result_info <- results_tbl |> 
   select(LABNO, TEST, TESTTYPE, Genotype, Genotype2, GENOCOMM) |> 
@@ -189,7 +204,6 @@ draw_confusion_matrix <- function(input_gene) {
   
 }
 
-
 egfr_conf <- draw_confusion_matrix("EGFR")
 
 erbb2_conf <- draw_confusion_matrix("ERBB2")
@@ -198,15 +212,26 @@ met_conf <- draw_confusion_matrix("MET")
 
 ```
 
-## Confusion Matrices
+## EGFR Results
 
 ```{r}
-
+#| echo: FALSE
 knitr::kable(egfr_conf)
-
-knitr::kable(erbb2_conf)
-
-knitr::kable(met_conf)
 
 ```
 
+## ERBB2 Results
+
+```{r}
+#| echo: FALSE
+knitr::kable(erbb2_conf)
+
+```
+
+## MET Results
+
+```{r}
+#| echo: FALSE
+knitr::kable(met_conf)
+
+```
