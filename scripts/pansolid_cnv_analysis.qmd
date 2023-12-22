@@ -9,40 +9,67 @@ editor: visual
 
 This Quarto document is a notebook for organising analysis of somatic CNVs from a CLC Genomics Workbench pipeline (Qiagen).
 
-## Reading in the Data
-
 ```{r}
 
 library(tidyverse)
 library(readxl)
 
+source("C:/Users/joseph.shaw2/Documents/pansolid_cnv_validation/functions/cnv_functions.R")
+
 datapath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/00_Amplifications_Fine_vs_Coarse/"
 
-cns_files <- list.files(str_c(datapath, "CNS_PS/"), full.names = TRUE)
+negatives_path <- str_c(datapath, "Negatives/")
 
-list.f
+all_files <- flatten(list(
+  
+  list.files(str_c(datapath, "CNS_PS/"), full.names = TRUE),
+  
+  list.files(str_c(datapath, "M1_CRC_PS/"), full.names = TRUE),
+  
+  list.files(str_c(datapath, "M3_BREAST_PS/"), full.names = TRUE),
+  
+  list.files(str_c(datapath, "M4_LUNG_PS/"), full.names = TRUE),
+  
+  list.files(str_c(negatives_path, "CNS_PS/"), full.names = TRUE),
+
+  list.files(str_c(negatives_path, "M1_CRC_PS/"), full.names = TRUE),
+  
+  list.files(str_c(negatives_path, "M3_BREAST_PS/"), full.names = TRUE),
+  
+  list.files(str_c(negatives_path, "M4_LUNG_PS/"), full.names = TRUE),
+  
+  list.files(str_c(negatives_path, "SchwannCNS_PS/"), full.names = TRUE)))
 
 filename_regex <- regex(
   r"[
   (WS\d{6})             # Worksheet number
   _
   (\d{8})               # Sample number
-  _
+  (a_|b_|c_|_)
   ([A-z]+)              # Patient name
-  .xlsx
+  (.xlsx|_.+)
   ]",
   comments = TRUE
 )
 
-
 get_gene_result <- function(df, gene_name) {
   
-  x <- df |> 
-    filter(gene == gene_name)
+  if (ncol(df) == 0) {
+    
+    output <- "No call"
+    
+  }
   
-  output <- case_when(
-    nrow(x) < 1 ~"No call",
-    nrow(x) >= 1 ~"Amplification")
+  if (ncol(df) > 1) {
+    
+    x <- df |> 
+    filter(gene == gene_name)
+    
+    output <- case_when(
+      nrow(x) < 1 ~"No call",
+      nrow(x) >= 1 ~"Amplification")
+    
+  }
   
   return(output)
   
@@ -58,7 +85,7 @@ summarise_results <- function(file, input_sheet) {
                            group = 2)
   
   patient_name <- str_extract(file, filename_regex,
-                           group = 3)
+                           group = 4)
   
   egfr_result <- get_gene_result(df = results, gene_name = "EGFR")
   
@@ -78,11 +105,108 @@ summarise_results <- function(file, input_sheet) {
   
 }
 
-collated <- cns_files |>
-  map(\(cns_files) summarise_results(
-    file = cns_files,
+collated_coarse <- all_files |>
+  map(\(all_files) summarise_results(
+    file = all_files,
     input_sheet = "Oncogenes (Amplified) Coars..."
   )) |>
-  list_rbind()
+  list_rbind() |> 
+  mutate(setting = "coarse")
 
 ```
+
+
+```{r}
+
+dbi_con <- DBI::dbConnect(
+  drv = odbc::odbc(),
+  dsn = "moldb")
+
+results_tbl <- tbl(dbi_con, 
+                   dbplyr::in_catalog(
+                     catalog = "MolecularDB",
+                     schema = "dbo",
+                     table = "ResultsAccess"))
+
+sample_ids <- unique(collated$sample)
+
+core_result_info <- results_tbl |> 
+  select(LABNO, TEST, TESTTYPE, Genotype, Genotype2, GENOCOMM) |> 
+  filter(LABNO %in% sample_ids) |> 
+  collect() |> 
+  filter(TEST %in% grep(pattern = "Q.{2,4}seq.+core", x = TEST, ignore.case = TRUE,
+                        value = TRUE)) |> 
+  extract_cnv_calls() |> 
+  mutate(core_result = ifelse(!is.na(target_gene_dq), "Amplification", "")) |> 
+  # Need to check duplicates
+  filter(!duplicated(LABNO))
+
+joined <- collated_coarse |> 
+  filter(sample %in% core_result_info$LABNO) |> 
+  left_join(core_result_info |> 
+              select(LABNO, target_gene, core_result),
+            join_by(sample == LABNO, gene == target_gene)) |> 
+  mutate(core_result = ifelse(is.na(core_result), "No call", core_result),
+         
+         outcome = case_when(
+           
+           result == "Amplification" & core_result  == "Amplification" ~"true positive",
+           
+           result == "No call" & core_result  == "No call" ~"true negative",
+           
+           result == "Amplification" & core_result  == "No call" ~"false positive",
+           
+           result == "No call" & core_result  == "Amplification" ~"false negative",
+
+           TRUE ~"no match"
+           
+         ))
+
+outcome_table <- joined |> 
+  group_by(gene, outcome) |> 
+  summarise(total = n())
+
+draw_confusion_matrix <- function(input_gene) {
+  
+  x <- joined |> 
+    filter(gene == input_gene)
+  
+  true_positives <- nrow(x[x$outcome == "true positive", ])
+  
+  true_negatives <- nrow(x[x$outcome == "true negative", ])
+  
+  false_positives <- nrow(x[x$outcome == "false positive", ])
+  
+  false_negatives <- nrow(x[x$outcome == "false negative", ])
+  
+  confusion_matrix <- tribble(
+      ~"",      ~"PanSolid CLC +",      ~"PanSolid CLC -", 
+      "Core+",  true_positives,         false_negatives,  
+      "Core-",  false_positives,        true_negatives
+      )
+  
+  return(confusion_matrix)
+  
+}
+
+
+egfr_conf <- draw_confusion_matrix("EGFR")
+
+erbb2_conf <- draw_confusion_matrix("ERBB2")
+
+met_conf <- draw_confusion_matrix("MET")
+
+```
+
+## Confusion Matrices
+
+```{r}
+
+knitr::kable(egfr_conf)
+
+knitr::kable(erbb2_conf)
+
+knitr::kable(met_conf)
+
+```
+
