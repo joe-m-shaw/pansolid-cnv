@@ -22,14 +22,16 @@ source("C:/Users/joseph.shaw2/Documents/pansolid_cnv_validation/functions/cnv_fu
 
 ## Results
 
-I've taken the PanSolid CLCL results from the output of the CLC pipeline on the "coarse" setting.
+I've taken the PanSolid CLCL results from the output of the CLC pipeline on the "coarse" setting. If an output Excel had a CNV call for a particular gene, I classified that as an amplification, without any filtering on coordinates or fold change.
 
 ```{r}
 #| label: load-results
 #| include: FALSE
 
-datapath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/00_Amplifications_Fine_vs_Coarse/"
+coarse_tab <- "Oncogenes (Amplified) Coars..."
+fine_tab <- "Oncogenes (Amplified) Fine-..."
 
+datapath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/00_Amplifications_Fine_vs_Coarse/"
 negatives_path <- str_c(datapath, "Negatives/")
 
 all_files <- flatten(list(
@@ -96,6 +98,9 @@ summarise_results <- function(file, input_sheet) {
   sample_id <- str_extract(file, filename_regex,
                            group = 2)
   
+  qualifier <- str_extract(file, filename_regex,
+                           group = 3)
+  
   patient_name <- str_extract(file, filename_regex,
                            group = 4)
   
@@ -103,15 +108,18 @@ summarise_results <- function(file, input_sheet) {
   
   erbb2_result <- get_gene_result(df = results, gene_name = "ERBB2")
 
-  met_result <- get_gene_result(df = results, gene_name = "METT")
+  met_result <- get_gene_result(df = results, gene_name = "MET")
 
   summary <- tribble(
   
-  ~sample, ~name, ~gene, ~result,
-  sample_id, patient_name, "EGFR", egfr_result,
-  sample_id, patient_name, "ERBB2", erbb2_result,
-  sample_id, patient_name, "MET", met_result
-  )
+    ~gene, ~result,
+    "EGFR", egfr_result,
+    "ERBB2", erbb2_result,
+    "MET", met_result
+  ) |> 
+    mutate(suffix = qualifier,
+           sample = sample_id,
+           name = patient_name)
   
   return(summary)
   
@@ -120,10 +128,65 @@ summarise_results <- function(file, input_sheet) {
 collated_coarse <- all_files |>
   map(\(all_files) summarise_results(
     file = all_files,
-    input_sheet = "Oncogenes (Amplified) Coars..."
+    input_sheet = coarse_tab
   )) |>
   list_rbind() |> 
-  mutate(setting = "coarse")
+  filter(suffix == "_")
+
+```
+
+In total there are **`r length(all_files)`** CLC outputs for **`r length(unique(collated_coarse$sample))`** samples tested. I have excluded replicates of samples demarcated with a, b and c suffixes.
+
+Every CNV call has a fold-change of at least 2.5, which is a copy number of at least 5. So treating every call as an amplification seems to be a fair assumption.
+
+```{r}
+#| label: load-calls
+#| include: FALSE
+
+read_clc_excel <- function(file, input_sheet) {
+  
+  sample_id <- str_extract(file, filename_regex,
+                           group = 2)
+  
+  patient_name <- str_extract(file, filename_regex,
+                           group = 4)
+  
+  results <- read_excel(path = file,
+                        sheet = input_sheet) |> 
+    janitor::clean_names() |> 
+    mutate(sample = sample_id,
+           patient = patient_name)
+  
+  return(results)
+  
+}
+
+coarse_calls <- all_files |>
+  map(\(all_files) read_clc_excel(
+    file = all_files,
+    input_sheet = coarse_tab
+  )) |>
+  list_rbind() |> 
+  mutate(setting = "coarse")  
+
+fine_calls <- all_files |>
+  map(\(all_files) read_clc_excel(
+    file = all_files,
+    input_sheet = fine_tab
+  )) |>
+  list_rbind() |> 
+  mutate(setting = "fine")
+
+all_calls <- rbind(coarse_calls, fine_calls)
+
+```
+
+```{r}
+#| include: FALSE
+all_calls |> 
+  filter(setting == "coarse") |> 
+  ggplot(aes(x = reorder(sample, fold_change_adjusted), y = fold_change_adjusted)) +
+  geom_jitter(aes(colour = gene))
 
 ```
 
@@ -153,7 +216,6 @@ core_result_info <- results_tbl |>
                         value = TRUE)) |> 
   extract_cnv_calls() |> 
   mutate(core_result = ifelse(!is.na(target_gene_dq), "Amplification", "")) |> 
-  # Need to check duplicates
   filter(!duplicated(LABNO))
 
 joined <- collated_coarse |> 
@@ -176,10 +238,6 @@ joined <- collated_coarse |>
            TRUE ~"no match"
            
          ))
-
-outcome_table <- joined |> 
-  group_by(gene, outcome) |> 
-  summarise(total = n())
 
 draw_confusion_matrix <- function(input_gene) {
   
