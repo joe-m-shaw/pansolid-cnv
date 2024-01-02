@@ -4,12 +4,12 @@
 
 export_timestamp <- function(input) {
   write.csv(input,
-            file = paste0(
+            file = here::here(paste0(
               "outputs/",
               format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
               "_",
               deparse(substitute(input)), ".csv"
-            ),
+            )),
             row.names = FALSE
   )
 }
