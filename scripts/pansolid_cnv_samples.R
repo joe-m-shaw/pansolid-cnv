@@ -204,13 +204,11 @@ samples_pansolid_core_filtered |>
 
 samples_pansolid_core |> 
   filter(!is.na(target_gene)) |> 
-  ggplot(aes(x = reorder(sample_id, target_gene_dq), y = target_gene_dq)) +
-  geom_jitter() +
-  facet_wrap(~target_gene) +
+  ggplot(aes(x = reorder(sample_id, target_gene_dq), y = target_gene_dq,
+             colour = target_gene)) +
+  geom_point(size = 2) +
   ylim(0, 120) +
-  theme(axis.text.x = element_blank())
+  theme_bw() +
+  theme(axis.text.x = element_blank()) +
+  geom_hline(yintercept = 5, linetype = "dashed")
 
-
-
-
-  
