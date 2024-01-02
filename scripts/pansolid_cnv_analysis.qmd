@@ -1,6 +1,7 @@
 ---
 title: "PanSolid CNV Analysis"
 author: "Joe Shaw"
+date: "`r Sys.Date()`"
 format: html
 editor: visual
 ---
@@ -21,6 +22,7 @@ library(here)
 library(odbc)
 library(DBI)
 library(dbplyr)
+library(ggpubr)
 
 source(here::here("functions/cnv_functions.R"))
 
@@ -36,7 +38,9 @@ dbi_con <- DBI::dbConnect(
 
 ```
 
-## Primer Orthogonality
+## Primer Overlap Between Core and PanSolid
+
+Primer spreadsheets were provided by Qiagen.
 
 ```{r}
 #| label: primers
@@ -60,7 +64,7 @@ core_only <- read_excel(here::here("data/Primer and Gene Comparison.xlsx"),
   mutate(category = "Unique to 17500Z-950",
          text = "Core only")
 
-intersect(pan_solid_only$sequence, core_only$sequence)
+stopifnot(intersect(pan_solid_only$sequence, core_only$sequence) == 0)
 
 both_panels <- read_excel(here::here("data/Primer and Gene Comparison.xlsx"),
                           sheet = "Primer Overlap",
@@ -118,10 +122,6 @@ export_timestamp(primer_table_formatted)
 
 ```
 
-## Results
-
-I've taken the PanSolid CLCL results from the output of the CLC pipeline on the "coarse" setting. If an output Excel had a CNV call for a particular gene, I classified that as an amplification, without any filtering on coordinates or fold change.
-
 ```{r}
 #| label: load-results
 #| include: FALSE
@@ -130,6 +130,7 @@ coarse_tab <- "Oncogenes (Amplified) Coars..."
 fine_tab <- "Oncogenes (Amplified) Fine-..."
 
 datapath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/00_Amplifications_Fine_vs_Coarse/"
+
 negatives_path <- str_c(datapath, "Negatives/")
 
 all_files <- flatten(list(
@@ -158,9 +159,14 @@ collated_coarse <- all_files |>
     input_sheet = coarse_tab
   )) |>
   list_rbind() |> 
-  filter(suffix == "_")
+  filter(suffix == "_") |> 
+  distinct()
 
 ```
+
+## Samples
+
+Sample details are extracted from DLMS.
 
 ```{r}
 #| label: sample-extractions
@@ -233,7 +239,11 @@ knitr::kable(sample_type_summary)
 
 ```
 
-In total there are **`r length(all_files)`** CLC outputs for **`r length(unique(collated_coarse$sample))`** samples tested. I have excluded replicates of samples demarcated with a, b and c suffixes.
+## Results
+
+I've taken the PanSolid CLCL results from the output of the CLC pipeline on the "coarse" setting. If an output Excel had a CNV call for a particular gene, I classified that as an amplification, without any filtering on coordinates or fold change.
+
+In total there are **`r length(all_files)`** CLC outputs for **`r length(unique(collated_coarse$sample))`** samples tested. I have excluded replicates of samples demarcated with a, b and c suffixes, and samples tested on more than one worksheet.
 
 Every CNV call has a fold-change of at least 2.5, which is a copy number of at least 5. So treating every call as an amplification seems to be a fair assumption.
 
@@ -259,19 +269,29 @@ fine_calls <- all_files |>
 
 all_calls <- rbind(coarse_calls, fine_calls)
 
+all_calls$gene
+
 ```
+
+Amplifications were called in **`r length(unique(all_calls$gene))`** genes, with a wide spread of fold changes.
 
 ```{r}
 #| label: fold-change-spread
-#| include: FALSE
-all_calls |> 
-  filter(setting == "coarse") |> 
+#| echo: FALSE
+fc_plot <- all_calls |> 
   ggplot(aes(x = reorder(sample, fold_change_adjusted), y = fold_change_adjusted)) +
-  geom_jitter(aes(colour = gene))
+  geom_point(aes(colour = gene), alpha = 0.5, size = 3) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "", title = "Fold changes for CNV calls") +
+  geom_hline(yintercept = 2.5, linetype = "dashed") +
+  facet_wrap(~setting)
+
+fc_plot
 
 ```
 
-For the Core panel, I've directly queried DLMS and extracted the CNV results from the free-type "Genotype" field.
+For the Core panel, I've directly queried DLMS and extracted the CNV results from the free-type "Genotype" field. 
 
 ```{r}
 #| label: core-results
@@ -291,18 +311,27 @@ core_result_info <- results_tbl |>
   collect() |> 
   filter(TEST %in% grep(pattern = "Q.{2,4}seq.+core", x = TEST, ignore.case = TRUE,
                         value = TRUE)) |> 
-  extract_cnv_calls() |> 
-  mutate(core_result = ifelse(!is.na(target_gene_dq), "Amplification", "")) |> 
+  mutate(Genotype = case_when(
+    
+    # Sample has "EGFR" instead of "ERBB2" written on DLMS - confirmed on report
+    LABNO == 23022389 ~"ERBB2 amplification detected (Mean DQ 25x)",
+    
+    # Sample has "ERRB2" instead of "ERBB2" written
+    LABNO == 21015264 ~"No mutation identified; ERBB2 amplification detected (mean DQ 60.41x)",
+    
+    TRUE ~Genotype)) |> 
+  
   filter(!duplicated(LABNO))
-
+  
+core_cnv_calls <- rbind(extract_cnv_calls(df = core_result_info, input_gene = "EGFR"),
+                        extract_cnv_calls(df = core_result_info, input_gene = "ERBB2"), 
+                        extract_cnv_calls(df = core_result_info, input_gene = "MET")) 
+    
 joined <- collated_coarse |> 
   filter(sample %in% core_result_info$LABNO) |> 
-  left_join(core_result_info |> 
-              select(LABNO, target_gene, core_result),
-            join_by(sample == LABNO, gene == target_gene)) |> 
-  mutate(core_result = ifelse(is.na(core_result), "No call", core_result),
-         
-         outcome = case_when(
+  left_join(core_cnv_calls,
+            join_by(sample == LABNO, gene == gene_searched)) |> 
+  mutate(outcome = case_when(
            
            result == "Amplification" & core_result  == "Amplification" ~"true positive",
            
@@ -321,6 +350,12 @@ egfr_conf <- draw_confusion_matrix("EGFR")
 erbb2_conf <- draw_confusion_matrix("ERBB2")
 
 met_conf <- draw_confusion_matrix("MET")
+
+export_timestamp(egfr_conf)
+
+export_timestamp(erbb2_conf)
+
+export_timestamp(met_conf)
 
 ```
 
@@ -344,12 +379,18 @@ knitr::kable(erbb2_conf)
 
 ## MET Results
 
+There is 1 sample where a MET amplification was detected on PanSolid but not on Core.
+
+In the original validation of the Dosage Quotient method, no samples were included which had MET amplifications detected by a different method.
+
 ```{r}
 #| label: met
 #| echo: FALSE
 knitr::kable(met_conf)
 
 ```
+
+There were no cases where an amplification was called only on one setting.
 
 ```{r}
 #| label: fine-vs-coarse
@@ -361,5 +402,91 @@ all_calls |>
   geom_point() +
   theme(axis.text.x = element_text(angle = 90)) +
   facet_wrap(~setting)
+
+plot_coarse_v_fine <- function(input_gene) {
   
+  plot <- all_calls |> 
+    filter(name == input_gene) |> 
+    group_by(sample, setting) |> 
+    summarise(calls = n()) |> 
+    ggplot(aes(x = sample, y = calls)) +
+    geom_col(aes(fill = setting), position = "dodge") +
+    labs(title = as.character(input_gene))
+  
+  return(plot)
+  
+}
+
+egfr_p <- plot_coarse_v_fine("EGFR")
+
+erbb2_p <- plot_coarse_v_fine("ERBB2")
+
+met_p <- plot_coarse_v_fine("MET")
+
+ggarrange(egfr_p, erbb2_p, met_p, ncol = 1)
+
 ```
+
+```{r}
+
+cnv_coord_regex <- regex(
+  r"[
+  \D{0,11}       # Either 0 or 11 non-digit characters. 11 is "complement("
+  (\d{1,10})    # first coordinate number (1 to 10 digits)
+  \.\.          # two full stops
+  (\d{1,10})  # second coordinate number (1 to 10 digits)
+  ]",
+  comments = TRUE
+)
+
+call_coord <- coarse_calls |> 
+  mutate(cnv_start = as.numeric(str_extract(string = cnv_region, 
+                                            pattern = cnv_coord_regex, 
+                                            group = 1)),
+         cnv_end = as.numeric(str_extract(string = cnv_region, 
+                                          pattern = cnv_coord_regex, 
+                                          group = 2))) 
+
+
+coord_long <- call_coord |> 
+  select(sample, gene, cnv_start, cnv_end, fold_change_adjusted) |> 
+  pivot_longer(cols = -c(sample, gene, fold_change_adjusted),
+               names_to = "category",
+               values_to = "coordinate")
+
+coord_long |> 
+  filter(gene == "EGFR") |> 
+  ggplot(aes(x = coordinate, y = sample)) +
+  geom_line(aes(colour = fold_change_adjusted)) +
+  geom_vline(xintercept = 55019017, linetype = "dashed") +
+  geom_vline(xintercept = 55211628, linetype = "dashed")
+
+coord_long |> 
+  filter(gene == "ERBB2") |> 
+  ggplot(aes(x = coordinate, y = fold_change_adjusted)) +
+  geom_line(size = 2, alpha = 0.5) +
+  geom_vline(xintercept = 39688094, linetype = "dashed") +
+  geom_vline(xintercept = 39728658, linetype = "dashed") +
+  facet_wrap(~sample) +
+  ylim(0, 60)
+
+coord_long |> 
+  filter(gene == "EGFR") |> 
+  #filter(sample == 23038490) |> 
+  ggplot(aes(x = coordinate, y = fold_change_adjusted)) +
+  geom_line(size = 2, alpha = 0.5) +
+  geom_vline(xintercept = 55019017, linetype = "dashed") +
+  geom_vline(xintercept = 55211628, linetype = "dashed") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+  facet_wrap(~sample)
+
+coord_long |> 
+  filter(gene == "MET") |> 
+  ggplot(aes(x = coordinate, y = fold_change_adjusted)) +
+  geom_line(size = 2, alpha = 0.5) +
+  geom_vline(xintercept = 116672196, linetype = "dashed") +
+  geom_vline(xintercept = 116798377, linetype = "dashed") 
+
+
+```
+
