@@ -9,14 +9,112 @@ editor: visual
 
 This Quarto document is a notebook for organising analysis of somatic CNVs from a CLC Genomics Workbench pipeline (Qiagen).
 
+The sections and analysis in this document should correspond to the Word document "Pan Solid CLC Somatic Amplifications Validation Document.docx" saved on the S drive.
+
 ```{r}
 #| label: packages
 #| include: FALSE
 
 library(tidyverse)
 library(readxl)
+library(here)
+library(odbc)
+library(DBI)
+library(dbplyr)
 
-source("C:/Users/joseph.shaw2/Documents/pansolid_cnv_validation/functions/cnv_functions.R")
+source(here::here("functions/cnv_functions.R"))
+
+```
+
+```{r}
+#| label: dlms-connection
+#| include: FALSE
+
+dbi_con <- DBI::dbConnect(
+  drv = odbc::odbc(),
+  dsn = "moldb")
+
+```
+
+## Primer Orthogonality
+
+```{r}
+#| label: primers
+#| echo: FALSE
+
+pan_solid_only <- read_excel(here::here("data/Primer and Gene Comparison.xlsx"),
+                             sheet = "Primer Overlap",
+                             range = "A2:D11024",
+                             col_names = c("chromosome", "coordinates", "sequence",
+                                           "gene"),
+                             col_types = c("text", "text", "text", "text")) |> 
+  mutate(category = "Unique to 44038Z-11379",
+         text = "PanSolid only")
+
+core_only <- read_excel(here::here("data/Primer and Gene Comparison.xlsx"),
+                        sheet = "Primer Overlap",
+                        range = "G2:J595",
+                        col_names = c("chromosome", "coordinates", "sequence",
+                                      "gene"),
+                        col_types = c("text", "text", "text", "text")) |> 
+  mutate(category = "Unique to 17500Z-950",
+         text = "Core only")
+
+intersect(pan_solid_only$sequence, core_only$sequence)
+
+both_panels <- read_excel(here::here("data/Primer and Gene Comparison.xlsx"),
+                          sheet = "Primer Overlap",
+                          range = "L2:O357",
+                          col_names = c("chromosome", "coordinates", "sequence",
+                                        "gene"),
+                          col_types = c("text", "text", "text", "text")) |> 
+  mutate(category = "common to both 44038Z-11379 and 17500Z-950",
+         text = "Both")
+
+all_primers <- rbind(pan_solid_only, core_only, both_panels) |> 
+  mutate(gene_clean = case_when(
+    
+    gene == "ERBB2, MIR4728" ~"ERBB2",
+    gene == "EGFR, EGFR-AS1" ~"EGFR",
+    TRUE ~gene)) 
+
+primer_plot <- all_primers |> 
+  filter(gene_clean %in% c("ERBB2", "EGFR", 
+                           "MYC", "MET", "ARID1A", "SUFU")) |> 
+  ggplot(aes(x = text, y = , fill = text)) +
+  geom_bar() +
+  theme(legend.title = element_blank()) +
+  facet_wrap(~gene_clean) +
+  labs(x = "", y = "Number of primers", 
+       title = "EGFR, ERBB2 and MET share primers between Pan Solid and Core")
+
+primer_plot
+
+primer_table <- all_primers |> 
+  filter(gene %in% c("ERBB2", "EGFR", "MET")) |>
+  filter(text != "Core only") |> 
+  group_by(gene_clean, text) |> 
+  summarise(total = n()) |> 
+  mutate(prop = round(total/sum(total) * 100, 1)) |> 
+  ungroup() |> 
+  pivot_wider(names_from = c(text),
+              values_from = c(total, prop)) |> 
+  arrange(desc(total_Both))
+
+primer_table_formatted <- primer_table |> 
+  rename(Gene = gene_clean,
+         "Primers shared with Core panel" = total_Both,
+         "Primers shared with Core panel (%)" = prop_Both,
+         "Primers unique to PanSolid" = "total_PanSolid only",
+         "Primers unique to PanSolid (%)" = "prop_PanSolid only") |> 
+  select(Gene, "Primers shared with Core panel",
+         "Primers shared with Core panel (%)",
+         "Primers unique to PanSolid",
+         "Primers unique to PanSolid (%)")
+
+knitr::kable(primer_table_formatted)
+
+export_timestamp(primer_table_formatted)
 
 ```
 
@@ -132,6 +230,77 @@ collated_coarse <- all_files |>
   )) |>
   list_rbind() |> 
   filter(suffix == "_")
+
+```
+
+```{r}
+#| label: sample-extractions
+#| echo: FALSE
+
+extraction_methods <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                    schema = "dbo",
+                    table = "MOL_ExtractionMethods")) |> 
+  # Have to remove large columns to avoid Invalid Descriptor Index error
+  select(-c(Checks, Reagents)) |> 
+  collect()
+
+extraction_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                    schema = "dbo",
+                    table = "MOL_Extractions"))
+
+extraction_batch_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                    schema = "dbo",
+                    table = "MOL_ExtractionBatches"))
+
+samples_tested <- unique(collated_coarse$sample)
+
+extraction_batches <- extraction_tbl |> 
+  filter(LabNo %in% samples_tested) |> 
+  collect()
+
+batches <- unique(extraction_batches$ExtractionBatchFK)
+
+extraction_batch_info <- extraction_batch_tbl |> 
+  filter(ExtractionBatchId %in% batches) |> 
+  # Remove DNA dilutions
+  filter(ExtractionMethodFK != 11) |> 
+  collect() |> 
+  left_join(extraction_methods, join_by(ExtractionMethodFK == ExtractionMethodId))
+
+extraction_batch_table <- extraction_batch_info |> 
+  count(MethodName)
+
+knitr::kable(extraction_batch_table)
+
+```
+
+```{r}
+#| label: sample-types
+#| echo: FALSE
+
+sample_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                    schema = "dbo",
+                    table = "Samples"))
+
+tissue_types <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                    schema = "dbo",
+                    table = "TissueTypes")) |> 
+  collect() |> 
+  janitor::clean_names()
+
+sample_info <- sample_tbl |> 
+  select(-c(StatusComment, COMMENTS, ConsultantAddress, ADDRESS1)) |> 
+  filter(LABNO %in% samples_tested) |> 
+  collect() |> 
+  janitor::clean_names() |> 
+  mutate(tissue = as.numeric(tissue)) |> 
+  left_join(tissue_types, join_by(tissue == tissue_type_id))
+
+sample_type_summary <- sample_info |> 
+  count(tissue_type) |> 
+  arrange(desc(n))
+
+knitr::kable(sample_type_summary)
 
 ```
 
@@ -293,3 +462,17 @@ knitr::kable(erbb2_conf)
 knitr::kable(met_conf)
 
 ```
+
+```{r}
+
+all_calls |> 
+  filter(name %in% c("EGFR", "ERBB2", "MET")) |> 
+  ggplot(aes(x = reorder(sample, cnv_region_length), y = cnv_region_length)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(~setting)
+  
+```
+
+
+
