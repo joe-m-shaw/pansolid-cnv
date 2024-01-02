@@ -88,3 +88,116 @@ get_excel_names <- function(filepath, folder) {
   return(output)
   
 }
+
+filename_regex <- regex(
+  r"[
+  (WS\d{6})             # Worksheet number
+  _
+  (\d{8})               # Sample number
+  (a_|b_|c_|_)
+  ([A-z]+)              # Patient name
+  (.xlsx|_.+)
+  ]",
+  comments = TRUE
+)
+
+get_gene_result <- function(df, gene_name) {
+  
+  if (ncol(df) == 0) {
+    
+    output <- "No call"
+    
+  }
+  
+  if (ncol(df) > 1) {
+    
+    x <- df |> 
+      filter(gene == gene_name)
+    
+    output <- case_when(
+      nrow(x) < 1 ~"No call",
+      nrow(x) >= 1 ~"Amplification")
+    
+  }
+  
+  return(output)
+  
+}
+
+summarise_results <- function(file, input_sheet) {
+  
+  results <- read_excel(path = file,
+                        sheet = input_sheet) |> 
+    janitor::clean_names()
+  
+  sample_id <- str_extract(file, filename_regex,
+                           group = 2)
+  
+  qualifier <- str_extract(file, filename_regex,
+                           group = 3)
+  
+  patient_name <- str_extract(file, filename_regex,
+                              group = 4)
+  
+  egfr_result <- get_gene_result(df = results, gene_name = "EGFR")
+  
+  erbb2_result <- get_gene_result(df = results, gene_name = "ERBB2")
+  
+  met_result <- get_gene_result(df = results, gene_name = "MET")
+  
+  summary <- tribble(
+    
+    ~gene, ~result,
+    "EGFR", egfr_result,
+    "ERBB2", erbb2_result,
+    "MET", met_result
+  ) |> 
+    mutate(suffix = qualifier,
+           sample = sample_id,
+           name = patient_name)
+  
+  return(summary)
+  
+}
+
+read_clc_excel <- function(file, input_sheet) {
+  
+  sample_id <- str_extract(file, filename_regex,
+                           group = 2)
+  
+  patient_name <- str_extract(file, filename_regex,
+                              group = 4)
+  
+  results <- read_excel(path = file,
+                        sheet = input_sheet) |> 
+    janitor::clean_names() |> 
+    mutate(sample = sample_id,
+           patient = patient_name)
+  
+  return(results)
+  
+}
+
+draw_confusion_matrix <- function(input_gene) {
+  
+  x <- joined |> 
+    filter(gene == input_gene)
+  
+  true_positives <- nrow(x[x$outcome == "true positive", ])
+  
+  true_negatives <- nrow(x[x$outcome == "true negative", ])
+  
+  false_positives <- nrow(x[x$outcome == "false positive", ])
+  
+  false_negatives <- nrow(x[x$outcome == "false negative", ])
+  
+  confusion_matrix <- tribble(
+    ~"",      ~"PanSolid CLC +",      ~"PanSolid CLC -", 
+    "Core+",  true_positives,         false_negatives,  
+    "Core-",  false_positives,        true_negatives
+  )
+  
+  return(confusion_matrix)
+  
+}
+

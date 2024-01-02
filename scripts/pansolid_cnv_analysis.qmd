@@ -152,77 +152,6 @@ all_files <- flatten(list(
   
   list.files(str_c(negatives_path, "SchwannCNS_PS/"), full.names = TRUE)))
 
-filename_regex <- regex(
-  r"[
-  (WS\d{6})             # Worksheet number
-  _
-  (\d{8})               # Sample number
-  (a_|b_|c_|_)
-  ([A-z]+)              # Patient name
-  (.xlsx|_.+)
-  ]",
-  comments = TRUE
-)
-
-get_gene_result <- function(df, gene_name) {
-  
-  if (ncol(df) == 0) {
-    
-    output <- "No call"
-    
-  }
-  
-  if (ncol(df) > 1) {
-    
-    x <- df |> 
-    filter(gene == gene_name)
-    
-    output <- case_when(
-      nrow(x) < 1 ~"No call",
-      nrow(x) >= 1 ~"Amplification")
-    
-  }
-  
-  return(output)
-  
-}
-
-summarise_results <- function(file, input_sheet) {
-  
-  results <- read_excel(path = file,
-                        sheet = input_sheet) |> 
-    janitor::clean_names()
-  
-  sample_id <- str_extract(file, filename_regex,
-                           group = 2)
-  
-  qualifier <- str_extract(file, filename_regex,
-                           group = 3)
-  
-  patient_name <- str_extract(file, filename_regex,
-                           group = 4)
-  
-  egfr_result <- get_gene_result(df = results, gene_name = "EGFR")
-  
-  erbb2_result <- get_gene_result(df = results, gene_name = "ERBB2")
-
-  met_result <- get_gene_result(df = results, gene_name = "MET")
-
-  summary <- tribble(
-  
-    ~gene, ~result,
-    "EGFR", egfr_result,
-    "ERBB2", erbb2_result,
-    "MET", met_result
-  ) |> 
-    mutate(suffix = qualifier,
-           sample = sample_id,
-           name = patient_name)
-  
-  return(summary)
-  
-}
-
 collated_coarse <- all_files |>
   map(\(all_files) summarise_results(
     file = all_files,
@@ -312,24 +241,6 @@ Every CNV call has a fold-change of at least 2.5, which is a copy number of at l
 #| label: load-calls
 #| include: FALSE
 
-read_clc_excel <- function(file, input_sheet) {
-  
-  sample_id <- str_extract(file, filename_regex,
-                           group = 2)
-  
-  patient_name <- str_extract(file, filename_regex,
-                           group = 4)
-  
-  results <- read_excel(path = file,
-                        sheet = input_sheet) |> 
-    janitor::clean_names() |> 
-    mutate(sample = sample_id,
-           patient = patient_name)
-  
-  return(results)
-  
-}
-
 coarse_calls <- all_files |>
   map(\(all_files) read_clc_excel(
     file = all_files,
@@ -351,6 +262,7 @@ all_calls <- rbind(coarse_calls, fine_calls)
 ```
 
 ```{r}
+#| label: fold-change-spread
 #| include: FALSE
 all_calls |> 
   filter(setting == "coarse") |> 
@@ -364,10 +276,6 @@ For the Core panel, I've directly queried DLMS and extracted the CNV results fro
 ```{r}
 #| label: core-results
 #| include: FALSE
-
-dbi_con <- DBI::dbConnect(
-  drv = odbc::odbc(),
-  dsn = "moldb")
 
 results_tbl <- tbl(dbi_con, 
                    dbplyr::in_catalog(
@@ -408,29 +316,6 @@ joined <- collated_coarse |>
            
          ))
 
-draw_confusion_matrix <- function(input_gene) {
-  
-  x <- joined |> 
-    filter(gene == input_gene)
-  
-  true_positives <- nrow(x[x$outcome == "true positive", ])
-  
-  true_negatives <- nrow(x[x$outcome == "true negative", ])
-  
-  false_positives <- nrow(x[x$outcome == "false positive", ])
-  
-  false_negatives <- nrow(x[x$outcome == "false negative", ])
-  
-  confusion_matrix <- tribble(
-      ~"",      ~"PanSolid CLC +",      ~"PanSolid CLC -", 
-      "Core+",  true_positives,         false_negatives,  
-      "Core-",  false_positives,        true_negatives
-      )
-  
-  return(confusion_matrix)
-  
-}
-
 egfr_conf <- draw_confusion_matrix("EGFR")
 
 erbb2_conf <- draw_confusion_matrix("ERBB2")
@@ -442,6 +327,7 @@ met_conf <- draw_confusion_matrix("MET")
 ## EGFR Results
 
 ```{r}
+#| label: egfr
 #| echo: FALSE
 knitr::kable(egfr_conf)
 
@@ -450,6 +336,7 @@ knitr::kable(egfr_conf)
 ## ERBB2 Results
 
 ```{r}
+#| label: erbb2
 #| echo: FALSE
 knitr::kable(erbb2_conf)
 
@@ -458,12 +345,15 @@ knitr::kable(erbb2_conf)
 ## MET Results
 
 ```{r}
+#| label: met
 #| echo: FALSE
 knitr::kable(met_conf)
 
 ```
 
 ```{r}
+#| label: fine-vs-coarse
+#| echo: FALSE
 
 all_calls |> 
   filter(name %in% c("EGFR", "ERBB2", "MET")) |> 
@@ -473,6 +363,3 @@ all_calls |>
   facet_wrap(~setting)
   
 ```
-
-
-
