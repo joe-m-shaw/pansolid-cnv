@@ -2,7 +2,7 @@
 title: "PanSolid CNV Analysis"
 author: "Joe Shaw"
 date: "`r Sys.Date()`"
-format: html
+format: pdf
 editor: visual
 ---
 
@@ -90,8 +90,7 @@ primer_plot <- all_primers |>
   theme_bw() +
   theme(legend.title = element_blank()) +
   facet_wrap(~gene_clean) +
-  labs(x = "", y = "Number of primers", 
-       title = "EGFR, ERBB2 and MET share primers between Pan Solid and Core")
+  labs(x = "", y = "Number of primers")
 
 primer_plot
 
@@ -406,16 +405,16 @@ knitr::kable(erbb2_conf)
 
 ## MET Results
 
-There is 1 sample (23038464) where a MET amplification was detected on PanSolid but not on Core. The Core worksheet for this sample was WS134162, and the mean dosage quotient for MET was 3.86. The discrepancy may be due to the higher number of primers on PanSolid for MET versus Core.
-
-In the original validation of the Dosage Quotient method, no samples were included which had MET amplifications detected by a different method.
-
 ```{r}
 #| label: met
 #| echo: FALSE
 knitr::kable(met_conf)
 
 ```
+
+There is 1 sample (23038464) where a MET amplification was detected on PanSolid but not on Core. The Core worksheet for this sample was WS134162, and the mean dosage quotient for MET was 3.86. The discrepancy may be due to the higher number of primers on PanSolid for MET versus Core.
+
+In the original validation of the Dosage Quotient method, no samples were included which had MET amplifications detected by a different method.
 
 ## CNV Coordinates
 
@@ -490,7 +489,7 @@ draw_cnv_plot(df = coord_long, input_gene = "MET", input_setting = "coarse")
 
 ## Conclusions
 
-The CLC pipeline is able to identify amplifications in EGFR, ERBB2 and MET and has close agreement with the Dosage Quotient method, however there is one discrepant result in MET.
+- The CLC pipeline is able to identify amplifications in EGFR, ERBB2 and MET and has close agreement with the Dosage Quotient method, however there is one discrepant result in MET.
 
 - A truly orthogonal method is needed to confirm sample results, as Core and PanSolid share primers between them.
 
