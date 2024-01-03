@@ -16,6 +16,10 @@ export_timestamp <- function(input) {
 
 # Plot functions --------------------------------------------------------------------
 
+safe_blue <- "#88CCEE"
+safe_red <- "#CC6677"
+safe_grey <- "#888888"
+
 save_plot <- function(input_plot, input_width = 15, input_height = 12, dpi = 300) {
   
   # Default inputs allow for presenting a plot as half an A4 page
@@ -36,6 +40,63 @@ save_plot <- function(input_plot, input_width = 15, input_height = 12, dpi = 300
   )
 }
 
+plot_coarse_v_fine <- function(input_gene) {
+  
+  plot <- all_calls |> 
+    filter(name == input_gene) |> 
+    group_by(sample, setting) |> 
+    summarise(calls = n()) |> 
+    ggplot(aes(x = sample, y = calls)) +
+    geom_col(aes(fill = setting), position = "dodge") +
+    theme_bw() +
+    labs(title = as.character(input_gene))
+  
+  return(plot)
+  
+}
+
+draw_cnv_plot <- function(df, input_gene, input_setting) {
+  
+  stopifnot(input_gene %in% c("EGFR", "ERBB2", "MET"))
+  
+  if(input_gene == "EGFR") {
+    
+    gene_min <- egfr_min
+    gene_max <- egfr_max
+    
+  }
+  
+  if(input_gene == "ERBB2") {
+    
+    gene_min <- erbb2_min
+    gene_max <- erbb2_max
+    
+  }
+  
+  if(input_gene == "MET") {
+    
+    gene_min <- met_min
+    gene_max <- met_max
+    
+  }
+  
+  cnv_plot <- df |> 
+    filter(setting == input_setting) |> 
+    filter(gene == input_gene) |> 
+    ggplot(aes(x = coordinate, y = fold_change_adjusted)) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+    geom_line(linewidth = 2, colour = safe_red) +
+    geom_vline(xintercept = gene_min, linetype = "dashed") +
+    geom_vline(xintercept = gene_max, linetype = "dashed") +
+    facet_wrap(~sample) +
+    ylim(0, 70) +
+    labs(title = str_c(input_gene, " CNV results"),
+         subtitle = str_c("Setting: ", input_setting, ". Dashed lines show gene coordinates"))
+  
+  return(cnv_plot)
+  
+}
 
 # Data wrangling functions ----------------------------------------------------------
 
@@ -126,6 +187,8 @@ summarise_results <- function(file, input_sheet) {
   qualifier <- str_extract(file, filename_regex,
                            group = 3)
   
+  sample_id_suffix <- str_c(sample_id, qualifier)
+  
   patient_name <- str_extract(file, filename_regex,
                               group = 4)
   
@@ -144,6 +207,7 @@ summarise_results <- function(file, input_sheet) {
   ) |> 
     mutate(suffix = qualifier,
            sample = sample_id,
+           sample_suffix = sample_id_suffix,
            name = patient_name)
   
   return(summary)
@@ -190,4 +254,32 @@ draw_confusion_matrix <- function(input_gene) {
   return(confusion_matrix)
   
 }
+
+extract_cnv_coordinates <- function(df) {
+  
+  stopifnot("cnv_region" %in% colnames(df))
+  
+  cnv_coord_regex <- regex(
+      r"[
+        \D{0,11}       # Either 0 or 11 non-digit characters. 11 is "complement("
+        (\d{1,10})     # first coordinate number (1 to 10 digits)
+        \.\.           # two full stops
+        (\d{1,10})     # second coordinate number (1 to 10 digits)
+        ]",
+        comments = TRUE
+        )
+  
+  output <- df |> 
+    mutate(cnv_start = as.numeric(str_extract(string = cnv_region, 
+                                              pattern = cnv_coord_regex, 
+                                              group = 1)),
+           cnv_end = as.numeric(str_extract(string = cnv_region, 
+                                            pattern = cnv_coord_regex, 
+                                            group = 2))) 
+  
+  return(output)
+  
+}
+
+
 
