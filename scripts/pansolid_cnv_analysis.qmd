@@ -422,15 +422,6 @@ In the original validation of the Dosage Quotient method, no samples were includ
 #| label: cnv-coordinates
 #| include: FALSE
 
-egfr_min <- 55019017
-egfr_max <- 55211628
-
-erbb2_min <- 39688094
-erbb2_max <- 39728658
-
-met_min <- 116672196
-met_max <- 116798377
-
 call_coord <- all_calls |>
   extract_cnv_coordinates()
 
@@ -448,7 +439,8 @@ We can examine the CNV calls in terms of genomic coordinates by using line graph
 #| label: egfr-plot
 #| echo: FALSE
 
-draw_cnv_plot(df = coord_long, input_gene = "EGFR", input_setting = "coarse")
+draw_cnv_plot(df = coord_long, input_gene = "EGFR", input_setting = "coarse",
+              interval = 1000000)
 
 ```
 
@@ -468,12 +460,14 @@ Here's the same plot for ERBB2 and then a zoomed in version. Interestingly, when
 #| label: erbb2-plot
 #| echo: FALSE
 
-draw_cnv_plot(df = coord_long, input_gene = "ERBB2", input_setting = "coarse")
+draw_cnv_plot(df = coord_long, input_gene = "ERBB2", input_setting = "coarse", 
+              interval = 50000)
 
 draw_cnv_plot(df = coord_long |> 
                 filter(!sample %in% c(22034556, 23001095, 
                                       21019092, 23022389, 23055093)), 
-              input_gene = "ERBB2", input_setting = "coarse")
+              input_gene = "ERBB2", input_setting = "coarse",
+              interval = 10000)
 
 ```
 
@@ -483,9 +477,29 @@ And finally the one MET call, which is very large.
 #| label: met-plot
 #| echo: FALSE
 
-draw_cnv_plot(df = coord_long, input_gene = "MET", input_setting = "coarse")
+draw_cnv_plot(df = coord_long, input_gene = "MET", input_setting = "coarse",
+              interval = 1000000)
 
 ```
+
+## BRAF and MYC results
+
+Here are the CNV calls for BRAF and MYC.
+
+```{r}
+#| label: braf-myc
+#| echo: FALSE
+
+draw_cnv_plot(df = coord_long, input_gene = "BRAF", input_setting = "coarse",
+              interval = 1000000)
+
+draw_cnv_plot(df = coord_long, input_gene = "MYC", input_setting = "coarse",
+              interval = 10000000)
+
+```
+
+
+
 
 ## Conclusions
 

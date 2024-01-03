@@ -55,9 +55,35 @@ plot_coarse_v_fine <- function(input_gene) {
   
 }
 
-draw_cnv_plot <- function(df, input_gene, input_setting) {
+# GRCh38 coordinates from NCBI
+egfr_min <- 55019017
+egfr_max <- 55211628
+
+erbb2_min <- 39688094
+erbb2_max <- 39728658
+
+met_min <- 116672196
+met_max <- 116798377
+
+braf_min <- 140713328
+braf_max <- 140924929
+
+myc_min <- 127735434 
+myc_max <- 127742951
+
+by_n <- function(n) { 
   
-  stopifnot(input_gene %in% c("EGFR", "ERBB2", "MET"))
+  max_value <- max(egfr_min, egfr_max, erbb2_min, erbb2_max, 
+                   met_min, met_max, braf_min, braf_max, myc_min, myc_max)
+  
+  seq(0, max_value + 10000000, by = n) 
+  
+  }
+
+draw_cnv_plot <- function(df, input_gene, input_setting, interval = 200000) {
+  
+  stopifnot(input_gene %in% c("EGFR", "ERBB2", "MET",
+                              "BRAF", "MYC"))
   
   if(input_gene == "EGFR") {
     
@@ -80,19 +106,36 @@ draw_cnv_plot <- function(df, input_gene, input_setting) {
     
   }
   
+  if(input_gene == "BRAF") {
+    
+    gene_min <- braf_min
+    gene_max <- braf_max
+    
+  }
+  
+  if(input_gene == "MYC") {
+    
+    gene_min <- myc_min
+    gene_max <- myc_max
+    
+  }
+  
   cnv_plot <- df |> 
     filter(setting == input_setting) |> 
     filter(gene == input_gene) |> 
     ggplot(aes(x = coordinate, y = fold_change_adjusted)) +
     theme_bw() +
-    theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
     geom_line(linewidth = 2, colour = safe_red) +
     geom_vline(xintercept = gene_min, linetype = "dashed") +
     geom_vline(xintercept = gene_max, linetype = "dashed") +
     facet_wrap(~sample) +
     ylim(0, 70) +
+    scale_x_continuous(breaks = by_n(interval),
+                       minor_breaks = NULL) +
     labs(title = str_c(input_gene, " CNV results"),
-         subtitle = str_c("Setting: ", input_setting, ". Dashed lines show gene coordinates"))
+         subtitle = str_c("Setting: ", input_setting, ". Dashed lines show gene coordinates"),
+         x = str_c("Genomic coordinates (", interval/1000, " kb intervals)"))
   
   return(cnv_plot)
   
