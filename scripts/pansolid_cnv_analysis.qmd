@@ -276,19 +276,21 @@ fine_calls <- all_files |>
   list_rbind() |> 
   mutate(setting = "fine")
 
-all_calls <- rbind(coarse_calls, fine_calls)
+all_calls <- rbind(coarse_calls, fine_calls) |>
+  extract_cnv_coordinates()
 
 ```
 
 Amplifications were called in **`r length(unique(all_calls$gene))`** genes, with a wide spread of fold changes. For the analysis in this document I've only focussed on EGFR, ERBB2 and MET, because these genes have results from the Core panel on DLMS.
 
-Amplifications were called on both "coarse" and "fine" settings, which are the "graining level" used by the pipeline (the degree of smoothing that is applied to the data). “Fine” will return more calls per region, whilst “coarse” tends to merge multiple calls if they are close together.
+Amplifications were called on both "coarse" and "fine" settings, which are the "graining level" used by the pipeline (the degree of smoothing that is applied to the data). "Fine" will return more calls per region, whilst "coarse" tends to merge multiple calls if they are close together.
 
 ```{r}
 #| label: fold-change-spread
 #| echo: FALSE
+
 fc_plot <- all_calls |> 
-  ggplot(aes(x = reorder(sample, fold_change_adjusted), y = fold_change_adjusted)) +
+  ggplot(aes(x = reorder(sample_id, fold_change_adjusted), y = fold_change_adjusted)) +
   geom_point(aes(colour = gene), alpha = 0.5, size = 3) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90)) +
@@ -422,12 +424,10 @@ In the original validation of the Dosage Quotient method, no samples were includ
 #| label: cnv-coordinates
 #| include: FALSE
 
-call_coord <- all_calls |>
-  extract_cnv_coordinates()
-
-coord_long <- call_coord |> 
-  select(sample, gene, cnv_start, cnv_end, fold_change_adjusted, setting) |> 
-  pivot_longer(cols = -c(sample, gene, fold_change_adjusted, setting),
+coord_long <- all_calls |> 
+  select(worksheet, sample_id, qualifier, sample_id_suffix, patient_name,
+         sample_id_worksheet, gene, fold_change_adjusted, setting, cnv_start, cnv_end) |> 
+  pivot_longer(cols = c(cnv_start, cnv_end),
                names_to = "category",
                values_to = "coordinate")
 
@@ -451,7 +451,7 @@ The x axis for EGFR is skewed by one sample with a large CNV, so we can remove t
 #| echo: FALSE
 
 draw_cnv_plot(df = coord_long |> 
-                filter(sample != 23038464), input_gene = "EGFR", input_setting = "coarse")
+                filter(sample_id != 23038464), input_gene = "EGFR", input_setting = "coarse")
 ```
 
 Here's the same plot for ERBB2 and then a zoomed in version. Interestingly, when we zoom in we can see that not all the calls cover the full gene region.
@@ -464,7 +464,7 @@ draw_cnv_plot(df = coord_long, input_gene = "ERBB2", input_setting = "coarse",
               interval = 50000)
 
 draw_cnv_plot(df = coord_long |> 
-                filter(!sample %in% c(22034556, 23001095, 
+                filter(!sample_id %in% c(22034556, 23001095, 
                                       21019092, 23022389, 23055093)), 
               input_gene = "ERBB2", input_setting = "coarse",
               interval = 10000)
@@ -498,14 +498,77 @@ draw_cnv_plot(df = coord_long, input_gene = "MYC", input_setting = "coarse",
 
 ```
 
-
-
-
 ## Conclusions
 
-- The CLC pipeline is able to identify amplifications in EGFR, ERBB2 and MET and has close agreement with the Dosage Quotient method, however there is one discrepant result in MET.
+-   The CLC pipeline is able to identify amplifications in EGFR, ERBB2 and MET and has close agreement with the Dosage Quotient method, however there is one discrepant result in MET.
 
-- A truly orthogonal method is needed to confirm sample results, as Core and PanSolid share primers between them.
+-   A truly orthogonal method is needed to confirm sample results, as Core and PanSolid share primers between them.
 
-- We need to consider how the results will be viewed by scientists, and make this process as simple as possible.
+-   We need to consider how the results will be viewed by scientists, and make this process as simple as possible.
 
+{{< pagebreak >}}
+
+## Repeatability
+
+3 samples have been repeated so far - here are the results.
+
+```{r}
+#| label: repeatability
+#| include: FALSE
+
+file_table <- all_files |>
+  map(\(all_files) filename_to_df(
+    file = all_files)) |>
+  list_rbind()
+
+repeats <- file_table |> 
+  filter(duplicated(sample_id, fromLast = TRUE) | 
+           duplicated(sample_id, fromLast = FALSE)) |> 
+  arrange(sample_id)
+
+repeat_samples <- unique(repeats$sample_id)
+
+```
+
+```{r}
+#| label: repeat-1
+#| echo: FALSE
+#| fig-height: 10
+
+
+draw_repeat_plot(df = coord_long,
+                 input_sample = 21011525,
+                 input_setting = "coarse",
+                 input_gene = "ERBB2",
+                 input_ymax = 30)
+
+```
+
+{{< pagebreak >}}
+
+```{r, figure.height = 18}
+#| label: repeat-2
+#| echo: FALSE
+#| fig-height: 10
+
+draw_repeat_plot(df = coord_long,
+                 input_sample = 21015264,
+                 input_setting = "coarse",
+                 input_gene = "ERBB2")
+
+```
+
+{{< pagebreak >}}
+
+```{r, figure.height = 18}
+#| label: repeat-3
+#| echo: FALSE
+#| fig-height: 10
+
+draw_repeat_plot(df = coord_long,
+                 input_sample = 21039327,
+                 input_setting = "coarse",
+                 input_gene = "ERBB2",
+                 input_ymax = 20)
+
+```

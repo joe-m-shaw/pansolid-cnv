@@ -44,9 +44,9 @@ plot_coarse_v_fine <- function(input_gene) {
   
   plot <- all_calls |> 
     filter(name == input_gene) |> 
-    group_by(sample, setting) |> 
+    group_by(sample_id, setting) |> 
     summarise(calls = n()) |> 
-    ggplot(aes(x = sample, y = calls)) +
+    ggplot(aes(x = sample_id, y = calls)) +
     geom_col(aes(fill = setting), position = "dodge") +
     theme_bw() +
     labs(title = as.character(input_gene))
@@ -129,15 +129,62 @@ draw_cnv_plot <- function(df, input_gene, input_setting, interval = 200000) {
     geom_line(linewidth = 2, colour = safe_red) +
     geom_vline(xintercept = gene_min, linetype = "dashed") +
     geom_vline(xintercept = gene_max, linetype = "dashed") +
-    facet_wrap(~sample) +
+    facet_wrap(~sample_id) +
     ylim(0, 70) +
     scale_x_continuous(breaks = by_n(interval),
                        minor_breaks = NULL) +
     labs(title = str_c(input_gene, " CNV results"),
          subtitle = str_c("Setting: ", input_setting, ". Dashed lines show gene coordinates"),
-         x = str_c("Genomic coordinates (", interval/1000, " kb intervals)"))
+         x = str_c("GRCh38 Genomic coordinates (", interval/1000, " kb intervals)"))
   
   return(cnv_plot)
+  
+}
+
+draw_repeat_plot <- function(df, input_sample, input_setting, input_gene, input_ymin = 0,
+                             input_ymax = 70) {
+  
+  plot <- df |> 
+    filter(setting == input_setting) |> 
+    filter(gene == input_gene) |> 
+    filter(sample_id == input_sample) |> 
+    ggplot(aes(x = coordinate, y = fold_change_adjusted)) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+    geom_line(linewidth = 3,
+              colour = safe_blue,
+              alpha = 1) +
+    ylim(input_ymin, input_ymax) +
+    geom_vline(xintercept = erbb2_min, linetype = "dashed") +
+    geom_vline(xintercept = erbb2_max, linetype = "dashed") +
+    facet_wrap(~sample_id_worksheet, ncol = 1) +
+    labs(title = str_c("Repeat testing for ", input_sample),
+         subtitle = str_c("Gene: ", input_gene))
+  
+  return(plot)
+  
+}
+
+draw_repeat_coord_plot <- function(df, input_sample, input_setting, input_gene,
+                                   bin_size) {
+  
+  plot <- df |> 
+    filter(setting == input_setting) |> 
+    filter(gene == input_gene) |> 
+    filter(sample_id == input_sample) |> 
+    ggplot(aes(x = coordinate, y = sample_id_worksheet)) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+    geom_line(linewidth = 3,
+              aes(colour = fold_change_adjusted)) +
+    scale_colour_binned(breaks = seq(0, 70, by = bin_size)) +
+    geom_vline(xintercept = erbb2_min, linetype = "dashed") +
+    geom_vline(xintercept = erbb2_max, linetype = "dashed") +
+    labs(title = "Repeat testing",
+         subtitle = str_c("Gene: ", input_gene, "  Sample: ", input_sample),
+         caption = str_c("Colour bin size: ", bin_size))
+  
+  return(plot)
   
 }
 
@@ -192,6 +239,15 @@ filename_regex <- regex(
   comments = TRUE
 )
 
+parse_filename <- function(input_file, input_group) {
+  
+  output <- str_extract(input_file, filename_regex,
+                           group = input_group)
+  
+  return(output)
+  
+}
+
 get_gene_result <- function(df, gene_name) {
   
   if (ncol(df) == 0) {
@@ -221,19 +277,13 @@ summarise_results <- function(file, input_sheet) {
                         sheet = input_sheet) |> 
     janitor::clean_names()
   
-  worksheet <- str_extract(file, filename_regex,
-                          group = 1)
+  sample_id <- parse_filename(file, 2)
   
-  sample_id <- str_extract(file, filename_regex,
-                           group = 2)
-  
-  qualifier <- str_extract(file, filename_regex,
-                           group = 3)
+  qualifier <- parse_filename(file, 3)
   
   sample_id_suffix <- str_c(sample_id, qualifier)
   
-  patient_name <- str_extract(file, filename_regex,
-                              group = 4)
+  patient_name <- parse_filename(file, 4)
   
   egfr_result <- get_gene_result(df = results, gene_name = "EGFR")
   
@@ -259,19 +309,36 @@ summarise_results <- function(file, input_sheet) {
 
 read_clc_excel <- function(file, input_sheet) {
   
-  sample_id <- str_extract(file, filename_regex,
-                           group = 2)
-  
-  patient_name <- str_extract(file, filename_regex,
-                              group = 4)
-  
   results <- read_excel(path = file,
                         sheet = input_sheet) |> 
     janitor::clean_names() |> 
-    mutate(sample = sample_id,
-           patient = patient_name)
+    mutate(
+      worksheet =  parse_filename(file, 1),
+      sample_id = parse_filename(file, 2),
+      qualifier = parse_filename(file, 3),
+      sample_id_suffix = str_c(sample_id, qualifier),
+      patient_name = parse_filename(file, 4),
+      sample_id_worksheet = str_c(sample_id_suffix, worksheet),
+      setting = input_sheet) |> 
+    relocate(worksheet, sample_id, qualifier, sample_id_suffix, patient_name,
+             sample_id_worksheet, setting)
   
   return(results)
+  
+}
+
+filename_to_df <- function(file) {
+  
+  output <- data.frame(
+    worksheet = c(parse_filename(file, 1)),
+    sample_id = c(parse_filename(file, 2)),
+    qualifier = c(parse_filename(file, 3)),
+    patient_name = c(parse_filename(file, 4))) |> 
+    mutate(
+      sample_id_suffix = str_c(sample_id, qualifier),
+      sample_id_worksheet = str_c(sample_id_suffix, worksheet))
+  
+ return(output)
   
 }
 
@@ -323,6 +390,3 @@ extract_cnv_coordinates <- function(df) {
   return(output)
   
 }
-
-
-
