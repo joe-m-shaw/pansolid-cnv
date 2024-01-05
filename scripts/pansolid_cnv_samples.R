@@ -11,6 +11,7 @@ library(odbc)
 library(DBI)
 library(dbplyr)
 library(ggpubr)
+library(here)
 
 source("functions/cnv_functions.R")
 
@@ -212,3 +213,49 @@ samples_pansolid_core |>
   theme(axis.text.x = element_blank()) +
   geom_hline(yintercept = 5, linetype = "dashed")
 
+
+# Samples from Dosage Quotient validation -------------------------------------------
+
+dq_samples <- read_excel(path = here::here("data/dq_validation_samples.xlsx")) |> 
+  janitor::clean_names() |> 
+  mutate(lab_no = as.character(lab_no))
+
+sample_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                                              schema = "dbo",
+                                              table = "Samples")) 
+  
+dq_sample_list <- dq_samples$lab_no
+
+dlms_info <- sample_tbl |> 
+  filter(LABNO %in% dq_sample_list) |> 
+  select(LABNO, FIRSTNAME, SURNAME) |> 
+  collect()
+
+dq_list_with_names <- dq_samples |> 
+  left_join(dlms_info, join_by(lab_no == LABNO))
+
+for_export <- dq_list_with_names |> 
+  arrange(lab_no) |> 
+  mutate("DNA volume" = "",
+         name = str_c(FIRSTNAME, " ", SURNAME)) |> 
+  select(lab_no, name, "DNA volume")
+
+export_timestamp(for_export)
+
+dna_volumes <- read_csv(file = here::here("data/2024_01_05_09_06_52_dna_volumes.csv")) |> 
+  filter(!duplicated(lab_no)) |> 
+  mutate(lab_no = as.character(lab_no))
+
+dna_concentrations <- sample_tbl |> 
+  filter(LABNO %in% dq_sample_list) |> 
+  select(LABNO, CONCENTRATION) |> 
+  collect() |> 
+  mutate(CONCENTRATION = as.numeric(CONCENTRATION))
+
+all_sample_info <- dq_list_with_names |> 
+  left_join(dna_volumes, by = "lab_no") |> 
+  left_join(dna_concentrations, join_by(lab_no == LABNO)) |> 
+  janitor::clean_names() |> 
+  mutate(dna_available = dna_volume * concentration,
+         enough_for_pansolid = ifelse(dna_available >= 100, "Yes", "No")) |> 
+  relocate(enough_for_pansolid, .after = orthogonal_result_methodology)
