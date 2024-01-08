@@ -241,7 +241,7 @@ for_export <- dq_list_with_names |>
   select(lab_no, name, "DNA volume")
 
 export_timestamp(for_export)
-
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
 dna_volumes <- read_csv(file = here::here("data/2024_01_05_09_06_52_dna_volumes.csv")) |> 
   filter(!duplicated(lab_no)) |> 
   mutate(lab_no = as.character(lab_no))
@@ -259,3 +259,45 @@ all_sample_info <- dq_list_with_names |>
   mutate(dna_available = dna_volume * concentration,
          enough_for_pansolid = ifelse(dna_available >= 100, "Yes", "No")) |> 
   relocate(enough_for_pansolid, .after = orthogonal_result_methodology)
+
+
+# MET amplifications ----------------------------------------------------------------
+
+all_results <- results_tbl |> 
+  select(LABNO, TEST, TESTTYPE, Genotype, Genotype2, GENOCOMM) |> 
+  collect()
+
+get_amp_calls <- function(df, gene) {
+  
+  output <- extract_cnv_calls(df = df, input_gene = gene) |> 
+    filter(!is.na(gene_match)) |> 
+    filter(!duplicated(LABNO))
+  
+  return(output)
+  
+}
+
+met_calls <- get_amp_calls(all_results, "MET")
+
+erbb2_calls <- get_amp_calls(all_results, "ERBB2")
+
+egfr_calls <- get_amp_calls(all_results, "EGFR")
+
+plot_gene_results <- function(df, gene_title) {
+  
+  ggplot(df, aes(reorder(LABNO, gene_dq), y = gene_dq)) +
+    geom_col() +
+    theme_bw() +
+    theme(axis.text.x = element_blank()) +
+    labs(x = "Sample", y = "Dosage Quotient",
+         title = str_c(gene_title, ": ", nrow(df), " samples"))
+  
+}
+
+met_p <- plot_gene_results(met_calls, "MET")
+
+erbb2_p <- plot_gene_results(erbb2_calls, "ERBB2")
+
+egfr_p <- plot_gene_results(egfr_calls, "EGFR")
+
+ggarrange(met_p, erbb2_p, egfr_p, nrow = 2, ncol = 2)
