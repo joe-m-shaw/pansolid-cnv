@@ -28,16 +28,6 @@ source(here::here("functions/cnv_functions.R"))
 
 ```
 
-```{r}
-#| label: dlms-connection
-#| include: FALSE
-
-dbi_con <- DBI::dbConnect(
-  drv = odbc::odbc(),
-  dsn = "moldb")
-
-```
-
 ## Primer Overlap Between Core and PanSolid
 
 Primer spreadsheets were provided by Qiagen. There is an overlap between the primers used for each panel, which means that using Core panel as an orthogonal method for validating the PanSolid panel is not ideal.
@@ -174,45 +164,15 @@ Here are the sample details extracted from DLMS.
 #| label: sample-extractions
 #| echo: FALSE
 
-method_key <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                    schema = "dbo",
-                    table = "MOL_ExtractionMethods")) |> 
-  # Have to remove large columns to avoid Invalid Descriptor Index error
-  select(-c(Checks, Reagents)) |> 
-  collect()
-
-extraction_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                    schema = "dbo",
-                    table = "MOL_Extractions"))
-
-extraction_batch_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                    schema = "dbo",
-                    table = "MOL_ExtractionBatches"))
-
 samples_tested <- unique(collated_coarse_mod$sample)
 
-extraction_tbl_samples <- extraction_tbl |> 
-  filter(LabNo %in% samples_tested) |> 
-  collect()
+sample_extraction <- get_extraction_method(samples_tested)
 
-batches <- unique(extraction_tbl_samples$ExtractionBatchFK)
+extraction_summary <- sample_extraction |> 
+  rename(extraction_method = MethodName) |> 
+  count(extraction_method)
 
-extraction_batch_info <- extraction_batch_tbl |> 
-  filter(ExtractionBatchId %in% batches) |> 
-  collect() |> 
-  # Remove DNA dilutions
-  filter(ExtractionMethodFK != 11) |>
-  left_join(method_key, join_by(ExtractionMethodFK == ExtractionMethodId))
-
-sample_extraction_info <- extraction_tbl_samples |> 
-  left_join(extraction_batch_info, join_by(ExtractionBatchFK == ExtractionBatchId))
-
-extraction_batch_table <- sample_extraction_info |> 
-  filter(!is.na(MethodName)) |> 
-  count(MethodName) |> 
-  rename(extraction_method = MethodName)
-
-knitr::kable(extraction_batch_table)
+knitr::kable(extraction_summary)
 
 ```
 
@@ -220,25 +180,9 @@ knitr::kable(extraction_batch_table)
 #| label: sample-types
 #| echo: FALSE
 
-sample_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                    schema = "dbo",
-                    table = "Samples"))
+sample_types <- get_sample_tissue(samples_tested)
 
-tissue_types <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                    schema = "dbo",
-                    table = "TissueTypes")) |> 
-  collect() |> 
-  janitor::clean_names()
-
-sample_info <- sample_tbl |> 
-  select(-c(StatusComment, COMMENTS, ConsultantAddress, ADDRESS1)) |> 
-  filter(LABNO %in% samples_tested) |> 
-  collect() |> 
-  janitor::clean_names() |> 
-  mutate(tissue = as.numeric(tissue)) |> 
-  left_join(tissue_types, join_by(tissue == tissue_type_id))
-
-sample_type_summary <- sample_info |> 
+sample_type_summary <- sample_types |> 
   count(tissue_type) |> 
   arrange(desc(n))
 
@@ -289,14 +233,18 @@ Amplifications were called on both "coarse" and "fine" settings, which are the "
 #| label: fold-change-spread
 #| echo: FALSE
 
-fc_plot <- all_calls |> 
-  ggplot(aes(x = reorder(sample_id, fold_change_adjusted), y = fold_change_adjusted)) +
+all_calls_copy_number <- all_calls |> 
+  # fold change = case coverage / baseline coverage
+  mutate(copy_number = fold_change_adjusted * 2) 
+
+fc_plot <- all_calls_copy_number |> 
+  ggplot(aes(x = reorder(sample_id, copy_number), y = copy_number)) +
   geom_point(aes(colour = gene), alpha = 0.5, size = 3) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90)) +
-  labs(x = "", title = "Fold changes for CNV calls",
-       subtitle = "Dashed line at 2.5") +
-  geom_hline(yintercept = 2.5, linetype = "dashed") +
+  labs(x = "", title = "Copy numbers for CNV calls",
+       subtitle = "Dashed line at 5") +
+  geom_hline(yintercept = 5, linetype = "dashed") +
   facet_wrap(~setting)
 
 fc_plot
@@ -510,8 +458,6 @@ draw_cnv_plot(df = coord_long, input_gene = "MYC", input_setting = "coarse",
 
 ## Repeatability
 
-3 samples have been repeated so far - here are the results.
-
 ```{r}
 #| label: repeatability
 #| include: FALSE
@@ -528,7 +474,19 @@ repeats <- file_table |>
 
 repeat_samples <- unique(repeats$sample_id)
 
+view(repeats)
+
 ```
+
+### Intra-run repeats
+
+2 samples have been repeated in triplicate on a worksheet.
+
+### Inter-run repeats
+
+3 samples have been repeated on more than one worksheet.
+
+We can plot the results to visually assess how similar the results are between repeats.
 
 ```{r}
 #| label: repeat-1
@@ -570,5 +528,111 @@ draw_repeat_plot(df = coord_long,
                  input_setting = "coarse",
                  input_gene = "ERBB2",
                  input_ymax = 20)
+
+```
+
+## Primer Coordinates
+
+We can also add on the coordinates of PanSolid primers to the plots.
+
+```{r}
+#| label: primer-coordinates
+#| echo: FALSE
+
+grch38_primers <- read_csv(file =
+                             here::here("data/CDHS-40079Z-11284.primer3_Converted.csv"),
+                           show_col_types = FALSE) |> 
+  janitor::clean_names()
+
+grch38_primer_coordinates <- extract_cnv_coordinates(grch38_primers |> 
+                                                       dplyr::rename(cnv_region = region))
+
+df_mod <- coord_long |> 
+  filter(setting == "coarse") |> 
+  filter(gene == "ERBB2")
+
+cnv_min <- min(df_mod$coordinate)
+
+cnv_max <- max(df_mod$coordinate)
+
+primers_for_plot <- grch38_primer_coordinates |> 
+  dplyr::rename(coordinate = cnv_start) |> 
+  mutate(fold_change_adjusted = 1) |> 
+  filter(coordinate >= cnv_min & coordinate <= cnv_max)
+
+```
+
+On this plot we can see that the call for some samples expands from ERBB2 upstream to the CDK12 gene, which is where the next set of primers is concentrated.
+
+```{r}
+#| label: erbb2-primers
+#| echo: FALSE
+
+ggplot(df_mod, aes(x = coordinate, y = fold_change_adjusted)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+  geom_line(linewidth = 2, colour = safe_red) +
+  geom_point(data = primers_for_plot, colour = safe_blue) +
+  geom_vline(xintercept = erbb2_min, linetype = "dashed") +
+  geom_vline(xintercept = erbb2_max, linetype = "dashed") +
+  facet_wrap(~sample_id) +
+  ylim(0, 70)  +
+  labs(title = "ERBB2 CNVs with primers in blue")
+
+```
+
+## Controls
+
+```{r}
+#| label: controls
+#| echo: FALSE
+
+control_regex <- regex(
+  r"[
+  (WS\d{6})             # Worksheet number
+  _
+  (\d{8})               # Sample number
+  _.+
+  ]",
+  comments = TRUE
+)
+
+clc_controls <- read_excel(path = here::here("data/clc_controls.xlsx")) |> 
+  mutate(sample_id = str_extract(string = control, pattern = control_regex,
+                                 group = 2))
+
+control_ids <- clc_controls$sample_id
+
+control_results <- results_tbl |> 
+  filter(LABNO %in% control_ids) |> 
+  select(LABNO, TEST, TESTTYPE, Genotype, Genotype2, GENOCOMM) |> 
+  collect() |> 
+  filter(Genotype != "Fail")
+
+```
+
+There are **`r length(control_ids)`** control samples used by the CLC pipeline.
+
+Querying DLMS shows that they are the correct sample type and extraction method.
+
+```{r}
+#| label: control-tissue
+#| echo: FALSE
+
+control_tissue <- get_sample_tissue(control_ids) |>  
+  count(tissue_type)
+
+knitr::kable(control_tissue)
+
+```
+
+```{r}
+#| label: control-extraction
+#| echo: FALSE
+
+control_extraction <- get_extraction_method(control_ids) |>  
+  count(MethodName)
+
+knitr::kable(control_extraction)
 
 ```

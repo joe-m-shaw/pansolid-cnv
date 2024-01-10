@@ -1,5 +1,12 @@
 # Pan Solid CNV Functions
 
+
+# DLMS connection -------------------------------------------------------------------
+
+dbi_con <- DBI::dbConnect(
+  drv = odbc::odbc(),
+  dsn = "moldb")
+
 # CSV timestamp ---------------------------------------------------------------------
 
 export_timestamp <- function(input) {
@@ -387,6 +394,86 @@ extract_cnv_coordinates <- function(df) {
                                             pattern = cnv_coord_regex, 
                                             group = 2))) 
   
+  return(output)
+  
+}
+
+# Database tables -------------------------------------------------------------------
+
+extraction_method_key <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                                              schema = "dbo",
+                                              table = "MOL_ExtractionMethods")) |> 
+  # Have to remove large columns to avoid Invalid Descriptor Index error
+  select(-c(Checks, Reagents)) |> 
+  collect()
+
+extraction_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                                                  schema = "dbo",
+                                                  table = "MOL_Extractions"))
+
+extraction_batch_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                                                        schema = "dbo",
+                                                        table = "MOL_ExtractionBatches"))
+
+
+sample_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                                              schema = "dbo",
+                                              table = "Samples"))
+
+tissue_types <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                                                schema = "dbo",
+                                                table = "TissueTypes")) |> 
+  collect() |> 
+  janitor::clean_names()
+
+
+# Database functions ----------------------------------------------------------------
+
+get_columns <- function(table_input) {
+  
+  output <- odbc::odbcConnectionColumns(
+    conn = dbi_con, 
+    catalog_name = "MolecularDB",
+    schema_name = "dbo",
+    name = table_input)
+  
+  return(output)
+  
+}
+
+get_extraction_method <- function(sample_vector) {
+  
+  extraction_tbl_samples <- extraction_tbl |> 
+    filter(LabNo %in% sample_vector) |> 
+    collect()
+  
+  batches <- unique(extraction_tbl_samples$ExtractionBatchFK)
+  
+  extraction_batch_info <- extraction_batch_tbl |> 
+    filter(ExtractionBatchId %in% batches) |> 
+    collect() |> 
+    # Remove DNA dilutions
+    filter(ExtractionMethodFK != 11) |>
+    left_join(extraction_method_key, join_by(ExtractionMethodFK == ExtractionMethodId))
+
+  output <- extraction_tbl_samples |> 
+    left_join(extraction_batch_info, join_by(ExtractionBatchFK == ExtractionBatchId)) |> 
+    filter(!is.na(MethodName))
+  
+  return(output)
+  
+}
+
+get_sample_tissue <- function(sample_vector) {
+  
+  output <- sample_tbl |> 
+    select(-c(StatusComment, COMMENTS, ConsultantAddress, ADDRESS1)) |> 
+    filter(LABNO %in% sample_vector) |> 
+    collect() |> 
+    janitor::clean_names() |> 
+    mutate(tissue = as.numeric(tissue)) |> 
+    left_join(tissue_types, join_by(tissue == tissue_type_id))
+    
   return(output)
   
 }
