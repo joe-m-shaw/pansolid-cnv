@@ -314,6 +314,22 @@ summarise_results <- function(file, input_sheet) {
   
 }
 
+
+filename_to_df <- function(file) {
+  
+  output <- data.frame(
+    worksheet = c(parse_filename(file, 1)),
+    sample_id = c(parse_filename(file, 2)),
+    qualifier = c(parse_filename(file, 3)),
+    patient_name = c(parse_filename(file, 4))) |> 
+    mutate(
+      sample_id_suffix = str_c(sample_id, qualifier),
+      sample_id_worksheet = str_c(sample_id_suffix, worksheet))
+  
+  return(output)
+  
+}
+
 read_clc_excel <- function(file, input_sheet) {
   
   results <- read_excel(path = file,
@@ -334,18 +350,24 @@ read_clc_excel <- function(file, input_sheet) {
   
 }
 
-filename_to_df <- function(file) {
+read_summary_tab <- function(file) {
   
-  output <- data.frame(
-    worksheet = c(parse_filename(file, 1)),
-    sample_id = c(parse_filename(file, 2)),
-    qualifier = c(parse_filename(file, 3)),
-    patient_name = c(parse_filename(file, 4))) |> 
-    mutate(
-      sample_id_suffix = str_c(sample_id, qualifier),
-      sample_id_worksheet = str_c(sample_id_suffix, worksheet))
+  x <- read_excel(path = file,
+             sheet = "Whole Panel UMI Coverage Re...",
+             skip = 1,
+             n_max = 11) |> 
+    dplyr::rename(value = "...2")
   
- return(output)
+  x_wide <- x |> 
+    pivot_wider(names_from = Summary,
+                values_from = value) |> 
+    janitor::clean_names()
+  
+  identifiers <- filename_to_df(file)
+  
+  output <- cbind(identifiers, x_wide)
+  
+  return(output)
   
 }
 
