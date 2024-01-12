@@ -229,6 +229,8 @@ Amplifications were called in **`r length(unique(all_calls$gene))`** genes, with
 
 Amplifications were called on both "coarse" and "fine" settings, which are the "graining level" used by the pipeline (the degree of smoothing that is applied to the data). "Fine" will return more calls per region, whilst "coarse" tends to merge multiple calls if they are close together.
 
+### Coarse results
+
 ```{r}
 #| label: fold-change-spread
 #| echo: FALSE
@@ -247,7 +249,18 @@ fc_plot <- all_calls_copy_number |>
   geom_hline(yintercept = 5, linetype = "dashed") +
   facet_wrap(~setting)
 
-fc_plot
+coarse_gene_summary <- coarse_calls |> 
+  mutate(sample_id_gene = str_c(sample_id, "_", gene)) |> 
+  filter(!duplicated(sample_id_gene)) |> 
+  group_by(gene) |> 
+  summarise(
+    amplifications = n(),
+    max_dosage = round(max(fold_change_adjusted),1),
+    median_dosage = round(median(fold_change_adjusted), 1),
+    min_dosage = round(min(fold_change_adjusted),1)) |> 
+  arrange(desc(amplifications))
+
+knitr::kable(coarse_gene_summary)
 
 ```
 
