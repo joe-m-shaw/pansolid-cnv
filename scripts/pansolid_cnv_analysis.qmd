@@ -474,8 +474,6 @@ repeats <- file_table |>
 
 repeat_samples <- unique(repeats$sample_id)
 
-view(repeats)
-
 ```
 
 ### Intra-run repeats
@@ -639,6 +637,23 @@ knitr::kable(control_extraction)
 
 ## Coverage
 
+
+```{r}
+#| label: control-coverage
+#| echo: FALSE
+#| message: FALSE
+
+control_files <- list.files(here::here("data/control_data/"),
+                            full.names = TRUE)
+
+control_coverage <- control_files |> 
+  map(\(control_files) get_control_coverage(
+    file = control_files)) |> 
+  list_rbind()
+
+```
+
+
 ```{r}
 #| label: coverage
 #| echo: FALSE
@@ -649,12 +664,21 @@ qc_data <- all_files |>
     file = all_files)) |>
   list_rbind()
 
-ggplot(qc_data, aes(x = reorder(sample_id_worksheet, median_coverage), 
-                    y = median_coverage)) +
-  geom_point() +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  labs(x = "")
+for_plot <- rbind(
+  
+  qc_data |> 
+    select(sample_id_worksheet, median_coverage) |> 
+    mutate(type = "patient"),
+  
+  control_coverage |> 
+    select(sample_id_worksheet, median_coverage) |> 
+    mutate(type = "control")
+)
 
+ggplot(for_plot, aes(x = type, 
+                    y = median_coverage)) +
+  geom_jitter() +
+  theme_bw() +
+  labs(x = "")
 
 ```
