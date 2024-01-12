@@ -240,7 +240,7 @@ filename_regex <- regex(
   _
   (\d{8})               # Sample number
   (a_|b_|c_|_)
-  ([A-z]+)              # Patient name
+  (.+)                  # Patient name
   (.xlsx|_.+)
   ]",
   comments = TRUE
@@ -366,6 +366,23 @@ read_summary_tab <- function(file) {
   identifiers <- filename_to_df(file)
   
   output <- cbind(identifiers, x_wide)
+  
+  return(output)
+  
+}
+
+get_control_coverage <- function(file) {
+  
+  identifiers <- filename_to_df(file)
+  
+  df <- read_csv(file) |> 
+    janitor::clean_names()
+  
+  cov <- data.frame(
+    "median_coverage" = median(df$coverage),
+    "mean_coverage" = mean(df$coverage))
+  
+  output <- cbind(identifiers, cov)
   
   return(output)
   
