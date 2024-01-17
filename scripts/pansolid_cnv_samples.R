@@ -15,12 +15,6 @@ library(here)
 
 source("functions/cnv_functions.R")
 
-# Database connection ---------------------------------------------------------------
-
-dbi_con <- DBI::dbConnect(
-  drv = odbc::odbc(),
-  dsn = "moldb")
-
 # Filepaths -------------------------------------------------------------------------
 
 cnv_path <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/"
@@ -41,6 +35,8 @@ f7 <- "Oncogene_FC_3_120923"
 
 f8 <- "Reduced_Onc_TSG_genes_220323"
 
+f9 <- "00_Amplifications_Fine_vs_Coarse"
+
 # Read data -------------------------------------------------------------------------
 
 filename_regex <- regex(
@@ -59,17 +55,20 @@ filename_regex <- regex(
 all_files <- data.frame(
   
   "file" = c(get_excel_names(cnv_path, f1),
-               get_excel_names(cnv_path, f2),
-               get_excel_names(cnv_path, f3),
-               get_excel_names(cnv_path, f4),
-               get_excel_names(cnv_path, f5),
-               get_excel_names(cnv_path, f6),
-               get_excel_names(cnv_path, f7),
-               get_excel_names(cnv_path, f8))) |> 
+             get_excel_names(cnv_path, f2),
+             get_excel_names(cnv_path, f3),
+             get_excel_names(cnv_path, f4),
+             get_excel_names(cnv_path, f5),
+             get_excel_names(cnv_path, f6),
+             get_excel_names(cnv_path, f7),
+             get_excel_names(cnv_path, f8),
+             get_excel_names(cnv_path, f9))) |> 
   mutate(
     worksheet = str_extract(file, pattern = filename_regex, group = 1),
     sample = str_extract(file, pattern = filename_regex, group = 3),
-    name = str_extract(file, pattern = filename_regex, group = 5))
+    suffix = str_extract(file, pattern = filename_regex, group = 4),
+    name = str_extract(file, pattern = filename_regex, group = 5),
+    worsheet_sample_id = str_c(worksheet, "_", sample, suffix))
 
 summary <- all_files |> 
   filter(!is.na(sample)) |> 
@@ -78,6 +77,26 @@ summary <- all_files |>
 
 # How many samples have been run through CLC?
 length(unique(summary$sample))
+
+# Repeated samples ------------------------------------------------------------------
+
+repeats <- all_files |> 
+  filter(!duplicated(worsheet_sample_id)) |> 
+  filter(duplicated(sample, fromLast = TRUE) | duplicated(sample, fromLast = FALSE)) |> 
+  arrange(sample)
+
+# 8 samples for intra-run variability
+intra_run_samples <- repeats |> 
+  filter(suffix %in% c("a", "b", "c"))
+
+inter_run_samples <- repeats |> 
+  filter(!suffix %in% c("b", "c"))
+
+# 7 samples for inter-run variability (17 data points)
+inter_run_summary <- inter_run_samples |> 
+  group_by(name) |> 
+  count() |> 
+  filter(n > 1)
 
 # Core results of samples already tested on PanSolid --------------------------------
 
@@ -182,11 +201,16 @@ y <- method2_samples |>
            pansolid_worksheet, TEST, Genotype)
          
 samples_pansolid_core <- rbind(x, y) |> 
-  filter(!duplicated(sample_id)) |> 
-  extract_cnv_calls() |> 
+  #filter(!duplicated(sample_id)) |> 
+  #extract_cnv_calls() |> 
   rename(core_panel_genotype = Genotype,
-         core_panel_description = TEST) |> 
-  arrange(target_gene)
+         core_panel_description = TEST) 
+
+
+repeated_samples <- samples_pansolid_core |> 
+  filter(duplicated(sample_id, fromLast = TRUE) | 
+           duplicated(sample_id, fromLast = FALSE))
+
 
 export_timestamp(samples_pansolid_core)
 
@@ -301,3 +325,38 @@ erbb2_p <- plot_gene_results(erbb2_calls, "ERBB2")
 egfr_p <- plot_gene_results(egfr_calls, "EGFR")
 
 ggarrange(met_p, erbb2_p, egfr_p, nrow = 2, ncol = 2)
+
+
+# MDM2 amplifications ---------------------------------------------------------------
+
+mdm2_samples <- c(23045472, 23055487, 23041652)
+
+mdm2_details <- get_extraction_method(mdm2_samples) |> 
+  janitor::clean_names()
+
+mdm2_sample_details <- sample_tbl |> 
+  select(LABNO, FIRSTNAME, SURNAME, iGeneRNo, iGeneSNo) |> 
+  filter(LABNO %in% mdm2_samples) |> 
+  collect()
+
+all_mdm2_details <- mdm2_details
+
+colnames(mdm2_details)
+
+
+  select(lab_no, extraction_batch_fk, run_date)
+
+
+
+write.csv(x = mdm2_details, file = here::here("outputs/mdm2_samples.csv"),
+          row.names = FALSE)
+
+
+
+
+
+
+
+
+
+
