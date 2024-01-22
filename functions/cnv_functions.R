@@ -66,7 +66,7 @@ plot_coarse_v_fine <- function(input_gene) {
 egfr_min <- 55019017
 egfr_max <- 55211628
 
-erbb2_min <- 39688094
+erbb2_min <- 39700064
 erbb2_max <- 39728658
 
 met_min <- 116672196
@@ -87,59 +87,55 @@ by_n <- function(n) {
   
   }
 
-draw_cnv_plot <- function(df, input_gene, input_setting, interval = 200000) {
+
+draw_cnv_plot <- function(df, input_gene, input_setting, 
+                          interval = 200000,
+                          ymax = 70,
+                          gene_min,
+                          gene_max,
+                          buffer = 150000) {
+  
+  grch38_primers <- read_csv(file =
+                               here::here("data/CDHS-40079Z-11284.primer3_Converted.csv"),
+                             show_col_types = FALSE) |> 
+    janitor::clean_names()
+  
+  grch38_primer_coordinates <- extract_cnv_coordinates(grch38_primers |> 
+                                                         dplyr::rename(cnv_region = region))
+  
   
   stopifnot(input_gene %in% c("EGFR", "ERBB2", "MET",
                               "BRAF", "MYC"))
-  
-  if(input_gene == "EGFR") {
-    
-    gene_min <- egfr_min
-    gene_max <- egfr_max
-    
-  }
-  
-  if(input_gene == "ERBB2") {
-    
-    gene_min <- erbb2_min
-    gene_max <- erbb2_max
-    
-  }
-  
-  if(input_gene == "MET") {
-    
-    gene_min <- met_min
-    gene_max <- met_max
-    
-  }
-  
-  if(input_gene == "BRAF") {
-    
-    gene_min <- braf_min
-    gene_max <- braf_max
-    
-  }
-  
-  if(input_gene == "MYC") {
-    
-    gene_min <- myc_min
-    gene_max <- myc_max
-    
-  }
-  
-  cnv_plot <- df |> 
+
+  data_for_plot <- df |> 
     filter(setting == input_setting) |> 
-    filter(gene == input_gene) |> 
-    ggplot(aes(x = coordinate, y = fold_change_adjusted)) +
+    filter(gene == input_gene) 
+  
+  cnv_min <- min(data_for_plot$coordinate)
+  
+  cnv_max <- max(data_for_plot$coordinate)
+  
+  plot_min <- cnv_min - buffer
+  
+  plot_max <- cnv_max + buffer
+  
+  primers_for_plot <- grch38_primer_coordinates |> 
+    dplyr::rename(coordinate = cnv_start) |> 
+    mutate(fold_change_adjusted = 0) |> 
+    filter(coordinate >= plot_min  & coordinate <= plot_max )
+  
+  cnv_plot <- ggplot(data_for_plot, aes(x = coordinate, y = fold_change_adjusted)) +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
     geom_line(linewidth = 2, colour = safe_red) +
+    geom_point(data = primers_for_plot, pch = 21) +
     geom_vline(xintercept = gene_min, linetype = "dashed") +
     geom_vline(xintercept = gene_max, linetype = "dashed") +
     facet_wrap(~sample_id) +
-    ylim(0, 70) +
+    ylim(0, ymax) +
     scale_x_continuous(breaks = by_n(interval),
-                       minor_breaks = NULL) +
+                       minor_breaks = NULL,
+                       limits = c(plot_min, plot_max)) +
     labs(title = str_c(input_gene, " CNV results"),
          subtitle = str_c("Setting: ", input_setting, ". Dashed lines show gene coordinates"),
          x = str_c("GRCh38 Genomic coordinates (", interval/1000, " kb intervals)"))
@@ -516,3 +512,71 @@ get_sample_tissue <- function(sample_vector) {
   return(output)
   
 }
+
+
+# ddPCR functions -------------------------------------------------------------------
+
+read_biorad_csv <- function(worksheet) {
+  
+  output <- read_csv(here::here(str_c("data/", worksheet)), 
+              col_types = cols(
+                "Well" = "c",
+                "ExptType" = "c",
+                "Experiment" = "c",
+                "Sample" = "c",
+                "TargetType" = "c",
+                "Target" = "c",
+                "Status" = "c",
+                "Concentration" = "d",
+                "Supermix" = "c",
+                "CopiesPer20uLWell" = "d",
+                "TotalConfMax" = "d",
+                "TotalConfMin" = "d",
+                "PoissonConfMax" = "d",
+                "PoissonConfMin" = "d",
+                "Positives" = "i",
+                "Negatives" = "i",
+                "Ch1+Ch2+" = "i",
+                "Ch1+Ch2-" = "i",
+                "Ch1-Ch2+" = "i",
+                "Ch1-Ch2-" = "i",
+                "Linkage"  = "d",
+                "AcceptedDroplets" = "i",
+                "CNV" = "d",
+                "TotalCNVMax" = "d",
+                "TotalCNVMin" = "d",
+                "PoissonCNVMax" = "d",
+                "PoissonCNVMin" = "d",
+                "FractionalAbundance" = "d",
+                "TotalFractionalAbundanceMax" = "d",
+                "TotalFractionalAbundanceMin" = "d",
+                "PoissonFractionalAbundanceMax" = "d",
+                "PoissonFractionalAbundanceMin" = "d",
+                "ReferenceAssayNumber" = "d",
+                "TargetAssayNumber" = "d",
+                "Threshold" = "d",
+                "MeanAmplitudeofPositives" = "d",
+                "MeanAmplitudeofNegatives" = "d",
+                "MeanAmplitudeTotal" = "d",
+                "ExperimentComments" = "c",
+                "MergedWells" = "c",
+                "TotalConfMax68" = "d",
+                "TotalConfMin68" = "d",
+                "PoissonConfMax68" = "d",
+                "PoissonConfMin68" = "d",
+                "TotalCNVMax68" = "d",
+                "TotalCNVMin68" = "d",
+                "PoissonCNVMax68" = "d",
+                "PoissonCNVMin68" = "d",
+                "PoissonCNVMin68" = "d",
+                "PoissonRatioMax68" = "d",
+                "TotalRatioMin68" = "d",
+                "TotalFractionalAbundanceMax68" = "d",
+                "TotalFractionalAbundanceMin68" = "d",
+                "PoissonFractionalAbundanceMax68" = "d",                
+                "PoissonFractionalAbundanceMin68" = "d")) |> 
+  janitor::clean_names()
+  
+  return(output)
+  
+}      
