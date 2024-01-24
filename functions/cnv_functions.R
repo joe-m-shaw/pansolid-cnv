@@ -1,5 +1,7 @@
 # Pan Solid CNV Functions
 
+library(tidyverse)
+library(here)
 
 # DLMS connection -------------------------------------------------------------------
 
@@ -579,4 +581,20 @@ read_biorad_csv <- function(worksheet) {
   
   return(output)
   
-}      
+}     
+
+draw_ddpcr_cnv_plot <- function(worksheet_df, y_max = 10) {
+  
+  output <- ggplot(worksheet_df, aes(x = sample_well, y = cnv)) +
+    geom_point() +
+    geom_errorbar(aes(ymin = poisson_cnv_min, max = poisson_cnv_max)) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90)) +
+    scale_y_continuous(breaks = c(1:y_max), limits = c(0, y_max),
+                       minor_breaks = c(1:y_max)) +
+    labs(y = "Copy number", x = "") +
+    geom_hline(yintercept = 2, linetype = "dashed")
+
+  return(output)
+  
+}
