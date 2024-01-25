@@ -62,3 +62,14 @@ outputs/
 
 # CSV files
 *.csv
+
+# PDF files
+*.pdf
+
+# HTML files
+*.html
+
+# RProject
+*.Rproj
+
+pansolid_cnv_analysis_files/
