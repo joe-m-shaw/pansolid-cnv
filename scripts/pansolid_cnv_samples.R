@@ -13,7 +13,7 @@ library(dbplyr)
 library(ggpubr)
 library(here)
 
-source("functions/cnv_functions.R")
+source(here::here("functions/cnv_functions.R"))
 
 # Filepaths -------------------------------------------------------------------------
 
@@ -327,6 +327,10 @@ egfr_p <- plot_gene_results(egfr_calls, "EGFR")
 ggarrange(met_p, erbb2_p, egfr_p, nrow = 2, ncol = 2)
 
 
+
+
+
+
 # MDM2 amplifications ---------------------------------------------------------------
 
 mdm2_samples <- c(23045472, 23055487, 23041652)
@@ -337,26 +341,23 @@ mdm2_details <- get_extraction_method(mdm2_samples) |>
 mdm2_sample_details <- sample_tbl |> 
   select(LABNO, FIRSTNAME, SURNAME, iGeneRNo, iGeneSNo) |> 
   filter(LABNO %in% mdm2_samples) |> 
-  collect()
+  collect() |> 
+  janitor::clean_names()
 
-all_mdm2_details <- mdm2_details
+all_mdm2_details <- mdm2_details |> 
+  left_join(mdm2_sample_details, join_by ("lab_no" == "labno")) |> 
+  select(lab_no, extraction_batch_fk, run_date, firstname, 
+         surname, i_gene_r_no, i_gene_s_no)
 
-colnames(mdm2_details)
-
-
-  select(lab_no, extraction_batch_fk, run_date)
-
-
-
-write.csv(x = mdm2_details, file = here::here("outputs/mdm2_samples.csv"),
+write.csv(x = all_mdm2_details, file = here::here("outputs/mdm2_samples.csv"),
           row.names = FALSE)
 
 
 
 
 
-
-
+samples_pansolid_core |> 
+  filter(sample_id %in% repeats$sample) |>  view()
 
 
 
