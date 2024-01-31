@@ -463,6 +463,12 @@ tissue_types <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
   collect() |> 
   janitor::clean_names()
 
+discode <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                                                schema = "dbo",
+                                                table = "Discode")) |> 
+  select(-c("Description", "ReferralDetails")) |> 
+  collect() |> 
+  janitor::clean_names()
 
 # Database functions ----------------------------------------------------------------
 
@@ -577,7 +583,8 @@ read_biorad_csv <- function(worksheet) {
                 "TotalFractionalAbundanceMin68" = "d",
                 "PoissonFractionalAbundanceMax68" = "d",                
                 "PoissonFractionalAbundanceMin68" = "d")) |> 
-  janitor::clean_names()
+  janitor::clean_names() |> 
+  mutate(sample_well = str_c(sample, "_", well))
   
   return(output)
   
@@ -586,7 +593,7 @@ read_biorad_csv <- function(worksheet) {
 draw_ddpcr_cnv_plot <- function(worksheet_df, y_max = 10) {
   
   output <- ggplot(worksheet_df, aes(x = sample_well, y = cnv)) +
-    geom_point() +
+    geom_point(aes(colour = gene), size = 3) +
     geom_errorbar(aes(ymin = poisson_cnv_min, max = poisson_cnv_max)) +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 90)) +
