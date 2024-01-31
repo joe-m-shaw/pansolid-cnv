@@ -1,16 +1,11 @@
 ---
 title: "PanSolid CNV Analysis"
 author: "Joe Shaw"
-date: "`r Sys.Date()`"
+date: today
+date-format: "DD/MM/YYYY"
 format: pdf
 editor: visual
 ---
-
-## Introduction
-
-This Quarto document is a notebook for organising analysis of somatic CNVs from a CLC Genomics Workbench pipeline (Qiagen).
-
-The code to generate this document is publicly available on [my Github](https://github.com/joeshaw824/pansolid_cnv_validation).
 
 ```{r}
 #| label: packages
@@ -28,13 +23,10 @@ source(here::here("functions/cnv_functions.R"))
 
 ```
 
-## Primer Overlap Between Core and PanSolid
-
-Primer spreadsheets were provided by Qiagen. There is an overlap between the primers used for each panel, which means that using Core panel as an orthogonal method for validating the PanSolid panel is not ideal.
-
 ```{r}
 #| label: primers
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 
 pan_solid_only <- read_excel(here::here("data/Primer and Gene Comparison.xlsx"),
                              sheet = "Primer Overlap",
@@ -158,13 +150,10 @@ collated_coarse_mod <- collated_coarse |>
 
 ```
 
-## Samples
-
-Here are the sample details extracted from DLMS.
-
 ```{r}
 #| label: sample-extractions
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 
 samples_tested <- unique(collated_coarse_mod$sample)
 
@@ -180,7 +169,8 @@ knitr::kable(extraction_summary)
 
 ```{r}
 #| label: sample-types
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 
 sample_types <- get_sample_tissue(samples_tested)
 
@@ -191,16 +181,6 @@ sample_type_summary <- sample_types |>
 knitr::kable(sample_type_summary)
 
 ```
-
-## Results
-
-I've used the Excel outputs from the CLC pipeline as my starting data. If an output Excel had a CNV call for a particular gene, I classified that as an amplification, without any filtering on coordinates or fold change.
-
-One thing that makes it slightly difficult is that if no CNV is present for a gene, there are no rows in the Excel. This means I've had to infer normal results from the absence of CNV calls.
-
-In total there are **`r length(all_files)`** CLC outputs for **`r length(unique(collated_coarse_mod$sample))`** samples tested. I have excluded replicates of samples demarcated with b and c suffixes, and samples tested on more than one worksheet.
-
-Every CNV call has a fold-change of at least 2.5, which is a copy number of at least 5. So treating every call as an amplification seems to be a fair assumption.
 
 ```{r}
 #| label: load-calls
@@ -225,72 +205,171 @@ fine_calls <- all_files |>
 all_calls <- rbind(coarse_calls, fine_calls) |>
   extract_cnv_coordinates()
 
-```
-
-Amplifications were called in **`r length(unique(all_calls$gene))`** genes, with a wide spread of fold changes. For the analysis in this document I've only focussed on EGFR, ERBB2 and MET, because these genes have results from the Core panel on DLMS.
-
-Amplifications were called on both "coarse" and "fine" settings, which are the "graining level" used by the pipeline (the degree of smoothing that is applied to the data). "Fine" will return more calls per region, whilst "coarse" tends to merge multiple calls if they are close together.
-
-### Coarse results
-
-```{r}
-#| label: fold-change-spread
-#| echo: FALSE
-
-all_calls_copy_number <- all_calls |> 
-  # fold change = case coverage / baseline coverage
-  mutate(copy_number = fold_change_adjusted * 2) 
-
-fc_plot <- all_calls_copy_number |> 
-  ggplot(aes(x = reorder(sample_id, copy_number), y = copy_number)) +
-  geom_point(aes(colour = gene), alpha = 0.5, size = 3) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  labs(x = "", title = "Copy numbers for CNV calls",
-       subtitle = "Dashed line at 5") +
-  geom_hline(yintercept = 5, linetype = "dashed") +
-  facet_wrap(~setting)
-
-coarse_gene_summary <- coarse_calls |> 
-  mutate(sample_id_gene = str_c(sample_id, "_", gene)) |> 
-  filter(!duplicated(sample_id_gene)) |> 
-  group_by(gene) |> 
-  summarise(
-    amplifications = n(),
-    max_dosage = round(max(fold_change_adjusted),1),
-    median_dosage = round(median(fold_change_adjusted), 1),
-    min_dosage = round(min(fold_change_adjusted),1)) |> 
-  arrange(desc(amplifications))
-
-knitr::kable(coarse_gene_summary)
 
 ```
 
-## Coarse vs Fine
-
-There were no cases for EGFR, ERBB2 or MET where an amplification was called only on one graining setting, so using the "coarse" setting seems sensible, as it reduces the number of calls per amplification.
-
 ```{r}
-#| label: fine-vs-coarse
+#| label: load-ddpcr
 #| include: FALSE
 
-egfr_p <- plot_coarse_v_fine("EGFR")
-
-erbb2_p <- plot_coarse_v_fine("ERBB2")
-
-met_p <- plot_coarse_v_fine("MET")
-
-ggarrange(egfr_p, erbb2_p, met_p, ncol = 1)
+ws138579 <- read_biorad_csv("WS138579_analysed.csv")
 
 ```
 
-## Comparison to the Core Panel
+## Update (30/01/2024)
 
-For the Core panel, I've directly queried DLMS and extracted the CNV results from the free-type "Genotype" field. Whilst it is checked, it is still a free type field so some data wrangling and regular expressions are required (someone misspelled ERBB2 as ERRB2 which took me a while to realise ...).
+- ddPCR assays designed and tested for 3 exons in each of ERBB2, EGFR, BRAF, MET and MYC
+- 12/15 assays successful when tested (ddPCR WS138419)
+- ERBB2 exon 13 ddPCR performed on 28 samples from PanSolid control cohort, plus 23 patients with PanSolid results
+- SeraCare controls tested via PanSolid
+
+{{< pagebreak >}}
+
+## ERBB2 ddPCR Results
+
+Overall, ERBB2 exon 13 ddPCR agrees with the results from PanSolid for 20/23 samples.
+
+ddPCR worksheet: WS138579
+
+Exon 13 was chosen as it lies in the centre of the gene and was within all of the ERBB2 amplification calls made by the CLC pipeline.
+
+```{r}
+#| label: ddpcr-vs-pansolid
+#| include: FALSE
+
+ws138579_erbb2 <- ws138579 |> 
+  filter(target_type == "Ch1Unknown")
+
+erbb2_pansolid <- coarse_calls |> 
+  filter(gene == "ERBB2") |> 
+  filter(!duplicated(sample_id))
+
+control_regex <- regex(
+  r"[
+  (WS\d{6})             # Worksheet number
+  _
+  (\d{8})               # Sample number
+  _.+
+  ]",
+  comments = TRUE
+)
+
+clc_controls <- read_excel(path = here::here("data/clc_controls.xlsx")) |> 
+  mutate(sample_id = str_extract(string = control, pattern = control_regex,
+                                 group = 2))
+
+control_ids <- clc_controls$sample_id
+
+ddpcr_pansolid <- ws138579_erbb2 |> 
+  filter(!sample %in% c("C3_5ng", "C3_20ng", "NTC")) |> 
+  left_join(erbb2_pansolid, join_by(sample == sample_id)) |> 
+  mutate(pansolid_result = case_when(
+    
+    is.na(fold_change_adjusted) & sample %in% control_ids ~"pansolid normal control",
+    
+    is.na(fold_change_adjusted) & !sample %in% control_ids ~"pansolid normal result",
+    
+    !is.na(fold_change_adjusted) ~"pansolid amplification"),
+    pansolid_result = factor(pansolid_result, levels = c("pansolid normal control",
+                                                         "pansolid normal result",
+                                                         "pansolid amplification")))
+```
+
+
+```{r}
+#| label: ddpcr-vs-pansolid-plot
+#| echo: FALSE
+
+ddpcr_pansolid |> 
+  ggplot(aes(x = pansolid_result, y = cnv)) +
+  geom_jitter(size = 2, pch = 21, alpha = 0.6, aes(fill = pansolid_result)) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        legend.position = "none") +
+  labs(x = "", y = "ddPCR ERBB2 Exon 13 Copy Number",
+       title = "ERBB2 Exon 13 ddPCR for samples tested on PanSolid",
+       subtitle = "Highest normal control ddPCR copy number is 6") +
+  geom_hline(yintercept = 6, linetype = "dashed") +
+  scale_y_continuous(limits = c(0, 80), breaks = c(0, 6, 20, 40, 60, 80)) 
+
+```
+
+```{r}
+#| label: normal-controls
+#| include: FALSE
+#| eval: FALSE
+
+ddpcr_pansolid |> 
+  filter(pansolid_result == "pansolid normal control") |> 
+  ggplot(aes(x = pansolid_result, y = cnv)) +
+  geom_boxplot() +
+  theme_bw() +
+  ylim(0, 8) +
+  labs(title = "PanSolid normal controls", y = "ddPCR copy number")
+
+```
+
+3 samples had ERBB2 amplifications detected on PanSolid, but had ERBB2 copy numbers within the range of normal controls when tested on ddPCR.
+
+The ddPCR is comparing the ERBB2 locus (chromosome 17) to the AP3B1 locus (chromosome 5), whilst PanSolid has a more holistic comparison of copy number across the genome. This may explain the discrepant results.
+
+```{r}
+#| label: fold-change-vs-ddpcr
+#| echo: FALSE
+
+ggplot(ddpcr_pansolid |> 
+  filter(!is.na(fold_change_adjusted)), aes(x = fold_change_adjusted, y = cnv)) +
+  geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
+  geom_point(size = 3, fill = safe_blue, alpha = 0.8, pch = 21) +
+  theme_bw() +
+  geom_hline(yintercept = 6, linetype = "dashed") +
+  geom_vline(xintercept = 6, linetype = "dashed") +
+  labs(x = "PanSolid Fold Change", y = "ddPCR Copy Number",
+         title = "ddPCR versus PanSolid: amplification samples",
+         subtitle = "All samples with fold change above 6 are consistent with ddPCR") +
+    scale_y_continuous(limits = c(0, 80), breaks = c(0, 6, 20, 40, 60, 80)) +
+    scale_x_continuous(limits = c(0, 30), breaks = c(0, 6, 10, 20, 30)) 
+
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: coord-long
+#| include: FALSE
+
+coord_long <- all_calls |> 
+  select(worksheet, sample_id, qualifier, sample_id_suffix, patient_name,
+         sample_id_worksheet, gene, fold_change_adjusted, setting, cnv_start, cnv_end) |> 
+  pivot_longer(cols = c(cnv_start, cnv_end),
+               names_to = "category",
+               values_to = "coordinate")
+
+```
+
+```{r}
+#| label: erbb2-exon13
+#| include: FALSE
+#| eval: FALSE
+
+erbb2_exon13 <- 39716373
+
+draw_cnv_plot(df = coord_long |> 
+                filter(sample_id %in% ddpcr_pansolid$sample), 
+              input_gene = "ERBB2", input_setting = "coarse",
+              interval = 10000,
+              gene_min = erbb2_min,
+              gene_max = erbb2_max,
+              buffer = 10000) +
+  geom_vline(xintercept = erbb2_exon13, colour = safe_red) +
+  theme(axis.text.x = element_blank())
+
+```
 
 ```{r}
 #| label: core-results
 #| include: FALSE
+#| eval: FALSE
 
 results_tbl <- tbl(dbi_con, 
                    dbplyr::in_catalog(
@@ -348,59 +427,34 @@ met_conf <- draw_confusion_matrix("MET")
 
 ```
 
-## EGFR Results
-
-Here are the results for EGFR for samples tested with PanSolid CLC (coarse) versus Core with the Dosage Quotient method.
-
 ```{r}
 #| label: egfr
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 knitr::kable(egfr_conf)
 
 ```
 
-## ERBB2 Results
-
 ```{r}
 #| label: erbb2
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 knitr::kable(erbb2_conf)
 
 ```
 
-## MET Results
-
 ```{r}
 #| label: met
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 knitr::kable(met_conf)
 
 ```
 
-There is 1 sample (23038464) where a MET amplification was detected on PanSolid but not on Core. The Core worksheet for this sample was WS134162, and the mean dosage quotient for MET was 3.86. The discrepancy may be due to the higher number of primers on PanSolid for MET versus Core.
-
-In the original validation of the Dosage Quotient method, no samples were included which had MET amplifications detected by a different method.
-
-## CNV Coordinates
-
-```{r}
-#| label: cnv-coordinates
-#| include: FALSE
-
-coord_long <- all_calls |> 
-  select(worksheet, sample_id, qualifier, sample_id_suffix, patient_name,
-         sample_id_worksheet, gene, fold_change_adjusted, setting, cnv_start, cnv_end) |> 
-  pivot_longer(cols = c(cnv_start, cnv_end),
-               names_to = "category",
-               values_to = "coordinate")
-
-```
-
-We can examine the CNV calls in terms of genomic coordinates by using line graphs for each gene. Ideally we want something like this (or a simple table of results) as the pipeline output.
-
 ```{r}
 #| label: egfr-plot
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 
 primer_location <- 140734686
 
@@ -409,45 +463,29 @@ draw_cnv_plot(df = coord_long, input_gene = "EGFR", input_setting = "coarse",
 
 ```
 
-The x axis for EGFR is skewed by one sample with a large CNV, so we can remove this sample to zoom in on the gene region. When we zoom in we can see that some samples have multiple CNV calls at different fold changes which span the width of the gene.
-
 ```{r}
 #| label: egfr-plot-zoom
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 
 draw_cnv_plot()
 
 ```
 
-Here's the same plot for ERBB2 and then a zoomed in version. Interestingly, when we zoom in we can see that not all the calls cover the full gene region.
-
 ```{r}
 #| label: erbb2-plot
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 
 draw_cnv_plot(df = coord_long, input_gene = "ERBB2", input_setting = "coarse", 
               interval = 50000)
 
-erbb2_exon13 <- 39716373
-erbb2_exon26 <- 39727375
-
-draw_cnv_plot(df = coord_long |> 
-                filter(!sample_id %in% c(22034556, 23001095, 
-                                      21019092, 23022389, 23055093)), 
-              input_gene = "ERBB2", input_setting = "coarse",
-              interval = 10000,
-              gene_min = erbb2_exon13,
-              gene_max = erbb2_exon26,
-              buffer = 10000) +
-  labs(subtitle = "Dashed lines show exons 13 and 26 - ddPCR assay targets")
-
 ```
-
-And finally the one MET call, which is very large.
 
 ```{r}
 #| label: met-plot
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 
 draw_cnv_plot(df = coord_long, input_gene = "MET", input_setting = "coarse",
               interval = 1000000) +
@@ -456,13 +494,10 @@ draw_cnv_plot(df = coord_long, input_gene = "MET", input_setting = "coarse",
 
 ```
 
-## BRAF and MYC results
-
-Here are the CNV calls for BRAF and MYC.
-
 ```{r}
 #| label: braf-myc
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 
 draw_cnv_plot(df = coord_long, input_gene = "BRAF", input_setting = "coarse",
               interval = 1000000) +
@@ -476,21 +511,10 @@ draw_cnv_plot(df = coord_long, input_gene = "MYC", input_setting = "coarse",
 
 ```
 
-## Conclusions
-
--   The CLC pipeline is able to identify amplifications in EGFR, ERBB2 and MET and has close agreement with the Dosage Quotient method, however there is one discrepant result in MET.
-
--   A truly orthogonal method is needed to confirm sample results, as Core and PanSolid share primers between them.
-
--   We need to consider how the results will be viewed by scientists, and make this process as simple as possible.
-
-{{< pagebreak >}}
-
-## Repeatability
-
 ```{r}
 #| label: repeatability
 #| include: FALSE
+#| eval: FALSE
 
 file_table <- all_files |>
   map(\(all_files) filename_to_df(
@@ -506,19 +530,10 @@ repeat_samples <- unique(repeats$sample_id)
 
 ```
 
-### Intra-run repeats
-
-2 samples have been repeated in triplicate on a worksheet.
-
-### Inter-run repeats
-
-3 samples have been repeated on more than one worksheet.
-
-We can plot the results to visually assess how similar the results are between repeats.
-
 ```{r}
 #| label: repeat-1
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 #| fig-height: 10
 
 
@@ -530,11 +545,10 @@ draw_repeat_plot(df = coord_long,
 
 ```
 
-{{< pagebreak >}}
-
 ```{r, figure.height = 18}
 #| label: repeat-2
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 #| fig-height: 10
 
 draw_repeat_plot(df = coord_long,
@@ -544,11 +558,10 @@ draw_repeat_plot(df = coord_long,
 
 ```
 
-{{< pagebreak >}}
-
 ```{r, figure.height = 18}
 #| label: repeat-3
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 #| fig-height: 10
 
 draw_repeat_plot(df = coord_long,
@@ -559,50 +572,10 @@ draw_repeat_plot(df = coord_long,
 
 ```
 
-## Primer Coordinates
-
-We can also add on the coordinates of PanSolid primers to the plots.
-
-On this plot we can see that the call for some samples expands from ERBB2 upstream to the CDK12 gene, which is where the next set of primers is concentrated.
-
-```{r}
-#| label: erbb2-primers
-#| echo: FALSE
-
-ggplot(df_mod, aes(x = coordinate, y = fold_change_adjusted)) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
-  geom_line(linewidth = 2, colour = safe_red) +
-  geom_point(data = primers_for_plot, colour = safe_blue) +
-  geom_vline(xintercept = erbb2_min, linetype = "dashed") +
-  geom_vline(xintercept = erbb2_max, linetype = "dashed") +
-  facet_wrap(~sample_id) +
-  ylim(0, 70)  +
-  labs(title = "ERBB2 CNVs with primers in blue")
-
-```
-
-## Controls
-
 ```{r}
 #| label: controls
-#| echo: FALSE
-
-control_regex <- regex(
-  r"[
-  (WS\d{6})             # Worksheet number
-  _
-  (\d{8})               # Sample number
-  _.+
-  ]",
-  comments = TRUE
-)
-
-clc_controls <- read_excel(path = here::here("data/clc_controls.xlsx")) |> 
-  mutate(sample_id = str_extract(string = control, pattern = control_regex,
-                                 group = 2))
-
-control_ids <- clc_controls$sample_id
+#| include: FALSE
+#| eval: FALSE
 
 control_info <- sample_tbl |> 
   filter(LABNO %in% control_ids) |> 
@@ -610,20 +583,14 @@ control_info <- sample_tbl |>
   collect() |> 
   arrange(LABNO)
 
-
 write.csv(control_info, here::here("outputs/controls_for_volume_check.csv"),
           row.names = FALSE)
-
-
 ```
-
-There are **`r length(control_ids)`** control samples used by the CLC pipeline.
-
-Querying DLMS shows that they are the correct sample type and extraction method.
 
 ```{r}
 #| label: control-tissue
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 
 control_tissue <- get_sample_tissue(control_ids) |>  
   count(tissue_type)
@@ -634,7 +601,8 @@ knitr::kable(control_tissue)
 
 ```{r}
 #| label: control-extraction
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 
 control_extraction <- get_extraction_method(control_ids) |>  
   count(MethodName)
@@ -643,11 +611,10 @@ knitr::kable(control_extraction)
 
 ```
 
-## Coverage
-
 ```{r}
 #| label: control-coverage
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 #| message: FALSE
 
 control_files <- list.files(here::here("data/control_data/"),
@@ -662,7 +629,8 @@ control_coverage <- control_files |>
 
 ```{r}
 #| label: coverage
-#| echo: FALSE
+#| include: FALSE
+#| eval: FALSE
 #| message: FALSE
 
 qc_data <- all_files |>
@@ -691,94 +659,192 @@ ggplot(for_plot, aes(x = type,
 
 ## Seraseq controls
 
-```{r}
-#| label: seraseq
-#| echo: FALSE
+We have run 3 Seraseq controls on PanSolid with 3, 6 and 12 additional gene copies.
 
-seraseq_names <- grep(pattern = "seraseq", x = all_calls$patient_name,
+```{r}
+#| label: seraseq-controls
+#| include: FALSE
+
+seraseq_names <- grep(pattern = "seraseq", x = coord_long$patient_name,
                       ignore.case = TRUE, value = TRUE)
 
-seraseq_erbb2 <- draw_cnv_plot(df = coord_long |> 
-                filter(patient_name %in% seraseq_names), 
-              input_gene = "ERBB2", 
-              input_setting = "fine",
-              interval = 50000,
-              ymax = 15,
-              gene_min = erbb2_min,
-              gene_max = erbb2_max,
-              buffer = 10000)
+seracare_regex <- regex(
+  r"[
+  CNVMix
+  (\d{1,2}(c|C)opiesSERASEQ)
+  _.+
+  ]",
+  comments = TRUE
+)
 
-seraseq_egfr <- draw_cnv_plot(df = coord_long |> 
-                filter(patient_name %in% seraseq_names), 
+seraseq_results <- coord_long |> 
+  filter(patient_name %in% seraseq_names) |> 
+  mutate(patient_name = str_extract(string = patient_name,
+                                           pattern = seracare_regex,
+                                           group = 1),
+         patient_name = factor(patient_name, levels = c("3copiesSERASEQ",
+                                                        "6CopiesSERASEQ",
+                                                        "12CopiesSERASEQ")))
+
+```
+
+### ERBB2
+
+For ERBB2, all controls were detected correctly on the coarse setting. 
+
+```{r}
+#| label: seraseq-erbb2
+#| echo: FALSE
+
+seraseq_erbb2 <- draw_cnv_plot(df = seraseq_results,
+                               input_gene = "ERBB2", 
+                                input_setting = "coarse",
+                                interval = 50000,
+                                ymax = 15,
+                                gene_min = erbb2_min,
+                                gene_max = erbb2_max,
+                                buffer = 10000) +
+                    labs(title = "ERBB2 SeraCare controls") +
+                    facet_wrap(~patient_name) +
+  labs(caption = "Dots show positions of QiaSeq primers")
+
+seraseq_erbb2
+
+```
+
+{{< pagebreak >}}
+
+### EGFR
+
+EGFR was also correctly detected.
+
+```{r}
+#| label: seraseq-egfr
+#| echo: FALSE
+
+seraseq_egfr <- draw_cnv_plot(df = seraseq_results,
               input_gene = "EGFR", 
-              input_setting = "fine",
+              input_setting = "coarse",
               interval = 50000,
               ymax = 15,
               gene_min = egfr_min,
               gene_max = egfr_max,
-              buffer = 200000)
+              buffer = 200000) +
+  facet_wrap(~patient_name) +
+  labs(title = "EGFR SeraCare controls") +
+  labs(caption = "Dots show positions of QiaSeq primers")
 
-seraseq_met <- draw_cnv_plot(df = coord_long |> 
-                filter(patient_name %in% seraseq_names), 
+seraseq_egfr
+
+```
+
+{{< pagebreak >}}
+
+### MET
+
+MET was detected on all 3 controls.
+
+```{r}
+#| label: seraseq-met
+#| echo: FALSE
+
+seraseq_met <- draw_cnv_plot(df = seraseq_results,
               input_gene = "MET", 
               input_setting = "coarse",
               interval = 50000,
               ymax = 15,
               gene_min = met_min,
               gene_max = met_max,
-              buffer = 200000)
+              buffer = 200000) +
+  facet_wrap(~patient_name) +
+  labs(title = "MET SeraCare controls") +
+  labs(caption = "Dots show positions of QiaSeq primers")
 
-seraseq_myc <- draw_cnv_plot(df = coord_long |> 
-                filter(patient_name %in% seraseq_names), 
-              input_gene = "MYC", 
-              input_setting = "fine",
-              interval = 10000,
-              ymax = 15,
-              gene_min = myc_min,
-              gene_max = myc_max,
-              buffer = 50000)
+seraseq_met
 
-seraseq_braf <- draw_cnv_plot(df = coord_long |> 
-                filter(patient_name %in% seraseq_names), 
+```
+
+{{< pagebreak >}}
+
+### BRAF
+
+BRAF was detected only at 6 and 12 additional copies when both coarse and fine anlysis settings were used.
+
+```{r}
+#| label: seraseq-braf
+#| echo: FALSE
+
+seraseq_braf <- draw_cnv_plot(df = seraseq_results,
               input_gene = "BRAF", 
               input_setting = "fine",
               interval = 50000,
               ymax = 15,
               gene_min = braf_min,
               gene_max = braf_max,
-              buffer = 200000)
+              buffer = 200000) +
+  facet_wrap(~patient_name) +
+  labs(title = "BRAF SeraCare controls") +
+  labs(caption = "Dots show positions of QiaSeq primers")
 
-coarse_calls |> 
-  filter(patient_name %in% seraseq_names) |>
-  select(worksheet, sample_id, patient_name, gene, fold_change_adjusted)
-
-
-ggarrange(seraseq_erbb2, seraseq_egfr, seraseq_met,
-          ncol = 1)
-
+seraseq_braf
 
 ```
 
-## EGFR Transcript III
+{{< pagebreak >}}
+
+### MYC
+
+MYC was not called at all on the coarse setting, this is probably due to the small size of this gene.
+
+On the fine setting, the 6 and 12 additional copies were picked up, but there was only a small call for the 3 additional copies sample.
 
 ```{r}
+#| label: seraseq-myc
+#| echo: FALSE
+
+seraseq_myc <- draw_cnv_plot(df = seraseq_results,
+              input_gene = "MYC", 
+              input_setting = "fine",
+              interval = 5000,
+              ymax = 15,
+              gene_min = myc_min,
+              gene_max = myc_max,
+              buffer = 10000) +
+  facet_wrap(~patient_name) +
+  labs(title = "MYC SeraCare controls") +
+  labs(caption = "Dots show positions of QiaSeq primers")
+
+seraseq_myc
+
+```
+
+{{< pagebreak >}}
+
+## EGFR Transcript III
+
+One sample tested on PanSolid (19032386) also had the EGFRvIII transcript detected previously by ddPCR (WS104445).
+
+When we look at the results from CLC for this sample, there are 2 copy number calls in EGFR: the boundary between them is the end of exon 7.
+
+Because there are fewer Qiaseq primers at the start of the EGFR gene, this may be why the region from exon 1 to exon 2 was not called with the same copy number as exon 7 to the end of the gene.
+
+```{r}
+#| label: egfr-viii
+#| echo: FALSE
 
 egfr_exon2_start <- 55142286
 
 egfr_exon7_end <- 55154158
 
 draw_cnv_plot(df = coord_long |> 
-                filter(sample_id == 19032386), input_gene = "EGFR", input_setting = "fine",
+                filter(sample_id == 19032386), input_gene = "EGFR", 
+              input_setting = "fine",
+              interval = 100000,
               gene_min = egfr_exon2_start,
               gene_max = egfr_exon7_end) +
-  labs(subtitle = "Dotted lines show exon 2 to 7 region")
-
-draw_cnv_plot(df = coord_long |> 
-                filter(sample_id %in% c(19032386,
-                                        23041898)), input_gene = "EGFR", input_setting = "fine",
-              gene_min = egfr_exon2_start,
-              gene_max = egfr_exon7_end) +
-  labs(subtitle = "Dotted lines show exon 2 to 7 region")
-
+  facet_wrap(~sample_id) +
+  labs(title = "EGFR vIII detected on PanSolid",
+       subtitle = "Setting: fine. Dotted lines show exon 2 to 7 region",
+       caption = "Dots show positions of QiaSeq primers")
 
 ```
