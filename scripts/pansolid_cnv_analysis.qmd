@@ -131,6 +131,8 @@ all_files <- flatten(list(
   
   list.files(str_c(datapath, "M4_LUNG_PS/"), full.names = TRUE),
   
+  list.files(str_c(datapath, "PANSOLID/"), full.names = TRUE),
+  
   list.files(str_c(negatives_path, "CNS_PS/"), full.names = TRUE),
 
   list.files(str_c(negatives_path, "M1_CRC_PS/"), full.names = TRUE),
@@ -400,6 +402,8 @@ We can examine the CNV calls in terms of genomic coordinates by using line graph
 #| label: egfr-plot
 #| echo: FALSE
 
+primer_location <- 140734686
+
 draw_cnv_plot(df = coord_long, input_gene = "EGFR", input_setting = "coarse",
               interval = 1000000)
 
@@ -411,8 +415,8 @@ The x axis for EGFR is skewed by one sample with a large CNV, so we can remove t
 #| label: egfr-plot-zoom
 #| echo: FALSE
 
-draw_cnv_plot(df = coord_long |> 
-                filter(sample_id != 23038464), input_gene = "EGFR", input_setting = "coarse")
+draw_cnv_plot()
+
 ```
 
 Here's the same plot for ERBB2 and then a zoomed in version. Interestingly, when we zoom in we can see that not all the calls cover the full gene region.
@@ -424,11 +428,18 @@ Here's the same plot for ERBB2 and then a zoomed in version. Interestingly, when
 draw_cnv_plot(df = coord_long, input_gene = "ERBB2", input_setting = "coarse", 
               interval = 50000)
 
+erbb2_exon13 <- 39716373
+erbb2_exon26 <- 39727375
+
 draw_cnv_plot(df = coord_long |> 
                 filter(!sample_id %in% c(22034556, 23001095, 
                                       21019092, 23022389, 23055093)), 
               input_gene = "ERBB2", input_setting = "coarse",
-              interval = 10000)
+              interval = 10000,
+              gene_min = erbb2_exon13,
+              gene_max = erbb2_exon26,
+              buffer = 10000) +
+  labs(subtitle = "Dashed lines show exons 13 and 26 - ddPCR assay targets")
 
 ```
 
@@ -439,7 +450,9 @@ And finally the one MET call, which is very large.
 #| echo: FALSE
 
 draw_cnv_plot(df = coord_long, input_gene = "MET", input_setting = "coarse",
-              interval = 1000000)
+              interval = 1000000) +
+  geom_vline(xintercept = primer_location,
+             linetype = "dashed", colour = "red")
 
 ```
 
@@ -452,10 +465,14 @@ Here are the CNV calls for BRAF and MYC.
 #| echo: FALSE
 
 draw_cnv_plot(df = coord_long, input_gene = "BRAF", input_setting = "coarse",
-              interval = 1000000)
+              interval = 1000000) +
+  geom_vline(xintercept = primer_location,
+             linetype = "dashed", colour = "red")
 
 draw_cnv_plot(df = coord_long, input_gene = "MYC", input_setting = "coarse",
-              interval = 10000000)
+              interval = 10000000) +
+  geom_vline(xintercept = primer_location,
+             linetype = "dashed", colour = "red")
 
 ```
 
@@ -546,33 +563,6 @@ draw_repeat_plot(df = coord_long,
 
 We can also add on the coordinates of PanSolid primers to the plots.
 
-```{r}
-#| label: primer-coordinates
-#| echo: FALSE
-
-grch38_primers <- read_csv(file =
-                             here::here("data/CDHS-40079Z-11284.primer3_Converted.csv"),
-                           show_col_types = FALSE) |> 
-  janitor::clean_names()
-
-grch38_primer_coordinates <- extract_cnv_coordinates(grch38_primers |> 
-                                                       dplyr::rename(cnv_region = region))
-
-df_mod <- coord_long |> 
-  filter(setting == "coarse") |> 
-  filter(gene == "ERBB2")
-
-cnv_min <- min(df_mod$coordinate)
-
-cnv_max <- max(df_mod$coordinate)
-
-primers_for_plot <- grch38_primer_coordinates |> 
-  dplyr::rename(coordinate = cnv_start) |> 
-  mutate(fold_change_adjusted = 1) |> 
-  filter(coordinate >= cnv_min & coordinate <= cnv_max)
-
-```
-
 On this plot we can see that the call for some samples expands from ERBB2 upstream to the CDK12 gene, which is where the next set of primers is concentrated.
 
 ```{r}
@@ -614,11 +604,16 @@ clc_controls <- read_excel(path = here::here("data/clc_controls.xlsx")) |>
 
 control_ids <- clc_controls$sample_id
 
-control_results <- results_tbl |> 
+control_info <- sample_tbl |> 
   filter(LABNO %in% control_ids) |> 
-  select(LABNO, TEST, TESTTYPE, Genotype, Genotype2, GENOCOMM) |> 
+  select(LABNO, FIRSTNAME, SURNAME, CONCENTRATION) |> 
   collect() |> 
-  filter(Genotype != "Fail")
+  arrange(LABNO)
+
+
+write.csv(control_info, here::here("outputs/controls_for_volume_check.csv"),
+          row.names = FALSE)
+
 
 ```
 
@@ -650,7 +645,6 @@ knitr::kable(control_extraction)
 
 ## Coverage
 
-
 ```{r}
 #| label: control-coverage
 #| echo: FALSE
@@ -665,7 +659,6 @@ control_coverage <- control_files |>
   list_rbind()
 
 ```
-
 
 ```{r}
 #| label: coverage
@@ -693,5 +686,99 @@ ggplot(for_plot, aes(x = type,
   geom_jitter() +
   theme_bw() +
   labs(x = "")
+
+```
+
+## Seraseq controls
+
+```{r}
+#| label: seraseq
+#| echo: FALSE
+
+seraseq_names <- grep(pattern = "seraseq", x = all_calls$patient_name,
+                      ignore.case = TRUE, value = TRUE)
+
+seraseq_erbb2 <- draw_cnv_plot(df = coord_long |> 
+                filter(patient_name %in% seraseq_names), 
+              input_gene = "ERBB2", 
+              input_setting = "fine",
+              interval = 50000,
+              ymax = 15,
+              gene_min = erbb2_min,
+              gene_max = erbb2_max,
+              buffer = 10000)
+
+seraseq_egfr <- draw_cnv_plot(df = coord_long |> 
+                filter(patient_name %in% seraseq_names), 
+              input_gene = "EGFR", 
+              input_setting = "fine",
+              interval = 50000,
+              ymax = 15,
+              gene_min = egfr_min,
+              gene_max = egfr_max,
+              buffer = 200000)
+
+seraseq_met <- draw_cnv_plot(df = coord_long |> 
+                filter(patient_name %in% seraseq_names), 
+              input_gene = "MET", 
+              input_setting = "coarse",
+              interval = 50000,
+              ymax = 15,
+              gene_min = met_min,
+              gene_max = met_max,
+              buffer = 200000)
+
+seraseq_myc <- draw_cnv_plot(df = coord_long |> 
+                filter(patient_name %in% seraseq_names), 
+              input_gene = "MYC", 
+              input_setting = "fine",
+              interval = 10000,
+              ymax = 15,
+              gene_min = myc_min,
+              gene_max = myc_max,
+              buffer = 50000)
+
+seraseq_braf <- draw_cnv_plot(df = coord_long |> 
+                filter(patient_name %in% seraseq_names), 
+              input_gene = "BRAF", 
+              input_setting = "fine",
+              interval = 50000,
+              ymax = 15,
+              gene_min = braf_min,
+              gene_max = braf_max,
+              buffer = 200000)
+
+coarse_calls |> 
+  filter(patient_name %in% seraseq_names) |>
+  select(worksheet, sample_id, patient_name, gene, fold_change_adjusted)
+
+
+ggarrange(seraseq_erbb2, seraseq_egfr, seraseq_met,
+          ncol = 1)
+
+
+```
+
+## EGFR Transcript III
+
+```{r}
+
+egfr_exon2_start <- 55142286
+
+egfr_exon7_end <- 55154158
+
+draw_cnv_plot(df = coord_long |> 
+                filter(sample_id == 19032386), input_gene = "EGFR", input_setting = "fine",
+              gene_min = egfr_exon2_start,
+              gene_max = egfr_exon7_end) +
+  labs(subtitle = "Dotted lines show exon 2 to 7 region")
+
+draw_cnv_plot(df = coord_long |> 
+                filter(sample_id %in% c(19032386,
+                                        23041898)), input_gene = "EGFR", input_setting = "fine",
+              gene_min = egfr_exon2_start,
+              gene_max = egfr_exon7_end) +
+  labs(subtitle = "Dotted lines show exon 2 to 7 region")
+
 
 ```
