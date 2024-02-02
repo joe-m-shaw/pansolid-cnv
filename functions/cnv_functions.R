@@ -470,6 +470,12 @@ discode <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
   collect() |> 
   janitor::clean_names()
 
+ngiscodes <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                                             schema = "dbo",
+                                             table = "NGISCodes")) |> 
+  collect() |> 
+  janitor::clean_names()
+
 # Database functions ----------------------------------------------------------------
 
 get_columns <- function(table_input) {
