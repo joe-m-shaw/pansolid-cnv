@@ -183,7 +183,7 @@ knitr::kable(sample_type_summary)
 ```
 
 ```{r}
-#| label: discodes
+#| label: discodes-and-pathno
 #| include: FALSE
 
 sample_disease_codes <- sample_tbl |> 
@@ -470,6 +470,28 @@ ddpcr_pansolid_dq |>
                filter(sample %in% discrepant_samples), size = 3, fill = safe_red,
              pch = 21)
  
+
+
+ddpcr_pansolid_dq |> 
+  filter(!is.na(gene_dq)) |> 
+  ggplot(aes(x = fold_change_adjusted, y = gene_dq)) +
+    #geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
+    geom_point(size = 3, fill = safe_blue, alpha = 0.4, pch = 21) +
+    theme_bw() +
+  geom_abline(linetype = "dashed", slope =2) +
+  ylim(0, 50) +
+  xlim(0, 50) +
+  geom_point(data = ddpcr_pansolid_dq |> 
+               filter(sample %in% discrepant_samples), size = 3, fill = safe_red,
+             pch = 21)
+
+
+ddpcr_pansolid_dq |> 
+  filter(!is.na(gene_dq)) |> 
+  select(sample, fold_change_adjusted, gene_dq) |>  view()
+
+
+
 ```
 
 {{< pagebreak >}}
@@ -925,3 +947,39 @@ draw_cnv_plot(df = coord_long |>
        caption = "Dots show positions of QiaSeq primers")
 
 ```
+
+```{r}
+#| label: erbb2-pathnos
+#| echo: FALSE
+
+consultant_address <- sample_tbl |> 
+  select(LABNO, ConsultantAddress) |> 
+  filter(LABNO %in% samples_tested) |> 
+  collect() |> 
+  mutate(ConsultantAddress = str_replace_all(string  = ConsultantAddress, 
+                                             pattern = "\\r\\n", 
+                                             replacement = ", "),
+         ConsultantAddress = str_replace_all(string = ConsultantAddress,
+                                             pattern = "\\n",
+                                             replacement = ", "))
+
+path_nos <-  sample_tbl |> 
+  select(LABNO, PATHNO, Consultant) |> 
+  filter(LABNO %in% samples_tested) |> 
+  collect()
+
+erbb2_pathnos <- collated_coarse_mod |> 
+  filter(gene == "ERBB2") |> 
+  left_join(path_nos, join_by(sample == LABNO)) |> 
+  left_join(consultant_address, join_by(sample == LABNO)) |> 
+  select(sample, name, gene, result, PATHNO, Consultant, ConsultantAddress) |> 
+  janitor::clean_names() |> 
+  # Remove Seracare controls
+  filter(consultant_address != "") |> 
+  rename(clc_coarse_result = result) |> 
+  arrange(consultant_address)
+
+export_timestamp(erbb2_pathnos)
+
+```
+
