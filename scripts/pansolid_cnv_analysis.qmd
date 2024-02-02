@@ -148,14 +148,14 @@ collated_coarse_mod <- collated_coarse |>
   # Remove one sample tested twice with a_ and _ suffix
   filter(sample_suffix != "21039327a_")
 
+samples_tested <- unique(collated_coarse_mod$sample)
+
 ```
 
 ```{r}
 #| label: sample-extractions
 #| include: FALSE
 #| eval: FALSE
-
-samples_tested <- unique(collated_coarse_mod$sample)
 
 sample_extraction <- get_extraction_method(samples_tested)
 
@@ -179,6 +179,19 @@ sample_type_summary <- sample_types |>
   arrange(desc(n))
 
 knitr::kable(sample_type_summary)
+
+```
+
+```{r}
+#| label: discodes
+#| include: FALSE
+
+sample_disease_codes <- sample_tbl |> 
+  select(LABNO, DISEASE, "DISEASE 2", "DISEASE 3", "DISEASE 4", NGIS) |> 
+  filter(LABNO %in% samples_tested) |> 
+  collect() |> 
+  left_join(discode |> 
+              select(discode, disease), join_by(DISEASE == discode))
 
 ```
 
@@ -313,9 +326,17 @@ ddpcr_pansolid |>
 
 The ddPCR is comparing the ERBB2 locus (chromosome 17) to the AP3B1 locus (chromosome 5), whilst PanSolid has a more holistic comparison of copy number across the genome. This may explain the discrepant results.
 
+{{< pagebreak >}}
+
+## ddPCR vs PanSolid and Dosage Quotient
+
+The same 3 samples are discrepant between ddPCR and both PanSolid and Core Dosage Quotient - all 3 are at the lower end of the called amplifications, which is reassuring.
+
 ```{r}
 #| label: fold-change-vs-ddpcr
 #| echo: FALSE
+
+discrepant_samples <- c(23001095, 23002258, 23008380)
 
 ggplot(ddpcr_pansolid |> 
   filter(!is.na(fold_change_adjusted)), aes(x = fold_change_adjusted, y = cnv)) +
@@ -323,16 +344,17 @@ ggplot(ddpcr_pansolid |>
   geom_point(size = 3, fill = safe_blue, alpha = 0.8, pch = 21) +
   theme_bw() +
   geom_hline(yintercept = 6, linetype = "dashed") +
-  geom_vline(xintercept = 6, linetype = "dashed") +
   labs(x = "PanSolid Fold Change", y = "ddPCR Copy Number",
          title = "ddPCR versus PanSolid: amplification samples",
-         subtitle = "All samples with fold change above 6 are consistent with ddPCR") +
-    scale_y_continuous(limits = c(0, 80), breaks = c(0, 6, 20, 40, 60, 80)) +
-    scale_x_continuous(limits = c(0, 30), breaks = c(0, 6, 10, 20, 30)) 
+         subtitle = "Samples 23001095, 23002258 and 23008380 in red") +
+    scale_y_continuous(limits = c(0, 100), breaks = c(0, 6, 20, 40, 60, 80, 100))  +
+    scale_x_continuous(limits = c(0, 30), breaks = c(0, 6, 10, 20, 30)) +
+  geom_point(data = ddpcr_pansolid |> 
+               filter(sample %in% discrepant_samples), size = 3, fill = safe_red,
+             pch = 21)
 
 ```
 
-{{< pagebreak >}}
 
 ```{r}
 #| label: coord-long
@@ -369,7 +391,6 @@ draw_cnv_plot(df = coord_long |>
 ```{r}
 #| label: core-results
 #| include: FALSE
-#| eval: FALSE
 
 results_tbl <- tbl(dbi_con, 
                    dbplyr::in_catalog(
@@ -419,18 +440,68 @@ joined <- collated_coarse_mod |>
            
          ))
 
-egfr_conf <- draw_confusion_matrix("EGFR")
+```
 
-erbb2_conf <- draw_confusion_matrix("ERBB2")
+```{r}
+#| label: dq-vs-ddpcr
+#| echo: FALSE
 
-met_conf <- draw_confusion_matrix("MET")
+dq_erbb2 <- core_cnv_calls |> 
+  filter(gene_match == "ERBB2")
+
+ddpcr_pansolid_dq <- ddpcr_pansolid |> 
+  left_join(dq_erbb2, join_by(sample == LABNO)) |> 
+  left_join(sample_disease_codes, join_by(sample == LABNO))
+
+ddpcr_pansolid_dq |> 
+  filter(!is.na(gene_dq)) |> 
+  ggplot(aes(x = gene_dq, y = cnv)) +
+    geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
+    geom_point(size = 3, fill = safe_blue, alpha = 0.8, pch = 21) +
+    theme_bw() +
+    geom_hline(yintercept = 6, linetype = "dashed") +
+    #geom_vline(xintercept = 6, linetype = "dashed") +
+    labs(x = "Core Dosage Quotient", y = "ddPCR Copy Number",
+           title = "ddPCR versus Dosage Quotient: amplification samples",
+         subtitle = "Samples 23001095, 23002258 and 23008380 in red") +
+  scale_y_continuous(limits = c(0, 100), breaks = c(0, 6, 20, 40, 60, 80, 100)) +
+  scale_x_continuous(limits = c(0, 50), breaks = c(0, 6, 10, 20, 30, 40, 50)) +
+  geom_point(data = ddpcr_pansolid_dq |> 
+               filter(sample %in% discrepant_samples), size = 3, fill = safe_red,
+             pch = 21)
+ 
+```
+
+{{< pagebreak >}}
+
+## Disease codes
+
+I've queried DLMS to add the disease codes to the tested samples. 3 of the amplification samples are from non-small cell lung cancer.
+
+```{r}
+#| label: disease-codes-plot
+#| echo: FALSE
+
+ddpcr_pansolid_dq |> 
+  filter(pansolid_result != "pansolid normal control") |> 
+  ggplot(aes(x = reorder(sample, cnv), y = cnv)) +
+    geom_point(aes(fill = disease), pch = 21, size = 3) +
+  theme_bw() +
+    theme(axis.text.x = element_blank()) +
+    geom_hline(yintercept = 6, linetype = "dashed") +
+  labs(x = "Sample", y = "ddPCR ERBB2 exon 13 copy number")
 
 ```
+
+{{< pagebreak >}}
 
 ```{r}
 #| label: egfr
 #| include: FALSE
 #| eval: FALSE
+
+egfr_conf <- draw_confusion_matrix("EGFR")
+
 knitr::kable(egfr_conf)
 
 ```
@@ -439,6 +510,9 @@ knitr::kable(egfr_conf)
 #| label: erbb2
 #| include: FALSE
 #| eval: FALSE
+
+erbb2_conf <- draw_confusion_matrix("ERBB2")
+
 knitr::kable(erbb2_conf)
 
 ```
@@ -447,6 +521,9 @@ knitr::kable(erbb2_conf)
 #| label: met
 #| include: FALSE
 #| eval: FALSE
+
+met_conf <- draw_confusion_matrix("MET")
+
 knitr::kable(met_conf)
 
 ```
