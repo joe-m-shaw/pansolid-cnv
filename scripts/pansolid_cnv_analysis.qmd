@@ -153,6 +153,25 @@ samples_tested <- unique(collated_coarse_mod$sample)
 ```
 
 ```{r}
+#| label: ngs-worksheets
+#| include: FALSE
+
+worksheet_summary <- collated_coarse_mod |> 
+  filter(gene == "ERBB2") |> 
+  count(worksheet) |> 
+  arrange(desc(n)) |> 
+  mutate(worksheet_number = parse_number(worksheet))
+  
+pansolid_worksheets <- unique(worksheet_summary$worksheet_number)
+
+pansolid_worksheet_info <- dlms_worksheets |> 
+  select(-ReactionConditions) |> 
+  filter(PCRID %in% pansolid_worksheets) |> 
+  collect()
+
+```
+
+```{r}
 #| label: sample-extractions
 #| include: FALSE
 #| eval: FALSE
@@ -231,10 +250,10 @@ ws138579 <- read_biorad_csv("WS138579_analysed.csv")
 
 ## Update (30/01/2024)
 
-- ddPCR assays designed and tested for 3 exons in each of ERBB2, EGFR, BRAF, MET and MYC
-- 12/15 assays successful when tested (ddPCR WS138419)
-- ERBB2 exon 13 ddPCR performed on 28 samples from PanSolid control cohort, plus 23 patients with PanSolid results
-- SeraCare controls tested via PanSolid
+-   ddPCR assays designed and tested for 3 exons in each of ERBB2, EGFR, BRAF, MET and MYC
+-   12/15 assays successful when tested (ddPCR WS138419)
+-   ERBB2 exon 13 ddPCR performed on 28 samples from PanSolid control cohort, plus 23 patients with PanSolid results
+-   SeraCare controls tested via PanSolid
 
 {{< pagebreak >}}
 
@@ -287,7 +306,6 @@ ddpcr_pansolid <- ws138579_erbb2 |>
                                                          "pansolid normal result",
                                                          "pansolid amplification")))
 ```
-
 
 ```{r}
 #| label: ddpcr-vs-pansolid-plot
@@ -354,7 +372,6 @@ ggplot(ddpcr_pansolid |>
              pch = 21)
 
 ```
-
 
 ```{r}
 #| label: coord-long
@@ -789,7 +806,7 @@ seraseq_results <- coord_long |>
 
 ### ERBB2
 
-For ERBB2, all controls were detected correctly on the coarse setting. 
+For ERBB2, all controls were detected correctly on the coarse setting.
 
 ```{r}
 #| label: seraseq-erbb2
@@ -798,7 +815,7 @@ For ERBB2, all controls were detected correctly on the coarse setting.
 seraseq_erbb2 <- draw_cnv_plot(df = seraseq_results,
                                input_gene = "ERBB2", 
                                 input_setting = "coarse",
-                                interval = 50000,
+                                interval = 10000,
                                 ymax = 15,
                                 gene_min = erbb2_min,
                                 gene_max = erbb2_max,
@@ -952,21 +969,37 @@ draw_cnv_plot(df = coord_long |>
 #| label: erbb2-pathnos
 #| echo: FALSE
 
+rerun_samples <- read_csv(here::here("outputs/2024_02_07_10_03_12_samples_to_rerun.csv"))
+
+rerun_ids <- unique(rerun_samples$sample)
+
 consultant_address <- sample_tbl |> 
-  select(LABNO, ConsultantAddress) |> 
-  filter(LABNO %in% samples_tested) |> 
+  select(LABNO, FIRSTNAME, SURNAME, ConsultantAddress) |> 
+  filter(LABNO %in% rerun_ids) |> 
   collect() |> 
   mutate(ConsultantAddress = str_replace_all(string  = ConsultantAddress, 
                                              pattern = "\\r\\n", 
                                              replacement = ", "),
          ConsultantAddress = str_replace_all(string = ConsultantAddress,
                                              pattern = "\\n",
-                                             replacement = ", "))
+                                             replacement = ", "),
+         name = str_c(FIRSTNAME, " ", SURNAME))
 
 path_nos <-  sample_tbl |> 
   select(LABNO, PATHNO, Consultant) |> 
-  filter(LABNO %in% samples_tested) |> 
+  filter(LABNO %in% rerun_ids) |> 
   collect()
+
+rerun_sample_info <- consultant_address |> 
+  left_join(path_nos, by = "LABNO") |> 
+  mutate(gene	= "ERBB2",
+         clc_coarse_result = "") |>
+  rename(sample = "LABNO") |> 
+  janitor::clean_names() |> 
+  select(sample, name, gene, clc_coarse_result, pathno, consultant,
+         consultant_address)
+
+export_timestamp(rerun_sample_info)
 
 erbb2_pathnos <- collated_coarse_mod |> 
   filter(gene == "ERBB2") |> 
@@ -982,4 +1015,3 @@ erbb2_pathnos <- collated_coarse_mod |>
 export_timestamp(erbb2_pathnos)
 
 ```
-

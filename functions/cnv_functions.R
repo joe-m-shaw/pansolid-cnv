@@ -9,9 +9,9 @@ dbi_con <- DBI::dbConnect(
   drv = odbc::odbc(),
   dsn = "moldb")
 
-# CSV timestamp ---------------------------------------------------------------------
+# Export functions ------------------------------------------------------------------
 
-export_timestamp <- function(input) {
+csv_timestamp <- function(input) {
   write.csv(input,
             file = here::here(paste0(
               "outputs/",
@@ -23,13 +23,7 @@ export_timestamp <- function(input) {
   )
 }
 
-# Plot functions --------------------------------------------------------------------
-
-safe_blue <- "#88CCEE"
-safe_red <- "#CC6677"
-safe_grey <- "#888888"
-
-save_plot <- function(input_plot, input_width = 15, input_height = 12, dpi = 300) {
+plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi = 300) {
   
   # Default inputs allow for presenting a plot as half an A4 page
   
@@ -41,13 +35,21 @@ save_plot <- function(input_plot, input_width = 15, input_height = 12, dpi = 300
     ),
     plot = input_plot,
     device = "png",
-    path = "plots/",
+    path = here::here("plots/"),
     units = "cm",
     width = input_width,
     height = input_height,
     dpi = 300
   )
 }
+
+# Plot functions --------------------------------------------------------------------
+
+safe_blue <- "#88CCEE"
+safe_red <- "#CC6677"
+safe_grey <- "#888888"
+
+
 
 plot_coarse_v_fine <- function(input_gene) {
   
@@ -282,6 +284,8 @@ summarise_results <- function(file, input_sheet) {
                         sheet = input_sheet) |> 
     janitor::clean_names()
   
+  worksheet <- parse_filename(file, 1)
+  
   sample_id <- parse_filename(file, 2)
   
   qualifier <- parse_filename(file, 3)
@@ -306,7 +310,8 @@ summarise_results <- function(file, input_sheet) {
     mutate(suffix = qualifier,
            sample = sample_id,
            sample_suffix = sample_id_suffix,
-           name = patient_name)
+           name = patient_name,
+           worksheet = worksheet)
   
   return(summary)
   
@@ -317,7 +322,7 @@ filename_to_df <- function(file) {
   
   output <- data.frame(
     worksheet = c(parse_filename(file, 1)),
-    sample_id = c(parse_filename(file, 2)),
+    sample_id = c(as.numeric(parse_filename(file, 2))),
     qualifier = c(parse_filename(file, 3)),
     patient_name = c(parse_filename(file, 4))) |> 
     mutate(
@@ -328,10 +333,42 @@ filename_to_df <- function(file) {
   
 }
 
+coarse_tab <- "Oncogenes (Amplified) Coars..."
+fine_tab <- "Oncogenes (Amplified) Fine-..."
+
 read_clc_excel <- function(file, input_sheet) {
   
-  results <- read_excel(path = file,
-                        sheet = input_sheet) |> 
+  x <- read_excel(path = file, sheet = input_sheet) 
+  
+  if(nrow(x) == 0) {
+    
+    x <- tibble("Chromosome" = 0, 
+                "Region" = "",
+                "Name" = "", 
+                "Region length" = 0, 
+                "type" = "",
+                "source" = "", 
+                "ID"= "", 
+                "GeneID"= "", 
+                "HGNC"= "",
+                "MIM"= "",
+                "description"= "", 
+                "gbkey"= "", 
+                "gene"= "No calls",
+                "gene_biotype"= "", 
+                "gene_synonym"= "", 
+                "CNV region"= "",
+                "CNV region length"= 0,
+                "Consequence"= "",
+                "Fold-change (adjusted)"= 0,
+                "p-value"= 0,
+                "Number of targets"= 0,
+                "Comments"= "", 
+                "Targets"= "")
+    
+  }
+  
+  results <- x |> 
     janitor::clean_names() |> 
     mutate(
       worksheet =  parse_filename(file, 1),
@@ -340,7 +377,8 @@ read_clc_excel <- function(file, input_sheet) {
       sample_id_suffix = str_c(sample_id, qualifier),
       patient_name = parse_filename(file, 4),
       sample_id_worksheet = str_c(sample_id_suffix, worksheet),
-      setting = input_sheet) |> 
+      setting = input_sheet,
+      filename = file) |> 
     relocate(worksheet, sample_id, qualifier, sample_id_suffix, patient_name,
              sample_id_worksheet, setting)
   
@@ -424,14 +462,30 @@ extract_cnv_coordinates <- function(df) {
         )
   
   output <- df |> 
-    mutate(cnv_start = as.numeric(str_extract(string = cnv_region, 
+    mutate(start = as.numeric(str_extract(string = cnv_region, 
                                               pattern = cnv_coord_regex, 
                                               group = 1)),
-           cnv_end = as.numeric(str_extract(string = cnv_region, 
+           end = as.numeric(str_extract(string = cnv_region, 
                                             pattern = cnv_coord_regex, 
                                             group = 2))) 
   
   return(output)
+  
+}
+
+calculate_target_copies <- function(fold_change, tcc_percent) {
+  
+  ref_sample_copies <- 200
+  
+  tcc_fraction <- tcc_percent / 100
+  
+  sample_total_target_copies <- fold_change * ref_sample_copies
+  
+  sample_target_copies_in_tumour_cells <- sample_total_target_copies - ((100 * (1-tcc_fraction)) * 2)
+  
+  sample_target_copies_per_tumour_cell <- sample_target_copies_in_tumour_cells / (100 * tcc_fraction)
+  
+  return(sample_target_copies_per_tumour_cell)
   
 }
 
@@ -457,6 +511,12 @@ sample_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                               schema = "dbo",
                                               table = "Samples"))
 
+results_tbl <- tbl(dbi_con, 
+                   dbplyr::in_catalog(
+                     catalog = "MolecularDB",
+                     schema = "dbo",
+                     table = "ResultsAccess"))
+
 tissue_types <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                                 schema = "dbo",
                                                 table = "TissueTypes")) |> 
@@ -475,6 +535,11 @@ ngiscodes <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                              table = "NGISCodes")) |> 
   collect() |> 
   janitor::clean_names()
+
+
+dlms_worksheets <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                                                   schema = "dbo",
+                                                   table = "PCR_New")) 
 
 # Database functions ----------------------------------------------------------------
 
@@ -590,7 +655,8 @@ read_biorad_csv <- function(worksheet) {
                 "PoissonFractionalAbundanceMax68" = "d",                
                 "PoissonFractionalAbundanceMin68" = "d")) |> 
   janitor::clean_names() |> 
-  mutate(sample_well = str_c(sample, "_", well))
+  mutate(sample_well = str_c(sample, "_", well),
+         worksheet = worksheet)
   
   return(output)
   
