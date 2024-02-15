@@ -106,9 +106,6 @@ knitr::kable(primer_table_formatted)
 #| label: load-results
 #| include: FALSE
 
-coarse_tab <- "Oncogenes (Amplified) Coars..."
-fine_tab <- "Oncogenes (Amplified) Fine-..."
-
 datapath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/00_Amplifications_Fine_vs_Coarse/"
 
 negatives_path <- str_c(datapath, "Negatives/")
@@ -246,6 +243,11 @@ all_calls <- rbind(coarse_calls, fine_calls) |>
 
 ws138579 <- read_biorad_csv("WS138579_analysed.csv")
 
+ws138765 <- read_biorad_csv("WS138765_analysed.csv")
+
+ddpcr_erbb2 <- rbind(ws138579, ws138765) |> 
+  filter(target_type == "Ch1Unknown")
+
 ```
 
 ## Update (30/01/2024)
@@ -269,9 +271,6 @@ Exon 13 was chosen as it lies in the centre of the gene and was within all of th
 #| label: ddpcr-vs-pansolid
 #| include: FALSE
 
-ws138579_erbb2 <- ws138579 |> 
-  filter(target_type == "Ch1Unknown")
-
 erbb2_pansolid <- coarse_calls |> 
   filter(gene == "ERBB2") |> 
   filter(!duplicated(sample_id))
@@ -292,7 +291,7 @@ clc_controls <- read_excel(path = here::here("data/clc_controls.xlsx")) |>
 
 control_ids <- clc_controls$sample_id
 
-ddpcr_pansolid <- ws138579_erbb2 |> 
+ddpcr_pansolid <- ddpcr_erbb2 |> 
   filter(!sample %in% c("C3_5ng", "C3_20ng", "NTC")) |> 
   left_join(erbb2_pansolid, join_by(sample == sample_id)) |> 
   mutate(pansolid_result = case_when(
@@ -304,7 +303,9 @@ ddpcr_pansolid <- ws138579_erbb2 |>
     !is.na(fold_change_adjusted) ~"pansolid amplification"),
     pansolid_result = factor(pansolid_result, levels = c("pansolid normal control",
                                                          "pansolid normal result",
-                                                         "pansolid amplification")))
+                                                         "pansolid amplification"))) |> 
+  # Remove seracare repeats
+  filter(!duplicated(sample))
 ```
 
 ```{r}
@@ -322,6 +323,10 @@ ddpcr_pansolid |>
        subtitle = "Highest normal control ddPCR copy number is 6") +
   geom_hline(yintercept = 6, linetype = "dashed") +
   scale_y_continuous(limits = c(0, 80), breaks = c(0, 6, 20, 40, 60, 80)) 
+
+
+ddpcr_pansolid |> 
+  count(pansolid_result)
 
 ```
 
@@ -365,8 +370,8 @@ ggplot(ddpcr_pansolid |>
   labs(x = "PanSolid Fold Change", y = "ddPCR Copy Number",
          title = "ddPCR versus PanSolid: amplification samples",
          subtitle = "Samples 23001095, 23002258 and 23008380 in red") +
-    scale_y_continuous(limits = c(0, 100), breaks = c(0, 6, 20, 40, 60, 80, 100))  +
-    scale_x_continuous(limits = c(0, 30), breaks = c(0, 6, 10, 20, 30)) +
+    #scale_y_continuous(limits = c(0, 100), breaks = c(0, 6, 20, 40, 60, 80, 100))  +
+    #scale_x_continuous(limits = c(0, 30), breaks = c(0, 6, 10, 20, 30)) +
   geom_point(data = ddpcr_pansolid |> 
                filter(sample %in% discrepant_samples), size = 3, fill = safe_red,
              pch = 21)

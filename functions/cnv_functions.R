@@ -49,8 +49,6 @@ safe_blue <- "#88CCEE"
 safe_red <- "#CC6677"
 safe_grey <- "#888888"
 
-
-
 plot_coarse_v_fine <- function(input_gene) {
   
   plot <- all_calls |> 

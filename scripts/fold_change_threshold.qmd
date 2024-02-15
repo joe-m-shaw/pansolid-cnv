@@ -64,7 +64,7 @@ calculate_fold_change(50, 10)
 
 The CLC pipeline uses a fold change threshold of 3 for calling copy number variants.
 
-We can rearrange the previous function to allow us to calculate the number of target copies required to give a fold change of 3 at each tumour cell content value. 
+We can rearrange the previous function to allow us to calculate the number of target copies required to give a fold change of 3 at each tumour cell content value.
 
 ```{r}
 #| label: calc-target-copies
