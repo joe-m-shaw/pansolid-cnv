@@ -8,8 +8,7 @@ editor: visual
 ---
 
 ## Introduction
-
-
+Test
 This Quarto document performs the analysis for the validation of somatic ERBB2 gene amplifications.
 
 Exported tables and plots have the prefix "plot\_" or "table\_" and are named exactly as they appear in the validation document for ease of reference.
@@ -379,8 +378,6 @@ coarse_calls |>
 
 
 ```
-
-
 
 ```{r}
 #| label: ncc
@@ -913,9 +910,6 @@ plot_timestamp(erbb2_call_plot, input_height = 16)
 
 ```
 
-
-
-
 ```{r}
 #| label: long-erbb2-calls
 #| include: FALSE
@@ -957,8 +951,6 @@ ggplot(data = x, aes(x = start, y = y_value)) +
 
 
 ```
-
-
 
 ## Limit of detection
 
@@ -1060,9 +1052,6 @@ repeat_results |>
 
 
 ```
-
-
-
 
 ```{r}
 #| label: repeat-tables
