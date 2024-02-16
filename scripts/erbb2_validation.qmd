@@ -1052,6 +1052,53 @@ ddpcr_pansolid_seracare_plot
 
 ```
 
+```{r}
+#| label: manchester-vs-seracare
+#| include: FALSE
+
+# Values taken from technical product reports
+seracare_erbb2_copies <- read_excel(path = here::here("data/seracare_erbb2_copies.xlsx"),
+                                    col_types = c("text", "numeric", "numeric",
+                                                  "text"))
+
+man_v_seracare <- ddpcr_pansolid |> 
+  filter(labno %in% seracare_ids & labno != "24002060") |> 
+  left_join(seracare_erbb2_copies, by = "labno") |> 
+  mutate(`Additional ERBB2 copies (Manchester NGS)` = round((fold_change_adjusted*2)-2, 2),
+         `Additional ERBB2 copies (Manchester ddPCR)` = round(cnv - 2, 2),
+         ratio_ngs = round(`Additional ERBB2 copies (Manchester NGS)` / seracare_erbb2_additional_copies_ngs, 2),
+         ratio_ddpcr = round(`Additional ERBB2 copies (Manchester ddPCR)` / seracare_erbb2_additional_copies_ddpcr, 2))
+  
+table_comparison_with_seracare_results_ngs <- man_v_seracare |> 
+  select(labno, product, seracare_erbb2_additional_copies_ngs,
+         `Additional ERBB2 copies (Manchester NGS)`,
+         ratio_ngs) |> 
+  arrange(labno) |> 
+  rename("Sample" = labno,
+         "Product" = product,
+         `Additional ERBB2 copies (SeraCare NGS)` = seracare_erbb2_additional_copies_ngs,
+         `Ratio (Manchester: SeraCare result)` = ratio_ngs)
+
+table_comparison_with_seracare_results_ddpcr <- man_v_seracare |> 
+  select(labno, product, seracare_erbb2_additional_copies_ddpcr,
+         `Additional ERBB2 copies (Manchester ddPCR)`,
+         ratio_ddpcr) |> 
+  arrange(labno) |> 
+  rename("Sample" = labno,
+         "Product" = product,
+         `Additional ERBB2 copies (SeraCare ddPCR)` = seracare_erbb2_additional_copies_ddpcr,
+         `Ratio (Manchester: SeraCare result)` = ratio_ddpcr)
+
+knitr::kable(table_comparison_with_seracare_results_ngs)
+
+knitr::kable(table_comparison_with_seracare_results_ddpcr)
+
+csv_timestamp(table_comparison_with_seracare_results_ngs)
+
+csv_timestamp(table_comparison_with_seracare_results_ddpcr)
+
+```
+
 ## Repeatability
 
 ```{r}
@@ -1172,7 +1219,7 @@ core_result_info <- results_tbl |>
                         value = TRUE)) |> 
   mutate(genotype = case_when(
     
-    # Sample has "EGFR" instead of "ERBB2" written on DLMS - confirmed on report
+    # Sample has "EGFR" instead of "ERBB2" written on DNA Database - confirmed on report
     labno == 23022389 ~"ERBB2 amplification detected (Mean DQ 25x)",
     
     # Sample has "ERRB2" instead of "ERBB2" written
