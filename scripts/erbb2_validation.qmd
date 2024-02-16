@@ -11,7 +11,9 @@ editor: visual
 
 This Quarto document performs the analysis for the validation of somatic ERBB2 gene amplifications.
 
-Exported tables and plots have the prefix "plot\_" or "table\_" and are named exactly as they appear in the validation document for ease of reference.
+Exported tables and plots have the prefix "plot" or "table" and are named exactly as they appear in the validation document for ease of reference.
+
+Plots do not have titles to avoid confusion with titles in word document.
 
 ```{r}
 #| label: packages
@@ -113,14 +115,13 @@ fold_change_threshold <- 2.9
 fc_vs_tcc <- data.frame(tcc = seq(0, 100, by = 0.1)) |> 
   mutate(target_copies = calculate_target_copies(fold_change = fold_change_threshold,
                                                  tcc_percent = tcc))
-fold_change_plot <- fc_vs_tcc |> 
+plot_fold_change_detection_limit <- fc_vs_tcc |> 
   filter(target_copies <= 100) |> 
   ggplot(aes(x = target_copies, y = tcc)) +
   geom_line(linewidth = 1) +
   theme_bw() +
   labs(x = "Target copies per cell", y = "Tumour cell content (%)",
-       title = "Detection limit of CLC pipeline",
-       subtitle = str_c("Line shows detection limit using a fold change threshold of ",
+       caption = str_c("Line shows detection limit using a fold change threshold of ",
                         fold_change_threshold)) +
   scale_y_continuous(limits = c(0, 100), breaks = seq(0,100,10),
                      minor_breaks = FALSE) +
@@ -129,9 +130,9 @@ fold_change_plot <- fc_vs_tcc |>
   geom_text(aes(x = 30, y = 30), size = 4, label = "Detected") +
   geom_text(aes(x = 10, y = 10), size = 4, label = "Not detected")
 
-fold_change_plot
+plot_fold_change_detection_limit
 
-plot_timestamp(fold_change_plot)
+plot_timestamp(plot_fold_change_detection_limit)
 
 ```
 
@@ -219,7 +220,7 @@ control_ids <- unique(clc_controls$labno)
 
 ```{r}
 #| label: sample-numbers
-#| include: FALSE
+#| echo: FALSE
 
 patient_file_table <- all_patient_files |>
   map(\(all_patient_files) filename_to_df(
@@ -245,23 +246,23 @@ all_samples <- patient_sample_table |>
     
     TRUE ~"Samples tested using the CLC pipeline for ERBB2"))
 
-all_samples_summary_table <- all_samples |> 
+table_samples_tested <- all_samples |> 
   count(sample_group) |> 
   arrange(desc(n)) |> 
   rename("Samples" = n,
          "Description" = sample_group)
 
-csv_timestamp(all_samples_summary_table)
+csv_timestamp(table_samples_tested)
 
 all_sample_ids <- all_samples$labno
 
-knitr::kable(all_samples_summary_table)
+knitr::kable(table_samples_tested)
 
 ```
 
 ```{r}
 #| label: extraction-and-sample-types
-#| include: FALSE
+#| echo: FALSE
 
 sample_extraction <- get_extraction_method(all_sample_ids)
 
@@ -272,41 +273,41 @@ all_sample_info <- all_samples |>
   left_join(sample_types, by = "labno") |> 
   rename(extraction_method = method_name)
 
-patient_summary_type <- all_sample_info |> 
+table_patient_sample_types <- all_sample_info |> 
   filter(sample_group == "Samples tested using the CLC pipeline for ERBB2") |> 
   count(tissue_type) |> 
   arrange(desc(n))
 
-knitr::kable(patient_summary_type)
+knitr::kable(table_patient_sample_types)
 
-csv_timestamp(patient_summary_type)
+csv_timestamp(table_patient_sample_types)
 
-normal_summary_type <- all_sample_info |> 
+table_normal_sample_types <- all_sample_info |> 
   filter(sample_group == "MSI normal samples used as normal controls") |> 
   count(tissue_type) |> 
   arrange(desc(n))
 
-knitr::kable(normal_summary_type)
+knitr::kable(table_normal_sample_types)
 
-csv_timestamp(normal_summary_type)
+csv_timestamp(table_normal_sample_types)
 
-patient_summary_extraction <- all_sample_info |> 
+table_sample_extractions <- all_sample_info |> 
   filter(sample_group == "Samples tested using the CLC pipeline for ERBB2") |> 
   count(extraction_method) |> 
   arrange(desc(n))
 
-knitr::kable(patient_summary_extraction)
+knitr::kable(table_sample_extractions)
 
-csv_timestamp(patient_summary_extraction)
+csv_timestamp(table_sample_extractions)
 
-normal_summary_extraction <- all_sample_info |> 
+table_normal_extractions <- all_sample_info |> 
   filter(sample_group == "MSI normal samples used as normal controls") |> 
   count(extraction_method) |> 
   arrange(desc(n))
 
-knitr::kable(normal_summary_extraction)
+knitr::kable(table_normal_extractions)
 
-csv_timestamp(normal_summary_extraction)
+csv_timestamp(table_normal_extractions)
 
 ```
 
@@ -350,15 +351,15 @@ sample_disease_codes_mod <- sample_discode_ncc |>
     
     )
 
-discode_summary_table <- sample_disease_codes_mod |> 
+table_tumour_sources <- sample_disease_codes_mod |> 
   filter(!duplicated(labno)) |> 
   count(discode_comment) |> 
   rename(Total = n,
          "Tumour type" = discode_comment)
 
-csv_timestamp(discode_summary_table)
+csv_timestamp(table_tumour_sources)
 
-knitr::kable(discode_summary_table)
+knitr::kable(table_tumour_sources)
 
 ```
 
@@ -437,11 +438,11 @@ ERBB2 concentrations measured via ddPCR ranged from `r min(ddpcr_erbb2$copies_pe
 
 ```{r}
 #| label: impact-of-enzyme
-#| include: FALSE
+#| echo: FALSE
 
 dual_tested_samples <- c(21011525, 21039327, 22000209)
 
-enzyme_experiment <- rbind(ws138419, ws138579) |> 
+impact_of_hindiii_digestion <- rbind(ws138419, ws138579) |> 
   filter(experiment == "ERBB2 Ex13_1" & sample %in% dual_tested_samples) |> 
   select(sample, worksheet, target, copies_per20u_l_well, cnv) |> 
   pivot_wider(id_cols = c(sample),
@@ -457,9 +458,9 @@ enzyme_experiment <- rbind(ws138419, ws138579) |>
          AP3B1_molecules, AP3B1_molecules_HindIII,
          ERBB2_copies, ERBB2_copies_HindIII)
 
-knitr::kable(enzyme_experiment)
+knitr::kable(impact_of_hindiii_digestion)
 
-csv_timestamp(enzyme_experiment)
+csv_timestamp(impact_of_hindiii_digestion)
 
 ```
 
@@ -479,15 +480,19 @@ Out of `r length(patient_samples_tested)` samples, there were `r length(unique(e
 
 ```{r}
 #| label: calls-by-sample-type
-#| include: FALSE
+#| echo: FALSE
 
-origin_check <- erbb2_coarse_pansolid |> 
+origin_check <- coarse_calls |> 
+  filter(gene %in% c("ERBB2", "No calls")) |> 
+  filter(!duplicated(labno)) |> 
   left_join(sample_disease_codes_mod, by = "labno") |> 
-  filter(!is.na(discode_comment)) |> 
-  filter(!duplicated(labno))
+  filter(!is.na(discode_comment))
 
 amp_sample_type_table <- origin_check |> 
-  count(discode_comment)
+  count(discode_comment, gene) |> 
+  pivot_wider(id_cols = discode_comment, 
+              values_from = n,
+              names_from = gene)
 
 knitr::kable(amp_sample_type_table)
 
@@ -569,14 +574,14 @@ false_positives <- nrow(result_comparison[result_comparison$outcome == false_pos
 
 false_negatives <- nrow(result_comparison[result_comparison$outcome == false_neg, ])
 
-confusion_matrix <- tribble(
+table_erbb2_results_ngs_vs_ddpcr <- tribble(
   ~"x",      ~"x",            ~"Amplification",      ~"Normal", 
   "ddPCR",  "Amplification",  true_positives,    false_negatives,
   "x",      "Normal",         false_positives,   true_negatives)
 
-knitr::kable(confusion_matrix)
+knitr::kable(table_erbb2_results_ngs_vs_ddpcr)
 
-csv_timestamp(confusion_matrix)
+csv_timestamp(table_erbb2_results_ngs_vs_ddpcr)
 
 ```
 
@@ -617,7 +622,7 @@ ddpcr_cn_plot
 
 discrepant_samples <- c(23001095, 23002258, 23008380)
 
-ngs_ddpcr_quant_plot <- ddpcr_pansolid |> 
+plot_fold_change_vs_ddpcr_copy_number <- ddpcr_pansolid |> 
   filter(!is.na(fold_change_adjusted)) |> 
   ggplot(aes(x = fold_change_adjusted*2, y = cnv)) +
   geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
@@ -626,8 +631,7 @@ ngs_ddpcr_quant_plot <- ddpcr_pansolid |>
   geom_hline(yintercept = 6, linetype = "dashed") +
   geom_vline(xintercept = 3*2, linetype = "dashed") +
   labs(x = "PanSolid Fold Change x 2", y = "ddPCR Copy Number",
-         title = "ddPCR versus PanSolid: amplification samples",
-         subtitle = "Samples 23001095, 23002258 and 23008380 in red") +
+         caption = "Samples 23001095, 23002258 and 23008380 in red") +
   scale_y_continuous(limits = c(0, 85), breaks = c(0, 20, 40, 60, 80))  +
   scale_x_continuous(limits = c(0, 85), breaks = c(0, 20, 40, 60, 80)) +
   geom_point(data = ddpcr_pansolid |> 
@@ -635,9 +639,9 @@ ngs_ddpcr_quant_plot <- ddpcr_pansolid |>
              pch = 21) +
   ggpubr::stat_cor(method = "pearson", label.x = 70, label.y = 20) 
 
-ngs_ddpcr_quant_plot
+plot_fold_change_vs_ddpcr_copy_number
 
-#plot_timestamp(fold_change_vs_ddpcr_copy_number)
+plot_timestamp(plot_fold_change_vs_ddpcr_copy_number)
 
 ```
 
@@ -838,15 +842,14 @@ exon_plot <- ggplot(erbb2_cdk12 |>
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
   labs(y = "", x = "Genome coordinate (GRCh38)")
 
-erbb2_call_plot <- (call_plot / primer_plot / exon_plot) +
-  plot_annotation(title = "ERBB2 calls") +
+plot_all_erbb2_amplification_coordinates <- (call_plot / primer_plot / exon_plot) +
   plot_layout(
     heights = c(6, 1, 1)
     )
 
-erbb2_call_plot
+plot_all_erbb2_amplification_coordinates
 
-# plot_timestamp(erbb2_call_plot, input_height = 16)
+plot_timestamp(plot_all_erbb2_amplification_coordinates, input_height = 16)
 
 ```
 
@@ -925,15 +928,14 @@ exon_plot <- ggplot(ENST00000269571 |>
   geom_vline(xintercept = 39728044, linetype = "dashed") +
   geom_vline(xintercept = 39700311, linetype = "dashed")
 
-erbb2_call_plot <- (call_plot / primer_plot / exon_plot) +
-  plot_annotation(title = "ERBB2 calls - zoomed in") +
+plot_erbb2_amplification_accuracy <- (call_plot / primer_plot / exon_plot) +
   plot_layout(
     heights = c(6, 1, 1)
     )
 
-erbb2_call_plot
+plot_erbb2_amplification_accuracy
 
-plot_timestamp(erbb2_call_plot, input_height = 16)
+plot_timestamp(plot_erbb2_amplification_accuracy, input_height = 16)
 
 ```
 
@@ -1020,11 +1022,11 @@ copies12_plot <- make_erbb2_plot(labno_input = 24002071,
                                 ylabels = c("ERBB2", "Primers",  0, 5, 10, 15)) +
   labs(x = "", y = "", title = "+12 copies")
 
-seracare_plot <- ggarrange(copies3_plot, copies6_plot, copies12_plot, nrow = 1)
+plot_seracare_controls_erbb2_results <- ggarrange(copies3_plot, copies6_plot, copies12_plot, nrow = 1)
 
-seracare_plot
+plot_seracare_controls_erbb2_results
 
-plot_timestamp(seracare_plot, input_width = 16)
+plot_timestamp(plot_seracare_controls_erbb2_results, input_width = 16)
 
 ```
 
@@ -1047,8 +1049,6 @@ ddpcr_pansolid_seracare_plot <- ddpcr_pansolid |>
   ggpubr::stat_cor(method = "pearson", label.x = 22, label.y = 5) 
 
 ddpcr_pansolid_seracare_plot
-
-plot_timestamp(ddpcr_pansolid_seracare_plot)
 
 ```
 
@@ -1073,7 +1073,7 @@ repeat_results <- all_patient_calls |>
 
 ```{r}
 #| label: repeat-results-summary
-#| echo: FALSE
+#| include: FALSE
 
 repeat_summary_table <- repeat_results |> 
   group_by(labno) |> 
@@ -1088,7 +1088,7 @@ repeat_summary_table
 
 ```{r}
 #| label: repeat-tables
-#| include: FALSE
+#| echo: FALSE
 
 format_repeat_table <- function(df) {
   
@@ -1111,25 +1111,25 @@ format_repeat_table <- function(df) {
 
 }
 
-inter_results <- repeat_results |> 
+table_inter_run_repeat_results <- repeat_results |> 
   filter(!suffix %in% c("b", "c")) |> 
   filter(duplicated(labno, fromLast = TRUE) | duplicated(labno, 
                                                              fromLast = FALSE)) |> 
   format_repeat_table()
 
-intra_results <- repeat_results |> 
+table_intra_run_repeat_results <- repeat_results |> 
   filter(suffix %in% c("a", "b", "c")) |> 
   filter(duplicated(labno, fromLast = TRUE) | duplicated(labno, 
                                                              fromLast = FALSE)) |> 
   format_repeat_table()
 
-knitr::kable(inter_results)
+knitr::kable(table_inter_run_repeat_results)
 
-knitr::kable(intra_results)
+knitr::kable(table_inter_run_repeat_results)
 
-csv_timestamp(inter_results)
+csv_timestamp(table_intra_run_repeat_results)
 
-csv_timestamp(intra_results)
+csv_timestamp(table_intra_run_repeat_results)
 
 ```
 
@@ -1137,7 +1137,8 @@ csv_timestamp(intra_results)
 #| label: repeat-plots
 #| echo: FALSE
 
-plot_21011525 <- make_erbb2_plot(labno = 21011525, interval = 10000, buffer = 5000, 
+plot_variation_in_21011525 <- make_erbb2_plot(labno = 21011525, 
+                                              interval = 10000, buffer = 5000, 
                             input_setting = "coarse",
                 ymax = 30,
                 exon_y = -10,
@@ -1145,11 +1146,12 @@ plot_21011525 <- make_erbb2_plot(labno = 21011525, interval = 10000, buffer = 50
                 primer_y = -5, 
                 ybreaks = c(-10, -5, 0, 10, 20, 30),
                             ylabels = c("ERBB2", "Primers", 0, 10, 20, 30)) +
-  facet_wrap(~labno_suffix_worksheet)
+  facet_wrap(~labno_suffix_worksheet) +
+  labs(title = "")
 
-plot_21011525
+plot_variation_in_21011525
 
-plot_timestamp(plot_21011525)
+plot_timestamp(plot_variation_in_21011525)
 
 ```
 
@@ -1211,14 +1213,14 @@ false_positives <- nrow(pansolid_vs_core[pansolid_vs_core$outcome == false_pos, 
 
 false_negatives <- nrow(pansolid_vs_core[pansolid_vs_core$outcome == false_neg, ])
 
-pansolid_core_confusion <- tribble(
+table_pansolid_vs_core_panel_erbb2_results <- tribble(
   ~"x",      ~"x",            ~"Amplification",      ~"Normal", 
   "Core",  "Amplification",  true_positives,    false_negatives,
   "x",      "Normal",         false_positives,   true_negatives)
 
-knitr::kable(pansolid_core_confusion)
+knitr::kable(table_pansolid_vs_core_panel_erbb2_results)
 
-csv_timestamp(pansolid_core_confusion)
+csv_timestamp(table_pansolid_vs_core_panel_erbb2_results)
 
 ```
 
@@ -1260,16 +1262,16 @@ for_plot <- rbind(
     mutate(type = "controls")
 )
 
-coverage_plot <- ggplot(for_plot, aes(x = type, 
+plot_coverage_in_patients_and_controls <- ggplot(for_plot, aes(x = type, 
                     y = median_coverage)) +
   geom_boxplot() +
   theme_bw() +
   labs(x = "", y = "Median coverage (X)") +
   ylim(0, 1600)
 
-coverage_plot
+plot_coverage_in_patients_and_controls
 
-plot_timestamp(coverage_plot)
+plot_timestamp(plot_coverage_in_patients_and_controls)
 
 ```
 

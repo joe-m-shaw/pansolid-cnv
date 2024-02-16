@@ -14,7 +14,7 @@ dbi_con <- DBI::dbConnect(
 csv_timestamp <- function(input) {
   write.csv(input,
             file = here::here(paste0(
-              "outputs/",
+              "outputs/tables/",
               format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
               "_",
               deparse(substitute(input)), ".csv"
@@ -35,7 +35,7 @@ plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi 
     ),
     plot = input_plot,
     device = "png",
-    path = here::here("plots/"),
+    path = here::here("outputs/plots/"),
     units = "cm",
     width = input_width,
     height = input_height,
