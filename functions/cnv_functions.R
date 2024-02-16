@@ -165,6 +165,25 @@ filename_to_df <- function(file) {
   
 }
 
+ncc_regex <- regex(
+  r"[
+  (>\d{2}% | \d{2}-\d{2}%)
+  ]",
+  comments = TRUE
+)
+
+parse_ncc <- function(input_string) {
+  
+  # Function for parsing neoplastic cell content values from the comments
+  # column of DNA Database
+  
+  ncc <- str_extract(string = input_string, 
+              pattern = ncc_regex, 
+              group = 1)
+  
+  return(ncc)
+  
+}
 
 # Plot functions --------------------------------------------------------------------
 
@@ -584,7 +603,9 @@ get_extraction_method <- function(sample_vector) {
 
   output <- extraction_tbl_samples |> 
     left_join(extraction_batch_info, join_by(ExtractionBatchFK == ExtractionBatchId)) |> 
-    filter(!is.na(MethodName))
+    filter(!is.na(MethodName)) |> 
+    janitor::clean_names() |> 
+    rename(labno = lab_no)
   
   return(output)
   
