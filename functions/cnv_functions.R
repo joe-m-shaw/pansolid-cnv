@@ -78,6 +78,21 @@ parse_filename <- function(input_file, input_group) {
   
 }
 
+filename_to_df <- function(file) {
+  
+  output <- data.frame(
+    worksheet = c(parse_filename(file, 1)),
+    labno = c(as.character(parse_filename(file, 2))),
+    suffix = c(parse_filename(file, 3)),
+    patient_name = c(parse_filename(file, 4))) |> 
+    mutate(
+      labno_suffix = str_c(labno, suffix),
+      labno_suffix_worksheet = str_c(labno_suffix, "_", worksheet))
+  
+  return(output)
+  
+}
+
 coarse_tab <- "Oncogenes (Amplified) Coars..."
 fine_tab <- "Oncogenes (Amplified) Fine-..."
 
@@ -116,17 +131,15 @@ read_clc_amp_calls <- function(file, input_sheet) {
     
   }
   
+  identifiers <- filename_to_df(file)
+  
   results <- x |> 
     janitor::clean_names() |> 
     mutate(
-      worksheet =  parse_filename(file, 1),
       labno = as.character(parse_filename(file, 2)),
-      suffix = parse_filename(file, 3),
-      labno_suffix = str_c(labno, suffix),
-      patient_name = parse_filename(file, 4),
-      labno_suffix_worksheet = str_c(labno_suffix, "_", worksheet),
       setting = input_sheet,
       filename = file) |> 
+    left_join(identifiers, by = "labno") |> 
     relocate(worksheet, labno, suffix, labno_suffix, patient_name,
              labno_suffix_worksheet, setting)
   
@@ -155,21 +168,6 @@ extract_cnv_coordinates <- function(df) {
            end = as.numeric(str_extract(string = cnv_region, 
                                         pattern = cnv_coord_regex, 
                                         group = 3))) 
-  
-  return(output)
-  
-}
-
-filename_to_df <- function(file) {
-  
-  output <- data.frame(
-    worksheet = c(parse_filename(file, 1)),
-    labno = c(as.character(parse_filename(file, 2))),
-    suffix = c(parse_filename(file, 3)),
-    patient_name = c(parse_filename(file, 4))) |> 
-    mutate(
-      labno_suffix = str_c(labno, suffix),
-      labno_suffix_worksheet = str_c(labno_suffix, "_", worksheet))
   
   return(output)
   
