@@ -19,13 +19,16 @@ erbb2_labnos <- erbb2_labno_df$labno
 
 # Extraction methods ----------------------------------------------------------------
 
-erbb2_sample_extraction <- get_extraction_method(erbb2_labnos)
+erbb2_sample_extraction <- get_extraction_method(erbb2_labnos) |> 
+  rename(extraction_method = method_name) |> 
+  select(labno, extraction_method)
 
 dna_db_export(erbb2_sample_extraction)
 
 # Sample types ----------------------------------------------------------------------
 
-erbb2_sample_types <- get_sample_tissue(erbb2_labnos)
+erbb2_sample_types <- get_sample_tissue(erbb2_labnos) |> 
+  select(labno, tissue_type)
 
 dna_db_export(erbb2_sample_types)
 
