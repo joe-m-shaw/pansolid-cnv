@@ -43,6 +43,113 @@ plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi 
   )
 }
 
+
+# Data functions --------------------------------------------------------------------
+
+filename_regex <- regex(
+  r"[
+  (WS\d{6})             # Worksheet number
+  _
+  (\d{8})               # Lab number
+  (a|b|c|)              # Suffix
+  _
+  ([:alnum:]{5,21})     # Patient name - alphanumeric characters only
+  (.xlsx|_S.+.xlsx)
+  ]",
+  comments = TRUE
+)
+
+parse_filename <- function(input_file, input_group) {
+  
+  output <- str_extract(input_file, filename_regex,
+                        group = input_group)
+  
+  return(output)
+  
+}
+
+coarse_tab <- "Oncogenes (Amplified) Coars..."
+fine_tab <- "Oncogenes (Amplified) Fine-..."
+
+read_clc_amp_calls <- function(file, input_sheet) {
+  
+  stopifnot(input_sheet %in% c(coarse_tab, fine_tab))
+  
+  x <- read_excel(path = file, sheet = input_sheet) 
+  
+  # Samples with no calls currently have a table with 0 rows
+  if(nrow(x) == 0) {
+    
+    x <- tibble("Chromosome" = 0, 
+                "Region" = "",
+                "Name" = "", 
+                "Region length" = 0, 
+                "type" = "",
+                "source" = "", 
+                "ID"= "", 
+                "GeneID"= "", 
+                "HGNC"= "",
+                "MIM"= "",
+                "description"= "", 
+                "gbkey"= "", 
+                "gene"= "No calls",
+                "gene_biotype"= "", 
+                "gene_synonym"= "", 
+                "CNV region"= "",
+                "CNV region length"= 0,
+                "Consequence"= "",
+                "Fold-change (adjusted)"= 0,
+                "p-value"= 0,
+                "Number of targets"= 0,
+                "Comments"= "", 
+                "Targets"= "")
+    
+  }
+  
+  results <- x |> 
+    janitor::clean_names() |> 
+    mutate(
+      worksheet =  parse_filename(file, 1),
+      labno = as.character(parse_filename(file, 2)),
+      suffix = parse_filename(file, 3),
+      labno_suffix = str_c(labno, suffix),
+      patient_name = parse_filename(file, 4),
+      labno_suffix_worksheet = str_c(labno_suffix, "_", worksheet),
+      setting = input_sheet,
+      filename = file) |> 
+    relocate(worksheet, labno, suffix, labno_suffix, patient_name,
+             labno_suffix_worksheet, setting)
+  
+  return(results)
+  
+}
+
+extract_cnv_coordinates <- function(df) {
+  
+  stopifnot("cnv_region" %in% colnames(df))
+  
+  cnv_coord_regex <- regex(
+    r"[
+        (|complement\()
+        (\d{1,10})     # first coordinate number (1 to 10 digits)
+        \.\.           # two full stops
+        (\d{1,10})     # second coordinate number (1 to 10 digits)
+        ]",
+    comments = TRUE
+  )
+  
+  output <- df |> 
+    mutate(start = as.numeric(str_extract(string = cnv_region, 
+                                          pattern = cnv_coord_regex, 
+                                          group = 2)),
+           end = as.numeric(str_extract(string = cnv_region, 
+                                        pattern = cnv_coord_regex, 
+                                        group = 3))) 
+  
+  return(output)
+  
+}
+
 # Plot functions --------------------------------------------------------------------
 
 safe_blue <- "#88CCEE"
@@ -232,26 +339,7 @@ get_excel_names <- function(filepath, folder) {
   
 }
 
-filename_regex <- regex(
-  r"[
-  (WS\d{6})             # Worksheet number
-  _
-  (\d{8})               # Sample number
-  (a_|b_|c_|_)
-  (.+)                  # Patient name
-  (.xlsx|_.+)
-  ]",
-  comments = TRUE
-)
 
-parse_filename <- function(input_file, input_group) {
-  
-  output <- str_extract(input_file, filename_regex,
-                           group = input_group)
-  
-  return(output)
-  
-}
 
 get_gene_result <- function(df, gene_name) {
   
@@ -331,58 +419,7 @@ filename_to_df <- function(file) {
   
 }
 
-coarse_tab <- "Oncogenes (Amplified) Coars..."
-fine_tab <- "Oncogenes (Amplified) Fine-..."
 
-read_clc_excel <- function(file, input_sheet) {
-  
-  x <- read_excel(path = file, sheet = input_sheet) 
-  
-  if(nrow(x) == 0) {
-    
-    x <- tibble("Chromosome" = 0, 
-                "Region" = "",
-                "Name" = "", 
-                "Region length" = 0, 
-                "type" = "",
-                "source" = "", 
-                "ID"= "", 
-                "GeneID"= "", 
-                "HGNC"= "",
-                "MIM"= "",
-                "description"= "", 
-                "gbkey"= "", 
-                "gene"= "No calls",
-                "gene_biotype"= "", 
-                "gene_synonym"= "", 
-                "CNV region"= "",
-                "CNV region length"= 0,
-                "Consequence"= "",
-                "Fold-change (adjusted)"= 0,
-                "p-value"= 0,
-                "Number of targets"= 0,
-                "Comments"= "", 
-                "Targets"= "")
-    
-  }
-  
-  results <- x |> 
-    janitor::clean_names() |> 
-    mutate(
-      worksheet =  parse_filename(file, 1),
-      sample_id = parse_filename(file, 2),
-      qualifier = parse_filename(file, 3),
-      sample_id_suffix = str_c(sample_id, qualifier),
-      patient_name = parse_filename(file, 4),
-      sample_id_worksheet = str_c(sample_id_suffix, worksheet),
-      setting = input_sheet,
-      filename = file) |> 
-    relocate(worksheet, sample_id, qualifier, sample_id_suffix, patient_name,
-             sample_id_worksheet, setting)
-  
-  return(results)
-  
-}
 
 read_summary_tab <- function(file) {
   
@@ -442,32 +479,6 @@ draw_confusion_matrix <- function(input_gene) {
   )
   
   return(confusion_matrix)
-  
-}
-
-extract_cnv_coordinates <- function(df) {
-  
-  stopifnot("cnv_region" %in% colnames(df))
-  
-  cnv_coord_regex <- regex(
-      r"[
-        \D{0,11}       # Either 0 or 11 non-digit characters. 11 is "complement("
-        (\d{1,10})     # first coordinate number (1 to 10 digits)
-        \.\.           # two full stops
-        (\d{1,10})     # second coordinate number (1 to 10 digits)
-        ]",
-        comments = TRUE
-        )
-  
-  output <- df |> 
-    mutate(start = as.numeric(str_extract(string = cnv_region, 
-                                              pattern = cnv_coord_regex, 
-                                              group = 1)),
-           end = as.numeric(str_extract(string = cnv_region, 
-                                            pattern = cnv_coord_regex, 
-                                            group = 2))) 
-  
-  return(output)
   
 }
 
