@@ -48,13 +48,13 @@ plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi 
 
 filename_regex <- regex(
   r"[
-  (WS\d{6})             # Worksheet number
+  (WS\d{6})              # Worksheet number
   _
-  (\d{8})               # Lab number
-  (a|b|c|)              # Suffix
+  (\d{8})                # Lab number
+  (a|b|c|)               # Suffix
   _
-  ([:alnum:]{5,21})     # Patient name - alphanumeric characters only
-  (.xlsx|_S.+.xlsx)
+  ([:alnum:]{5,30})      # Patient name - alphanumeric characters only
+  (.xlsx|_S.+.xlsx|_S.+) # Ending varies between patients and controls
   ]",
   comments = TRUE
 )
@@ -149,6 +149,22 @@ extract_cnv_coordinates <- function(df) {
   return(output)
   
 }
+
+filename_to_df <- function(file) {
+  
+  output <- data.frame(
+    worksheet = c(parse_filename(file, 1)),
+    labno = c(as.character(parse_filename(file, 2))),
+    suffix = c(parse_filename(file, 3)),
+    patient_name = c(parse_filename(file, 4))) |> 
+    mutate(
+      labno_suffix = str_c(labno, suffix),
+      labno_suffix_worksheet = str_c(labno_suffix, "_", worksheet))
+  
+  return(output)
+  
+}
+
 
 # Plot functions --------------------------------------------------------------------
 
@@ -404,20 +420,7 @@ summarise_results <- function(file, input_sheet) {
 }
 
 
-filename_to_df <- function(file) {
-  
-  output <- data.frame(
-    worksheet = c(parse_filename(file, 1)),
-    sample_id = c(as.numeric(parse_filename(file, 2))),
-    qualifier = c(parse_filename(file, 3)),
-    patient_name = c(parse_filename(file, 4))) |> 
-    mutate(
-      sample_id_suffix = str_c(sample_id, qualifier),
-      sample_id_worksheet = str_c(sample_id_suffix, worksheet))
-  
-  return(output)
-  
-}
+
 
 
 
