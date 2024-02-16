@@ -365,6 +365,7 @@ knitr::kable(discode_summary_table)
 ```{r}
 #| label: check-low-ncc
 #| eval: FALSE
+#| include: FALSE
 
 low_ncc <- coarse_calls |> 
   left_join(sample_discode_ncc, by = "labno") |> 
@@ -382,6 +383,7 @@ coarse_calls |>
 ```{r}
 #| label: ncc
 #| eval: FALSE
+#| include: FALSE
 
 sample_info <- sample_tbl |> 
   select(LABNO, "COMMENTS") |> 
@@ -869,7 +871,7 @@ primers_for_plot <- grch38_primer_coordinates |>
     filter(start >= plot_min  & end <= plot_max)
 
 call_plot <- short_erbb2_calls |> 
-  mutate(sample_id = factor(x = as.character(sample_id),
+  mutate(labno = factor(x = labno,
                                    levels = c(
                                      "23044755", "23002258", 
                                      "21039327", "23008380",
@@ -877,10 +879,10 @@ call_plot <- short_erbb2_calls |>
                                      "21011525", "21015264", "23011210", "23006590",
                                      "23022389", "23001095", "23055093", "21019092", 
                                      "22034556"))) |> 
-       ggplot(aes(x = start, y = sample_id,
+       ggplot(aes(x = start, y = labno,
                  colour = fold_change_adjusted)) +
   geom_segment(aes(x = start, xend = end, 
-                     y = sample_id, yend = sample_id),
+                     y = labno, yend = labno),
                  linewidth = 2) +
   theme_bw() +
   theme(axis.text.x = element_blank()) +
@@ -894,7 +896,7 @@ call_plot <- short_erbb2_calls |>
   geom_vline(xintercept = 39700311, linetype = "dashed")
   
 primer_plot <- ggplot(primers_for_plot |> 
-                      mutate(sample_id = "Primers"), aes(x = start, y = sample_id)) +
+                      mutate(labno = "Primers"), aes(x = start, y = labno)) +
   geom_point(pch = 21) +
   theme_bw() +
   theme(axis.text.x = element_blank()) +
@@ -907,12 +909,12 @@ primer_plot <- ggplot(primers_for_plot |>
 
 
 exon_plot <- ggplot(ENST00000269571 |> 
-                      mutate(sample_id = "ERBB2"), aes(x = start, y = sample_id)) +
+                      mutate(labno = "ERBB2"), aes(x = start, y = labno)) +
   geom_segment(aes(x = start, xend = end, 
-                   y = sample_id, yend = sample_id),
+                   y = labno, yend = labno),
                linewidth = 5) +
   geom_segment(aes(x = erbb2_start, xend = erbb2_end, 
-                                         y = sample_id, yend = sample_id),
+                                         y = labno, yend = labno),
                  linewidth = 0.5) +
   theme_bw() +
   scale_x_continuous(breaks = by_n(interval),
@@ -929,6 +931,8 @@ erbb2_call_plot <- (call_plot / primer_plot / exon_plot) +
     heights = c(6, 1, 1)
     )
 
+erbb2_call_plot
+
 plot_timestamp(erbb2_call_plot, input_height = 16)
 
 ```
@@ -942,20 +946,22 @@ erbb2_long_calls <- ddpcr_pansolid |>
   select(sample, cnv_region_length) |> 
   arrange(desc(cnv_region_length))
 
+knitr::kable(erbb2_long_calls)
+
 ```
 
-The long calls varied from `r min(erbb2_long_calls$cnv_region_length` to `r max(erbb2_long_calls$cnv_region_length`.
+The long calls varied from `r min(erbb2_long_calls$cnv_region_length)` to `r max(erbb2_long_calls$cnv_region_length)`.
 
 ```{r}
 #| label: primers-near-erbb2
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 buffer <- 1000000
 
 window_start <- erbb2_start - buffer
 
 window_end <- erbb2_end + buffer
-
 
 x <- grch38_primer_coordinates |> 
     mutate(y_value = "Primers") |> 
@@ -970,9 +976,6 @@ ggplot(data = x, aes(x = start, y = y_value)) +
                              yend = y_value),
                linewidth = 5)
 
-
-
-
 ```
 
 ## Limit of detection
@@ -981,7 +984,7 @@ ggplot(data = x, aes(x = start, y = y_value)) +
 #| label: seracare-results
 #| echo: FALSE
 
-copies3_plot <- make_erbb2_plot(sample = 24002064, 
+copies3_plot <- make_erbb2_plot(labno_input = 24002064, 
                                 interval = 10000, 
                                 buffer = 5000, 
                                 input_setting = "coarse", 
@@ -993,7 +996,7 @@ copies3_plot <- make_erbb2_plot(sample = 24002064,
                                 ylabels = c("ERBB2", "Primers",  0, 5, 10, 15)) +
   labs(x = "", title = "+3 copies")
 
-copies6_plot <- make_erbb2_plot(sample = 24002067, 
+copies6_plot <- make_erbb2_plot(labno_input = 24002067, 
                                 interval = 10000, 
                                 buffer = 5000, 
                                 input_setting = "coarse", 
@@ -1005,7 +1008,7 @@ copies6_plot <- make_erbb2_plot(sample = 24002067,
                                 ylabels = c("ERBB2", "Primers",  0, 5, 10, 15)) +
   labs(y = "", title = "+6 copies")
 
-copies12_plot <- make_erbb2_plot(sample = 24002071, 
+copies12_plot <- make_erbb2_plot(labno_input = 24002071, 
                                 interval = 10000, 
                                 buffer = 5000, 
                                 input_setting = "coarse", 
@@ -1019,6 +1022,8 @@ copies12_plot <- make_erbb2_plot(sample = 24002071,
 
 seracare_plot <- ggarrange(copies3_plot, copies6_plot, copies12_plot, nrow = 1)
 
+seracare_plot
+
 plot_timestamp(seracare_plot, input_width = 16)
 
 ```
@@ -1027,9 +1032,10 @@ plot_timestamp(seracare_plot, input_width = 16)
 #| label: seracare-fold-change-ddpcr
 #| echo: FALSE
 
-fold_change_seracare <- ddpcr_pansolid |> 
+ddpcr_pansolid_seracare_plot <- ddpcr_pansolid |> 
   mutate(pansolid_copy_number = fold_change_adjusted * 2) |> 
-  filter(sample %in% seracare_ids) |> 
+  filter(labno %in% seracare_ids) |> 
+  filter(!is.na(pansolid_copy_number)) |> 
   ggplot(aes(x = pansolid_copy_number, y = cnv)) +
   geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
   geom_point(size = 3, fill = safe_blue, alpha = 0.8, pch = 21) +
@@ -1040,7 +1046,9 @@ fold_change_seracare <- ddpcr_pansolid |>
   scale_x_continuous(limits = c(0, 30), breaks = c(0, 10, 20, 30)) +
   ggpubr::stat_cor(method = "pearson", label.x = 22, label.y = 5) 
 
-plot_timestamp(fold_change_seracare)
+ddpcr_pansolid_seracare_plot
+
+plot_timestamp(ddpcr_pansolid_seracare_plot)
 
 ```
 
@@ -1048,31 +1056,33 @@ plot_timestamp(fold_change_seracare)
 
 ```{r}
 #| label: repeat-results
-#| echo: FALSE
+#| include: FALSE
 
-repeats <- sample_file_table |> 
-  filter(duplicated(sample_id, fromLast = TRUE) | 
-           duplicated(sample_id, fromLast = FALSE)) |> 
-  arrange(sample_id)
+repeats <- patient_file_table |> 
+  filter(duplicated(labno, fromLast = TRUE) | 
+           duplicated(labno, fromLast = FALSE)) |> 
+  arrange(labno)
 
-repeat_samples <- unique(repeats$sample_id)
+repeat_samples <- unique(repeats$labno)
 
-repeat_results <- all_calls |> 
+repeat_results <- all_patient_calls |> 
   filter(gene %in% c("ERBB2", "No calls") & setting == "coarse" & 
-           sample_id %in% repeat_samples)
+           labno %in% repeat_samples)
 
 ```
 
 ```{r}
+#| label: repeat-results-summary
+#| echo: FALSE
 
-repeat_results |> 
-  group_by(sample_id) |> 
+repeat_summary_table <- repeat_results |> 
+  group_by(labno) |> 
   summarise(min_fc = min(fold_change_adjusted),
             max_fc = max(fold_change_adjusted)) |> 
   mutate(range = round(max_fc - min_fc, 1)) |> 
   arrange(desc(range))
 
-
+repeat_summary_table
 
 ```
 
@@ -1083,8 +1093,8 @@ repeat_results |>
 format_repeat_table <- function(df) {
   
   rpt_table <- df |> 
-    arrange(sample_id) |> 
-    select(sample_id, worksheet, gene, fold_change_adjusted, number_of_targets) |>  
+    arrange(labno) |> 
+    select(labno, worksheet, gene, fold_change_adjusted, number_of_targets) |>  
     mutate(fold_change_adjusted = ifelse(
       
       gene == "No calls", "No call", round(fold_change_adjusted, 1)),
@@ -1102,16 +1112,20 @@ format_repeat_table <- function(df) {
 }
 
 inter_results <- repeat_results |> 
-  filter(!qualifier %in% c("b_", "c_")) |> 
-  filter(duplicated(sample_id, fromLast = TRUE) | duplicated(sample_id, 
+  filter(!suffix %in% c("b", "c")) |> 
+  filter(duplicated(labno, fromLast = TRUE) | duplicated(labno, 
                                                              fromLast = FALSE)) |> 
   format_repeat_table()
 
 intra_results <- repeat_results |> 
-  filter(qualifier %in% c("a_", "b_", "c_")) |> 
-  filter(duplicated(sample_id, fromLast = TRUE) | duplicated(sample_id, 
+  filter(suffix %in% c("a", "b", "c")) |> 
+  filter(duplicated(labno, fromLast = TRUE) | duplicated(labno, 
                                                              fromLast = FALSE)) |> 
   format_repeat_table()
+
+knitr::kable(inter_results)
+
+knitr::kable(intra_results)
 
 csv_timestamp(inter_results)
 
@@ -1123,7 +1137,7 @@ csv_timestamp(intra_results)
 #| label: repeat-plots
 #| echo: FALSE
 
-plot_21011525 <- make_erbb2_plot(sample = 21011525, interval = 10000, buffer = 5000, 
+plot_21011525 <- make_erbb2_plot(labno = 21011525, interval = 10000, buffer = 5000, 
                             input_setting = "coarse",
                 ymax = 30,
                 exon_y = -10,
@@ -1131,40 +1145,11 @@ plot_21011525 <- make_erbb2_plot(sample = 21011525, interval = 10000, buffer = 5
                 primer_y = -5, 
                 ybreaks = c(-10, -5, 0, 10, 20, 30),
                             ylabels = c("ERBB2", "Primers", 0, 10, 20, 30)) +
-  facet_wrap(~sample_id_worksheet)
+  facet_wrap(~labno_suffix_worksheet)
+
+plot_21011525
 
 plot_timestamp(plot_21011525)
-
-make_erbb2_plot(sample = 21015264, interval = 10000, buffer = 5000, 
-                            input_setting = "coarse",
-                ymax = 50,
-                exon_y = -20,
-                exon_y_buffer = 10, 
-                primer_y = -10, 
-                ybreaks = c(-20, -10, 0, 25, 50),
-                            ylabels = c("ERBB2", "Primers", 0, 25, 50)) +
-  facet_wrap(~sample_id_worksheet)
-
-make_erbb2_plot(sample = 21039327, interval = 10000, buffer = 5000, 
-                            input_setting = "coarse",
-                ymax = 10,
-                exon_y = -6,
-                exon_y_buffer = 2, 
-                primer_y = -3, 
-                ybreaks = c(-6, -3, 0, 5, 10),
-                            ylabels = c("ERBB2", "Primers", 0, 5, 10)) +
-  facet_wrap(~sample_id_worksheet)
-
-make_erbb2_plot(sample = 23006590, 
-                interval = 10000, 
-                buffer = 5000, 
-                input_setting = "coarse", 
-                ymax = 60,
-                exon_y = -20,
-                exon_y_buffer = 10, 
-                primer_y = -10, 
-                ybreaks = c(-20, -10, 0, 20, 40, 60),
-                ylabels = c("ERBB2", "Primers", 0, 20, 40, 60))
 
 ```
 
@@ -1172,48 +1157,44 @@ make_erbb2_plot(sample = 23006590,
 
 ```{r}
 #| label: comparison-to-core
-#| include: FALSE
-
-sample_ids <- as.character(unique(sample_file_table$sample_id))
+#| echo: FALSE
 
 core_result_info <- results_tbl |> 
   select(LABNO, TEST, TESTTYPE, Genotype, Genotype2, GENOCOMM) |> 
-  filter(LABNO %in% sample_ids) |> 
+  filter(LABNO %in% patient_samples_tested) |> 
   collect() |> 
-  filter(TEST %in% grep(pattern = "Q.{2,4}seq\\s(Core|NGS\\sCore|Merged)", 
-                        x = TEST, 
+  janitor::clean_names() |> 
+  filter(test %in% grep(pattern = "Q.{2,4}seq\\s(Core|NGS\\sCore|Merged)", 
+                        x = test, 
                         ignore.case = TRUE,
                         value = TRUE)) |> 
-  mutate(Genotype = case_when(
+  mutate(genotype = case_when(
     
     # Sample has "EGFR" instead of "ERBB2" written on DLMS - confirmed on report
-    LABNO == 23022389 ~"ERBB2 amplification detected (Mean DQ 25x)",
+    labno == 23022389 ~"ERBB2 amplification detected (Mean DQ 25x)",
     
     # Sample has "ERRB2" instead of "ERBB2" written
-    LABNO == 21015264 ~"No mutation identified; ERBB2 amplification detected (mean DQ 60.41x)",
+    labno == 21015264 ~"No mutation identified; ERBB2 amplification detected (mean DQ 60.41x)",
     
-    TRUE ~Genotype)) |> 
+    TRUE ~genotype)) |> 
   
-  filter(!duplicated(LABNO))
+  filter(!duplicated(labno))
   
 core_erbb2_calls <- extract_cnv_calls(df = core_result_info, input_gene = "ERBB2")
 
 pansolid_vs_core <- ddpcr_pansolid |> 
-  filter(pansolid_result != "pansolid normal control") |> 
-  filter(!sample %in% seracare_ids) |> 
-  # Seracare normal control
-  filter(sample != 24002060) |> 
+  filter(!labno %in% seracare_ids) |> 
   left_join(core_erbb2_calls,
-            join_by(sample == LABNO)) |> 
+            by = "labno") |> 
   mutate(outcome = case_when(
            
-           pansolid_result == "pansolid amplification" & 
+           pansolid_result == "pansolid amplification" &
              core_result  == "Amplification" ~true_pos,
            
            pansolid_result == "pansolid normal result" & 
              core_result  == "No call" ~true_neg,
            
-           pansolid_result == "pansolid amplification" & 
+           pansolid_result == "pansolid amplification"  & 
              core_result  == "No call" ~false_pos,
            
            pansolid_result == "pansolid normal result" & 
@@ -1221,7 +1202,6 @@ pansolid_vs_core <- ddpcr_pansolid |>
 
            TRUE ~"no match")) |> 
   filter(outcome != "no match")
-
 
 true_positives <- nrow(pansolid_vs_core[pansolid_vs_core$outcome == true_pos, ])
 
@@ -1235,6 +1215,8 @@ pansolid_core_confusion <- tribble(
   ~"x",      ~"x",            ~"Amplification",      ~"Normal", 
   "Core",  "Amplification",  true_positives,    false_negatives,
   "x",      "Normal",         false_positives,   true_negatives)
+
+knitr::kable(pansolid_core_confusion)
 
 csv_timestamp(pansolid_core_confusion)
 
@@ -1262,7 +1244,7 @@ control_coverage <- control_files |>
 #| echo: FALSE
 #| message: FALSE
 
-qc_data <- all_files |>
+qc_data <- all_patient_files |>
   map(\(all_files) read_summary_tab(
     file = all_files)) |>
   list_rbind()
@@ -1270,15 +1252,13 @@ qc_data <- all_files |>
 for_plot <- rbind(
   
   qc_data |> 
-    select(sample_id_worksheet, median_coverage) |> 
+    select(labno_suffix_worksheet, median_coverage) |> 
     mutate(type = "patients"),
   
   control_coverage |> 
-    select(sample_id_worksheet, median_coverage) |> 
+    select(labno_suffix_worksheet, median_coverage) |> 
     mutate(type = "controls")
 )
-
-median(control_coverage$median_coverage)
 
 coverage_plot <- ggplot(for_plot, aes(x = type, 
                     y = median_coverage)) +
@@ -1295,12 +1275,12 @@ plot_timestamp(coverage_plot)
 
 ```{r}
 #| label: coverage-fold-change-plot
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 calls_and_coverage <- erbb2_coarse_pansolid |> 
-  left_join(qc_data |> 
-              mutate(sample_id = as.character(sample_id)), 
-            by  = "sample_id")
+  left_join(qc_data, 
+            by  = "labno")
 
 ggplot(calls_and_coverage, aes(x = percentage_of_target_region_positions_with_coverage_138_percent, 
                                y = median_coverage)) +
@@ -1309,17 +1289,18 @@ ggplot(calls_and_coverage, aes(x = percentage_of_target_region_positions_with_co
   ylim(0, 1500) +
   #xlim(0, 45) +
   geom_point(data = calls_and_coverage |> 
-               filter(sample_id %in% discrepant_samples), size = 3, fill = safe_red,
+               filter(labno %in% discrepant_samples), size = 3, fill = safe_red,
              pch = 21) 
 
 ```
 
 ```{r}
 #| label: errors
+#| eval: FALSE
 #| include: FALSE
 
 erbb2_coarse_pansolid |> 
-  group_by(sample_id) |> 
+  group_by(labno) |> 
   count(comments)
 
 ```
