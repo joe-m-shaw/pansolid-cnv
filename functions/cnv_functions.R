@@ -3,7 +3,7 @@
 library(tidyverse)
 library(here)
 
-# DLMS connection -------------------------------------------------------------------
+# DNA database connection -----------------------------------------------------------
 
 dbi_con <- DBI::dbConnect(
   drv = odbc::odbc(),
@@ -563,7 +563,7 @@ ngiscodes <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
   janitor::clean_names()
 
 
-dlms_worksheets <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+dna_db_worksheets <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                                    schema = "dbo",
                                                    table = "PCR_New")) 
 
