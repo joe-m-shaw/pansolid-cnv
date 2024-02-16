@@ -23,6 +23,16 @@ csv_timestamp <- function(input) {
   )
 }
 
+dna_db_export <- function(input) {
+  write.csv(input,
+            file = here::here(paste0(
+              "data/dna_db_queries/",
+              deparse(substitute(input)), ".csv"
+            )),
+            row.names = FALSE
+  )
+}
+
 plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi = 300) {
   
   # Default inputs allow for presenting a plot as half an A4 page
