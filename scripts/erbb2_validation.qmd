@@ -268,14 +268,16 @@ sample_extraction <- get_extraction_method(all_sample_ids)
 sample_types <- get_sample_tissue(all_sample_ids)
 
 all_sample_info <- all_samples |> 
-  left_join(sample_extraction, join_by(sample_id == LabNo)) |> 
-  left_join(sample_types, join_by(sample_id == labno)) |> 
-  rename(extraction_method = MethodName)
+  left_join(sample_extraction, by = "labno") |> 
+  left_join(sample_types, by = "labno") |> 
+  rename(extraction_method = method_name)
 
 patient_summary_type <- all_sample_info |> 
   filter(sample_group == "Samples tested using the CLC pipeline for ERBB2") |> 
   count(tissue_type) |> 
   arrange(desc(n))
+
+knitr::kable(patient_summary_type)
 
 csv_timestamp(patient_summary_type)
 
@@ -284,6 +286,8 @@ normal_summary_type <- all_sample_info |>
   count(tissue_type) |> 
   arrange(desc(n))
 
+knitr::kable(normal_summary_type)
+
 csv_timestamp(normal_summary_type)
 
 patient_summary_extraction <- all_sample_info |> 
@@ -291,12 +295,16 @@ patient_summary_extraction <- all_sample_info |>
   count(extraction_method) |> 
   arrange(desc(n))
 
+knitr::kable(patient_summary_extraction)
+
 csv_timestamp(patient_summary_extraction)
 
 normal_summary_extraction <- all_sample_info |> 
   filter(sample_group == "MSI normal samples used as normal controls") |> 
   count(extraction_method) |> 
   arrange(desc(n))
+
+knitr::kable(normal_summary_extraction)
 
 csv_timestamp(normal_summary_extraction)
 
@@ -306,29 +314,21 @@ csv_timestamp(normal_summary_extraction)
 #| label: discodes-ncc
 #| include: FALSE
 
-ncc_regex <- regex(
-  r"[
-  (>\d{2}% | \d{2}-\d{2}%)
-  ]",
-  comments = TRUE
-)
-
 sample_discode_ncc <- sample_tbl |> 
   select(LABNO, DISEASE, "DISEASE 2", "DISEASE 3", "DISEASE 4",
          "COMMENTS") |> 
   filter(LABNO %in% all_sample_ids) |> 
   collect() |> 
-  mutate(ncc_dlms = str_extract(string = COMMENTS,
-                           pattern = ncc_regex,
-                           group = 1)) |> 
-  pivot_longer(cols = -c(LABNO, COMMENTS, ncc_dlms),
+  janitor::clean_names() |> 
+  mutate(ncc_db = parse_ncc(comments)) |> 
+  pivot_longer(cols = -c(labno, comments, ncc_db),
                values_to = "discode") |> 
   left_join(discode |> 
               select(discode, disease), by = "discode") |> 
-  janitor::clean_names() |> 
   filter(!is.na(discode))
 
 sample_disease_codes_mod <- sample_discode_ncc |> 
+  filter(labno %in% patient_samples_tested) |> 
   filter(!discode %in% c(168, 215)) |>
   mutate(discode_comment = case_when(
     
@@ -358,31 +358,30 @@ discode_summary_table <- sample_disease_codes_mod |>
 
 csv_timestamp(discode_summary_table)
 
+knitr::kable(discode_summary_table)
 
 ```
 
 ```{r}
 #| label: check-low-ncc
-#| include: FALSE
+#| eval: FALSE
 
 low_ncc <- coarse_calls |> 
-  left_join(sample_discode_ncc, join_by(sample_id == labno)) |> 
-  filter(ncc_dlms == "10-20%") |>  
-  filter(!duplicated(sample_id))
+  left_join(sample_discode_ncc, by = "labno") |> 
+  filter(ncc_db == "10-20%") |>  
+  filter(!duplicated(labno))
 
 coarse_calls |> 
-  filter(gene == "ERBB2" & sample_id %in% low_ncc$sample_id) |> 
-  ggplot(aes(x = sample_id, y = fold_change_adjusted)) +
+  filter(gene == "ERBB2" & labno %in% low_ncc$labno) |> 
+  ggplot(aes(x = labno, y = fold_change_adjusted)) +
   geom_point() +
   ylim(0, 30)
-
-
 
 ```
 
 ```{r}
 #| label: ncc
-#| include: FALSE
+#| eval: FALSE
 
 sample_info <- sample_tbl |> 
   select(LABNO, "COMMENTS") |> 
