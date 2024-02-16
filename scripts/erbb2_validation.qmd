@@ -198,8 +198,8 @@ all_patient_calls <- rbind(coarse_calls, fine_calls) |>
 #| include: FALSE
 
 clc_controls <- read_excel(path = here::here("data/clc_controls.xlsx")) |> 
-  mutate(sample_id = parse_filename(input_file = control,
-                                    input_group = 2),
+  mutate(labno = as.character(parse_filename(input_file = control,
+                                    input_group = 2)),
          worksheet = parse_filename(input_file = control,
                                     input_group = 1))
 
@@ -213,7 +213,7 @@ seracare_ids <- c(24002060, 24002064, 24002067, 24002071)
 
 biobank_ids <- c(23033285, 23033290, 23033295, 23033303, 23033288)
 
-control_ids <- unique(clc_controls$sample_id)
+control_ids <- unique(clc_controls$labno)
 
 ```
 
@@ -221,28 +221,27 @@ control_ids <- unique(clc_controls$sample_id)
 #| label: sample-numbers
 #| include: FALSE
 
-sample_file_table <- all_files |>
-  map(\(all_files) filename_to_df(
-    file = all_files)) |>
+patient_file_table <- all_patient_files |>
+  map(\(all_patient_files) filename_to_df(
+    file = all_patient_files)) |>
   list_rbind()
 
-sample_table <- sample_file_table |> 
-  filter(!duplicated(sample_id))
+patient_sample_table <- patient_file_table |> 
+  filter(!duplicated(labno))
 
-samples_tested <- sample_table$sample_id
+patient_samples_tested <- patient_sample_table$labno
 
-all_samples <- sample_file_table |>
-  filter(!duplicated(sample_id)) |> 
-  select(sample_id, worksheet) |> 
+all_samples <- patient_sample_table |> 
+  select(labno, worksheet) |> 
   rbind(clc_controls |> 
-          select(sample_id, worksheet)) |> 
+          select(labno, worksheet)) |> 
   mutate(sample_group = case_when(
     
-    sample_id %in% seracare_ids ~"SeraCare control samples",
+    labno %in% seracare_ids ~"SeraCare control samples",
     
-    sample_id %in% biobank_ids ~"MCRC biobank samples also used as normal controls",
+    labno %in% biobank_ids ~"MCRC biobank samples also used as normal controls",
     
-    sample_id %in% control_ids ~"MSI normal samples used as normal controls",
+    labno %in% control_ids ~"MSI normal samples used as normal controls",
     
     TRUE ~"Samples tested using the CLC pipeline for ERBB2"))
 
@@ -254,7 +253,9 @@ all_samples_summary_table <- all_samples |>
 
 csv_timestamp(all_samples_summary_table)
 
-all_sample_ids <- all_samples$sample_id
+all_sample_ids <- all_samples$labno
+
+knitr::kable(all_samples_summary_table)
 
 ```
 
