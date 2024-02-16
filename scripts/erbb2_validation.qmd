@@ -261,38 +261,14 @@ knitr::kable(table_samples_tested)
 ```
 
 ```{r}
-#| label: extraction-and-sample-types
+#| label: extraction-types
 #| echo: FALSE
 
-sample_extraction <- get_extraction_method(all_sample_ids)
+erbb2_sample_extraction <- read_csv(here::here("data/dna_db_queries/erbb2_sample_extraction.csv"),
+                                    col_types = "cc")
 
-sample_types <- get_sample_tissue(all_sample_ids)
-
-all_sample_info <- all_samples |> 
-  left_join(sample_extraction, by = "labno") |> 
-  left_join(sample_types, by = "labno") |> 
-  rename(extraction_method = method_name)
-
-table_patient_sample_types <- all_sample_info |> 
-  filter(sample_group == "Samples tested using the CLC pipeline for ERBB2") |> 
-  count(tissue_type) |> 
-  arrange(desc(n))
-
-knitr::kable(table_patient_sample_types)
-
-csv_timestamp(table_patient_sample_types)
-
-table_normal_sample_types <- all_sample_info |> 
-  filter(sample_group == "MSI normal samples used as normal controls") |> 
-  count(tissue_type) |> 
-  arrange(desc(n))
-
-knitr::kable(table_normal_sample_types)
-
-csv_timestamp(table_normal_sample_types)
-
-table_sample_extractions <- all_sample_info |> 
-  filter(sample_group == "Samples tested using the CLC pipeline for ERBB2") |> 
+table_sample_extractions <- erbb2_sample_extraction |> 
+  filter(labno %in% patient_samples_tested) |> 
   count(extraction_method) |> 
   arrange(desc(n))
 
@@ -300,62 +276,76 @@ knitr::kable(table_sample_extractions)
 
 csv_timestamp(table_sample_extractions)
 
-table_normal_extractions <- all_sample_info |> 
-  filter(sample_group == "MSI normal samples used as normal controls") |> 
-  count(extraction_method) |> 
+```
+
+```{r}
+#| label: sample-types
+#| echo: FALSE
+
+erbb2_sample_types <- read_csv(here::here("data/dna_db_queries/erbb2_sample_types.csv"),
+                                    col_types = "cc")
+
+table_sample_types <- erbb2_sample_types |> 
+  filter(labno %in% patient_samples_tested & !labno %in% seracare_ids) |> 
+  count(tissue_type) |> 
   arrange(desc(n))
 
-knitr::kable(table_normal_extractions)
+knitr::kable(table_sample_types)
 
-csv_timestamp(table_normal_extractions)
+csv_timestamp(table_sample_types)
 
 ```
 
 ```{r}
-#| label: discodes-ncc
+#| label: ncc
+#| echo: FALSE
+
+erbb2_ncc <- read_csv(here::here("data/dna_db_queries/erbb2_ncc.csv"),
+                                    col_types = "ccc")
+
+manual_ncc_check <- read_excel(here::here("data/manual_ncc_check.xlsx"),
+                               col_types = c("text", "text"))
+
+over_20_variants <- c(">30%", ">20%", "20-30%")
+
+ncc_collated <- erbb2_ncc |> 
+  filter(labno %in% patient_samples_tested & !labno %in% seracare_ids) |>
+  left_join(manual_ncc_check, by = "labno") |> 
+  mutate(ncc = case_when(
+    
+    ncc_db %in% over_20_variants |
+      manual_ncc %in% over_20_variants ~">20%",
+    
+    ncc_db == "10-20%" |
+      manual_ncc == "10-20%" ~"10-20%",
+    
+    TRUE ~"No NCC provided"))
+
+table_neoplastic_cell_content <- ncc_collated |> 
+  count(ncc) |> 
+  arrange(desc(n)) |> 
+  rename("NCC (%)" = ncc,
+         "Samples" = n)
+
+knitr::kable(table_neoplastic_cell_content)
+
+csv_timestamp(table_neoplastic_cell_content)
+
+```
+
+
+```{r}
+#| label: tumour-sources
 #| include: FALSE
 
-sample_discode_ncc <- sample_tbl |> 
-  select(LABNO, DISEASE, "DISEASE 2", "DISEASE 3", "DISEASE 4",
-         "COMMENTS") |> 
-  filter(LABNO %in% all_sample_ids) |> 
-  collect() |> 
-  janitor::clean_names() |> 
-  mutate(ncc_db = parse_ncc(comments)) |> 
-  pivot_longer(cols = -c(labno, comments, ncc_db),
-               values_to = "discode") |> 
-  left_join(discode |> 
-              select(discode, disease), by = "discode") |> 
-  filter(!is.na(discode))
+erbb2_tumour_sources <- read_csv(here::here("data/dna_db_queries/erbb2_tumour_sources.csv"),
+                                    col_types = "cncc")
 
-sample_disease_codes_mod <- sample_discode_ncc |> 
-  filter(labno %in% patient_samples_tested) |> 
-  filter(!discode %in% c(168, 215)) |>
-  mutate(discode_comment = case_when(
-    
-    discode == 123 ~"Lung",
-    
-    discode %in% c(221, 222) ~"Central nervous system",
-    
-    discode %in% c(120, 209, 120,
-                   174, 161) ~"Colorectal"
-    ),
-    
-    discode_comment = case_when(
-      
-      labno == 21019092 ~"Lung",
-      
-      labno == 21011525 ~"Uterus",
-      
-      TRUE ~discode_comment)
-    
-    )
-
-table_tumour_sources <- sample_disease_codes_mod |> 
-  filter(!duplicated(labno)) |> 
-  count(discode_comment) |> 
+table_tumour_sources <- erbb2_tumour_sources |> 
+   filter(labno %in% patient_samples_tested & !labno %in% seracare_ids) |>
+  count(tumour_source) |> 
   rename(Total = n,
-         "Tumour type" = discode_comment)
+         "Tumour type" = tumour_source)
 
 csv_timestamp(table_tumour_sources)
 
@@ -382,44 +372,6 @@ coarse_calls |>
 ```
 
 ```{r}
-#| label: ncc
-#| eval: FALSE
-#| include: FALSE
-
-sample_info <- sample_tbl |> 
-  select(LABNO, "COMMENTS") |> 
-  filter(LABNO %in% samples_tested) |> 
-  collect() |> 
-  filter(!LABNO %in% seracare_ids)
-
-manual_ncc_check <- read_excel(here::here("data/manual_ncc_check.xlsx"),
-                               col_types = c("text", "text"))
-
-over_20_variants <- c(">30%", ">20%", "20-30%")
-
-ncc_collated <- sample_discode_ncc |> 
-  left_join(manual_ncc_check, join_by(labno == sample_id)) |> 
-  mutate(ncc = case_when(
-    
-    ncc_dlms %in% over_20_variants |
-      manual_ncc %in% over_20_variants ~">20%",
-    
-    ncc_dlms == "10-20%" |
-      manual_ncc == "10-20%" ~"10-20%",
-    
-    TRUE ~"No NCC provided"))
-
-ncc_table <- ncc_collated |> 
-  count(ncc) |> 
-  arrange(desc(n)) |> 
-  rename("NCC (%)" = ncc,
-         "Samples" = n)
-
-csv_timestamp(ncc_table)
-
-```
-
-```{r}
 #| label: load-ddpcr
 #| include: FALSE
 
@@ -442,7 +394,7 @@ ERBB2 concentrations measured via ddPCR ranged from `r min(ddpcr_erbb2$copies_pe
 
 dual_tested_samples <- c(21011525, 21039327, 22000209)
 
-impact_of_hindiii_digestion <- rbind(ws138419, ws138579) |> 
+table_impact_of_hindiii_digestion <- rbind(ws138419, ws138579) |> 
   filter(experiment == "ERBB2 Ex13_1" & sample %in% dual_tested_samples) |> 
   select(sample, worksheet, target, copies_per20u_l_well, cnv) |> 
   pivot_wider(id_cols = c(sample),
@@ -458,9 +410,9 @@ impact_of_hindiii_digestion <- rbind(ws138419, ws138579) |>
          AP3B1_molecules, AP3B1_molecules_HindIII,
          ERBB2_copies, ERBB2_copies_HindIII)
 
-knitr::kable(impact_of_hindiii_digestion)
+knitr::kable(table_impact_of_hindiii_digestion)
 
-csv_timestamp(impact_of_hindiii_digestion)
+csv_timestamp(table_impact_of_hindiii_digestion)
 
 ```
 
@@ -486,7 +438,8 @@ origin_check <- coarse_calls |>
   filter(gene %in% c("ERBB2", "No calls")) |> 
   filter(!duplicated(labno)) |> 
   left_join(sample_disease_codes_mod, by = "labno") |> 
-  filter(!is.na(discode_comment))
+  filter(!is.na(discode_comment)) |> 
+  filter(!duplicated(labno)) 
 
 amp_sample_type_table <- origin_check |> 
   count(discode_comment, gene) |> 
