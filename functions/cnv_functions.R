@@ -339,7 +339,7 @@ draw_repeat_coord_plot <- function(df, input_sample, input_setting, input_gene,
 
 extract_cnv_calls <- function(df, input_gene) {
   
-  stopifnot("Genotype" %in% colnames(df))
+  stopifnot("genotype" %in% colnames(df))
   
   dq_regex <- regex(str_c(
     # Group - input gene
@@ -356,10 +356,10 @@ extract_cnv_calls <- function(df, input_gene) {
     "x"))
 
   output <- df |> 
-    select(LABNO, Genotype) |> 
+    select(labno, genotype) |> 
     mutate(gene_searched = input_gene,
-           gene_match = str_extract(Genotype, dq_regex, group = 1),
-           gene_dq = as.numeric(str_extract(Genotype, dq_regex, group = 4)),
+           gene_match = str_extract(genotype, dq_regex, group = 1),
+           gene_dq = as.numeric(str_extract(genotype, dq_regex, group = 4)),
            core_result = ifelse(!is.na(gene_dq), "Amplification", "No call"))
   
   return(output)
@@ -437,11 +437,6 @@ summarise_results <- function(file, input_sheet) {
   return(summary)
   
 }
-
-
-
-
-
 
 read_summary_tab <- function(file) {
   
