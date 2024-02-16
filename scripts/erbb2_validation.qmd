@@ -432,22 +432,18 @@ Out of `r length(patient_samples_tested)` samples, there were `r length(unique(e
 
 ```{r}
 #| label: calls-by-sample-type
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
-origin_check <- coarse_calls |> 
-  filter(gene %in% c("ERBB2", "No calls")) |> 
-  filter(!duplicated(labno)) |> 
-  left_join(sample_disease_codes_mod, by = "labno") |> 
-  filter(!is.na(discode_comment)) |> 
-  filter(!duplicated(labno)) 
+table_results_by_tumour_type <- erbb2_coarse_pansolid |> 
+  filter(!labno %in% seracare_ids) |> 
+  left_join(erbb2_tumour_sources, by = "labno") |> 
+  count(tumour_source) |> 
+  arrange(desc(n))
 
-amp_sample_type_table <- origin_check |> 
-  count(discode_comment, gene) |> 
-  pivot_wider(id_cols = discode_comment, 
-              values_from = n,
-              names_from = gene)
+knitr::kable(table_results_by_tumour_type)
 
-knitr::kable(amp_sample_type_table)
+csv_timestamp(table_results_by_tumour_type)
 
 ```
 
@@ -623,6 +619,10 @@ cdk12 <- read_csv(file = here::here("data/ExonsSpreadsheet-Homo_sapiens_Transcri
   filter(!is.na(no)) |> 
   rename(exon = no)
 
+cdk12_start <- min(cdk12$start)
+
+cdk12_end <- max(cdk12$end)
+
 erbb2_cdk12 <- rbind(ENST00000269571, cdk12)
 
 ```
@@ -732,7 +732,7 @@ make_erbb2_plot <- function(labno_input,
 #| label: erbb2-calls
 #| echo: FALSE
 
-interval <- 10000
+interval <- 50000
 
 left_buffer <- 5000 
 
@@ -779,25 +779,35 @@ primer_plot <-  ggplot(primers_for_plot |>
                        limits = c(plot_min, plot_max)) +
   labs (x = "", y = "")
 
+gene_labels <- data.frame(
+  start = c(39500000, 39720000),
+  y_value = c("Genes", "Genes"),
+  label = c("CDK12", "ERBB2"))
 
 exon_plot <- ggplot(erbb2_cdk12 |> 
-                      mutate(labno = "Genes"), aes(x = start, y = labno)) +
+                      mutate(y_value = "Exons"), 
+                             aes(x = start, y = y_value)) +
   geom_segment(aes(x = start, xend = end, 
-                   y = labno, yend = labno),
+                   y = y_value, yend = y_value),
                linewidth = 5) +
   geom_segment(aes(x = erbb2_start, xend = erbb2_end, 
-                                         y = labno, yend = labno),
+                                         y = y_value, yend = y_value),
+                 linewidth = 0.5) +
+   geom_segment(aes(x = cdk12_start, xend = cdk12_end, 
+                                         y = y_value, yend = y_value),
                  linewidth = 0.5) +
   theme_bw() +
   scale_x_continuous(breaks = by_n(interval),
                        minor_breaks = NULL,
                        limits = c(plot_min, plot_max)) +
+  scale_y_discrete(limits = rev) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
-  labs(y = "", x = "Genome coordinate (GRCh38)")
+  labs(y = "", x = "Genome coordinate (GRCh38)") +
+  geom_label(data = gene_labels, label = gene_labels$label)
 
 plot_all_erbb2_amplification_coordinates <- (call_plot / primer_plot / exon_plot) +
   plot_layout(
-    heights = c(6, 1, 1)
+    heights = c(6, 1, 2)
     )
 
 plot_all_erbb2_amplification_coordinates
@@ -1007,7 +1017,7 @@ ddpcr_pansolid_seracare_plot
 
 ```{r}
 #| label: manchester-vs-seracare
-#| include: FALSE
+#| echo: FALSE
 
 # Values taken from technical product reports
 seracare_erbb2_copies <- read_excel(path = here::here("data/seracare_erbb2_copies.xlsx"),
