@@ -455,7 +455,39 @@ enzyme_experiment <- rbind(ws138419, ws138579) |>
          AP3B1_molecules, AP3B1_molecules_HindIII,
          ERBB2_copies, ERBB2_copies_HindIII)
 
+knitr::kable(enzyme_experiment)
+
 csv_timestamp(enzyme_experiment)
+
+```
+
+## NGS Results
+
+```{r}
+#| label: erbb2_ngs_results
+#| include: FALSE
+
+erbb2_coarse_pansolid <- all_patient_calls |> 
+  filter(gene == "ERBB2" & setting == "coarse") |> 
+  filter(!duplicated(labno))
+
+```
+
+Out of `r length(patient_samples_tested)` samples, there were `r length(unique(erbb2_coarse_pansolid$labno))` with ERBB2 amplifications detected, with fold changes ranging from `r round(min(erbb2_coarse_pansolid$fold_change_adjusted), 1)` to `r round(max(erbb2_coarse_pansolid$fold_change_adjusted), 1)`.
+
+```{r}
+#| label: calls-by-sample-type
+#| include: FALSE
+
+origin_check <- erbb2_coarse_pansolid |> 
+  left_join(sample_disease_codes_mod, by = "labno") |> 
+  filter(!is.na(discode_comment)) |> 
+  filter(!duplicated(labno))
+
+amp_sample_type_table <- origin_check |> 
+  count(discode_comment)
+
+knitr::kable(amp_sample_type_table)
 
 ```
 
@@ -465,60 +497,44 @@ csv_timestamp(enzyme_experiment)
 #| label: ddpcr-vs-pansolid
 #| include: FALSE
 
-erbb2_coarse_pansolid <- all_calls |> 
-  filter(gene == "ERBB2" & setting == "coarse") |> 
-  filter(!duplicated(sample_id))
-
-
-origin_check <- erbb2_coarse_pansolid |> 
-  left_join(sample_disease_codes_mod, join_by(sample_id == labno)) |> 
-  filter(!is.na(discode_comment)) |> 
-  filter(!duplicated(sample_id))
-
-ggplot(origin_check, aes(x = reorder(sample_id, fold_change_adjusted), 
-                         y = fold_change_adjusted)) +
-  geom_point(aes(colour = discode_comment))
-
-origin_check |> 
-  count(discode_comment)
-
-
-
 ddpcr_pansolid <- ddpcr_erbb2 |> 
-  filter(!sample %in% c("C3_5ng", "C3_20ng", "NTC")) |> 
-  left_join(erbb2_coarse_pansolid, join_by(sample == sample_id)) |> 
+  filter(!labno %in% c("C3_5ng", "C3_20ng", "NTC")) |> 
+  left_join(erbb2_coarse_pansolid, by = "labno") |> 
   mutate(pansolid_result = case_when(
     
-    is.na(fold_change_adjusted) & 
-      sample %in% clc_controls$sample_id ~"pansolid normal control",
+    labno %in% c(biobank_ids, control_ids) ~"pansolid normal control",
     
     is.na(fold_change_adjusted) & 
-      !sample %in% clc_controls$sample_id ~"pansolid normal result",
+      !labno %in% c(biobank_ids, control_ids) ~"pansolid normal result",
     
-    !is.na(fold_change_adjusted) ~"pansolid amplification"),
+    fold_change_adjusted >= 2.9 ~"pansolid amplification"),
+    
     pansolid_result = factor(pansolid_result, levels = c("pansolid normal control",
                                                          "pansolid normal result",
                                                          "pansolid amplification"))) |> 
   # Remove seracare repeats
-  filter(!duplicated(sample))
+  filter(!duplicated(labno))
+
+ddpcr_pansolid_table <- ddpcr_pansolid |> 
+  count(pansolid_result)
+
+knitr::kable(ddpcr_pansolid_table)
 
 ```
-
-Out of `r length(unique(file_table$sample_id))` samples, there were `r length(unique(erbb2_coarse_pansolid$sample_id))` with ERBB2 amplifications detected, with fold changes ranging from `r min(erbb2_coarse_pansolid$fold_change_adjusted)` to `r max(erbb2_coarse_pansolid$fold_change_adjusted)`.
 
 ```{r}
 #| label: ddpcr-normal-range
 #| include: FALSE
 
 ddpcr_normal <- ddpcr_pansolid |> 
-  filter(pansolid_result == "pansolid normal control")
+  filter(labno %in% c(biobank_ids, control_ids))
 
 ```
 
 ddPCR ERBB2 copy number in normal controls ranged from `r min(ddpcr_normal$cnv)` to `r max(ddpcr_normal$cnv)` (median: `r median(ddpcr_normal$cnv)`).
 
 ```{r}
-#| label: confusion-matrix
+#| label: ngs-ddpcr-confusion-matrix
 #| include: FALSE
 
 true_pos <- "True positive"
@@ -556,6 +572,8 @@ confusion_matrix <- tribble(
   "ddPCR",  "Amplification",  true_positives,    false_negatives,
   "x",      "Normal",         false_positives,   true_negatives)
 
+knitr::kable(confusion_matrix)
+
 csv_timestamp(confusion_matrix)
 
 ```
@@ -575,7 +593,7 @@ The overall percent agreement between NGS and ddPCR is `r opa`%.
 #| label: ddpcr-vs-pansolid-plot
 #| echo: FALSE
 
-ddpcr_pansolid |> 
+ddpcr_cn_plot <- ddpcr_pansolid |> 
   ggplot(aes(x = pansolid_result, y = cnv)) +
   geom_jitter(size = 2, pch = 21, alpha = 0.6) +
   theme_bw() +
@@ -587,6 +605,8 @@ ddpcr_pansolid |>
   geom_hline(yintercept = 6, linetype = "dashed") +
   scale_y_continuous(limits = c(0, 80), breaks = c(0, 6, 20, 40, 60, 80)) 
 
+ddpcr_cn_plot
+
 ```
 
 ```{r}
@@ -595,7 +615,7 @@ ddpcr_pansolid |>
 
 discrepant_samples <- c(23001095, 23002258, 23008380)
 
-fold_change_vs_ddpcr_copy_number <- ddpcr_pansolid |> 
+ngs_ddpcr_quant_plot <- ddpcr_pansolid |> 
   filter(!is.na(fold_change_adjusted)) |> 
   ggplot(aes(x = fold_change_adjusted*2, y = cnv)) +
   geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
@@ -613,7 +633,7 @@ fold_change_vs_ddpcr_copy_number <- ddpcr_pansolid |>
              pch = 21) +
   ggpubr::stat_cor(method = "pearson", label.x = 70, label.y = 20) 
 
-fold_change_vs_ddpcr_copy_number
+ngs_ddpcr_quant_plot
 
 #plot_timestamp(fold_change_vs_ddpcr_copy_number)
 
@@ -628,7 +648,8 @@ fold_change_vs_ddpcr_copy_number
 # Exons exported from Ensembl
 # https://mart.ensembl.org/Homo_sapiens/Transcript/Exons?db=core;g=ENSG00000141736;r=17:39687914-39730426;t=ENST00000269571
 
-ENST00000269571 <- read_csv(file = here::here("data/ExonsSpreadsheet-Homo_sapiens_Transcript_Exons_ENST00000269571.csv")) |>  
+ENST00000269571 <- read_csv(file = here::here("data/ExonsSpreadsheet-Homo_sapiens_Transcript_Exons_ENST00000269571.csv"),
+                            show_col_types = FALSE) |>  
   janitor::clean_names() |> 
   filter(!is.na(no)) |> 
   rename(exon = no)
@@ -637,18 +658,18 @@ erbb2_start <- min(ENST00000269571$start)
 
 erbb2_end <- max(ENST00000269571$end)
 
-cdk12 <- read_csv(file = here::here("data/ExonsSpreadsheet-Homo_sapiens_Transcript_Exons_ENST00000447079.csv")) |> 
+cdk12 <- read_csv(file = here::here("data/ExonsSpreadsheet-Homo_sapiens_Transcript_Exons_ENST00000447079.csv"),
+                            show_col_types = FALSE) |> 
   janitor::clean_names() |> 
   filter(!is.na(no)) |> 
   rename(exon = no)
 
 erbb2_cdk12 <- rbind(ENST00000269571, cdk12)
 
-
 ```
 
 ```{r}
-#| label: erbb2-primers
+#| label: grch38-primers
 #| include: FALSE
 
 grch38_primers <- read_csv(file =
@@ -665,7 +686,7 @@ grch38_primer_coordinates <- extract_cnv_coordinates(grch38_primers |>
 #| label: make-erbb2-plot
 #| echo: FALSE
 
-make_erbb2_plot <- function(sample, 
+make_erbb2_plot <- function(labno_input, 
                             interval = 10000, 
                             buffer = 5000, 
                             input_setting = "coarse", 
@@ -676,17 +697,17 @@ make_erbb2_plot <- function(sample,
                             ybreaks = c(exon_y, primer_y, 0, 20, 40, 60),
                             ylabels = c("ERBB2", "Primers", 0, 20, 40, 60)) {
   
-  if(is.na(sample)) {
+  if(is.na(labno_input)) {
     
-    data_for_plot <- all_calls |> 
+    data_for_plot <- all_patient_calls |> 
     filter(gene == "ERBB2" & setting == input_setting)
   }
   
-   if(!is.na(sample)) {
+   if(!is.na(labno_input)) {
     
-    data_for_plot <- all_calls |> 
+    data_for_plot <- all_patient_calls |> 
     filter(gene == "ERBB2" & setting == input_setting &
-             sample_id == sample)
+             labno == labno_input)
   }
   
   plot_min <- min(data_for_plot$start) - buffer
@@ -738,7 +759,7 @@ make_erbb2_plot <- function(sample,
     
     # Add labels
     labs(
-      title = str_c("Sample: ", sample), 
+      title = str_c("Sample: ", labno_input), 
       y = "Fold change", 
       x = "GRCh38 coordinates")
     
@@ -767,7 +788,7 @@ primers_for_plot <- grch38_primer_coordinates |>
     filter(start >= plot_min  & end <= plot_max)
 
 call_plot <- erbb2_coarse_pansolid |> 
-         mutate(sample_id = factor(x = as.character(sample_id),
+         mutate(labno = factor(x = labno,
                                    levels = c(
                                      "23044755", "23002258", 
                                      "21039327", "23008380",
@@ -775,10 +796,10 @@ call_plot <- erbb2_coarse_pansolid |>
                                      "21011525", "21015264", "23011210", "23006590",
                                      "23022389", "23001095", "23055093", "21019092", 
                                      "22034556"))) |> 
-       ggplot(aes(x = start, y = sample_id,
+       ggplot(aes(x = start, y = labno,
                  colour = fold_change_adjusted)) +
   geom_segment(aes(x = start, xend = end, 
-                     y = sample_id, yend = sample_id),
+                     y = labno, yend = labno),
                  linewidth = 2) +
   theme_bw() +
   theme(axis.text.x = element_blank()) +
@@ -790,7 +811,7 @@ call_plot <- erbb2_coarse_pansolid |>
         colour = "Fold change")
   
 primer_plot <-  ggplot(primers_for_plot |> 
-                      mutate(sample_id = "Primers"), aes(x = start, y = sample_id)) +
+                      mutate(labno = "Primers"), aes(x = start, y = labno)) +
   geom_point(pch = 21) +
   theme_bw() +
   theme(axis.text.x = element_blank()) +
@@ -801,12 +822,12 @@ primer_plot <-  ggplot(primers_for_plot |>
 
 
 exon_plot <- ggplot(erbb2_cdk12 |> 
-                      mutate(sample_id = "Genes"), aes(x = start, y = sample_id)) +
+                      mutate(labno = "Genes"), aes(x = start, y = labno)) +
   geom_segment(aes(x = start, xend = end, 
-                   y = sample_id, yend = sample_id),
+                   y = labno, yend = labno),
                linewidth = 5) +
   geom_segment(aes(x = erbb2_start, xend = erbb2_end, 
-                                         y = sample_id, yend = sample_id),
+                                         y = labno, yend = labno),
                  linewidth = 0.5) +
   theme_bw() +
   scale_x_continuous(breaks = by_n(interval),
@@ -820,6 +841,8 @@ erbb2_call_plot <- (call_plot / primer_plot / exon_plot) +
   plot_layout(
     heights = c(6, 1, 1)
     )
+
+erbb2_call_plot
 
 # plot_timestamp(erbb2_call_plot, input_height = 16)
 

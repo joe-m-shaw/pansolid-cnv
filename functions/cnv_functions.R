@@ -689,7 +689,8 @@ read_biorad_csv <- function(worksheet) {
                 "PoissonFractionalAbundanceMin68" = "d")) |> 
   janitor::clean_names() |> 
   mutate(sample_well = str_c(sample, "_", well),
-         worksheet = worksheet)
+         worksheet = worksheet,
+         labno = sample)
   
   return(output)
   
