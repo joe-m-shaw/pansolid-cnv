@@ -8,7 +8,7 @@ editor: visual
 ---
 
 ## Introduction
-Test
+
 This Quarto document performs the analysis for the validation of somatic ERBB2 gene amplifications.
 
 Exported tables and plots have the prefix "plot\_" or "table\_" and are named exactly as they appear in the validation document for ease of reference.
@@ -145,7 +145,7 @@ clc_data_path <- here::here("data/clc_outputs")
 
 negatives_path <- str_c(clc_data_path, "/Negatives")
 
-all_files <- flatten(list(
+all_patient_files <- flatten(list(
   
   list.files(str_c(clc_data_path, "/CNS_PS/"), full.names = TRUE),
   
@@ -169,26 +169,26 @@ all_files <- flatten(list(
   
   list.files(str_c(negatives_path, "/SchwannCNS_PS/"), full.names = TRUE)))
 
-coarse_calls <- all_files |>
-  map(\(all_files) read_clc_excel(
-    file = all_files,
+coarse_calls <- all_patient_files |>
+  map(\(all_patient_files) read_clc_amp_calls(
+    file = all_patient_files,
     input_sheet = coarse_tab
   )) |>
   list_rbind() |> 
   mutate(setting = "coarse") 
 
 # Check all files have been read in
-setdiff(unique(coarse_calls$filename), all_files)
+setdiff(unique(coarse_calls$filename), all_patient_files)
 
-fine_calls <- all_files |>
-  map(\(all_files) read_clc_excel(
-    file = all_files,
+fine_calls <- all_patient_files |>
+  map(\(all_patient_files) read_clc_amp_calls(
+    file = all_patient_files,
     input_sheet = fine_tab
   )) |>
   list_rbind() |> 
   mutate(setting = "fine")
 
-all_calls <- rbind(coarse_calls, fine_calls) |>
+all_patient_calls <- rbind(coarse_calls, fine_calls) |>
   extract_cnv_coordinates()
 
 ```
