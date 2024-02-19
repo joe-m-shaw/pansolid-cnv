@@ -335,7 +335,6 @@ csv_timestamp(table_neoplastic_cell_content)
 
 ```
 
-
 ```{r}
 #| label: tumour-sources
 #| include: FALSE
@@ -507,14 +506,6 @@ ddPCR ERBB2 copy number in normal controls ranged from `r min(ddpcr_normal$cnv)`
 #| label: ngs-ddpcr-confusion-matrix
 #| include: FALSE
 
-true_pos <- "True positive"
-
-true_neg <- "True negative"
-
-false_pos <- "False positive"
-
-false_neg <- "False negative"
-
 ddpcr_threshold <- 6
 
 result_comparison <- ddpcr_pansolid |> 
@@ -529,35 +520,21 @@ result_comparison <- ddpcr_pansolid |>
         
         pansolid_result == "pansolid normal result" & cnv > ddpcr_threshold ~false_neg))
 
-true_positives <- nrow(result_comparison[result_comparison$outcome == true_pos, ])
 
-true_negatives <- nrow(result_comparison[result_comparison$outcome == true_neg, ])
+table_erbb2_results_ngs_vs_ddpcr <- make_confusion_matrix(df = result_comparison,
+                                                          initial_test = "PanSolid",
+                                                          comparison_test = "ddPCR",
+                                                          positive_state = "Amplification",
+                                                          negative_state = "Normal")
 
-false_positives <- nrow(result_comparison[result_comparison$outcome == false_pos, ])
 
-false_negatives <- nrow(result_comparison[result_comparison$outcome == false_neg, ])
+knitr::kable(table_erbb2_results_ngs_vs_ddpcr[[1]])
 
-table_erbb2_results_ngs_vs_ddpcr <- tribble(
-  ~"x",      ~"x",            ~"Amplification",      ~"Normal", 
-  "ddPCR",  "Amplification",  true_positives,    false_negatives,
-  "x",      "Normal",         false_positives,   true_negatives)
-
-knitr::kable(table_erbb2_results_ngs_vs_ddpcr)
-
-csv_timestamp(table_erbb2_results_ngs_vs_ddpcr)
+csv_timestamp(table_erbb2_results_ngs_vs_ddpcr[[1]])
 
 ```
 
-```{r}
-#| label: opa
-#| include: FALSE
-
-opa <- round((true_positives + true_negatives) / (true_positives + false_negatives +
-                                              false_positives + true_negatives) * 100, 1)
-
-```
-
-The overall percent agreement between NGS and ddPCR is `r opa`%.
+The overall percent agreement between NGS and ddPCR is `r table_erbb2_results_ngs_vs_ddpcr[[2]]`%.
 
 ```{r}
 #| label: ddpcr-vs-pansolid-plot
@@ -1095,22 +1072,16 @@ pansolid_vs_core <- ddpcr_pansolid |>
            TRUE ~"no match")) |> 
   filter(outcome != "no match")
 
-true_positives <- nrow(pansolid_vs_core[pansolid_vs_core$outcome == true_pos, ])
+table_pansolid_vs_core_panel_erbb2_results <- make_confusion_matrix(
+  df = pansolid_vs_core,
+  initial_test = "PanSolid",
+  comparison_test = "Core",
+  positive_state = "Amplification",
+  negative_state = "Normal")
 
-true_negatives <- nrow(pansolid_vs_core[pansolid_vs_core$outcome == true_neg, ])
+knitr::kable(table_pansolid_vs_core_panel_erbb2_results[[1]])
 
-false_positives <- nrow(pansolid_vs_core[pansolid_vs_core$outcome == false_pos, ])
-
-false_negatives <- nrow(pansolid_vs_core[pansolid_vs_core$outcome == false_neg, ])
-
-table_pansolid_vs_core_panel_erbb2_results <- tribble(
-  ~"x",      ~"x",            ~"Amplification",      ~"Normal", 
-  "Core",  "Amplification",  true_positives,    false_negatives,
-  "x",      "Normal",         false_positives,   true_negatives)
-
-knitr::kable(table_pansolid_vs_core_panel_erbb2_results)
-
-csv_timestamp(table_pansolid_vs_core_panel_erbb2_results)
+csv_timestamp(table_pansolid_vs_core_panel_erbb2_results[[1]])
 
 ```
 
