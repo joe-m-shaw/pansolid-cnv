@@ -624,7 +624,7 @@ call_plot <- erbb2_coarse_pansolid |>
                        minor_breaks = NULL,
                        limits = c(plot_min, plot_max)) +
   scale_colour_gradient(low = "#FF9999", high = "#660000", breaks = c(0, 10, 20, 30, 40)) +
-  labs (x = "", y = "",
+  labs (x = "", y = "Sample DNA number",
         colour = "Fold change")
   
 primer_plot <-  ggplot(primers_for_plot |> 
@@ -714,7 +714,7 @@ call_plot <- short_erbb2_calls |>
                        minor_breaks = NULL,
                        limits = c(plot_min, plot_max)) +
   scale_colour_gradient(low = "#FF9999", high = "#660000", breaks = c(0, 10, 20, 30, 40)) +
-  labs (x = "", y = "",
+  labs (x = "", y = "Sample DNA number",
         colour = "Fold change") +
   geom_vline(xintercept = 39728044, linetype = "dashed") +
   geom_vline(xintercept = 39700311, linetype = "dashed")
