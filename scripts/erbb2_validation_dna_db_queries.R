@@ -17,6 +17,22 @@ erbb2_labno_df <- read_csv(file = here::here("data/erbb2_validation_labnos.csv")
 
 erbb2_labnos <- erbb2_labno_df$labno
 
+erbb2_ws_df <- read_csv(file = here::here("data/erbb2_validation_pansolid_worksheets.csv"),
+                                          col_types = "c") |> 
+  mutate(pcr_id = parse_number(x  = worksheet))
+
+erbb2_ws <- erbb2_ws_df$pcr_id
+
+# Worksheet details -----------------------------------------------------------------
+
+erbb2_pansolid_ws_details <- dna_db_worksheets |> 
+  filter(PCRID %in% erbb2_ws) |> 
+  select(PCRID, Date) |> 
+  collect() |> 
+  janitor::clean_names()
+
+dna_db_export(erbb2_pansolid_ws_details)
+
 # Extraction methods ----------------------------------------------------------------
 
 erbb2_sample_extraction <- get_extraction_method(erbb2_labnos) |> 
