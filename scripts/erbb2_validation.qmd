@@ -11,9 +11,11 @@ editor: visual
 
 This Quarto document performs the analysis for the validation of somatic ERBB2 gene amplifications.
 
-Exported tables and plots have the prefix "plot" or "table" and are named exactly as they appear in the validation document for ease of reference.
+Exported tables and plots have the prefix "plot" or "table" and are named exactly as they appear in the validation document ("ERBB2 Somatic Amplifications Validation Document.docx") for ease of reference.
 
 Plots do not have titles to avoid confusion with titles in word document.
+
+The script should run with the files in the associated data folder, without requiring a connection to the DNA Database. The sample information from the DNA Database was extracted using the erbb2_validation_dna_db_queries.R script.
 
 ```{r}
 #| label: packages
@@ -354,6 +356,18 @@ knitr::kable(table_tumour_sources)
 ```
 
 ```{r}
+#| label: erbb2-worksheets
+#| include: FALSE
+
+erbb2_worksheets <- read_csv(here::here("data/dna_db_queries/erbb2_pansolid_ws_details.csv"),
+                             show_col_types = FALSE)
+
+```
+
+Samples were tested across `r nrow(erbb2_worksheets)` between `r min(erbb2_worksheets$date)` and
+`r max(erbb2_worksheets$date)`.
+
+```{r}
 #| label: check-low-ncc
 #| eval: FALSE
 #| include: FALSE
@@ -556,7 +570,6 @@ ddpcr_cn_plot <- ddpcr_pansolid |>
   theme(panel.grid = element_blank(),
         legend.position = "none") +
   labs(x = "", y = "ddPCR ERBB2 Exon 13 Copy Number",
-       title = "ERBB2 Exon 13 ddPCR for samples tested on PanSolid",
        subtitle = "Highest normal control ddPCR copy number is 6") +
   geom_hline(yintercept = 6, linetype = "dashed") +
   scale_y_continuous(limits = c(0, 80), breaks = c(0, 6, 20, 40, 60, 80)) 
@@ -873,8 +886,7 @@ ddpcr_pansolid_seracare_plot <- ddpcr_pansolid |>
   geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
   geom_point(size = 3, fill = safe_blue, alpha = 0.8, pch = 21) +
   theme_bw() +
-  labs(x = "PanSolid Copy Number", y = "ddPCR Copy Number",
-         title = "ddPCR versus PanSolid: SeraCare samples") +
+  labs(x = "PanSolid Copy Number", y = "ddPCR Copy Number") +
   scale_y_continuous(limits = c(0, 30), breaks = c(0, 10, 20, 30)) +
   scale_x_continuous(limits = c(0, 30), breaks = c(0, 10, 20, 30)) +
   ggpubr::stat_cor(method = "pearson", label.x = 22, label.y = 5) 
