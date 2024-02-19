@@ -114,15 +114,15 @@ csv_timestamp(table_ERBB2_Qiaseq_Primers)
 
 fold_change_threshold <- 2.9
 
-fc_vs_tcc <- data.frame(tcc = seq(0, 100, by = 0.1)) |> 
+fc_vs_ncc <- data.frame(ncc = seq(0, 100, by = 0.1)) |> 
   mutate(target_copies = calculate_target_copies(fold_change = fold_change_threshold,
-                                                 tcc_percent = tcc))
-plot_fold_change_detection_limit <- fc_vs_tcc |> 
+                                                 ncc_percent = ncc))
+plot_fold_change_detection_limit <- fc_vs_ncc |> 
   filter(target_copies <= 100) |> 
-  ggplot(aes(x = target_copies, y = tcc)) +
+  ggplot(aes(x = target_copies, y = ncc)) +
   geom_line(linewidth = 1) +
   theme_bw() +
-  labs(x = "Target copies per cell", y = "Tumour cell content (%)",
+  labs(x = "Target copies per cell", y = "Neoplastic cell content (%)",
        caption = str_c("Line shows detection limit using a fold change threshold of ",
                         fold_change_threshold)) +
   scale_y_continuous(limits = c(0, 100), breaks = seq(0,100,10),
