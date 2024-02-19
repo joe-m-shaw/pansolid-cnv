@@ -272,7 +272,9 @@ erbb2_sample_extraction <- read_csv(here::here("data/dna_db_queries/erbb2_sample
 table_sample_extractions <- erbb2_sample_extraction |> 
   filter(labno %in% patient_samples_tested) |> 
   count(extraction_method) |> 
-  arrange(desc(n))
+  arrange(desc(n)) |> 
+  rename("Extraction method" = extraction_method,
+         "Samples" = n)
 
 knitr::kable(table_sample_extractions)
 
@@ -290,7 +292,9 @@ erbb2_sample_types <- read_csv(here::here("data/dna_db_queries/erbb2_sample_type
 table_sample_types <- erbb2_sample_types |> 
   filter(labno %in% patient_samples_tested & !labno %in% seracare_ids) |> 
   count(tissue_type) |> 
-  arrange(desc(n))
+  arrange(desc(n)) |> 
+  rename("Sample type" = tissue_type,
+         "Samples" = n)
 
 knitr::kable(table_sample_types)
 
@@ -457,6 +461,30 @@ table_results_by_tumour_type <- erbb2_coarse_pansolid |>
 knitr::kable(table_results_by_tumour_type)
 
 csv_timestamp(table_results_by_tumour_type)
+
+```
+
+```{r}
+#| label: calls-per-sample
+#| echo: FALSE
+
+calls_per_sample <- all_patient_calls |> 
+  filter(gene == "ERBB2") |> 
+  group_by(labno_suffix_worksheet, setting) |> 
+  summarise(total_calls = n()) |> 
+  arrange(desc(total_calls)) 
+
+plot_calls_per_sample <- ggplot(calls_per_sample, aes(x = reorder(labno_suffix_worksheet,
+                                         desc(total_calls)),
+                             y = total_calls)) +
+  geom_col(position = "dodge", aes(fill = setting)) +
+  scale_fill_manual(values = c(safe_blue, safe_red)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(y = "Number of ERBB2 CNV calls",
+       x = "Sample")
+
+plot_calls_per_sample
 
 ```
 
