@@ -638,6 +638,67 @@ calculate_target_copies <- function(fold_change, tcc_percent) {
   
 }
 
+true_pos <- "True positive"
+
+true_neg <- "True negative"
+
+false_pos <- "False positive"
+
+false_neg <- "False negative"
+
+classifiers = c(true_pos, true_neg, false_pos, false_neg)
+
+
+make_confusion_matrix <- function(df, input_column = outcome,
+                          classifiers = c(true_pos, true_neg, false_pos, false_neg),
+                          initial_test,
+                          comparison_test,
+                          positive_state,
+                          negative_state) {
+  
+  # This function requires an input table with true and false positives and negatives already defined.
+  
+  true_positives <- nrow(df |> 
+                           filter({{ input_column }} == classifiers[1]))
+  
+  true_negatives <- nrow(df |> 
+                           filter({{ input_column }} == classifiers[2]))
+  
+  false_positives <- nrow(df |> 
+                            filter({{ input_column }} == classifiers[3]))
+  
+  false_negatives <- nrow(df |> 
+                            filter({{ input_column }} == classifiers[4]))
+  
+  tp_char <- as.character(true_positives)
+  
+  tn_char <- as.character(true_negatives)
+  
+  fp_char <- as.character(false_positives)
+  
+  fn_char <- as.character(false_negatives)
+  
+  conf_matrix <- tribble(
+    ~"",               ~"",              ~"",                 ~"",         
+     "",                "",               initial_test,        "", 
+     "",                "",               positive_state,      negative_state, 
+     comparison_test,   positive_state,   tp_char,             fn_char,
+     "",                negative_state,   fp_char,             tn_char)
+  
+  
+  opa <- round((true_positives + true_negatives) / (true_positives + false_negatives +
+                                                      false_positives + true_negatives) * 100, 1)
+  
+  return(list(conf_matrix, opa))
+  
+}
+
+
+
+
+
+
+
 # Database tables -------------------------------------------------------------------
 
 extraction_method_key <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
