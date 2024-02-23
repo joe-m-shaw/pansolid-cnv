@@ -221,6 +221,16 @@ erbb2_start <- min(ENST00000269571$start)
 
 erbb2_end <- max(ENST00000269571$end)
 
+erbb2_longest_transcript_start <- 39700239
+
+erbb2_primers <- grch38_primer_coordinates |> 
+  filter(chromosome == 17) |> 
+  filter(start >= erbb2_longest_transcript_start & end <= erbb2_end) |> 
+  select(chromosome, start, end) |> 
+  mutate(target_size = end - start)
+
+csv_timestamp(erbb2_primers)
+
 cdk12 <- read_csv(file = here::here("data/ExonsSpreadsheet-Homo_sapiens_Transcript_Exons_ENST00000447079.csv"),
                   show_col_types = FALSE) |> 
   janitor::clean_names() |> 
@@ -572,12 +582,56 @@ read_summary_tab <- function(file) {
   x_wide <- x |> 
     pivot_wider(names_from = Summary,
                 values_from = value) |> 
-    janitor::clean_names()
+    # Renaming as >, < and ≥ are removed in clean_names
+    # Names shortened for ease of use
+    rename(number_target_regions_with_cov_lessthan_138 = `Number of target regions with coverage < 138`,
+           total_length_target_regions_with_pos_cov_lessthan_138 = `Total length of target regions containing positions with coverage < 138`,
+           total_length_target_region_pos_cov_lessthan_138 = `Total length of target region positions with coverage < 138`,
+           total_length_target_region_pos_cov_greaterorequal_138 = `Total length of target region positions with coverage ≥ 138`,
+           percent_target_region_pos_cov_greaterorequal_138 = `Percentage of target region positions with coverage ≥ 138 (%)`) |> 
+    janitor::clean_names() 
   
   identifiers <- filename_to_df(file)
   
   output <- cbind(identifiers, x_wide)
   
+  return(output)
+  
+}
+
+read_targeted_region_overview <- function(file) {
+  
+  # This function reads the table of reads mapped to each chromosome. 
+  # The position of this table in the "Whole Panel UMI Coverage" tab varies in each file
+  
+  x <- read_excel(path = file,
+                  sheet = "Whole Panel UMI Coverage Re...")
+  
+  num_skip <- match("Targeted region overview", x$`Target regions`) + 1
+  
+  targeted_region_overview <- read_excel(path = file,
+                  sheet = "Whole Panel UMI Coverage Re...",
+                  skip = num_skip,
+                  # 22 autosomes plus 2 sex chromosomes
+                  n_max = 24) |> 
+    mutate(chrom_mod = case_when(
+      
+      Reference %in% c("X", "Y") ~Reference,
+      
+      TRUE ~as.character(round(as.numeric(Reference), 0))),
+      
+      chromosome = fct(x = chrom_mod, levels = c("1", "2", "3", "4",
+                                                  "5",  "6",  "7",  "8",
+                                                  "9",  "10", "11", "12",
+                                                  "13", "14", "15", "16",
+                                                  "17", "18", "19", "20",
+                                                  "21", "22", "X", "Y")))
+
+  identifiers <- filename_to_df(file)
+  
+  output <- cbind(identifiers, targeted_region_overview) |> 
+    janitor::clean_names()
+    
   return(output)
   
 }
