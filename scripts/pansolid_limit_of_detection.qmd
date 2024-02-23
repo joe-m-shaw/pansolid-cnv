@@ -1,0 +1,86 @@
+---
+title: "PanSolid Limit of Detection Experiment"
+author: "Joe Shaw"
+format: html
+editor: visual
+---
+
+Seraseq® Solid Tumor CNV Mix, +12 copies
+
+PanSolid input is 16.75µl of 6ng/µl DNA (100.5ng total).
+
+Dilutions of 20ul are required.
+
+We need to find a suitable control.
+
+22000666
+
+```{r}
+#| label: calculations
+#| include: TRUE
+
+library(tidyverse)
+
+spike_c1 <- 10.9
+
+base_c1 <- 56.6
+
+total_c2 <- 6
+
+total_v2 <- 20
+
+total_ng <- total_c2 * total_v2
+
+spike_additional_copies <- 12
+
+df <- data.frame("target_percent" = c(100, 50, 25, 12.5, 6.25, 3.12, 1.56, 0))
+
+lod_calculations <- df |> 
+  mutate(
+    
+    spike_c1 = spike_c1,
+    
+    base_c1 = base_c1,
+    
+    # Calculate nanograms required of each sample (base and spike)
+    
+    spike_ng = round(total_ng * (target_percent / 100), 1),
+    
+    base_ng = round(total_ng * ( 1- target_percent / 100), 1),
+    
+    total_ng = spike_ng + base_ng,
+    
+    # Calculate the starting volumes (v1) of each sample
+    
+    spike_v1 = round(spike_ng / spike_c1, 1),
+    
+    base_v1 = round(base_ng / base_c1, 1),
+    
+    # Calculate the water volume required
+    
+    water_v1 = total_v2 - (spike_v1 + base_v1),
+    
+    final_v2 = water_v1 + spike_v1 + base_v1,
+    
+    final_c2 = round(((spike_v1*spike_c1) + (base_v1*base_c1)) / final_v2,0),
+    
+    # Calculate the additional number of copies in each mix
+    
+    base_copies = round((1 - target_percent / 100) * 2,2),
+    
+    spike_copies = round((target_percent / 100) * (spike_additional_copies + 2),2),
+    
+    total_copies = round((base_copies + spike_copies),2),
+    
+    total_additional_copies = total_copies - 2
+    
+    )
+
+write.csv(lod_calculations, file = here::here("outputs/lod_calculations.csv"),
+          row.names = FALSE)
+
+sum(lod_calculations$spike_v1)
+
+# We only have 15.8ul of the control
+
+```
