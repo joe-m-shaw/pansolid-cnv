@@ -1131,8 +1131,8 @@ control_coverage <- control_files |>
 ```
 
 ```{r}
-#| label: coverage-plot
-#| echo: FALSE
+#| label: all-sample-qc
+#| include: FALSE
 #| message: FALSE
 
 qc_data <- all_patient_files |>
@@ -1140,10 +1140,17 @@ qc_data <- all_patient_files |>
     file = all_files)) |>
   list_rbind()
 
+```
+
+```{r}
+#| label: coverage-plot
+#| echo: FALSE
+#| message: FALSE
+
 for_plot <- rbind(
   
   qc_data |> 
-    select(labno_suffix_worksheet, median_coverage) |> 
+    select(labno_suffix_worksheet, median_coverage) |>
     mutate(type = "patients"),
   
   control_coverage |> 
@@ -1173,7 +1180,7 @@ calls_and_coverage <- erbb2_coarse_pansolid |>
   left_join(qc_data, 
             by  = "labno")
 
-ggplot(calls_and_coverage, aes(x = percentage_of_target_region_positions_with_coverage_138_percent, 
+ggplot(calls_and_coverage, aes(x = percent_target_region_pos_cov_greaterorequal_138, 
                                y = median_coverage)) +
   geom_point(size = 3, alpha = 0.5) +
   theme_bw() +
@@ -1193,5 +1200,97 @@ ggplot(calls_and_coverage, aes(x = percentage_of_target_region_positions_with_co
 erbb2_coarse_pansolid |> 
   group_by(labno) |> 
   count(comments)
+
+```
+
+## Quality Investigation
+
+```{r}
+#| label: read-targeted-region-overview
+#| include: FALSE 
+#| message: FALSE 
+
+chromosome_qc_all_samples <- all_patient_files |>
+  map(\(all_files) read_targeted_region_overview(
+    file = all_files)) |>
+  list_rbind()
+
+```
+
+```{r}
+#| label: cov-vs_fold-change
+#| echo: FALSE
+#| message: FALSE
+
+fold_change_vs_138 <- coarse_calls |> 
+  filter(gene == "ERBB2") |> 
+  left_join(qc_data, by = "labno_suffix_worksheet") |> 
+  ggplot(aes(x = fold_change_adjusted, 
+                    y = percent_target_region_pos_cov_greaterorequal_138)) +
+  geom_point()
+
+cov_vs_138 <- ggplot(qc_data, aes(x = median_coverage,
+                    y = percent_target_region_pos_cov_greaterorequal_138)) +
+  geom_point(pch = 21, alpha = 0.6, size = 2) +
+  theme_bw() +
+  ylim(0, 100) +
+  geom_vline(xintercept = 60, linetype = "dashed")
+
+```
+
+```{r}
+#| label: chr17-coverage
+#| echo: FALSE
+
+chrom17_coverage <- chromosome_qc_all_samples |> 
+  filter(chromosome == "17") 
+
+erbb2_calls_with_chr17_coverage <- erbb2_coarse_pansolid |> 
+  left_join(chrom17_coverage, by = "labno_suffix_worksheet")
+
+foldchange_vs_chr17_reads <- ggplot(erbb2_calls_with_chr17_coverage, 
+       aes(x = fold_change_adjusted, y = total_mapped_reads)) +
+  geom_point(pch = 21, size = 3, alpha = 0.8) +
+  theme_bw() +
+  xlim(0, 45) +
+  ylim(0, 5000000) +
+  labs(x = "Pansolid fold change of ERBB2", y = "Total reads mapped to chromosome 17",
+       title = "Samples with higher fold change have higher chr17 reads")
+
+```
+
+```{r}
+#| label: chr17-full-cohort
+#| echo: FALSE
+
+chr17_reads_sample_cohort <- ggplot(chrom17_coverage, 
+                                    aes(x = reorder(labno_suffix_worksheet, total_mapped_reads),
+                             y = total_mapped_reads)) +
+  geom_point(pch = 21, size = 2) +
+  theme_bw() +
+  geom_point(data = erbb2_calls_with_chr17_coverage,
+             pch = 21, size = 2, fill = safe_red) +
+  theme(axis.text.x = element_blank()) +
+  labs(x = "Samples", y = "Total reads mapped to chromosome 17",
+       title = "ERBB2 amplification samples in red")
+
+random_samples <- c("21019755a_WS128767", "21011525c_WS132125", "23034077_WS133488")
+
+chromosome_qc_all_samples |> 
+  filter(labno_suffix_worksheet %in% random_samples) |> 
+  ggplot(aes(x = chromosome, y = total_mapped_reads)) +
+  geom_col() +
+  facet_wrap(~labno)
+
+```
+
+```{r}
+#| label: coverage-all-chromosomes
+#| echo: FALSE
+
+chromosome_qc_all_samples |> 
+  ggplot(aes(x = chromosome, y = mapped_reads_in_targeted_region_excl_ignored,
+             group = chromosome)) +
+  geom_boxplot() 
 
 ```
