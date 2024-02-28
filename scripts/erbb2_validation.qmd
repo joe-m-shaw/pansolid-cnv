@@ -146,31 +146,8 @@ plot_timestamp(plot_fold_change_detection_limit)
 
 clc_data_path <- here::here("data/clc_outputs")
 
-negatives_path <- str_c(clc_data_path, "/Negatives")
-
-all_patient_files <- flatten(list(
-  
-  list.files(str_c(clc_data_path, "/CNS_PS/"), full.names = TRUE),
-  
-  list.files(str_c(clc_data_path, "/M1_CRC_PS/"), full.names = TRUE),
-  
-  list.files(str_c(clc_data_path, "/M1_tLYNCH_PS"), full.names = TRUE),
-  
-  list.files(str_c(clc_data_path, "/M3_BREAST_PS/"), full.names = TRUE),
-  
-  list.files(str_c(clc_data_path, "/M4_LUNG_PS/"), full.names = TRUE),
-  
-  list.files(str_c(clc_data_path, "/PANSOLID/"), full.names = TRUE),
-  
-  list.files(str_c(negatives_path, "/CNS_PS/"), full.names = TRUE),
-
-  list.files(str_c(negatives_path, "/M1_CRC_PS/"), full.names = TRUE),
-  
-  list.files(str_c(negatives_path, "/M3_BREAST_PS/"), full.names = TRUE),
-  
-  list.files(str_c(negatives_path, "/M4_LUNG_PS/"), full.names = TRUE),
-  
-  list.files(str_c(negatives_path, "/SchwannCNS_PS/"), full.names = TRUE)))
+all_patient_files <- list.files(path = clc_data_path, full.names = TRUE, recursive = TRUE,
+                pattern = "*.xlsx")
 
 coarse_calls <- all_patient_files |>
   map(\(all_patient_files) read_clc_amp_calls(
