@@ -193,6 +193,27 @@ parse_ncc <- function(input_string) {
   
 }
 
+format_repeat_table <- function(df) {
+  
+  rpt_table <- df |> 
+    arrange(labno) |> 
+    select(labno, worksheet, gene, fold_change_adjusted, number_of_targets) |>  
+    mutate(fold_change_adjusted = ifelse(
+      
+      gene == "No calls", "No call", round(fold_change_adjusted, 1)),
+      
+      number_of_targets = ifelse(
+        
+        gene == "No calls", "No call", number_of_targets)) |> 
+    
+    select(-gene) |> 
+    rename("ERBB2 fold change" = fold_change_adjusted,
+           "Number of ERBB2 targets" = number_of_targets) 
+  
+  return(rpt_table)
+  
+}
+
 # Plot functions --------------------------------------------------------------------
 
 safe_blue <- "#88CCEE"
