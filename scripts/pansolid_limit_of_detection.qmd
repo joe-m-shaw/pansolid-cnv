@@ -1,21 +1,54 @@
 ---
 title: "PanSolid Limit of Detection Experiment"
 author: "Joe Shaw"
+date: today
+date-format: "DD/MM/YYYY"
 format: html
 editor: visual
 ---
 
 ## Background
 
-The PanSolid input is 16.75µl of 6ng/µl DNA (100.5ng total).
+This is a limit of detection experiment using SeraCare reference materials to test the sensitivity of the PanSolid pipeline for detecting copy number variants at low neoplastic cell contents (NCC).
 
-Dilutions of 20ul are required.
+The aim of the experiment is to end up with 4 mixes, each representing low NCC samples (25%, 12.5%, 6.25% and 0% NCC) at the same total DNA input as a standard clinical sample:
+
+- 20ul of 6ng/ul DNA
+- 120ng DNA 
+- 36,363 haploid genome copies (1 haploid human genome weighs 3.3 picograms)
+
+Of this, the following amounts are taken as the input into the fragmentation, end-repair and A-addition reaction:
+
+- 16.75ul
+- 100.5ng
+- 30,454 haploid genome copies
 
 ## Samples
 
-"Tumour" sample: Seraseq® Solid Tumor CNV Mix, +12 copies (15.8ul)
+The "tumour" sample is the Seraseq® Solid Tumor CNV Mix (+12 copies of various genes including ERBB2).
 
-"Normal" sample: Seraseq® DNA WT Mix (14.9ul)
+The "normal" sample is the Seraseq® DNA WT Mix (no additional gene copies).
+
+```{r}
+#| label: sample-volumes
+#| include: TRUE
+#| message: FALSE
+
+library(tidyverse)
+
+tumour_stock_vol <- 15.8
+
+tumour_stock_conc <- 10.9 
+
+norm_stock_vol <- 14.9
+
+norm_stock_conc <- 28.8
+
+tumour_total_ng <- tumour_stock_vol * tumour_stock_conc
+
+norm_total_ng <- norm_stock_vol * norm_stock_conc
+
+```
 
 ## Calculations
 
@@ -24,38 +57,41 @@ Dilutions of 20ul are required.
 #| include: TRUE
 #| message: FALSE
 
-library(tidyverse)
-
-tumour_stock_conc <- 10.9 
-
-norm_stock_conc <- 28.8
-
 total_c2 <- 6
 
-total_v2 <- 18
+total_v2 <- 20
 
 total_ng <- total_c2 * total_v2
 
 tumour_additional_copies <- 12
 
-df <- data.frame("target_tumour_percent" = c(100, 50, 25, 12.5, 6.25, 3.12, 1.56, 0))
+df <- data.frame("target_tumour_percent" = c(25, 12.5, 6.25, 0),
+                 "tumour_c1" = c(tumour_stock_conc / 2, tumour_stock_conc / 4, 
+                                 tumour_stock_conc / 8, 0),
+                 "norm_c1" = c(norm_stock_conc/2, norm_stock_conc/2, norm_stock_conc/2, 
+                               norm_stock_conc/2))
 
 lod_calculations <- df |> 
   mutate(
     
     target_norm_percent = 100-target_tumour_percent,
     
-    tumour_c1 = tumour_stock_conc * (target_tumour_percent/100),
-    
-    norm_c1 = norm_stock_conc * (target_norm_percent/100),
-    
-    # Calculate nanograms required of each sample (base and spike)
+    # Calculate nanograms required of each sample (normal and tumour)
     
     tumour_ng = round(total_ng * (target_tumour_percent / 100), 1),
     
     norm_ng = round(total_ng * (target_norm_percent / 100), 1),
     
     total_ng = tumour_ng + norm_ng,
+    
+    # Calculate number of genome equivalents (GE) 
+    # 1 haploid human genome is 3.3 picograms
+    
+    tumour_ge = round((tumour_ng * 1000) / 3.3, 1),
+    
+    norm_ge = round((norm_ng * 1000) / 3.3, 1),
+    
+    total_ge = tumour_ge + norm_ge,
     
     # Calculate the starting volumes (v1) of each sample
     
@@ -84,6 +120,12 @@ lod_calculations <- df |>
     expected_fold_change = total_copies / 2
     
     )
+
+# Check that we have enough of each control
+
+sum(lod_calculations$tumour_ng) < tumour_total_ng
+
+sum(lod_calculations$norm_ng) < norm_total_ng
 
 knitr::kable(lod_calculations)
 
