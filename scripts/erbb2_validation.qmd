@@ -106,6 +106,22 @@ csv_timestamp(table_ERBB2_Qiaseq_Primers)
 
 ```
 
+```{r}
+#| label: qiaseq-primer-lengths
+#| echo: FALSE
+
+plot_qiaseq_primer_length <- grch38_primer_coordinates |> 
+  mutate(size = end - start) |>  
+  ggplot(aes(x = size, y = )) +
+  geom_histogram() +
+  labs(title = "PanSolid primer lengths",
+       x = "Primer length (bp)", y = "Number of primers") +
+  theme_bw()
+
+plot_qiaseq_primer_length
+
+```
+
 ## Fold Change Threshold
 
 ```{r}
@@ -117,6 +133,11 @@ fold_change_threshold <- 2.9
 fc_vs_ncc <- data.frame(ncc = seq(0, 100, by = 0.1)) |> 
   mutate(target_copies = calculate_target_copies(fold_change = fold_change_threshold,
                                                  ncc_percent = ncc))
+
+lod_exp <- data.frame(
+  target_copies = c(14, 8, 5, 0, 14, 14, 14, 14),
+  ncc = c(100, 100, 100, 100, 25, 12.5, 6.25, 0))
+
 plot_fold_change_detection_limit <- fc_vs_ncc |> 
   filter(target_copies <= 100) |> 
   ggplot(aes(x = target_copies, y = ncc)) +
@@ -130,7 +151,8 @@ plot_fold_change_detection_limit <- fc_vs_ncc |>
   scale_x_continuous(limits = c(0, 100), breaks = seq(0,100,10),
                      minor_breaks = FALSE) +
   geom_text(aes(x = 30, y = 30), size = 4, label = "Detected") +
-  geom_text(aes(x = 10, y = 10), size = 4, label = "Not detected")
+  geom_text(aes(x = 25, y = 5), size = 4, label = "Not detected") +
+  geom_point(data = lod_exp, pch = 21, fill = safe_red)
 
 plot_fold_change_detection_limit
 
@@ -344,8 +366,7 @@ erbb2_worksheets <- read_csv(here::here("data/dna_db_queries/erbb2_pansolid_ws_d
 
 ```
 
-Samples were tested across `r nrow(erbb2_worksheets)` between `r min(erbb2_worksheets$date)` and
-`r max(erbb2_worksheets$date)`.
+Samples were tested across `r nrow(erbb2_worksheets)` between `r min(erbb2_worksheets$date)` and `r max(erbb2_worksheets$date)`.
 
 ```{r}
 #| label: check-low-ncc
@@ -445,24 +466,39 @@ csv_timestamp(table_results_by_tumour_type)
 #| label: calls-per-sample
 #| echo: FALSE
 
-calls_per_sample <- all_patient_calls |> 
+table_calls_per_sample <- all_patient_calls |> 
   filter(gene == "ERBB2") |> 
   group_by(labno_suffix_worksheet, setting) |> 
   summarise(total_calls = n()) |> 
-  arrange(desc(total_calls)) 
+  pivot_wider(id_cols = labno_suffix_worksheet,
+              names_from = setting,
+              values_from = total_calls)  |> 
+  arrange(desc(fine)) |> 
+  rename("ERBB2 calls - coarse" = coarse,
+         "ERBB2 calls - fine" = fine)
 
-plot_calls_per_sample <- ggplot(calls_per_sample, aes(x = reorder(labno_suffix_worksheet,
-                                         desc(total_calls)),
-                             y = total_calls)) +
-  geom_col(position = "dodge", aes(fill = setting)) +
-  scale_fill_manual(values = c(safe_blue, safe_red)) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  labs(y = "Number of ERBB2 CNV calls",
-       x = "Sample")
+knitr::kable(table_calls_per_sample)
 
-plot_calls_per_sample
+```
 
+```{r} 
+#| label: disproportionate-chromosome-coverage
+#| echo: FALSE
+
+ggplot(erbb2_coarse_pansolid, aes(x = reorder(labno_suffix_worksheet,
+                                              desc(fold_change_adjusted)),
+                                  y = fold_change_adjusted)) +
+  geom_point(aes(colour = comments)) +
+  theme(axis.text.x = element_blank())
+
+
+
+grch38_primer_coordinates |>  
+  filter(chromosome == "17") |> 
+  mutate(locus = ifelse(start >= erbb2_longest_transcript_start & 
+                          start <= erbb2_end, "ERBB2", "Other")) |> 
+  count(locus)
+  
 ```
 
 ## NGS vs ddPCR
@@ -1116,10 +1152,11 @@ for_plot <- rbind(
 
 plot_coverage_in_patients_and_controls <- ggplot(for_plot, aes(x = type, 
                     y = median_coverage)) +
-  geom_boxplot() +
+  geom_jitter() +
   theme_bw() +
   labs(x = "", y = "Median coverage (X)") +
-  ylim(0, 1600)
+  ylim(0, 1600) +
+  geom_hline(yintercept = 60, linetype = "dashed")
 
 plot_coverage_in_patients_and_controls
 
@@ -1132,20 +1169,15 @@ plot_timestamp(plot_coverage_in_patients_and_controls)
 #| eval: FALSE
 #| include: FALSE
 
-calls_and_coverage <- erbb2_coarse_pansolid |> 
+calls_and_coverage <- ddpcr_pansolid |> 
   left_join(qc_data, 
-            by  = "labno")
+            by  = "labno_suffix_worksheet")
 
 ggplot(calls_and_coverage, aes(x = percent_target_region_pos_cov_greaterorequal_138, 
                                y = median_coverage)) +
-  geom_point(size = 3, alpha = 0.5) +
-  theme_bw() +
-  ylim(0, 1500) +
-  #xlim(0, 45) +
-  geom_point(data = calls_and_coverage |> 
-               filter(labno %in% discrepant_samples), size = 3, fill = safe_red,
-             pch = 21) 
-
+  geom_point(size = 3, alpha = 0.5, aes(colour = pansolid_result)) +
+  theme_bw()
+  
 ```
 
 ```{r}
@@ -1174,7 +1206,7 @@ chromosome_qc_all_samples <- all_patient_files |>
 ```
 
 ```{r}
-#| label: cov-vs_fold-change
+#| label: cov-vs-fold-change
 #| echo: FALSE
 #| message: FALSE
 
@@ -1196,7 +1228,7 @@ cov_vs_138 <- ggplot(qc_data, aes(x = median_coverage,
 
 ```{r}
 #| label: chr17-coverage
-#| echo: FALSE
+#| eval: FALSE
 
 chrom17_coverage <- chromosome_qc_all_samples |> 
   filter(chromosome == "17") 
@@ -1217,7 +1249,7 @@ foldchange_vs_chr17_reads <- ggplot(erbb2_calls_with_chr17_coverage,
 
 ```{r}
 #| label: chr17-full-cohort
-#| echo: FALSE
+#| eval: FALSE
 
 chr17_reads_sample_cohort <- ggplot(chrom17_coverage, 
                                     aes(x = reorder(labno_suffix_worksheet, total_mapped_reads),
@@ -1237,6 +1269,15 @@ chromosome_qc_all_samples |>
   ggplot(aes(x = chromosome, y = total_mapped_reads)) +
   geom_col() +
   facet_wrap(~labno)
+
+coarse_calls |> 
+  left_join(chromosome_qc_all_samples, by = "labno_suffix_worksheet") |> 
+  filter(chromosome.y == "17") |> 
+  filter(gene == "ERBB2" & labno.x == "21011525") |> 
+  ggplot(aes(x = labno_suffix_worksheet, 
+             y = total_mapped_reads)) +
+  geom_boxplot(aes(group = labno_suffix_worksheet)) +
+  theme(axis.text.x = element_text(angle = 45))
 
 ```
 
