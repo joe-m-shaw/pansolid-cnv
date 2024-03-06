@@ -26,9 +26,6 @@ rm(list=ls())
 library(tidyverse)
 library(readxl)
 library(here)
-library(odbc)
-library(DBI)
-library(dbplyr)
 library(ggpubr)
 library(patchwork)
 
@@ -631,21 +628,7 @@ plot_timestamp(plot_fold_change_vs_ddpcr_copy_number)
 #| label: erbb2-calls
 #| echo: FALSE
 
-interval <- 50000
-
-left_buffer <- 5000 
-
-right_buffer <- 200000
-
-plot_min <- min(erbb2_coarse_pansolid$start) - left_buffer
-  
-plot_max <- max(erbb2_coarse_pansolid$end) + right_buffer
-
-primers_for_plot <- grch38_primer_coordinates |> 
-    mutate(fold_change_adjusted = -10) |> 
-    filter(start >= plot_min  & end <= plot_max)
-
-call_plot <- erbb2_coarse_pansolid |> 
+erbb2_calls_factorised <- erbb2_coarse_pansolid |> 
          mutate(labno = factor(x = labno,
                                    levels = c(
                                      "23044755", "23002258", 
@@ -653,63 +636,18 @@ call_plot <- erbb2_coarse_pansolid |>
                                      "24002064", "24002067", "24002071", "23030974",
                                      "21011525", "21015264", "23011210", "23006590",
                                      "23022389", "23001095", "23055093", "21019092", 
-                                     "22034556"))) |> 
-       ggplot(aes(x = start, y = labno,
-                 colour = fold_change_adjusted)) +
-  geom_segment(aes(x = start, xend = end, 
-                     y = labno, yend = labno),
-                 linewidth = 2) +
-  theme_bw() +
-  theme(axis.text.x = element_blank()) +
-  scale_x_continuous(breaks = by_n(interval),
-                       minor_breaks = NULL,
-                       limits = c(plot_min, plot_max)) +
-  scale_colour_gradient(low = "#FF9999", high = "#660000", breaks = c(0, 10, 20, 30, 40)) +
-  labs (x = "", y = "Sample DNA number",
-        colour = "Fold change")
-  
-primer_plot <-  ggplot(primers_for_plot |> 
-                      mutate(labno = "Primers"), aes(x = start, y = labno)) +
-  geom_point(pch = 21) +
-  theme_bw() +
-  theme(axis.text.x = element_blank()) +
-  scale_x_continuous(breaks = by_n(interval),
-                       minor_breaks = NULL,
-                       limits = c(plot_min, plot_max)) +
-  labs (x = "", y = "")
+                                     "22034556")))
 
-gene_labels <- data.frame(
-  start = c(39500000, 39720000),
-  y_value = c("Genes", "Genes"),
-  label = c("CDK12", "ERBB2"))
+erbb2_labno <- make_labno_plot(df = erbb2_calls_factorised, 
+                      gene = "ERBB2",
+                      interval = 10000, 
+                      buffer = 5000, 
+                      setting = "coarse")
 
-exon_plot <- ggplot(erbb2_cdk12 |> 
-                      mutate(y_value = "Exons"), 
-                             aes(x = start, y = y_value)) +
-  geom_segment(aes(x = start, xend = end, 
-                   y = y_value, yend = y_value),
-               linewidth = 5) +
-  geom_segment(aes(x = erbb2_start, xend = erbb2_end, 
-                                         y = y_value, yend = y_value),
-                 linewidth = 0.5) +
-   geom_segment(aes(x = cdk12_start, xend = cdk12_end, 
-                                         y = y_value, yend = y_value),
-                 linewidth = 0.5) +
-  theme_bw() +
-  scale_x_continuous(breaks = by_n(interval),
-                       minor_breaks = NULL,
-                       limits = c(plot_min, plot_max)) +
-  scale_y_discrete(limits = rev) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
-  labs(y = "", x = "Genome coordinate (GRCh38)") +
-  geom_label(data = gene_labels, label = gene_labels$label)
-
-plot_all_erbb2_amplification_coordinates <- (call_plot / primer_plot / exon_plot) +
-  plot_layout(
-    heights = c(6, 1, 2)
-    )
-
-plot_all_erbb2_amplification_coordinates
+plot_all_erbb2_amplification_coordinates <- make_cnv_triptych(plot_xmin = erbb2_labno[[1]],
+                  plot_xmax = erbb2_labno[[2]],
+                  interval = erbb2_labno[[3]],
+                  main_plot = erbb2_labno[[4]])
 
 plot_timestamp(plot_all_erbb2_amplification_coordinates, input_height = 16)
 
@@ -719,85 +657,19 @@ plot_timestamp(plot_all_erbb2_amplification_coordinates, input_height = 16)
 #| label: erbb2-calls-zoom
 #| echo: FALSE
 
-interval <- 10000
+short_erbb2_calls <- erbb2_calls_factorised |> 
+                                 filter(cnv_region_length < 100000)
 
-left_buffer <- 5000 
+erbb2_labno_zoom <- make_labno_plot(df = short_erbb2_calls, 
+                      gene = "ERBB2",
+                      interval = 10000, 
+                      buffer = 5000, 
+                      setting = "coarse")
 
-right_buffer <- 5000
-
-short_erbb2_calls <- erbb2_coarse_pansolid |> 
-  filter(cnv_region_length < 100000)
-
-plot_min <- min(short_erbb2_calls$start) - left_buffer
-  
-plot_max <- max(short_erbb2_calls$end) + right_buffer
-
-primers_for_plot <- grch38_primer_coordinates |> 
-    filter(start >= plot_min  & end <= plot_max)
-
-call_plot <- short_erbb2_calls |> 
-  mutate(labno = factor(x = labno,
-                                   levels = c(
-                                     "23044755", "23002258", 
-                                     "21039327", "23008380",
-                                     "24002064", "24002067", "24002071", "23030974",
-                                     "21011525", "21015264", "23011210", "23006590",
-                                     "23022389", "23001095", "23055093", "21019092", 
-                                     "22034556"))) |> 
-       ggplot(aes(x = start, y = labno,
-                 colour = fold_change_adjusted)) +
-  geom_segment(aes(x = start, xend = end, 
-                     y = labno, yend = labno),
-                 linewidth = 2) +
-  theme_bw() +
-  theme(axis.text.x = element_blank()) +
-  scale_x_continuous(breaks = by_n(interval),
-                       minor_breaks = NULL,
-                       limits = c(plot_min, plot_max)) +
-  scale_colour_gradient(low = "#FF9999", high = "#660000", breaks = c(0, 10, 20, 30, 40)) +
-  labs (x = "", y = "Sample DNA number",
-        colour = "Fold change") +
-  geom_vline(xintercept = 39728044, linetype = "dashed") +
-  geom_vline(xintercept = 39700311, linetype = "dashed")
-  
-primer_plot <- ggplot(primers_for_plot |> 
-                      mutate(labno = "Primers"), aes(x = start, y = labno)) +
-  geom_point(pch = 21) +
-  theme_bw() +
-  theme(axis.text.x = element_blank()) +
-  scale_x_continuous(breaks = by_n(interval),
-                       minor_breaks = NULL,
-                       limits = c(plot_min, plot_max)) +
-  labs (x = "", y = "") +
-  geom_vline(xintercept = 39728044, linetype = "dashed") +
-  geom_vline(xintercept = 39700311, linetype = "dashed")
-
-
-exon_plot <- ggplot(ENST00000269571 |> 
-                      mutate(labno = "ERBB2"), aes(x = start, y = labno)) +
-  geom_segment(aes(x = start, xend = end, 
-                   y = labno, yend = labno),
-               linewidth = 5) +
-  geom_segment(aes(x = erbb2_start, xend = erbb2_end, 
-                                         y = labno, yend = labno),
-                 linewidth = 0.5) +
-  theme_bw() +
-  scale_x_continuous(breaks = by_n(interval),
-                       minor_breaks = NULL,
-                       limits = c(plot_min, plot_max)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
-  labs(y = "", x = "Genome coordinate (GRCh38)") +
-  geom_vline(xintercept = 39728044, linetype = "dashed") +
-  geom_vline(xintercept = 39700311, linetype = "dashed")
-
-plot_erbb2_amplification_accuracy <- (call_plot / primer_plot / exon_plot) +
-  plot_layout(
-    heights = c(6, 1, 1)
-    )
-
-plot_erbb2_amplification_accuracy
-
-plot_timestamp(plot_erbb2_amplification_accuracy, input_height = 16)
+plot_erbb2_amplification_accuracy <- make_cnv_triptych(plot_xmin = erbb2_labno_zoom[[1]],
+                  plot_xmax = erbb2_labno_zoom[[2]],
+                  interval = erbb2_labno_zoom[[3]],
+                  main_plot = erbb2_labno_zoom[[4]])
 
 ```
 
@@ -848,45 +720,60 @@ ggplot(data = x, aes(x = start, y = y_value)) +
 #| label: seracare-results
 #| echo: FALSE
 
-copies3_plot <- make_erbb2_plot(labno_input = 24002064, 
-                                interval = 10000, 
-                                buffer = 5000, 
-                                input_setting = "coarse", 
-                                ymax = 15,
-                                exon_y = -7,
-                                exon_y_buffer = 2, 
-                                primer_y = -3, 
-                                ybreaks = c(-7, -3, 0, 5, 10, 15),
-                                ylabels = c("ERBB2", "Primers",  0, 5, 10, 15)) +
-  labs(x = "", title = "+3 copies")
+copies_3 <- make_fold_change_plot(df = all_patient_calls |> 
+                                     filter(labno == "24002064"),
+                      ymax = 15)
 
-copies6_plot <- make_erbb2_plot(labno_input = 24002067, 
-                                interval = 10000, 
-                                buffer = 5000, 
-                                input_setting = "coarse", 
-                                ymax = 15,
-                                exon_y = -7,
-                                exon_y_buffer = 2, 
-                                primer_y = -3, 
-                                ybreaks = c(-7, -3, 0, 5, 10, 15),
-                                ylabels = c("ERBB2", "Primers",  0, 5, 10, 15)) +
-  labs(y = "", title = "+6 copies")
+copies_3_plot <- copies_3[[4]] +
+  labs(title = "+3 copies")
 
-copies12_plot <- make_erbb2_plot(labno_input = 24002071, 
-                                interval = 10000, 
-                                buffer = 5000, 
-                                input_setting = "coarse", 
-                                ymax = 15,
-                                exon_y = -7,
-                                exon_y_buffer = 2, 
-                                primer_y = -3, 
-                                ybreaks = c(-7, -3, 0, 5, 10, 15),
-                                ylabels = c("ERBB2", "Primers",  0, 5, 10, 15)) +
-  labs(x = "", y = "", title = "+12 copies")
+copies_3_primer <- make_primer_plot(plot_xmin = copies_3[[1]],
+                  plot_xmax = copies_3[[2]],
+                  interval = copies_3[[3]])
 
-plot_seracare_controls_erbb2_results <- ggarrange(copies3_plot, copies6_plot, copies12_plot, nrow = 1)
+copies_3_exon <- make_exon_plot(plot_xmin = copies_3[[1]],
+                  plot_xmax = copies_3[[2]],
+                  interval = copies_3[[3]]) +
+  labs(x = "")
 
-plot_seracare_controls_erbb2_results
+copies_6 <- make_fold_change_plot(df = all_patient_calls |> 
+                                     filter(labno == "24002067"),
+                      ymax = 15)
+
+copies_6_plot <- copies_6[[4]] +
+  labs(title = "+6 copies")
+
+copies_6_primer <- make_primer_plot(plot_xmin = copies_6[[1]],
+                  plot_xmax = copies_6[[2]],
+                  interval = copies_6[[3]])
+
+copies_6_exon <- make_exon_plot(plot_xmin = copies_6[[1]],
+                  plot_xmax = copies_6[[2]],
+                  interval = copies_6[[3]]) +
+  labs(x = "Genome coordinate")
+
+copies_12 <- make_fold_change_plot(df = all_patient_calls |> 
+                                     filter(labno == "24002071"),
+                      ymax = 15)
+
+copies_12_plot <- copies_12[[4]] +
+  labs(title = "+12 copies")
+
+copies_12_primer <- make_primer_plot(plot_xmin = copies_12[[1]],
+                  plot_xmax = copies_12[[2]],
+                  interval = copies_12[[3]])
+
+copies_12_exon <- make_exon_plot(plot_xmin = copies_12[[1]],
+                  plot_xmax = copies_12[[2]],
+                  interval = copies_12[[3]]) +
+  labs(x = "")
+
+plot_seracare_controls_erbb2_results <- copies_3_plot + copies_6_plot + copies_12_plot +
+  copies_3_primer + copies_6_primer + copies_12_primer +
+  copies_3_exon + copies_6_exon + copies_12_exon +
+  plot_layout(nrow = 3, 
+              ncol = 3,
+              heights = c(6, 1, 2))
 
 plot_timestamp(plot_seracare_controls_erbb2_results, input_width = 16)
 
@@ -1024,19 +911,17 @@ csv_timestamp(table_intra_run_repeat_results)
 #| label: repeat-plots
 #| echo: FALSE
 
-plot_variation_in_21011525 <- make_erbb2_plot(labno = 21011525, 
-                                              interval = 10000, buffer = 5000, 
-                            input_setting = "coarse",
-                ymax = 30,
-                exon_y = -10,
-                exon_y_buffer = 5, 
-                primer_y = -5, 
-                ybreaks = c(-10, -5, 0, 10, 20, 30),
-                            ylabels = c("ERBB2", "Primers", 0, 10, 20, 30)) +
-  facet_wrap(~labno_suffix_worksheet) +
-  labs(title = "")
+sample_21011525_results <- all_patient_calls |> 
+  filter(labno == "21011525")
 
-plot_variation_in_21011525
+sample_21011525_plot <- make_labno_plot(df = sample_21011525_results, 
+                yaxis = labno_suffix_worksheet,
+                gradient_breaks = c(17, 18, 19))
+
+plot_variation_in_21011525 <- make_cnv_triptych(sample_21011525_plot[[1]],
+                  sample_21011525_plot[[2]],
+                  sample_21011525_plot[[3]],
+                  sample_21011525_plot[[4]])
 
 plot_timestamp(plot_variation_in_21011525)
 
@@ -1048,26 +933,8 @@ plot_timestamp(plot_variation_in_21011525)
 #| label: comparison-to-core
 #| echo: FALSE
 
-core_result_info <- results_tbl |> 
-  select(LABNO, TEST, TESTTYPE, Genotype, Genotype2, GENOCOMM) |> 
-  filter(LABNO %in% patient_samples_tested) |> 
-  collect() |> 
-  janitor::clean_names() |> 
-  filter(test %in% grep(pattern = "Q.{2,4}seq\\s(Core|NGS\\sCore|Merged)", 
-                        x = test, 
-                        ignore.case = TRUE,
-                        value = TRUE)) |> 
-  mutate(genotype = case_when(
-    
-    # Sample has "EGFR" instead of "ERBB2" written on DNA Database - confirmed on report
-    labno == 23022389 ~"ERBB2 amplification detected (Mean DQ 25x)",
-    
-    # Sample has "ERRB2" instead of "ERBB2" written
-    labno == 21015264 ~"No mutation identified; ERBB2 amplification detected (mean DQ 60.41x)",
-    
-    TRUE ~genotype)) |> 
-  
-  filter(!duplicated(labno))
+core_result_info <- read_csv(here::here("data/dna_db_queries/core_result_info.csv"),
+                             col_types = "ccdccc")
   
 core_erbb2_calls <- extract_cnv_calls(df = core_result_info, input_gene = "ERBB2")
 
