@@ -337,7 +337,7 @@ csv_timestamp(table_neoplastic_cell_content)
 
 ```{r}
 #| label: tumour-sources
-#| include: FALSE
+#| echo: FALSE
 
 erbb2_tumour_sources <- read_csv(here::here("data/dna_db_queries/erbb2_tumour_sources.csv"),
                                     col_types = "cncc")
@@ -488,8 +488,6 @@ ggplot(erbb2_coarse_pansolid, aes(x = reorder(labno_suffix_worksheet,
   geom_point(aes(colour = comments)) +
   theme(axis.text.x = element_blank())
 
-
-
 grch38_primer_coordinates |>  
   filter(chromosome == "17") |> 
   mutate(locus = ifelse(start >= erbb2_longest_transcript_start & 
@@ -502,7 +500,7 @@ grch38_primer_coordinates |>
 
 ```{r}
 #| label: ddpcr-vs-pansolid
-#| include: FALSE
+#| echo: FALSE
 
 ddpcr_pansolid <- ddpcr_erbb2 |> 
   filter(!labno %in% c("C3_5ng", "C3_20ng", "NTC")) |> 
@@ -542,7 +540,7 @@ ddPCR ERBB2 copy number in normal controls ranged from `r min(ddpcr_normal$cnv)`
 
 ```{r}
 #| label: ngs-ddpcr-confusion-matrix
-#| include: FALSE
+#| echo: FALSE
 
 ddpcr_threshold <- 6
 
@@ -649,6 +647,8 @@ plot_all_erbb2_amplification_coordinates <- make_cnv_triptych(plot_xmin = erbb2_
                   interval = erbb2_labno[[3]],
                   main_plot = erbb2_labno[[4]])
 
+plot_all_erbb2_amplification_coordinates
+
 plot_timestamp(plot_all_erbb2_amplification_coordinates, input_height = 16)
 
 ```
@@ -671,11 +671,15 @@ plot_erbb2_amplification_accuracy <- make_cnv_triptych(plot_xmin = erbb2_labno_z
                   interval = erbb2_labno_zoom[[3]],
                   main_plot = erbb2_labno_zoom[[4]])
 
+plot_erbb2_amplification_accuracy
+
+plot_timestamp(plot_erbb2_amplification_accuracy)
+
 ```
 
 ```{r}
 #| label: long-erbb2-calls
-#| include: FALSE
+#| echo: FALSE
 
 erbb2_long_calls <- ddpcr_pansolid |> 
   filter(cnv_region_length > 50000) |> 
@@ -775,6 +779,8 @@ plot_seracare_controls_erbb2_results <- copies_3_plot + copies_6_plot + copies_1
               ncol = 3,
               heights = c(6, 1, 2))
 
+plot_seracare_controls_erbb2_results
+
 plot_timestamp(plot_seracare_controls_erbb2_results, input_width = 16)
 
 ```
@@ -797,6 +803,8 @@ ddpcr_pansolid_seracare_plot <- ddpcr_pansolid |>
   ggpubr::stat_cor(method = "pearson", label.x = 22, label.y = 5) 
 
 ddpcr_pansolid_seracare_plot
+
+plot_timestamp(ddpcr_pansolid_seracare_plot)
 
 ```
 
@@ -922,6 +930,8 @@ plot_variation_in_21011525 <- make_cnv_triptych(sample_21011525_plot[[1]],
                   sample_21011525_plot[[2]],
                   sample_21011525_plot[[3]],
                   sample_21011525_plot[[4]])
+
+plot_variation_in_21011525
 
 plot_timestamp(plot_variation_in_21011525)
 
