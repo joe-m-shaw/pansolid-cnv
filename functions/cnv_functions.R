@@ -3,12 +3,6 @@
 library(tidyverse)
 library(here)
 
-# DNA database connection -----------------------------------------------------------
-
-dbi_con <- DBI::dbConnect(
-  drv = odbc::odbc(),
-  dsn = "moldb")
-
 # Export functions ------------------------------------------------------------------
 
 csv_timestamp <- function(input) {
@@ -304,7 +298,6 @@ by_n <- function(n) {
   
   }
 
-
 draw_cnv_plot <- function(df, input_gene, input_setting, 
                           interval = 200000,
                           ymax = 70,
@@ -408,84 +401,230 @@ draw_repeat_coord_plot <- function(df, input_sample, input_setting, input_gene,
   
 }
 
-make_erbb2_plot <- function(labno_input, 
-                            interval = 10000, 
-                            buffer = 5000, 
-                            input_setting = "coarse", 
-                            ymax = 60,
-                            exon_y = -20,
-                            exon_y_buffer = 10, 
-                            primer_y = -10, 
-                            ybreaks = c(exon_y, primer_y, 0, 20, 40, 60),
-                            ylabels = c("ERBB2", "Primers", 0, 20, 40, 60)) {
+# Triptych plot functions -----------------------------------------------------------
+
+# CNV plots can be presented as triptychs: 
+# Panel 1) The plot of CNV calls:
+    # a) Either with fold change on the y axis (make_fold_change_plot)
+    # b) Or with lab number on the y axis (make_labno_plot)
+# Panel 2) A plot showing the locations of Qiaseq primers
+# Panel 3) A plot showing annotated locations of gene exons
+
+# The aim of these inter-related functions is to allow maximum flexibility and to keep 
+# the x axes consistent between the different plots.
+
+get_data_for_plot <- function(df, 
+                              gene,
+                              setting) {
   
-  if(is.na(labno_input)) {
-    
-    data_for_plot <- all_patient_calls |> 
-      filter(gene == "ERBB2" & setting == input_setting)
-  }
+  data_for_plot <- df |> 
+    filter(gene == {{ gene }} & setting == {{ setting }} )
   
-  if(!is.na(labno_input)) {
-    
-    data_for_plot <- all_patient_calls |> 
-      filter(gene == "ERBB2" & setting == input_setting &
-               labno == labno_input)
-  }
+  return(data_for_plot)
   
-  plot_min <- min(data_for_plot$start) - buffer
+}
+
+get_plot_xmin <- function(df, buffer) {
   
-  plot_max <- max(data_for_plot$end) + buffer
+  plot_xmin <- min(df$start) - buffer
   
-  primers_for_plot <- grch38_primer_coordinates |> 
-    mutate(fold_change_adjusted = primer_y) |> 
-    filter(start >= plot_min  & end <= plot_max )
+  return(plot_xmin)
   
-  erbb2_plot <- ggplot(data_for_plot, aes(x = start, y = fold_change_adjusted)) +
+}
+
+get_plot_xmax <- function(df, buffer) {
+  
+  plot_xmax <- max(df$end) + buffer
+  
+  return(plot_xmax)
+  
+}
+
+make_fold_change_plot <- function(df = all_patient_calls, 
+                                  gene = "ERBB2",
+                                  interval = 10000, 
+                                  buffer = 5000, 
+                                  setting = "coarse", 
+                                  ymin = 0,
+                                  ymax = 40) {
+  
+  data_for_plot <- get_data_for_plot(df = {{ df }}, 
+                    gene = {{ gene }},
+                    setting = {{ setting }})
+  
+  plot_xmin <- get_plot_xmin(df = data_for_plot,
+                                 buffer = buffer)
+  
+  plot_xmax <- get_plot_xmax(df = data_for_plot,
+                                 buffer = buffer)
+  
+  fold_change_plot <- ggplot(data_for_plot, aes(x = start, y = fold_change_adjusted)) +
     
     # Add theme
     theme_bw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+    theme(axis.text.x = element_blank()) +
     
     # Add CNV calls
     geom_segment(aes(x = start, xend = end, 
                      y = fold_change_adjusted, yend = fold_change_adjusted),
-                 colour = safe_red,
+                 linewidth = 2,
+                 colour = safe_red) +
+
+    # Add x axes
+    scale_x_continuous(breaks = by_n(interval),
+                       minor_breaks = NULL,
+                       limits = c(plot_xmin, plot_xmax)) +
+    
+    scale_y_continuous(limits = c(ymin, ymax)) +
+    
+    # Add labels
+    labs(
+      y = "Fold change",
+      x = "")
+  
+  return(list(plot_xmin, plot_xmax, interval, fold_change_plot))
+  
+}
+
+make_labno_plot <- function(df = all_patient_calls, 
+                            gene = "ERBB2",
+                            interval = 10000, 
+                            buffer = 5000, 
+                            setting = "coarse",
+                            yaxis = labno,
+                            gradient_breaks = c(0, 10, 20, 30, 40)) {
+  
+  data_for_plot <- get_data_for_plot(df = {{ df }}, 
+                                     gene = {{ gene }},
+                                     setting = {{ setting }})
+  
+  plot_xmin <- get_plot_xmin(df = data_for_plot,
+                             buffer = buffer)
+  
+  plot_xmax <- get_plot_xmax(df = data_for_plot,
+                             buffer = buffer)
+  
+  labno_plot <- ggplot(data_for_plot, aes(x = start, y = {{ yaxis }},
+                                                colour = fold_change_adjusted)) +
+    
+    # Add theme
+    theme_bw() +
+    theme(axis.text.x = element_blank()) +
+    
+    # Add CNV calls
+    geom_segment(aes(x = start, xend = end, 
+                     y = {{ yaxis }}, yend = {{ yaxis }}),
                  linewidth = 2) +
     
-    # Add line to separate data from exons
-    geom_hline(yintercept = 0) +
-    
-    # Add ERBB2 exons
-    geom_segment(data = ENST00000269571, aes(x = start, xend = end, 
-                                             y = exon_y, yend = exon_y),
-                 linewidth = 5) +
-    
-    # Add ERBB2 gene line
-    geom_segment(aes(x = erbb2_start, xend = erbb2_end, 
-                     y = exon_y, yend = exon_y),
-                 linewidth = 0.5) +
-    
-    # Add primer positions
-    geom_point(data = primers_for_plot, pch = 21) +
-    
-    # Add y axes
-    scale_y_continuous(limits = c(exon_y - exon_y_buffer, ymax), 
-                       minor_breaks = NULL,
-                       breaks = ybreaks,
-                       labels = ylabels) +
+    scale_colour_gradient(low = "#FF9999", 
+                          high = "#660000", 
+                          breaks = {{ gradient_breaks }}) +
     
     # Add x axes
     scale_x_continuous(breaks = by_n(interval),
                        minor_breaks = NULL,
-                       limits = c(plot_min, plot_max)) +
+                       limits = c(plot_xmin, plot_xmax)) +
     
     # Add labels
     labs(
-      title = str_c("Sample: ", labno_input), 
-      y = "Fold change", 
-      x = "GRCh38 coordinates")
+      y = "Sample number",
+      x = "",
+      colour = "Fold change")
   
-  return(erbb2_plot)
+  return(list(plot_xmin, plot_xmax, interval, labno_plot))
+  
+}
+
+make_primer_plot <- function(plot_xmin, plot_xmax, interval) {
+  
+  primers_filtered <- grch38_primer_coordinates |> 
+    mutate(y_value = "Primers") |> 
+    filter(start >= plot_xmin  & end <= plot_xmax)
+  
+  output <-  ggplot(primers_filtered, aes(x = start, y = y_value)) +
+    geom_point(pch = 21) +
+    theme_bw() +
+    theme(axis.text.x = element_blank()) +
+    scale_x_continuous(breaks = by_n(interval),
+                       minor_breaks = NULL,
+                       limits = c(plot_xmin, plot_xmax)) +
+    labs (x = "", y = "")
+  
+  return(output)
+  
+}
+
+gene_labels <- data.frame(
+  start = c(39500000, 39720000),
+  y_value = c("Genes", "Genes"),
+  label = c("CDK12", "ERBB2"))
+
+make_exon_plot <- function(plot_xmin, plot_xmax, interval) {
+  
+  exon_data_for_plot <- erbb2_cdk12 |> 
+    mutate(y_value = "Exons") |> 
+    filter(start >= plot_xmin & end <= plot_xmax)
+  
+  labels_for_plot <- gene_labels |> 
+    filter(start >= plot_xmin  & start <= plot_xmax)
+  
+  output <- ggplot(exon_data_for_plot, 
+                   aes(x = start, y = y_value)) +
+    
+    geom_segment(aes(x = start, xend = end, 
+                     y = y_value, yend = y_value),
+                 linewidth = 5) +
+    
+    geom_segment(aes(x = erbb2_start, xend = erbb2_end, 
+                     y = y_value, yend = y_value),
+                linewidth = 0.5) +
+    
+    geom_segment(aes(x = cdk12_start, xend = cdk12_end, 
+                     y = y_value, yend = y_value),
+                 linewidth = 0.5) +
+    
+    theme_bw() +
+    
+    scale_x_continuous(breaks = by_n(interval),
+                       minor_breaks = NULL,
+                       limits = c(plot_xmin, plot_xmax)) +
+    
+    scale_y_discrete(limits = rev) +
+    
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+    
+    labs(y = "", x = "Genome coordinate (GRCh38)") +
+    
+    geom_label(data = labels_for_plot, label = labels_for_plot$label)
+  
+  return(output)
+  
+}
+
+make_cnv_triptych <- function(plot_xmin,
+                              plot_xmax,
+                              interval,
+                              main_plot) {
+ # Example usage 
+ # make_cnv_triptych(# plot_xmin = make_fold_change_plot()[[1]],
+                  # plot_xmax = make_fold_change_plot()[[2]],
+                  # interval = make_fold_change_plot()[[3]],
+                  # main_plot = make_fold_change_plot()[[4]])
+
+  primer_plot <- make_primer_plot(plot_xmin = {{ plot_xmin }}, 
+                                  plot_xmax = {{ plot_xmax }},
+                                  interval = interval)
+  
+  exon_plot <- make_exon_plot(plot_xmin = plot_xmin, 
+                              plot_xmax = plot_xmax,
+                              interval = interval)
+  
+  triptych <- (main_plot / primer_plot / exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
+  
+  return(triptych)
   
 }
 
@@ -527,8 +666,6 @@ get_excel_names <- function(filepath, folder) {
   return(output)
   
 }
-
-
 
 get_gene_result <- function(df, gene_name) {
   
@@ -767,112 +904,6 @@ make_confusion_matrix <- function(df, input_column = outcome,
   return(list(conf_matrix, opa))
   
 }
-
-# Database tables -------------------------------------------------------------------
-
-extraction_method_key <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                              schema = "dbo",
-                                              table = "MOL_ExtractionMethods")) |> 
-  # Have to remove large columns to avoid Invalid Descriptor Index error
-  select(-c(Checks, Reagents)) |> 
-  collect()
-
-extraction_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                                  schema = "dbo",
-                                                  table = "MOL_Extractions"))
-
-extraction_batch_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                                        schema = "dbo",
-                                                        table = "MOL_ExtractionBatches"))
-
-
-sample_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                              schema = "dbo",
-                                              table = "Samples"))
-
-results_tbl <- tbl(dbi_con, 
-                   dbplyr::in_catalog(
-                     catalog = "MolecularDB",
-                     schema = "dbo",
-                     table = "ResultsAccess"))
-
-tissue_types <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                                schema = "dbo",
-                                                table = "TissueTypes")) |> 
-  collect() |> 
-  janitor::clean_names()
-
-discode <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                                schema = "dbo",
-                                                table = "Discode")) |> 
-  select(-c("Description", "ReferralDetails")) |> 
-  collect() |> 
-  janitor::clean_names()
-
-ngiscodes <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                             schema = "dbo",
-                                             table = "NGISCodes")) |> 
-  collect() |> 
-  janitor::clean_names()
-
-
-dna_db_worksheets <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                                   schema = "dbo",
-                                                   table = "PCR_New")) 
-
-# Database functions ----------------------------------------------------------------
-
-get_columns <- function(table_input) {
-  
-  output <- odbc::odbcConnectionColumns(
-    conn = dbi_con, 
-    catalog_name = "MolecularDB",
-    schema_name = "dbo",
-    name = table_input)
-  
-  return(output)
-  
-}
-
-get_extraction_method <- function(sample_vector) {
-  
-  extraction_tbl_samples <- extraction_tbl |> 
-    filter(LabNo %in% sample_vector) |> 
-    collect()
-  
-  batches <- unique(extraction_tbl_samples$ExtractionBatchFK)
-  
-  extraction_batch_info <- extraction_batch_tbl |> 
-    filter(ExtractionBatchId %in% batches) |> 
-    collect() |> 
-    # Remove DNA dilutions
-    filter(ExtractionMethodFK != 11) |>
-    left_join(extraction_method_key, join_by(ExtractionMethodFK == ExtractionMethodId))
-
-  output <- extraction_tbl_samples |> 
-    left_join(extraction_batch_info, join_by(ExtractionBatchFK == ExtractionBatchId)) |> 
-    filter(!is.na(MethodName)) |> 
-    janitor::clean_names() |> 
-    rename(labno = lab_no)
-  
-  return(output)
-  
-}
-
-get_sample_tissue <- function(sample_vector) {
-  
-  output <- sample_tbl |> 
-    select(-c(StatusComment, COMMENTS, ConsultantAddress, ADDRESS1)) |> 
-    filter(LABNO %in% sample_vector) |> 
-    collect() |> 
-    janitor::clean_names() |> 
-    mutate(tissue = as.numeric(tissue)) |> 
-    left_join(tissue_types, join_by(tissue == tissue_type_id))
-    
-  return(output)
-  
-}
-
 
 # ddPCR functions -------------------------------------------------------------------
 
