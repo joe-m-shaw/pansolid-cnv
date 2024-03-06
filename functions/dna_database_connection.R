@@ -20,46 +20,54 @@ extraction_method_key <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB"
                                                          table = "MOL_ExtractionMethods")) |> 
   # Have to remove large columns to avoid Invalid Descriptor Index error
   select(-c(Checks, Reagents)) |> 
-  collect()
+  collect() |> 
+  janitor::clean_names()
 
 extraction_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                                   schema = "dbo",
-                                                  table = "MOL_Extractions"))
+                                                  table = "MOL_Extractions")) |> 
+  janitor::clean_names()
 
 extraction_batch_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                                         schema = "dbo",
-                                                        table = "MOL_ExtractionBatches"))
+                                                        table = "MOL_ExtractionBatches")) |> 
+  janitor::clean_names()
 
 sample_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                               schema = "dbo",
-                                              table = "Samples"))
+                                              table = "Samples")) |> 
+  janitor::clean_names()
 
 results_tbl <- tbl(dbi_con, 
                    dbplyr::in_catalog(
                      catalog = "MolecularDB",
                      schema = "dbo",
-                     table = "ResultsAccess"))
+                     table = "ResultsAccess")) |> 
+  janitor::clean_names()
 
 tissue_types <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                                 schema = "dbo",
                                                 table = "TissueTypes")) |> 
-  collect() |> 
-  janitor::clean_names()
+  janitor::clean_names() |> 
+  collect() 
 
 discode <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                            schema = "dbo",
                                            table = "Discode")) |> 
   select(-c("Description", "ReferralDetails")) |> 
-  collect() |> 
-  janitor::clean_names()
+  janitor::clean_names() |> 
+  collect() 
+  
 
 ngiscodes <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                              schema = "dbo",
                                              table = "NGISCodes")) |> 
-  collect() |> 
-  janitor::clean_names()
+  janitor::clean_names() |> 
+  collect()
+  
 
 dna_db_worksheets <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                                      schema = "dbo",
-                                                     table = "PCR_New")) 
+                                                     table = "PCR_New"))|> 
+  janitor::clean_names()
 
