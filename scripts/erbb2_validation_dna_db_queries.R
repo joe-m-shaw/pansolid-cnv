@@ -2,11 +2,11 @@
 
 # Packages --------------------------------------------------------------------------
 
-library(tidyverse)
 library(here)
-library(odbc)
-library(DBI)
-library(dbplyr)
+
+# Source functions ------------------------------------------------------------------
+
+source(here::here("functions/dna_database_functions.R"))
 
 source(here::here("functions/cnv_functions.R"))
 
@@ -103,3 +103,28 @@ erbb2_tumour_sources <- erbb2_discodes_long |>
   select(-name)
   
 dna_db_export(erbb2_tumour_sources)
+
+# Qiaseq core panel results ---------------------------------------------------------
+
+core_result_info <- results_tbl |> 
+  select(LABNO, TEST, TESTTYPE, Genotype, Genotype2, GENOCOMM) |> 
+  filter(LABNO %in% erbb2_labnos) |> 
+  collect() |> 
+  janitor::clean_names() |> 
+  filter(test %in% grep(pattern = "Q.{2,4}seq\\s(Core|NGS\\sCore|Merged)", 
+                        x = test, 
+                        ignore.case = TRUE,
+                        value = TRUE)) |> 
+  mutate(genotype = case_when(
+    
+    # Sample has "EGFR" instead of "ERBB2" written on DNA Database - confirmed on report
+    labno == 23022389 ~"ERBB2 amplification detected (Mean DQ 25x)",
+    
+    # Sample has "ERRB2" instead of "ERBB2" written
+    labno == 21015264 ~"No mutation identified; ERBB2 amplification detected (mean DQ 60.41x)",
+    
+    TRUE ~genotype)) |> 
+  
+  filter(!duplicated(labno))
+
+dna_db_export(core_result_info)
