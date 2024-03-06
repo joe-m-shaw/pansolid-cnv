@@ -208,11 +208,7 @@ format_repeat_table <- function(df) {
   
 }
 
-# Plot functions --------------------------------------------------------------------
-
-safe_blue <- "#88CCEE"
-safe_red <- "#CC6677"
-safe_grey <- "#888888"
+# Primers ---------------------------------------------------------------------------
 
 grch38_primers <- read_csv(file =
                              here::here("data/CDHS-40079Z-11284.primer3_Converted.csv"),
@@ -222,41 +218,54 @@ grch38_primers <- read_csv(file =
 grch38_primer_coordinates <- extract_cnv_coordinates(grch38_primers |> 
                                                        dplyr::rename(cnv_region = region))
 
+# Genes and exons -------------------------------------------------------------------
 
-# Exons exported from Ensembl
-# https://mart.ensembl.org/Homo_sapiens/Transcript/Exons?db=core;g=ENSG00000141736;r=17:39687914-39730426;t=ENST00000269571
+transcript_regex <- regex(
+  r"(
+  .+
+  (ENST\d{11})
+  .csv
+  )",
+  comments = TRUE
+)
 
-ENST00000269571 <- read_csv(file = here::here("data/ExonsSpreadsheet-Homo_sapiens_Transcript_Exons_ENST00000269571.csv"),
-                            show_col_types = FALSE) |>  
-  janitor::clean_names() |> 
-  filter(!is.na(no)) |> 
-  rename(exon = no)
+read_ensembl_exon_table <- function(filename) {
+  
+  transcript_id <- str_extract(string = filename, 
+                               pattern = transcript_regex,
+                               group = 1)
+  
+  table <- read_csv(file = here::here(filename),
+                    show_col_types = FALSE) |> 
+    janitor::clean_names() |> 
+    filter(!is.na(no)) |> 
+    rename(exon = no) |> 
+    mutate(transcript = transcript_id) |> 
+    relocate(transcript) |> 
+    select(-sequence)
+  
+  return(table)
+  
+}
 
-erbb2_start <- min(ENST00000269571$start)
+transcript_files <- list.files(here::here("data/transcripts/"), full.names = TRUE)
 
-erbb2_end <- max(ENST00000269571$end)
+all_transcripts <- transcript_files |>
+  map(\(transcript_files) read_ensembl_exon_table(
+    file = transcript_files
+  )) |>
+  list_rbind()
 
-erbb2_longest_transcript_start <- 39700239
+gene_labels <- read_csv(here::here("data/gene_labels.csv")) |> 
+  mutate(y_value = "Genes")
 
-erbb2_primers <- grch38_primer_coordinates |> 
-  filter(chromosome == 17) |> 
-  filter(start >= erbb2_longest_transcript_start & end <= erbb2_end) |> 
-  select(chromosome, start, end) |> 
-  mutate(target_size = end - start)
+# Plot colours ----------------------------------------------------------------------
 
-csv_timestamp(erbb2_primers)
+safe_blue <- "#88CCEE"
+safe_red <- "#CC6677"
+safe_grey <- "#888888"
 
-cdk12 <- read_csv(file = here::here("data/ExonsSpreadsheet-Homo_sapiens_Transcript_Exons_ENST00000447079.csv"),
-                  show_col_types = FALSE) |> 
-  janitor::clean_names() |> 
-  filter(!is.na(no)) |> 
-  rename(exon = no)
-
-cdk12_start <- min(cdk12$start)
-
-cdk12_end <- max(cdk12$end)
-
-erbb2_cdk12 <- rbind(ENST00000269571, cdk12)
+# Plot functions --------------------------------------------------------------------
 
 plot_coarse_v_fine <- function(input_gene) {
   
@@ -491,12 +500,15 @@ make_labno_plot <- function(df = all_patient_calls,
                             interval = 10000, 
                             buffer = 5000, 
                             setting = "coarse",
-                            yaxis = labno,
-                            gradient_breaks = c(0, 10, 20, 30, 40)) {
+                            yaxis = labno) {
   
   data_for_plot <- get_data_for_plot(df = {{ df }}, 
                                      gene = {{ gene }},
                                      setting = {{ setting }})
+  
+  max_fold_change <- max(data_for_plot$fold_change_adjusted)
+  
+  min_fold_change <- min(data_for_plot$fold_change_adjusted)
   
   plot_xmin <- get_plot_xmin(df = data_for_plot,
                              buffer = buffer)
@@ -518,7 +530,8 @@ make_labno_plot <- function(df = all_patient_calls,
     
     scale_colour_gradient(low = "#FF9999", 
                           high = "#660000", 
-                          breaks = {{ gradient_breaks }}) +
+                          limits = c(min_fold_change, max_fold_change),
+                          n.breaks = 4) +
     
     # Add x axes
     scale_x_continuous(breaks = by_n(interval),
@@ -554,14 +567,9 @@ make_primer_plot <- function(plot_xmin, plot_xmax, interval) {
   
 }
 
-gene_labels <- data.frame(
-  start = c(39500000, 39720000),
-  y_value = c("Genes", "Genes"),
-  label = c("CDK12", "ERBB2"))
-
 make_exon_plot <- function(plot_xmin, plot_xmax, interval) {
   
-  exon_data_for_plot <- erbb2_cdk12 |> 
+  exon_data_for_plot <- all_transcripts |> 
     mutate(y_value = "Exons") |> 
     filter(start >= plot_xmin & end <= plot_xmax)
   
@@ -574,14 +582,6 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval) {
     geom_segment(aes(x = start, xend = end, 
                      y = y_value, yend = y_value),
                  linewidth = 5) +
-    
-    geom_segment(aes(x = erbb2_start, xend = erbb2_end, 
-                     y = y_value, yend = y_value),
-                linewidth = 0.5) +
-    
-    geom_segment(aes(x = cdk12_start, xend = cdk12_end, 
-                     y = y_value, yend = y_value),
-                 linewidth = 0.5) +
     
     theme_bw() +
     
