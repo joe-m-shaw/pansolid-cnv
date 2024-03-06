@@ -487,12 +487,6 @@ ggplot(erbb2_coarse_pansolid, aes(x = reorder(labno_suffix_worksheet,
                                   y = fold_change_adjusted)) +
   geom_point(aes(colour = comments)) +
   theme(axis.text.x = element_blank())
-
-grch38_primer_coordinates |>  
-  filter(chromosome == "17") |> 
-  mutate(locus = ifelse(start >= erbb2_longest_transcript_start & 
-                          start <= erbb2_end, "ERBB2", "Other")) |> 
-  count(locus)
   
 ```
 
@@ -691,32 +685,6 @@ knitr::kable(erbb2_long_calls)
 ```
 
 The long calls varied from `r min(erbb2_long_calls$cnv_region_length)` to `r max(erbb2_long_calls$cnv_region_length)`.
-
-```{r}
-#| label: primers-near-erbb2
-#| eval: FALSE
-#| include: FALSE
-
-buffer <- 1000000
-
-window_start <- erbb2_start - buffer
-
-window_end <- erbb2_end + buffer
-
-x <- grch38_primer_coordinates |> 
-    mutate(y_value = "Primers") |> 
-  filter(start >= window_start & start <= window_end)
-
-y <- ENST00000269571 |> 
-  mutate(y_value = "ERBB2")
-
-ggplot(data = x, aes(x = start, y = y_value)) +
-  geom_point() +
-  geom_segment(data = y, aes(x = start, xend = end, y = y_value,
-                             yend = y_value),
-               linewidth = 5)
-
-```
 
 ## Limit of detection
 
@@ -923,8 +891,7 @@ sample_21011525_results <- all_patient_calls |>
   filter(labno == "21011525")
 
 sample_21011525_plot <- make_labno_plot(df = sample_21011525_results, 
-                yaxis = labno_suffix_worksheet,
-                gradient_breaks = c(17, 18, 19))
+                yaxis = labno_suffix_worksheet)
 
 plot_variation_in_21011525 <- make_cnv_triptych(sample_21011525_plot[[1]],
                   sample_21011525_plot[[2]],
@@ -934,6 +901,82 @@ plot_variation_in_21011525 <- make_cnv_triptych(sample_21011525_plot[[1]],
 plot_variation_in_21011525
 
 plot_timestamp(plot_variation_in_21011525)
+
+```
+
+## Other genes
+
+The aim of the triptych plot functions was to allow me to create flexible plots for different genes, not just ERBB2.
+
+```{r}
+#| label: egfr
+#| echo: FALSE
+
+egfr_plot <- make_labno_plot(df = all_patient_calls |> 
+                               filter(labno != "23038464"),
+                             gene = "EGFR", interval = 200000)
+
+egfr_triptych <- make_cnv_triptych(egfr_plot[[1]],
+                  egfr_plot[[2]],
+                  egfr_plot[[3]],
+                  egfr_plot[[4]])
+
+egfr_triptych
+
+egfr_fc_plot <- make_fold_change_plot(ymax = 50)
+
+
+egfr_triptych_fc <- make_cnv_triptych(egfr_fc_plot[[1]],
+                  egfr_fc_plot[[2]],
+                  egfr_fc_plot[[3]],
+                  egfr_fc_plot[[4]])
+
+egfr_triptych_fc
+
+```
+
+```{r}
+#| label: braf
+#| echo: FALSE
+
+braf_plot <- make_labno_plot(gene = "BRAF", interval = 200000)
+
+braf_triptych <- make_cnv_triptych(braf_plot[[1]],
+                  braf_plot[[2]],
+                  braf_plot[[3]],
+                  braf_plot[[4]])
+
+braf_triptych
+
+```
+
+```{r}
+#| label: met
+#| echo: FALSE
+
+met_plot <- make_labno_plot(gene = "MET", interval = 200000)
+
+met_triptych <- make_cnv_triptych(met_plot[[1]],
+                  met_plot[[2]],
+                  met_plot[[3]],
+                  met_plot[[4]])
+
+met_triptych
+
+```
+
+```{r}
+#| label: myc
+#| echo: FALSE
+
+myc_plot <- make_labno_plot(gene = "MYC", interval = 5000000)
+
+make_cnv_triptych(myc_plot[[1]],
+                  myc_plot[[2]],
+                  myc_plot[[3]],
+                  myc_plot[[4]])
+
+met_triptych
 
 ```
 
