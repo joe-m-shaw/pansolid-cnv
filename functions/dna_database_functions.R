@@ -21,21 +21,21 @@ get_columns <- function(table_input) {
 get_extraction_method <- function(sample_vector) {
   
   extraction_tbl_samples <- extraction_tbl |> 
-    filter(LabNo %in% sample_vector) |> 
+    filter(lab_no %in% sample_vector) |> 
     collect()
   
-  batches <- unique(extraction_tbl_samples$ExtractionBatchFK)
+  batches <- unique(extraction_tbl_samples$extraction_batch_fk)
   
   extraction_batch_info <- extraction_batch_tbl |> 
-    filter(ExtractionBatchId %in% batches) |> 
+    filter(extraction_batch_id %in% batches) |> 
     collect() |> 
     # Remove DNA dilutions
-    filter(ExtractionMethodFK != 11) |>
-    left_join(extraction_method_key, join_by(ExtractionMethodFK == ExtractionMethodId))
+    filter(extraction_method_fk != 11) |>
+    left_join(extraction_method_key, join_by(extraction_method_fk == extraction_method_id))
   
   output <- extraction_tbl_samples |> 
-    left_join(extraction_batch_info, join_by(ExtractionBatchFK == ExtractionBatchId)) |> 
-    filter(!is.na(MethodName)) |> 
+    left_join(extraction_batch_info, join_by(extraction_batch_fk == extraction_batch_id)) |> 
+    filter(!is.na(method_name)) |> 
     janitor::clean_names() |> 
     rename(labno = lab_no)
   
@@ -46,8 +46,8 @@ get_extraction_method <- function(sample_vector) {
 get_sample_tissue <- function(sample_vector) {
   
   output <- sample_tbl |> 
-    select(-c(StatusComment, COMMENTS, ConsultantAddress, ADDRESS1)) |> 
-    filter(LABNO %in% sample_vector) |> 
+    select(-c(status_comment, comments, consultant_address, address1)) |> 
+    filter(labno %in% sample_vector) |> 
     collect() |> 
     janitor::clean_names() |> 
     mutate(tissue = as.numeric(tissue)) |> 
