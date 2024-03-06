@@ -26,8 +26,8 @@ erbb2_ws <- erbb2_ws_df$pcr_id
 # Worksheet details -----------------------------------------------------------------
 
 erbb2_pansolid_ws_details <- dna_db_worksheets |> 
-  filter(PCRID %in% erbb2_ws) |> 
-  select(PCRID, Date) |> 
+  filter(pcrid %in% erbb2_ws) |> 
+  select(pcrid, date) |> 
   collect() |> 
   janitor::clean_names()
 
@@ -51,8 +51,8 @@ dna_db_export(erbb2_sample_types)
 # Neoplastic cell content -----------------------------------------------------------
 
 erbb2_ncc <- sample_tbl |> 
-  select(LABNO, COMMENTS) |> 
-  filter(LABNO %in% erbb2_labnos) |> 
+  select(labno, comments) |> 
+  filter(labno %in% erbb2_labnos) |> 
   collect() |> 
   janitor::clean_names() |> 
   mutate(ncc_db = parse_ncc(comments))
@@ -62,8 +62,9 @@ dna_db_export(erbb2_ncc)
 # Tumour source ---------------------------------------------------------------------
 
 erbb2_discodes <- sample_tbl |> 
-  select("LABNO", "DISEASE", "DISEASE 2", "DISEASE 3", "DISEASE 4") |> 
-  filter(LABNO %in% erbb2_labnos) |> 
+  select(labno, disease, disease_2, disease_3, 
+         disease_4) |> 
+  filter(labno %in% erbb2_labnos) |> 
   collect() |> 
   janitor::clean_names()
 
@@ -107,8 +108,8 @@ dna_db_export(erbb2_tumour_sources)
 # Qiaseq core panel results ---------------------------------------------------------
 
 core_result_info <- results_tbl |> 
-  select(LABNO, TEST, TESTTYPE, Genotype, Genotype2, GENOCOMM) |> 
-  filter(LABNO %in% erbb2_labnos) |> 
+  select(labno, test, testtype, genotype, genotype2, genocomm) |> 
+  filter(labno %in% erbb2_labnos) |> 
   collect() |> 
   janitor::clean_names() |> 
   filter(test %in% grep(pattern = "Q.{2,4}seq\\s(Core|NGS\\sCore|Merged)", 
