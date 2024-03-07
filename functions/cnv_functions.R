@@ -208,6 +208,210 @@ format_repeat_table <- function(df) {
   
 }
 
+extract_cnv_calls <- function(df, input_gene) {
+  
+  stopifnot("genotype" %in% colnames(df))
+  
+  dq_regex <- regex(str_c(
+    # Group - input gene
+    "(",input_gene,")\\s",
+    # Group - variable freetype,
+    "(amplification\\sdetected|amplification)",
+    # Use . for bracket
+    "\\s.",
+    # Group - variable freetype
+    "(Mean\\sDQ|mean\\sDQ|DQ)",
+    "\\s",
+    # Group - dosage quotient regex
+    "(\\d{1,3}|\\d{1,3}\\.\\d{2})",
+    "x"))
+  
+  output <- df |> 
+    select(labno, genotype) |> 
+    mutate(gene_searched = input_gene,
+           gene_match = str_extract(genotype, dq_regex, group = 1),
+           gene_dq = as.numeric(str_extract(genotype, dq_regex, group = 4)),
+           core_result = ifelse(!is.na(gene_dq), "Amplification", "No call"))
+  
+  return(output)
+  
+}
+
+read_summary_tab <- function(file) {
+  
+  x <- read_excel(path = file,
+                  sheet = "Whole Panel UMI Coverage Re...",
+                  skip = 1,
+                  n_max = 11) |> 
+    dplyr::rename(value = "...2")
+  
+  x_wide <- x |> 
+    pivot_wider(names_from = Summary,
+                values_from = value) |> 
+    # Renaming as >, < and ≥ are removed in clean_names
+    # Names shortened for ease of use
+    rename(number_target_regions_with_cov_lessthan_138 = `Number of target regions with coverage < 138`,
+           total_length_target_regions_with_pos_cov_lessthan_138 = `Total length of target regions containing positions with coverage < 138`,
+           total_length_target_region_pos_cov_lessthan_138 = `Total length of target region positions with coverage < 138`,
+           total_length_target_region_pos_cov_greaterorequal_138 = `Total length of target region positions with coverage ≥ 138`,
+           percent_target_region_pos_cov_greaterorequal_138 = `Percentage of target region positions with coverage ≥ 138 (%)`) |> 
+    janitor::clean_names() 
+  
+  identifiers <- filename_to_df(file)
+  
+  output <- cbind(identifiers, x_wide)
+  
+  return(output)
+  
+}
+
+read_targeted_region_overview <- function(file) {
+  
+  # This function reads the table of reads mapped to each chromosome. 
+  # The position of this table in the "Whole Panel UMI Coverage" tab varies in each file
+  
+  x <- read_excel(path = file,
+                  sheet = "Whole Panel UMI Coverage Re...")
+  
+  num_skip <- match("Targeted region overview", x$`Target regions`) + 1
+  
+  targeted_region_overview <- read_excel(path = file,
+                                         sheet = "Whole Panel UMI Coverage Re...",
+                                         skip = num_skip,
+                                         # 22 autosomes plus 2 sex chromosomes
+                                         n_max = 24) |> 
+    mutate(chrom_mod = case_when(
+      
+      Reference %in% c("X", "Y") ~Reference,
+      
+      TRUE ~as.character(round(as.numeric(Reference), 0))),
+      
+      chromosome = fct(x = chrom_mod, levels = c("1", "2", "3", "4",
+                                                 "5",  "6",  "7",  "8",
+                                                 "9",  "10", "11", "12",
+                                                 "13", "14", "15", "16",
+                                                 "17", "18", "19", "20",
+                                                 "21", "22", "X", "Y")))
+  
+  identifiers <- filename_to_df(file)
+  
+  output <- cbind(identifiers, targeted_region_overview) |> 
+    janitor::clean_names()
+  
+  return(output)
+  
+}
+
+get_control_coverage <- function(file) {
+  
+  identifiers <- filename_to_df(file)
+  
+  df <- read_csv(file) |> 
+    janitor::clean_names()
+  
+  cov <- data.frame(
+    "median_coverage" = median(df$coverage),
+    "mean_coverage" = mean(df$coverage))
+  
+  output <- cbind(identifiers, cov)
+  
+  return(output)
+  
+}
+
+draw_confusion_matrix <- function(input_gene) {
+  
+  x <- joined |> 
+    filter(gene == input_gene)
+  
+  true_positives <- nrow(x[x$outcome == "true positive", ])
+  
+  true_negatives <- nrow(x[x$outcome == "true negative", ])
+  
+  false_positives <- nrow(x[x$outcome == "false positive", ])
+  
+  false_negatives <- nrow(x[x$outcome == "false negative", ])
+  
+  confusion_matrix <- tribble(
+    ~"",      ~"PanSolid CLC +",      ~"PanSolid CLC -", 
+    "Core+",  true_positives,         false_negatives,  
+    "Core-",  false_positives,        true_negatives
+  )
+  
+  return(confusion_matrix)
+  
+}
+
+calculate_target_copies <- function(fold_change, ncc_percent) {
+  
+  ref_sample_copies <- 200
+  
+  ncc_fraction <- ncc_percent / 100
+  
+  sample_total_target_copies <- fold_change * ref_sample_copies
+  
+  sample_target_copies_in_tumour_cells <- sample_total_target_copies - ((100 * (1-ncc_fraction)) * 2)
+  
+  sample_target_copies_per_tumour_cell <- sample_target_copies_in_tumour_cells / (100 * ncc_fraction)
+  
+  return(sample_target_copies_per_tumour_cell)
+  
+}
+
+true_pos <- "True positive"
+
+true_neg <- "True negative"
+
+false_pos <- "False positive"
+
+false_neg <- "False negative"
+
+classifiers = c(true_pos, true_neg, false_pos, false_neg)
+
+make_confusion_matrix <- function(df, input_column = outcome,
+                                  classifiers = c(true_pos, true_neg, false_pos, false_neg),
+                                  initial_test,
+                                  comparison_test,
+                                  positive_state,
+                                  negative_state) {
+  
+  # This function requires an input table with true and false positives and negatives already defined.
+  
+  true_positives <- nrow(df |> 
+                           filter({{ input_column }} == classifiers[1]))
+  
+  true_negatives <- nrow(df |> 
+                           filter({{ input_column }} == classifiers[2]))
+  
+  false_positives <- nrow(df |> 
+                            filter({{ input_column }} == classifiers[3]))
+  
+  false_negatives <- nrow(df |> 
+                            filter({{ input_column }} == classifiers[4]))
+  
+  tp_char <- as.character(true_positives)
+  
+  tn_char <- as.character(true_negatives)
+  
+  fp_char <- as.character(false_positives)
+  
+  fn_char <- as.character(false_negatives)
+  
+  conf_matrix <- tribble(
+    ~"",               ~"",              ~"",                 ~"",         
+    "",                "",               initial_test,        "", 
+    "",                "",               positive_state,      negative_state, 
+    comparison_test,   positive_state,   tp_char,             fn_char,
+    "",                negative_state,   fp_char,             tn_char)
+  
+  
+  opa <- round((true_positives + true_negatives) / (true_positives + false_negatives +
+                                                      false_positives + true_negatives) * 100, 1)
+  
+  return(list(conf_matrix, opa))
+  
+}
+
 # Primers ---------------------------------------------------------------------------
 
 grch38_primers <- read_csv(file =
@@ -271,144 +475,6 @@ safe_red <- "#CC6677"
 safe_grey <- "#888888"
 
 # Plot functions --------------------------------------------------------------------
-
-plot_coarse_v_fine <- function(input_gene) {
-  
-  plot <- all_calls |> 
-    filter(name == input_gene) |> 
-    group_by(sample_id, setting) |> 
-    summarise(calls = n()) |> 
-    ggplot(aes(x = sample_id, y = calls)) +
-    geom_col(aes(fill = setting), position = "dodge") +
-    theme_bw() +
-    labs(title = as.character(input_gene))
-  
-  return(plot)
-  
-}
-
-# GRCh38 coordinates from NCBI
-egfr_min <- 55019017
-egfr_max <- 55211628
-
-erbb2_min <- 39700064
-erbb2_max <- 39728658
-
-met_min <- 116672196
-met_max <- 116798377
-
-braf_min <- 140713328
-braf_max <- 140924929
-
-myc_min <- 127735434 
-myc_max <- 127742951
-
-
-
-draw_cnv_plot <- function(df, input_gene, input_setting, 
-                          interval = 200000,
-                          ymax = 70,
-                          gene_min,
-                          gene_max,
-                          buffer = 150000) {
-  
-  grch38_primers <- read_csv(file =
-                               here::here("data/CDHS-40079Z-11284.primer3_Converted.csv"),
-                             show_col_types = FALSE) |> 
-    janitor::clean_names()
-  
-  grch38_primer_coordinates <- extract_cnv_coordinates(grch38_primers |> 
-                                                         dplyr::rename(cnv_region = region))
-  
-  
-  stopifnot(input_gene %in% c("EGFR", "ERBB2", "MET",
-                              "BRAF", "MYC"))
-
-  data_for_plot <- df |> 
-    filter(setting == input_setting) |> 
-    filter(gene == input_gene) 
-  
-  cnv_min <- min(data_for_plot$coordinate)
-  
-  cnv_max <- max(data_for_plot$coordinate)
-  
-  plot_min <- cnv_min - buffer
-  
-  plot_max <- cnv_max + buffer
-  
-  primers_for_plot <- grch38_primer_coordinates |> 
-    dplyr::rename(coordinate = cnv_start) |> 
-    mutate(fold_change_adjusted = 0) |> 
-    filter(coordinate >= plot_min  & coordinate <= plot_max )
-  
-  cnv_plot <- ggplot(data_for_plot, aes(x = coordinate, y = fold_change_adjusted)) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
-    geom_line(linewidth = 2, colour = safe_red) +
-    geom_point(data = primers_for_plot, pch = 21) +
-    geom_vline(xintercept = gene_min, linetype = "dashed") +
-    geom_vline(xintercept = gene_max, linetype = "dashed") +
-    facet_wrap(~sample_id) +
-    ylim(0, ymax) +
-    scale_x_continuous(breaks = by_n(interval),
-                       minor_breaks = NULL,
-                       limits = c(plot_min, plot_max)) +
-    labs(title = str_c(input_gene, " CNV results"),
-         subtitle = str_c("Setting: ", input_setting, ". Dashed lines show gene coordinates"),
-         x = str_c("GRCh38 Genomic coordinates (", interval/1000, " kb intervals)"))
-  
-  return(cnv_plot)
-  
-}
-
-draw_repeat_plot <- function(df, input_sample, input_setting, input_gene, input_ymin = 0,
-                             input_ymax = 70) {
-  
-  plot <- df |> 
-    filter(setting == input_setting) |> 
-    filter(gene == input_gene) |> 
-    filter(sample_id == input_sample) |> 
-    ggplot(aes(x = coordinate, y = fold_change_adjusted)) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
-    geom_line(linewidth = 3,
-              colour = safe_blue,
-              alpha = 1) +
-    ylim(input_ymin, input_ymax) +
-    geom_vline(xintercept = erbb2_min, linetype = "dashed") +
-    geom_vline(xintercept = erbb2_max, linetype = "dashed") +
-    facet_wrap(~sample_id_worksheet, ncol = 1) +
-    labs(title = str_c("Repeat testing for ", input_sample),
-         subtitle = str_c("Gene: ", input_gene))
-  
-  return(plot)
-  
-}
-
-draw_repeat_coord_plot <- function(df, input_sample, input_setting, input_gene,
-                                   bin_size) {
-  
-  plot <- df |> 
-    filter(setting == input_setting) |> 
-    filter(gene == input_gene) |> 
-    filter(sample_id == input_sample) |> 
-    ggplot(aes(x = coordinate, y = sample_id_worksheet)) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
-    geom_line(linewidth = 3,
-              aes(colour = fold_change_adjusted)) +
-    scale_colour_binned(breaks = seq(0, 70, by = bin_size)) +
-    geom_vline(xintercept = erbb2_min, linetype = "dashed") +
-    geom_vline(xintercept = erbb2_max, linetype = "dashed") +
-    labs(title = "Repeat testing",
-         subtitle = str_c("Gene: ", input_gene, "  Sample: ", input_sample),
-         caption = str_c("Colour bin size: ", bin_size))
-  
-  return(plot)
-  
-}
-
-# Triptych plot functions -----------------------------------------------------------
 
 # CNV plots can be presented as triptychs: 
 # Panel 1) The plot of CNV calls:
@@ -661,283 +727,6 @@ make_cnv_triptych <- function(plot_xmin,
     )
   
   return(triptych)
-  
-}
-
-# Data wrangling functions ----------------------------------------------------------
-
-extract_cnv_calls <- function(df, input_gene) {
-  
-  stopifnot("genotype" %in% colnames(df))
-  
-  dq_regex <- regex(str_c(
-    # Group - input gene
-    "(",input_gene,")\\s",
-    # Group - variable freetype,
-    "(amplification\\sdetected|amplification)",
-    # Use . for bracket
-    "\\s.",
-    # Group - variable freetype
-    "(Mean\\sDQ|mean\\sDQ|DQ)",
-    "\\s",
-    # Group - dosage quotient regex
-    "(\\d{1,3}|\\d{1,3}\\.\\d{2})",
-    "x"))
-
-  output <- df |> 
-    select(labno, genotype) |> 
-    mutate(gene_searched = input_gene,
-           gene_match = str_extract(genotype, dq_regex, group = 1),
-           gene_dq = as.numeric(str_extract(genotype, dq_regex, group = 4)),
-           core_result = ifelse(!is.na(gene_dq), "Amplification", "No call"))
-  
-  return(output)
-  
-}
-
-get_excel_names <- function(filepath, folder) {
-  
-  output <- list.files(str_c(filepath, folder), pattern = "*.xlsx")
-  
-  return(output)
-  
-}
-
-get_gene_result <- function(df, gene_name) {
-  
-  if (ncol(df) == 0) {
-    
-    output <- "No call"
-    
-  }
-  
-  if (ncol(df) > 1) {
-    
-    x <- df |> 
-      filter(gene == gene_name)
-    
-    output <- case_when(
-      nrow(x) < 1 ~"No call",
-      nrow(x) >= 1 ~"Amplification")
-    
-  }
-  
-  return(output)
-  
-}
-
-summarise_results <- function(file, input_sheet) {
-  
-  results <- read_excel(path = file,
-                        sheet = input_sheet) |> 
-    janitor::clean_names()
-  
-  worksheet <- parse_filename(file, 1)
-  
-  sample_id <- parse_filename(file, 2)
-  
-  qualifier <- parse_filename(file, 3)
-  
-  sample_id_suffix <- str_c(sample_id, qualifier)
-  
-  patient_name <- parse_filename(file, 4)
-  
-  egfr_result <- get_gene_result(df = results, gene_name = "EGFR")
-  
-  erbb2_result <- get_gene_result(df = results, gene_name = "ERBB2")
-  
-  met_result <- get_gene_result(df = results, gene_name = "MET")
-  
-  summary <- tribble(
-    
-    ~gene, ~result,
-    "EGFR", egfr_result,
-    "ERBB2", erbb2_result,
-    "MET", met_result
-  ) |> 
-    mutate(suffix = qualifier,
-           sample = sample_id,
-           sample_suffix = sample_id_suffix,
-           name = patient_name,
-           worksheet = worksheet)
-  
-  return(summary)
-  
-}
-
-read_summary_tab <- function(file) {
-  
-  x <- read_excel(path = file,
-             sheet = "Whole Panel UMI Coverage Re...",
-             skip = 1,
-             n_max = 11) |> 
-    dplyr::rename(value = "...2")
-  
-  x_wide <- x |> 
-    pivot_wider(names_from = Summary,
-                values_from = value) |> 
-    # Renaming as >, < and ≥ are removed in clean_names
-    # Names shortened for ease of use
-    rename(number_target_regions_with_cov_lessthan_138 = `Number of target regions with coverage < 138`,
-           total_length_target_regions_with_pos_cov_lessthan_138 = `Total length of target regions containing positions with coverage < 138`,
-           total_length_target_region_pos_cov_lessthan_138 = `Total length of target region positions with coverage < 138`,
-           total_length_target_region_pos_cov_greaterorequal_138 = `Total length of target region positions with coverage ≥ 138`,
-           percent_target_region_pos_cov_greaterorequal_138 = `Percentage of target region positions with coverage ≥ 138 (%)`) |> 
-    janitor::clean_names() 
-  
-  identifiers <- filename_to_df(file)
-  
-  output <- cbind(identifiers, x_wide)
-  
-  return(output)
-  
-}
-
-read_targeted_region_overview <- function(file) {
-  
-  # This function reads the table of reads mapped to each chromosome. 
-  # The position of this table in the "Whole Panel UMI Coverage" tab varies in each file
-  
-  x <- read_excel(path = file,
-                  sheet = "Whole Panel UMI Coverage Re...")
-  
-  num_skip <- match("Targeted region overview", x$`Target regions`) + 1
-  
-  targeted_region_overview <- read_excel(path = file,
-                  sheet = "Whole Panel UMI Coverage Re...",
-                  skip = num_skip,
-                  # 22 autosomes plus 2 sex chromosomes
-                  n_max = 24) |> 
-    mutate(chrom_mod = case_when(
-      
-      Reference %in% c("X", "Y") ~Reference,
-      
-      TRUE ~as.character(round(as.numeric(Reference), 0))),
-      
-      chromosome = fct(x = chrom_mod, levels = c("1", "2", "3", "4",
-                                                  "5",  "6",  "7",  "8",
-                                                  "9",  "10", "11", "12",
-                                                  "13", "14", "15", "16",
-                                                  "17", "18", "19", "20",
-                                                  "21", "22", "X", "Y")))
-
-  identifiers <- filename_to_df(file)
-  
-  output <- cbind(identifiers, targeted_region_overview) |> 
-    janitor::clean_names()
-    
-  return(output)
-  
-}
-
-get_control_coverage <- function(file) {
-  
-  identifiers <- filename_to_df(file)
-  
-  df <- read_csv(file) |> 
-    janitor::clean_names()
-  
-  cov <- data.frame(
-    "median_coverage" = median(df$coverage),
-    "mean_coverage" = mean(df$coverage))
-  
-  output <- cbind(identifiers, cov)
-  
-  return(output)
-  
-}
-
-draw_confusion_matrix <- function(input_gene) {
-  
-  x <- joined |> 
-    filter(gene == input_gene)
-  
-  true_positives <- nrow(x[x$outcome == "true positive", ])
-  
-  true_negatives <- nrow(x[x$outcome == "true negative", ])
-  
-  false_positives <- nrow(x[x$outcome == "false positive", ])
-  
-  false_negatives <- nrow(x[x$outcome == "false negative", ])
-  
-  confusion_matrix <- tribble(
-    ~"",      ~"PanSolid CLC +",      ~"PanSolid CLC -", 
-    "Core+",  true_positives,         false_negatives,  
-    "Core-",  false_positives,        true_negatives
-  )
-  
-  return(confusion_matrix)
-  
-}
-
-calculate_target_copies <- function(fold_change, ncc_percent) {
-  
-  ref_sample_copies <- 200
-  
-  ncc_fraction <- ncc_percent / 100
-  
-  sample_total_target_copies <- fold_change * ref_sample_copies
-  
-  sample_target_copies_in_tumour_cells <- sample_total_target_copies - ((100 * (1-ncc_fraction)) * 2)
-  
-  sample_target_copies_per_tumour_cell <- sample_target_copies_in_tumour_cells / (100 * ncc_fraction)
-  
-  return(sample_target_copies_per_tumour_cell)
-  
-}
-
-true_pos <- "True positive"
-
-true_neg <- "True negative"
-
-false_pos <- "False positive"
-
-false_neg <- "False negative"
-
-classifiers = c(true_pos, true_neg, false_pos, false_neg)
-
-
-make_confusion_matrix <- function(df, input_column = outcome,
-                          classifiers = c(true_pos, true_neg, false_pos, false_neg),
-                          initial_test,
-                          comparison_test,
-                          positive_state,
-                          negative_state) {
-  
-  # This function requires an input table with true and false positives and negatives already defined.
-  
-  true_positives <- nrow(df |> 
-                           filter({{ input_column }} == classifiers[1]))
-  
-  true_negatives <- nrow(df |> 
-                           filter({{ input_column }} == classifiers[2]))
-  
-  false_positives <- nrow(df |> 
-                            filter({{ input_column }} == classifiers[3]))
-  
-  false_negatives <- nrow(df |> 
-                            filter({{ input_column }} == classifiers[4]))
-  
-  tp_char <- as.character(true_positives)
-  
-  tn_char <- as.character(true_negatives)
-  
-  fp_char <- as.character(false_positives)
-  
-  fn_char <- as.character(false_negatives)
-  
-  conf_matrix <- tribble(
-    ~"",               ~"",              ~"",                 ~"",         
-     "",                "",               initial_test,        "", 
-     "",                "",               positive_state,      negative_state, 
-     comparison_test,   positive_state,   tp_char,             fn_char,
-     "",                negative_state,   fp_char,             tn_char)
-  
-  
-  opa <- round((true_positives + true_negatives) / (true_positives + false_negatives +
-                                                      false_positives + true_negatives) * 100, 1)
-  
-  return(list(conf_matrix, opa))
   
 }
 
