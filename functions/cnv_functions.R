@@ -437,6 +437,79 @@ read_clc_target_calls <- function(file) {
   
 }
 
+read_clc_cnv_processed_file <- function(file) {
+  
+  identifiers <- filename_to_df(processed_files[5])
+  
+  labno <- parse_filename(file, 2)
+  
+  full_tbl <- read_excel(path = file,
+                       sheet = "Amplifications",
+                       col_names = FALSE) |> 
+  janitor::clean_names()
+
+  # Get positive CNV results table
+  
+  pos_cnv_tbl_row <- match("Positive CNV results", full_tbl$x1)
+  
+  na_vector <- which(is.na(full_tbl$x1))
+  
+  first_na_after_pos_cnv_tbl <- min(na_vector[na_vector > pos_cnv_tbl_row])
+  
+  size_pos_cnv_tbl <- (first_na_after_pos_cnv_tbl - pos_cnv_tbl_row) - 1
+  
+  pos_cnv_tbl <- read_excel(path = file,
+                            sheet = "Amplifications",
+                            skip = pos_cnv_tbl_row,
+                            n_max = size_pos_cnv_tbl) |> 
+    janitor::clean_names() |> 
+    mutate(labno = labno) |> 
+    left_join(identifiers, by = "labno") |> 
+    relocate(worksheet, labno, suffix, patient_name, 
+             labno_suffix, labno_suffix_worksheet)
+  
+  # Get "All amplification genes" table
+  
+  gene_table_row_start <- match("All amplification genes", full_tbl$x1)
+  
+  gene_tbl <- read_excel(path = file,
+                  sheet = "Amplifications",
+                  skip = gene_table_row_start,
+                  n_max = 9) |> 
+    janitor::clean_names() |> 
+    mutate(labno = labno) |> 
+    left_join(identifiers, by = "labno") |> 
+    relocate(worksheet, labno, suffix, patient_name, 
+             labno_suffix, labno_suffix_worksheet)
+  
+  # Get standard deviation information
+  
+  stdev_1_start <- match("StDev Signal-adjusted Log2 Ratios", full_tbl$x1) - 1
+  
+  stdev_2_start <- match("StDev Signal-adjusted Fold-Change", full_tbl$x1) - 1
+  
+  stdev_1 <- read_excel(path = file,
+                  sheet = "Amplifications",
+                  skip = stdev_1_start,
+                  n_max = 1) |> 
+    janitor::clean_names()
+  
+  stdev_2 <- read_excel(path = file,
+                  sheet = "Amplifications",
+                  skip = stdev_2_start,
+                  n_max = 1) |> 
+    janitor::clean_names()
+  
+  stdev_tbl <- cbind(stdev_1, stdev_2) |> 
+    mutate(labno = labno) |> 
+    left_join(identifiers, by = "labno") |> 
+    relocate(worksheet, labno, suffix, patient_name, 
+             labno_suffix, labno_suffix_worksheet)
+
+  return(list(pos_cnv_tbl, gene_tbl, stdev_tbl))
+  
+}
+
 # Primers ---------------------------------------------------------------------------
 
 grch38_primers <- read_csv(file =
