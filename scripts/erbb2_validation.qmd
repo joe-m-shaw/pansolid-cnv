@@ -636,12 +636,7 @@ erbb2_labno <- make_labno_plot(df = erbb2_calls_factorised,
                       buffer = 5000, 
                       setting = "coarse")
 
-plot_all_erbb2_amplification_coordinates <- make_cnv_triptych(
-  plot_xmin = erbb2_labno[[1]],
-  plot_xmax = erbb2_labno[[2]],
-  interval = erbb2_labno[[3]],
-  main_plot = erbb2_labno[[4]],
-  chromosome = erbb2_labno[[5]])
+plot_all_erbb2_amplification_coordinates <- make_cnv_triptych(erbb2_labno)
 
 plot_all_erbb2_amplification_coordinates
 
@@ -662,11 +657,7 @@ erbb2_labno_zoom <- make_labno_plot(df = short_erbb2_calls,
                       buffer = 5000, 
                       setting = "coarse")
 
-plot_erbb2_amplification_accuracy <- make_cnv_triptych(plot_xmin = erbb2_labno_zoom[[1]],
-                  plot_xmax = erbb2_labno_zoom[[2]],
-                  interval = erbb2_labno_zoom[[3]],
-                  main_plot = erbb2_labno_zoom[[4]],
-                  chromosome = erbb2_labno_zoom[[5]])
+plot_erbb2_amplification_accuracy <- make_cnv_triptych(erbb2_labno_zoom)
 
 plot_erbb2_amplification_accuracy
 
@@ -902,11 +893,7 @@ sample_21011525_results <- all_patient_calls |>
 sample_21011525_plot <- make_labno_plot(df = sample_21011525_results, 
                 yaxis = labno_suffix_worksheet)
 
-plot_variation_in_21011525 <- make_cnv_triptych(sample_21011525_plot[[1]],
-                  sample_21011525_plot[[2]],
-                  sample_21011525_plot[[3]],
-                  sample_21011525_plot[[4]],
-                  sample_21011525_plot[[5]])
+plot_variation_in_21011525 <- make_cnv_triptych(sample_21011525_plot)
 
 plot_variation_in_21011525
 
@@ -926,22 +913,14 @@ egfr_plot <- make_labno_plot(df = all_patient_calls |>
                                filter(labno != "23038464"),
                              gene = "EGFR", interval = 200000)
 
-egfr_triptych <- make_cnv_triptych(egfr_plot[[1]],
-                  egfr_plot[[2]],
-                  egfr_plot[[3]],
-                  egfr_plot[[4]],
-                  egfr_plot[[5]])
+egfr_triptych <- make_cnv_triptych(egfr_plot)
 
 egfr_triptych
 
 egfr_fc_plot <- make_fold_change_plot(ymax = 70, gene = "EGFR",
                                       interval = 200000)
 
-egfr_triptych_fc <- make_cnv_triptych(egfr_fc_plot[[1]],
-                  egfr_fc_plot[[2]],
-                  egfr_fc_plot[[3]],
-                  egfr_fc_plot[[4]],
-                  egfr_fc_plot[[5]])
+egfr_triptych_fc <- make_cnv_triptych(egfr_fc_plot)
 
 egfr_triptych_fc
 
@@ -952,11 +931,7 @@ egfr_fc_plot_zoom <- make_fold_change_plot(
   gene = "EGFR",
   interval = 50000)
   
-egfr_triptych_fc_zoom <- make_cnv_triptych(egfr_fc_plot_zoom[[1]],
-                  egfr_fc_plot_zoom[[2]],
-                  egfr_fc_plot_zoom[[3]],
-                  egfr_fc_plot_zoom[[4]],
-                  egfr_fc_plot_zoom[[5]])
+egfr_triptych_fc_zoom <- make_cnv_triptych(egfr_fc_plot_zoom)
 
 egfr_triptych_fc_zoom
 
@@ -968,11 +943,7 @@ egfr_triptych_fc_zoom
 
 braf_plot <- make_labno_plot(gene = "BRAF", interval = 500000)
 
-braf_triptych <- make_cnv_triptych(braf_plot[[1]],
-                  braf_plot[[2]],
-                  braf_plot[[3]],
-                  braf_plot[[4]],
-                  braf_plot[[5]])
+braf_triptych <- make_cnv_triptych(braf_plot)
 
 braf_triptych
 
@@ -984,11 +955,7 @@ braf_triptych
 
 met_plot <- make_labno_plot(gene = "MET", interval = 200000)
 
-met_triptych <- make_cnv_triptych(met_plot[[1]],
-                  met_plot[[2]],
-                  met_plot[[3]],
-                  met_plot[[4]],
-                  met_plot[[5]])
+met_triptych <- make_cnv_triptych(met_plot)
 
 met_triptych
 
@@ -1000,11 +967,7 @@ met_triptych
 
 myc_plot <- make_labno_plot(gene = "MYC", interval = 5000000)
 
-myc_triptych <- make_cnv_triptych(myc_plot[[1]],
-                  myc_plot[[2]],
-                  myc_plot[[3]],
-                  myc_plot[[4]],
-                  myc_plot[[5]])
+myc_triptych <- make_cnv_triptych(myc_plot)
 
 myc_triptych
 
@@ -1247,7 +1210,7 @@ chromosome_qc_all_samples |>
 
 ```{r}
 #| label: all-target-calls
-#| echo: FALSE
+#| eval: FALSE
 
 filepath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/QC/"
 
@@ -1277,7 +1240,7 @@ x |>
 
 ```{r}
 #| label: all-target-calls-repeats
-#| echo: FALSE
+#| eval: FALSE
 
 x |> 
   select(labno, labno_suffix, labno_suffix_worksheet, patient_name,
@@ -1285,27 +1248,7 @@ x |>
   distinct() |> 
   filter(name %in% grep(pattern = "ERBB2", ignore.case = TRUE,
      x = unique(x$name), value = TRUE)) |>  
-  filter(!duplicated(labno_suffix_worksheet)) |> view ()
-
-
-
-  filter(duplicated(labno, fromLast = TRUE) | duplicated(labno, fromLast = FALSE)) |> 
-  ggplot(aes(x = labno, 
-             y = regional_fold_change)) +
-  geom_jitter(pch = 21) +
-  theme_bw() +
-  geom_hline(yintercept = 2.9, linetype = "dashed") +
-  theme(axis.text.x = element_text(angle = 90)) +
-  labs(y = "Fold change", x = "")
-
-
-
-
-  filter(name %in% grep(pattern = "ERBB2", ignore.case = TRUE,
-     x = unique(x$name), value = TRUE)) |> 
   filter(!duplicated(labno_suffix_worksheet))
-  
-
 
 ```
 
