@@ -39,7 +39,7 @@ source(here::here("functions/cnv_functions.R"))
 #| label: qiaseq-primers
 #| echo: FALSE
 
-pan_solid_only <- read_excel(here::here("data/Primer and Gene Comparison.xlsx"),
+pan_solid_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
                              sheet = "Primer Overlap",
                              range = "A2:D11024",
                              col_names = c("chromosome", "coordinates", "sequence",
@@ -48,7 +48,7 @@ pan_solid_only <- read_excel(here::here("data/Primer and Gene Comparison.xlsx"),
   mutate(category = "Unique to 44038Z-11379",
          text = "PanSolid only")
 
-core_only <- read_excel(here::here("data/Primer and Gene Comparison.xlsx"),
+core_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
                         sheet = "Primer Overlap",
                         range = "G2:J595",
                         col_names = c("chromosome", "coordinates", "sequence",
@@ -57,7 +57,7 @@ core_only <- read_excel(here::here("data/Primer and Gene Comparison.xlsx"),
   mutate(category = "Unique to 17500Z-950",
          text = "Core only")
 
-both_panels <- read_excel(here::here("data/Primer and Gene Comparison.xlsx"),
+both_panels <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
                           sheet = "Primer Overlap",
                           range = "L2:O357",
                           col_names = c("chromosome", "coordinates", "sequence",
@@ -196,7 +196,7 @@ all_patient_calls <- rbind(coarse_calls, fine_calls) |>
 #| label: load-clc-controls
 #| include: FALSE
 
-clc_controls <- read_excel(path = here::here("data/clc_controls.xlsx")) |> 
+clc_controls <- read_excel(path = here::here("data/control_data/clc_controls.xlsx")) |> 
   mutate(labno = as.character(parse_filename(input_file = control,
                                     input_group = 2)),
          worksheet = parse_filename(input_file = control,
@@ -1063,7 +1063,8 @@ csv_timestamp(table_pansolid_vs_core_panel_erbb2_results[[1]])
 #| message: FALSE
 
 control_files <- list.files(here::here("data/control_data/"),
-                            full.names = TRUE)
+                            full.names = TRUE,
+                            pattern = ".csv")
 
 control_coverage <- control_files |> 
   map(\(control_files) get_control_coverage(
