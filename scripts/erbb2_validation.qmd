@@ -1,0 +1,1244 @@
+---
+title: "ERBB2 Amplifications"
+author: "Joe Shaw"
+date: today
+date-format: "DD/MM/YYYY"
+format: html
+editor: visual
+---
+
+## Introduction
+
+This Quarto document performs the analysis for the validation of somatic ERBB2 gene amplifications.
+
+Exported tables and plots have the prefix "plot" or "table" and are named exactly as they appear in the validation document ("ERBB2 Somatic Amplifications Validation Document.docx") for ease of reference.
+
+Plots do not have titles to avoid confusion with titles in word document.
+
+The script should run with the files in the associated data folder, without requiring a connection to the DNA Database. The sample information from the DNA Database was extracted using the erbb2_validation_dna_db_queries.R script.
+
+```{r}
+#| label: packages
+#| include: FALSE
+
+rm(list=ls())
+
+library(tidyverse)
+library(readxl)
+library(here)
+library(ggpubr)
+library(patchwork)
+
+source(here::here("functions/cnv_functions.R"))
+
+```
+
+## QiaSeq Primers
+
+```{r}
+#| label: qiaseq-primers
+#| echo: FALSE
+
+pan_solid_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+                             sheet = "Primer Overlap",
+                             range = "A2:D11024",
+                             col_names = c("chromosome", "coordinates", "sequence",
+                                           "gene"),
+                             col_types = c("text", "text", "text", "text")) |> 
+  mutate(category = "Unique to 44038Z-11379",
+         text = "PanSolid only")
+
+core_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+                        sheet = "Primer Overlap",
+                        range = "G2:J595",
+                        col_names = c("chromosome", "coordinates", "sequence",
+                                      "gene"),
+                        col_types = c("text", "text", "text", "text")) |> 
+  mutate(category = "Unique to 17500Z-950",
+         text = "Core only")
+
+both_panels <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+                          sheet = "Primer Overlap",
+                          range = "L2:O357",
+                          col_names = c("chromosome", "coordinates", "sequence",
+                                        "gene"),
+                          col_types = c("text", "text", "text", "text")) |> 
+  mutate(category = "common to both 44038Z-11379 and 17500Z-950",
+         text = "Both")
+
+stopifnot(intersect(pan_solid_only$sequence, core_only$sequence) == 0)
+
+all_primers <- rbind(pan_solid_only, core_only, both_panels) |> 
+  mutate(gene_clean = case_when(
+    
+    gene == "ERBB2, MIR4728" ~"ERBB2",
+    gene == "EGFR, EGFR-AS1" ~"EGFR",
+    TRUE ~gene)) 
+
+primer_table <- all_primers |> 
+  filter(gene_clean == "ERBB2") |>
+  filter(text != "Core only") |> 
+  group_by(gene_clean, text) |> 
+  summarise(total = n(), .groups = "drop_last") |> 
+  mutate(prop = round(total/sum(total) * 100, 1)) |> 
+  ungroup() |> 
+  pivot_wider(names_from = c(text),
+              values_from = c(total, prop)) |> 
+  arrange(desc(total_Both))
+
+table_ERBB2_Qiaseq_Primers <- primer_table |> 
+  rename(Gene = gene_clean,
+         "Primers shared with Core panel" = total_Both,
+         "Primers shared with Core panel (%)" = prop_Both,
+         "Primers unique to PanSolid" = "total_PanSolid only",
+         "Primers unique to PanSolid (%)" = "prop_PanSolid only") |> 
+  select(Gene, "Primers shared with Core panel",
+         "Primers shared with Core panel (%)",
+         "Primers unique to PanSolid",
+         "Primers unique to PanSolid (%)")
+
+knitr::kable(table_ERBB2_Qiaseq_Primers) 
+
+csv_timestamp(table_ERBB2_Qiaseq_Primers)
+
+```
+
+```{r}
+#| label: qiaseq-primer-lengths
+#| echo: FALSE
+
+plot_qiaseq_primer_length <- grch38_primer_coordinates |> 
+  mutate(size = end - start) |>  
+  ggplot(aes(x = size, y = )) +
+  geom_histogram() +
+  labs(title = "PanSolid primer lengths",
+       x = "Primer length (bp)", y = "Number of primers") +
+  theme_bw()
+
+plot_qiaseq_primer_length
+
+```
+
+## Fold Change Threshold
+
+```{r}
+#| label: fold-change-threshold-plot
+#| echo: FALSE
+
+fold_change_threshold <- 2.9
+
+fc_vs_ncc <- data.frame(ncc = seq(0, 100, by = 0.1)) |> 
+  mutate(target_copies = calculate_target_copies(fold_change = fold_change_threshold,
+                                                 ncc_percent = ncc))
+
+lod_exp <- data.frame(
+  target_copies = c(14, 8, 5, 0, 14, 14, 14, 14),
+  ncc = c(100, 100, 100, 100, 25, 12.5, 6.25, 0))
+
+plot_fold_change_detection_limit <- fc_vs_ncc |> 
+  filter(target_copies <= 100) |> 
+  ggplot(aes(x = target_copies, y = ncc)) +
+  geom_line(linewidth = 1) +
+  theme_bw() +
+  labs(x = "Target copies per cell", y = "Neoplastic cell content (%)",
+       caption = str_c("Line shows detection limit using a fold change threshold of ",
+                        fold_change_threshold)) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0,100,10),
+                     minor_breaks = FALSE) +
+  scale_x_continuous(limits = c(0, 100), breaks = seq(0,100,10),
+                     minor_breaks = FALSE) +
+  geom_text(aes(x = 30, y = 30), size = 4, label = "Detected") +
+  geom_text(aes(x = 25, y = 5), size = 4, label = "Not detected") +
+  geom_point(data = lod_exp, pch = 21, fill = safe_red)
+
+plot_fold_change_detection_limit
+
+plot_timestamp(plot_fold_change_detection_limit)
+
+```
+
+## Load Data
+
+```{r}
+#| label: load-clc-results
+#| include: FALSE
+
+clc_data_path <- here::here("data/clc_outputs")
+
+all_patient_files <- list.files(path = clc_data_path, full.names = TRUE, recursive = TRUE,
+                pattern = "*.xlsx")
+
+coarse_calls <- all_patient_files |>
+  map(\(all_patient_files) read_clc_amp_calls(
+    file = all_patient_files,
+    input_sheet = coarse_tab
+  )) |>
+  list_rbind() |> 
+  mutate(setting = "coarse") 
+
+# Check all files have been read in
+setdiff(unique(coarse_calls$filename), all_patient_files)
+
+fine_calls <- all_patient_files |>
+  map(\(all_patient_files) read_clc_amp_calls(
+    file = all_patient_files,
+    input_sheet = fine_tab
+  )) |>
+  list_rbind() |> 
+  mutate(setting = "fine")
+
+all_patient_calls <- rbind(coarse_calls, fine_calls) |>
+  extract_cnv_coordinates()
+
+```
+
+```{r}
+#| label: load-clc-controls
+#| include: FALSE
+
+clc_controls <- read_excel(path = here::here("data/control_data/clc_controls.xlsx")) |> 
+  mutate(labno = as.character(parse_filename(input_file = control,
+                                    input_group = 2)),
+         worksheet = parse_filename(input_file = control,
+                                    input_group = 1))
+
+```
+
+```{r}
+#| label: sample-type-identifiers
+#| include: FALSE
+
+seracare_ids <- c(24002060, 24002064, 24002067, 24002071)
+
+biobank_ids <- c(23033285, 23033290, 23033295, 23033303, 23033288)
+
+control_ids <- unique(clc_controls$labno)
+
+```
+
+```{r}
+#| label: sample-numbers
+#| echo: FALSE
+
+patient_file_table <- all_patient_files |>
+  map(\(all_patient_files) filename_to_df(
+    file = all_patient_files)) |>
+  list_rbind()
+
+patient_sample_table <- patient_file_table |> 
+  filter(!duplicated(labno))
+
+patient_samples_tested <- patient_sample_table$labno
+
+all_samples <- patient_sample_table |> 
+  select(labno, worksheet) |> 
+  rbind(clc_controls |> 
+          select(labno, worksheet)) |> 
+  mutate(sample_group = case_when(
+    
+    labno %in% seracare_ids ~"SeraCare control samples",
+    
+    labno %in% biobank_ids ~"MCRC biobank samples also used as normal controls",
+    
+    labno %in% control_ids ~"MSI normal samples used as normal controls",
+    
+    TRUE ~"Samples tested using the CLC pipeline for ERBB2"))
+
+table_samples_tested <- all_samples |> 
+  count(sample_group) |> 
+  arrange(desc(n)) |> 
+  rename("Samples" = n,
+         "Description" = sample_group)
+
+csv_timestamp(table_samples_tested)
+
+all_sample_ids <- all_samples$labno
+
+knitr::kable(table_samples_tested)
+
+```
+
+```{r}
+#| label: extraction-types
+#| echo: FALSE
+
+erbb2_sample_extraction <- read_csv(here::here("data/dna_db_queries/erbb2_sample_extraction.csv"),
+                                    col_types = "cc")
+
+table_sample_extractions <- erbb2_sample_extraction |> 
+  filter(labno %in% patient_samples_tested) |> 
+  count(extraction_method) |> 
+  arrange(desc(n)) |> 
+  rename("Extraction method" = extraction_method,
+         "Samples" = n)
+
+knitr::kable(table_sample_extractions)
+
+csv_timestamp(table_sample_extractions)
+
+```
+
+```{r}
+#| label: sample-types
+#| echo: FALSE
+
+erbb2_sample_types <- read_csv(here::here("data/dna_db_queries/erbb2_sample_types.csv"),
+                                    col_types = "cc")
+
+table_sample_types <- erbb2_sample_types |> 
+  filter(labno %in% patient_samples_tested & !labno %in% seracare_ids) |> 
+  count(tissue_type) |> 
+  arrange(desc(n)) |> 
+  rename("Sample type" = tissue_type,
+         "Samples" = n)
+
+knitr::kable(table_sample_types)
+
+csv_timestamp(table_sample_types)
+
+```
+
+```{r}
+#| label: ncc
+#| echo: FALSE
+
+erbb2_ncc <- read_csv(here::here("data/dna_db_queries/erbb2_ncc.csv"),
+                                    col_types = "ccc")
+
+manual_ncc_check <- read_excel(here::here("data/manual_ncc_check.xlsx"),
+                               col_types = c("text", "text"))
+
+over_20_variants <- c(">30%", ">20%", "20-30%")
+
+ncc_collated <- erbb2_ncc |> 
+  filter(labno %in% patient_samples_tested & !labno %in% seracare_ids) |>
+  left_join(manual_ncc_check, by = "labno") |> 
+  mutate(ncc = case_when(
+    
+    ncc_db %in% over_20_variants |
+      manual_ncc %in% over_20_variants ~">20%",
+    
+    ncc_db == "10-20%" |
+      manual_ncc == "10-20%" ~"10-20%",
+    
+    TRUE ~"No NCC provided"))
+
+table_neoplastic_cell_content <- ncc_collated |> 
+  count(ncc) |> 
+  arrange(desc(n)) |> 
+  rename("NCC (%)" = ncc,
+         "Samples" = n)
+
+knitr::kable(table_neoplastic_cell_content)
+
+csv_timestamp(table_neoplastic_cell_content)
+
+```
+
+```{r}
+#| label: tumour-sources
+#| echo: FALSE
+
+erbb2_tumour_sources <- read_csv(here::here("data/dna_db_queries/erbb2_tumour_sources.csv"),
+                                    col_types = "cncc")
+
+table_tumour_sources <- erbb2_tumour_sources |> 
+   filter(labno %in% patient_samples_tested & !labno %in% seracare_ids) |>
+  count(tumour_source) |> 
+  rename(Total = n,
+         "Tumour type" = tumour_source)
+
+csv_timestamp(table_tumour_sources)
+
+knitr::kable(table_tumour_sources)
+
+```
+
+```{r}
+#| label: erbb2-worksheets
+#| include: FALSE
+
+erbb2_worksheets <- read_csv(here::here("data/dna_db_queries/erbb2_pansolid_ws_details.csv"),
+                             show_col_types = FALSE)
+
+```
+
+Samples were tested across `r nrow(erbb2_worksheets)` between `r min(erbb2_worksheets$date)` and `r max(erbb2_worksheets$date)`.
+
+```{r}
+#| label: check-low-ncc
+#| eval: FALSE
+#| include: FALSE
+
+low_ncc <- coarse_calls |> 
+  left_join(sample_discode_ncc, by = "labno") |> 
+  filter(ncc_db == "10-20%") |>  
+  filter(!duplicated(labno))
+
+coarse_calls |> 
+  filter(gene == "ERBB2" & labno %in% low_ncc$labno) |> 
+  ggplot(aes(x = labno, y = fold_change_adjusted)) +
+  geom_point() +
+  ylim(0, 30)
+
+```
+
+```{r}
+#| label: load-ddpcr
+#| include: FALSE
+
+ws138419 <- read_biorad_csv("WS138419_analysed.csv")
+
+ws138579 <- read_biorad_csv("WS138579_analysed.csv")
+
+ws138765 <- read_biorad_csv("WS138765_analysed.csv")
+
+ddpcr_erbb2 <- rbind(ws138579, ws138765) |> 
+  filter(target_type == "Ch1Unknown")
+
+```
+
+ERBB2 concentrations measured via ddPCR ranged from `r min(ddpcr_erbb2$copies_per20u_l_well)` to `r max(ddpcr_erbb2$copies_per20u_l_well)` copies per ul.
+
+```{r}
+#| label: impact-of-enzyme
+#| echo: FALSE
+
+dual_tested_samples <- c(21011525, 21039327, 22000209)
+
+table_impact_of_hindiii_digestion <- rbind(ws138419, ws138579) |> 
+  filter(experiment == "ERBB2 Ex13_1" & sample %in% dual_tested_samples) |> 
+  select(sample, worksheet, target, copies_per20u_l_well, cnv) |> 
+  pivot_wider(id_cols = c(sample),
+              names_from = c(worksheet, target),
+              values_from = c(copies_per20u_l_well, cnv)) |> 
+  rename(ERBB2_molecules = copies_per20u_l_well_WS138419_analysed.csv_ch1_target,
+         AP3B1_molecules = copies_per20u_l_well_WS138419_analysed.csv_AP3B1,
+         ERBB2_molecules_HindIII = copies_per20u_l_well_WS138579_analysed.csv_ch1_target,
+         AP3B1_molecules_HindIII = copies_per20u_l_well_WS138579_analysed.csv_AP3B1,
+         ERBB2_copies = cnv_WS138419_analysed.csv_ch1_target,
+         ERBB2_copies_HindIII = cnv_WS138579_analysed.csv_ch1_target) |> 
+  select(sample, ERBB2_molecules, ERBB2_molecules_HindIII,
+         AP3B1_molecules, AP3B1_molecules_HindIII,
+         ERBB2_copies, ERBB2_copies_HindIII)
+
+knitr::kable(table_impact_of_hindiii_digestion)
+
+csv_timestamp(table_impact_of_hindiii_digestion)
+
+```
+
+## NGS Results
+
+```{r}
+#| label: erbb2_ngs_results
+#| include: FALSE
+
+erbb2_coarse_pansolid <- all_patient_calls |> 
+  filter(gene == "ERBB2" & setting == "coarse") |> 
+  filter(!duplicated(labno))
+
+```
+
+Out of `r length(patient_samples_tested)` samples, there were `r length(unique(erbb2_coarse_pansolid$labno))` with ERBB2 amplifications detected, with fold changes ranging from `r round(min(erbb2_coarse_pansolid$fold_change_adjusted), 1)` to `r round(max(erbb2_coarse_pansolid$fold_change_adjusted), 1)`.
+
+```{r}
+#| label: calls-by-sample-type
+#| eval: FALSE
+#| include: FALSE
+
+table_results_by_tumour_type <- erbb2_coarse_pansolid |> 
+  filter(!labno %in% seracare_ids) |> 
+  left_join(erbb2_tumour_sources, by = "labno") |> 
+  count(tumour_source) |> 
+  arrange(desc(n))
+
+knitr::kable(table_results_by_tumour_type)
+
+csv_timestamp(table_results_by_tumour_type)
+
+```
+
+```{r}
+#| label: calls-per-sample
+#| echo: FALSE
+
+table_calls_per_sample <- all_patient_calls |> 
+  filter(gene == "ERBB2") |> 
+  group_by(labno_suffix_worksheet, setting) |> 
+  summarise(total_calls = n()) |> 
+  pivot_wider(id_cols = labno_suffix_worksheet,
+              names_from = setting,
+              values_from = total_calls)  |> 
+  arrange(desc(fine)) |> 
+  rename("ERBB2 calls - coarse" = coarse,
+         "ERBB2 calls - fine" = fine)
+
+knitr::kable(table_calls_per_sample)
+
+```
+
+```{r} 
+#| label: disproportionate-chromosome-coverage
+#| echo: FALSE
+
+ggplot(erbb2_coarse_pansolid, aes(x = reorder(labno_suffix_worksheet,
+                                              desc(fold_change_adjusted)),
+                                  y = fold_change_adjusted)) +
+  geom_point(aes(colour = comments)) +
+  theme(axis.text.x = element_blank())
+  
+```
+
+## NGS vs ddPCR
+
+```{r}
+#| label: ddpcr-vs-pansolid
+#| echo: FALSE
+
+ddpcr_pansolid <- ddpcr_erbb2 |> 
+  filter(!labno %in% c("C3_5ng", "C3_20ng", "NTC")) |> 
+  left_join(erbb2_coarse_pansolid, by = "labno") |> 
+  mutate(pansolid_result = case_when(
+    
+    labno %in% c(biobank_ids, control_ids) ~"pansolid normal control",
+    
+    is.na(fold_change_adjusted) & 
+      !labno %in% c(biobank_ids, control_ids) ~"pansolid normal result",
+    
+    fold_change_adjusted >= 2.9 ~"pansolid amplification"),
+    
+    pansolid_result = factor(pansolid_result, levels = c("pansolid normal control",
+                                                         "pansolid normal result",
+                                                         "pansolid amplification"))) |> 
+  # Remove seracare repeats
+  filter(!duplicated(labno))
+
+ddpcr_pansolid_table <- ddpcr_pansolid |> 
+  count(pansolid_result)
+
+knitr::kable(ddpcr_pansolid_table)
+
+```
+
+```{r}
+#| label: ddpcr-normal-range
+#| include: FALSE
+
+ddpcr_normal <- ddpcr_pansolid |> 
+  filter(labno %in% c(biobank_ids, control_ids))
+
+```
+
+ddPCR ERBB2 copy number in normal controls ranged from `r min(ddpcr_normal$cnv)` to `r max(ddpcr_normal$cnv)` (median: `r median(ddpcr_normal$cnv)`).
+
+```{r}
+#| label: ngs-ddpcr-confusion-matrix
+#| echo: FALSE
+
+ddpcr_threshold <- 6
+
+result_comparison <- ddpcr_pansolid |> 
+  filter(pansolid_result != "pansolid normal control") |> 
+  mutate(outcome = case_when(
+    
+        pansolid_result == "pansolid amplification" & cnv > ddpcr_threshold ~true_pos,
+        
+        pansolid_result == "pansolid normal result" & cnv <= ddpcr_threshold ~true_neg,
+        
+        pansolid_result == "pansolid amplification" & cnv <= ddpcr_threshold ~false_pos,
+        
+        pansolid_result == "pansolid normal result" & cnv > ddpcr_threshold ~false_neg))
+
+
+table_erbb2_results_ngs_vs_ddpcr <- make_confusion_matrix(df = result_comparison,
+                                                          initial_test = "PanSolid",
+                                                          comparison_test = "ddPCR",
+                                                          positive_state = "Amplification",
+                                                          negative_state = "Normal")
+
+
+knitr::kable(table_erbb2_results_ngs_vs_ddpcr[[1]])
+
+csv_timestamp(table_erbb2_results_ngs_vs_ddpcr[[1]])
+
+```
+
+The overall percent agreement between NGS and ddPCR is `r table_erbb2_results_ngs_vs_ddpcr[[2]]`%.
+
+```{r}
+#| label: ddpcr-vs-pansolid-plot
+#| echo: FALSE
+
+ddpcr_cn_plot <- ddpcr_pansolid |> 
+  ggplot(aes(x = pansolid_result, y = cnv)) +
+  geom_jitter(size = 2, pch = 21, alpha = 0.6) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        legend.position = "none") +
+  labs(x = "", y = "ddPCR ERBB2 Exon 13 Copy Number",
+       subtitle = "Highest normal control ddPCR copy number is 6") +
+  geom_hline(yintercept = 6, linetype = "dashed") +
+  scale_y_continuous(limits = c(0, 80), breaks = c(0, 6, 20, 40, 60, 80)) 
+
+ddpcr_cn_plot
+
+```
+
+```{r}
+#| label: fold-change-vs-ddpcr
+#| echo: FALSE
+
+discrepant_samples <- c(23001095, 23002258, 23008380)
+
+plot_fold_change_vs_ddpcr_copy_number <- ddpcr_pansolid |> 
+  filter(!is.na(fold_change_adjusted)) |> 
+  ggplot(aes(x = fold_change_adjusted*2, y = cnv)) +
+  geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
+  geom_point(size = 3, fill = safe_blue, alpha = 0.8, pch = 21) +
+  theme_bw() +
+  geom_hline(yintercept = 6, linetype = "dashed") +
+  geom_vline(xintercept = 3*2, linetype = "dashed") +
+  labs(x = "PanSolid Fold Change x 2", y = "ddPCR Copy Number",
+         caption = "Samples 23001095, 23002258 and 23008380 in red") +
+  scale_y_continuous(limits = c(0, 85), breaks = c(0, 20, 40, 60, 80))  +
+  scale_x_continuous(limits = c(0, 85), breaks = c(0, 20, 40, 60, 80)) +
+  geom_point(data = ddpcr_pansolid |> 
+               filter(sample %in% discrepant_samples), size = 3, fill = safe_red,
+             pch = 21) +
+  ggpubr::stat_cor(method = "pearson", label.x = 70, label.y = 20) 
+
+plot_fold_change_vs_ddpcr_copy_number
+
+plot_timestamp(plot_fold_change_vs_ddpcr_copy_number)
+
+```
+
+## Variant Coordinates
+
+```{r}
+#| label: erbb2-calls
+#| echo: FALSE
+
+erbb2_calls_factorised <- erbb2_coarse_pansolid |> 
+         mutate(labno = factor(x = labno,
+                                   levels = c(
+                                     "23044755", "23002258", 
+                                     "21039327", "23008380",
+                                     "24002064", "24002067", "24002071", "23030974",
+                                     "21011525", "21015264", "23011210", "23006590",
+                                     "23022389", "23001095", "23055093", "21019092", 
+                                     "22034556")))
+
+erbb2_labno <- make_labno_plot(df = erbb2_calls_factorised, 
+                      gene = "ERBB2",
+                      interval = 10000, 
+                      buffer = 5000, 
+                      setting = "coarse")
+
+plot_all_erbb2_amplification_coordinates <- make_cnv_triptych(
+  plot_xmin = erbb2_labno[[1]],
+  plot_xmax = erbb2_labno[[2]],
+  interval = erbb2_labno[[3]],
+  main_plot = erbb2_labno[[4]],
+  chromosome = erbb2_labno[[5]])
+
+plot_all_erbb2_amplification_coordinates
+
+plot_timestamp(plot_all_erbb2_amplification_coordinates, input_height = 16)
+
+```
+
+```{r}
+#| label: erbb2-calls-zoom
+#| echo: FALSE
+
+short_erbb2_calls <- erbb2_calls_factorised |> 
+                                 filter(cnv_region_length < 100000)
+
+erbb2_labno_zoom <- make_labno_plot(df = short_erbb2_calls, 
+                      gene = "ERBB2",
+                      interval = 10000, 
+                      buffer = 5000, 
+                      setting = "coarse")
+
+plot_erbb2_amplification_accuracy <- make_cnv_triptych(plot_xmin = erbb2_labno_zoom[[1]],
+                  plot_xmax = erbb2_labno_zoom[[2]],
+                  interval = erbb2_labno_zoom[[3]],
+                  main_plot = erbb2_labno_zoom[[4]],
+                  chromosome = erbb2_labno_zoom[[5]])
+
+plot_erbb2_amplification_accuracy
+
+plot_timestamp(plot_erbb2_amplification_accuracy)
+
+```
+
+```{r}
+#| label: long-erbb2-calls
+#| echo: FALSE
+
+erbb2_long_calls <- ddpcr_pansolid |> 
+  filter(cnv_region_length > 50000) |> 
+  select(sample, cnv_region_length) |> 
+  arrange(desc(cnv_region_length))
+
+knitr::kable(erbb2_long_calls)
+
+```
+
+The long calls varied from `r min(erbb2_long_calls$cnv_region_length)` to `r max(erbb2_long_calls$cnv_region_length)`.
+
+## Limit of detection
+
+```{r}
+#| label: seracare-results
+#| echo: FALSE
+
+copies_3 <- make_fold_change_plot(df = all_patient_calls |> 
+                                     filter(labno == "24002064"),
+                      ymax = 15)
+
+copies_3_plot <- copies_3[[4]] +
+  labs(title = "+3 copies")
+
+copies_3_primer <- make_primer_plot(plot_xmin = copies_3[[1]],
+                  plot_xmax = copies_3[[2]],
+                  interval = copies_3[[3]],
+                  chromosome = copies_3[[5]])
+
+copies_3_exon <- make_exon_plot(plot_xmin = copies_3[[1]],
+                  plot_xmax = copies_3[[2]],
+                  interval = copies_3[[3]],
+                  chromosome = copies_3[[5]]) +
+  labs(x = "")
+
+copies_6 <- make_fold_change_plot(df = all_patient_calls |> 
+                                     filter(labno == "24002067"),
+                      ymax = 15)
+
+copies_6_plot <- copies_6[[4]] +
+  labs(title = "+6 copies")
+
+copies_6_primer <- make_primer_plot(plot_xmin = copies_6[[1]],
+                  plot_xmax = copies_6[[2]],
+                  interval = copies_6[[3]],
+                  chromosome = copies_6[[5]])
+
+copies_6_exon <- make_exon_plot(plot_xmin = copies_6[[1]],
+                  plot_xmax = copies_6[[2]],
+                  interval = copies_6[[3]],
+                  chromosome = copies_6[[5]]) +
+  labs(x = "Genome coordinate")
+
+copies_12 <- make_fold_change_plot(df = all_patient_calls |> 
+                                     filter(labno == "24002071"),
+                      ymax = 15)
+
+copies_12_plot <- copies_12[[4]] +
+  labs(title = "+12 copies")
+
+copies_12_primer <- make_primer_plot(plot_xmin = copies_12[[1]],
+                  plot_xmax = copies_12[[2]],
+                  interval = copies_12[[3]],
+                  chromosome = copies_12[[5]])
+
+copies_12_exon <- make_exon_plot(plot_xmin = copies_12[[1]],
+                  plot_xmax = copies_12[[2]],
+                  interval = copies_12[[3]],
+                  chromosome = copies_12[[5]]) +
+  labs(x = "")
+
+plot_seracare_controls_erbb2_results <- copies_3_plot + copies_6_plot + copies_12_plot +
+  copies_3_primer + copies_6_primer + copies_12_primer +
+  copies_3_exon + copies_6_exon + copies_12_exon +
+  plot_layout(nrow = 3, 
+              ncol = 3,
+              heights = c(6, 1, 2))
+
+plot_seracare_controls_erbb2_results
+
+plot_timestamp(plot_seracare_controls_erbb2_results, input_width = 16)
+
+```
+
+```{r}
+#| label: seracare-fold-change-ddpcr
+#| echo: FALSE
+
+ddpcr_pansolid_seracare_plot <- ddpcr_pansolid |> 
+  mutate(pansolid_copy_number = fold_change_adjusted * 2) |> 
+  filter(labno %in% seracare_ids) |> 
+  filter(!is.na(pansolid_copy_number)) |> 
+  ggplot(aes(x = pansolid_copy_number, y = cnv)) +
+  geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
+  geom_point(size = 3, fill = safe_blue, alpha = 0.8, pch = 21) +
+  theme_bw() +
+  labs(x = "PanSolid Copy Number", y = "ddPCR Copy Number") +
+  scale_y_continuous(limits = c(0, 30), breaks = c(0, 10, 20, 30)) +
+  scale_x_continuous(limits = c(0, 30), breaks = c(0, 10, 20, 30)) +
+  ggpubr::stat_cor(method = "pearson", label.x = 22, label.y = 5) 
+
+ddpcr_pansolid_seracare_plot
+
+plot_timestamp(ddpcr_pansolid_seracare_plot)
+
+```
+
+```{r}
+#| label: manchester-vs-seracare
+#| echo: FALSE
+
+# Values taken from technical product reports
+seracare_erbb2_copies <- read_excel(path = here::here("data/seracare_erbb2_copies.xlsx"),
+                                    col_types = c("text", "numeric", "numeric",
+                                                  "text"))
+
+man_v_seracare <- ddpcr_pansolid |> 
+  filter(labno %in% seracare_ids & labno != "24002060") |> 
+  left_join(seracare_erbb2_copies, by = "labno") |> 
+  mutate(`Additional ERBB2 copies (Manchester NGS)` = round((fold_change_adjusted*2)-2, 2),
+         `Additional ERBB2 copies (Manchester ddPCR)` = round(cnv - 2, 2),
+         ratio_ngs = round(`Additional ERBB2 copies (Manchester NGS)` / seracare_erbb2_additional_copies_ngs, 2),
+         ratio_ddpcr = round(`Additional ERBB2 copies (Manchester ddPCR)` / seracare_erbb2_additional_copies_ddpcr, 2))
+  
+table_comparison_with_seracare_results_ngs <- man_v_seracare |> 
+  select(labno, product, seracare_erbb2_additional_copies_ngs,
+         `Additional ERBB2 copies (Manchester NGS)`,
+         ratio_ngs) |> 
+  arrange(labno) |> 
+  rename("Sample" = labno,
+         "Product" = product,
+         `Additional ERBB2 copies (SeraCare NGS)` = seracare_erbb2_additional_copies_ngs,
+         `Ratio (Manchester: SeraCare result)` = ratio_ngs)
+
+table_comparison_with_seracare_results_ddpcr <- man_v_seracare |> 
+  select(labno, product, seracare_erbb2_additional_copies_ddpcr,
+         `Additional ERBB2 copies (Manchester ddPCR)`,
+         ratio_ddpcr) |> 
+  arrange(labno) |> 
+  rename("Sample" = labno,
+         "Product" = product,
+         `Additional ERBB2 copies (SeraCare ddPCR)` = seracare_erbb2_additional_copies_ddpcr,
+         `Ratio (Manchester: SeraCare result)` = ratio_ddpcr)
+
+knitr::kable(table_comparison_with_seracare_results_ngs)
+
+knitr::kable(table_comparison_with_seracare_results_ddpcr)
+
+csv_timestamp(table_comparison_with_seracare_results_ngs)
+
+csv_timestamp(table_comparison_with_seracare_results_ddpcr)
+
+```
+
+## Repeatability
+
+```{r}
+#| label: repeat-results
+#| include: FALSE
+
+repeats <- patient_file_table |> 
+  filter(duplicated(labno, fromLast = TRUE) | 
+           duplicated(labno, fromLast = FALSE)) |> 
+  arrange(labno)
+
+repeat_samples <- unique(repeats$labno)
+
+repeat_results <- all_patient_calls |> 
+  filter(gene %in% c("ERBB2", "No calls") & setting == "coarse" & 
+           labno %in% repeat_samples)
+
+```
+
+```{r}
+#| label: repeat-results-summary
+#| include: FALSE
+
+repeat_summary_table <- repeat_results |> 
+  group_by(labno) |> 
+  summarise(min_fc = min(fold_change_adjusted),
+            max_fc = max(fold_change_adjusted)) |> 
+  mutate(range = round(max_fc - min_fc, 1)) |> 
+  arrange(desc(range))
+
+repeat_summary_table
+
+```
+
+```{r}
+#| label: repeat-tables
+#| echo: FALSE
+
+table_inter_run_repeat_results <- repeat_results |> 
+  filter(!suffix %in% c("b", "c")) |> 
+  filter(duplicated(labno, fromLast = TRUE) | duplicated(labno, 
+                                                             fromLast = FALSE)) |> 
+  format_repeat_table()
+
+table_intra_run_repeat_results <- repeat_results |> 
+  filter(suffix %in% c("a", "b", "c")) |> 
+  filter(duplicated(labno, fromLast = TRUE) | duplicated(labno, 
+                                                             fromLast = FALSE)) |> 
+  format_repeat_table()
+
+knitr::kable(table_inter_run_repeat_results)
+
+knitr::kable(table_inter_run_repeat_results)
+
+csv_timestamp(table_intra_run_repeat_results)
+
+csv_timestamp(table_intra_run_repeat_results)
+
+```
+
+```{r}
+#| label: repeat-plots
+#| echo: FALSE
+
+sample_21011525_results <- all_patient_calls |> 
+  filter(labno == "21011525")
+
+sample_21011525_plot <- make_labno_plot(df = sample_21011525_results, 
+                yaxis = labno_suffix_worksheet)
+
+plot_variation_in_21011525 <- make_cnv_triptych(sample_21011525_plot[[1]],
+                  sample_21011525_plot[[2]],
+                  sample_21011525_plot[[3]],
+                  sample_21011525_plot[[4]],
+                  sample_21011525_plot[[5]])
+
+plot_variation_in_21011525
+
+plot_timestamp(plot_variation_in_21011525)
+
+```
+
+## Other genes
+
+The aim of the triptych plot functions was to allow me to create flexible plots for different genes, not just ERBB2.
+
+```{r}
+#| label: egfr
+#| echo: FALSE
+
+egfr_plot <- make_labno_plot(df = all_patient_calls |> 
+                               filter(labno != "23038464"),
+                             gene = "EGFR", interval = 200000)
+
+egfr_triptych <- make_cnv_triptych(egfr_plot[[1]],
+                  egfr_plot[[2]],
+                  egfr_plot[[3]],
+                  egfr_plot[[4]],
+                  egfr_plot[[5]])
+
+egfr_triptych
+
+egfr_fc_plot <- make_fold_change_plot(ymax = 70, gene = "EGFR",
+                                      interval = 200000)
+
+egfr_triptych_fc <- make_cnv_triptych(egfr_fc_plot[[1]],
+                  egfr_fc_plot[[2]],
+                  egfr_fc_plot[[3]],
+                  egfr_fc_plot[[4]],
+                  egfr_fc_plot[[5]])
+
+egfr_triptych_fc
+
+egfr_fc_plot_zoom <- make_fold_change_plot(
+  df = all_patient_calls |> 
+    filter(cnv_region_length < 500000),
+  ymax = 70, 
+  gene = "EGFR",
+  interval = 50000)
+  
+egfr_triptych_fc_zoom <- make_cnv_triptych(egfr_fc_plot_zoom[[1]],
+                  egfr_fc_plot_zoom[[2]],
+                  egfr_fc_plot_zoom[[3]],
+                  egfr_fc_plot_zoom[[4]],
+                  egfr_fc_plot_zoom[[5]])
+
+egfr_triptych_fc_zoom
+
+```
+
+```{r}
+#| label: braf
+#| echo: FALSE
+
+braf_plot <- make_labno_plot(gene = "BRAF", interval = 500000)
+
+braf_triptych <- make_cnv_triptych(braf_plot[[1]],
+                  braf_plot[[2]],
+                  braf_plot[[3]],
+                  braf_plot[[4]],
+                  braf_plot[[5]])
+
+braf_triptych
+
+```
+
+```{r}
+#| label: met
+#| echo: FALSE
+
+met_plot <- make_labno_plot(gene = "MET", interval = 200000)
+
+met_triptych <- make_cnv_triptych(met_plot[[1]],
+                  met_plot[[2]],
+                  met_plot[[3]],
+                  met_plot[[4]],
+                  met_plot[[5]])
+
+met_triptych
+
+```
+
+```{r}
+#| label: myc
+#| echo: FALSE
+
+myc_plot <- make_labno_plot(gene = "MYC", interval = 5000000)
+
+myc_triptych <- make_cnv_triptych(myc_plot[[1]],
+                  myc_plot[[2]],
+                  myc_plot[[3]],
+                  myc_plot[[4]],
+                  myc_plot[[5]])
+
+myc_triptych
+
+```
+
+## Comparison to Core Panel
+
+```{r}
+#| label: comparison-to-core
+#| echo: FALSE
+
+core_result_info <- read_csv(here::here("data/dna_db_queries/core_result_info.csv"),
+                             col_types = "ccdccc")
+  
+core_erbb2_calls <- extract_cnv_calls(df = core_result_info, input_gene = "ERBB2")
+
+pansolid_vs_core <- ddpcr_pansolid |> 
+  filter(!labno %in% seracare_ids) |> 
+  left_join(core_erbb2_calls,
+            by = "labno") |> 
+  mutate(outcome = case_when(
+           
+           pansolid_result == "pansolid amplification" &
+             core_result  == "Amplification" ~true_pos,
+           
+           pansolid_result == "pansolid normal result" & 
+             core_result  == "No call" ~true_neg,
+           
+           pansolid_result == "pansolid amplification"  & 
+             core_result  == "No call" ~false_pos,
+           
+           pansolid_result == "pansolid normal result" & 
+             core_result  == "Amplification" ~false_neg,
+
+           TRUE ~"no match")) |> 
+  filter(outcome != "no match")
+
+table_pansolid_vs_core_panel_erbb2_results <- make_confusion_matrix(
+  df = pansolid_vs_core,
+  initial_test = "PanSolid",
+  comparison_test = "Core",
+  positive_state = "Amplification",
+  negative_state = "Normal")
+
+knitr::kable(table_pansolid_vs_core_panel_erbb2_results[[1]])
+
+csv_timestamp(table_pansolid_vs_core_panel_erbb2_results[[1]])
+
+```
+
+## Coverage
+
+```{r}
+#| label: control-coverage
+#| include: FALSE
+#| message: FALSE
+
+control_files <- list.files(here::here("data/control_data/"),
+                            full.names = TRUE,
+                            pattern = ".csv")
+
+control_coverage <- control_files |> 
+  map(\(control_files) get_control_coverage(
+    file = control_files)) |> 
+  list_rbind()
+
+```
+
+```{r}
+#| label: all-sample-qc
+#| include: FALSE
+#| message: FALSE
+
+qc_data <- all_patient_files |>
+  map(\(all_files) read_summary_tab(
+    file = all_files)) |>
+  list_rbind()
+
+```
+
+```{r}
+#| label: coverage-plot
+#| echo: FALSE
+#| message: FALSE
+
+for_plot <- rbind(
+  
+  qc_data |> 
+    select(labno_suffix_worksheet, median_coverage) |>
+    mutate(type = "patients"),
+  
+  control_coverage |> 
+    select(labno_suffix_worksheet, median_coverage) |> 
+    mutate(type = "controls")
+)
+
+plot_coverage_in_patients_and_controls <- ggplot(for_plot, aes(x = type, 
+                    y = median_coverage)) +
+  geom_jitter() +
+  theme_bw() +
+  labs(x = "", y = "Median coverage (X)") +
+  ylim(0, 1600) +
+  geom_hline(yintercept = 60, linetype = "dashed")
+
+plot_coverage_in_patients_and_controls
+
+plot_timestamp(plot_coverage_in_patients_and_controls)
+
+```
+
+```{r}
+#| label: coverage-fold-change-plot
+#| eval: FALSE
+#| include: FALSE
+
+calls_and_coverage <- ddpcr_pansolid |> 
+  left_join(qc_data, 
+            by  = "labno_suffix_worksheet")
+
+ggplot(calls_and_coverage, aes(x = percent_target_region_pos_cov_greaterorequal_138, 
+                               y = median_coverage)) +
+  geom_point(size = 3, alpha = 0.5, aes(colour = pansolid_result)) +
+  theme_bw()
+  
+```
+
+```{r}
+#| label: errors
+#| eval: FALSE
+#| include: FALSE
+
+erbb2_coarse_pansolid |> 
+  group_by(labno) |> 
+  count(comments)
+
+```
+
+## Quality Investigation
+
+```{r}
+#| label: read-targeted-region-overview
+#| include: FALSE 
+#| message: FALSE 
+
+chromosome_qc_all_samples <- all_patient_files |>
+  map(\(all_files) read_targeted_region_overview(
+    file = all_files)) |>
+  list_rbind()
+
+```
+
+```{r}
+#| label: cov-vs-fold-change
+#| echo: FALSE
+#| message: FALSE
+
+fold_change_vs_138 <- coarse_calls |> 
+  filter(gene == "ERBB2") |> 
+  left_join(qc_data, by = "labno_suffix_worksheet") |> 
+  ggplot(aes(x = fold_change_adjusted, 
+                    y = percent_target_region_pos_cov_greaterorequal_138)) +
+  geom_point()
+
+cov_vs_138 <- ggplot(qc_data, aes(x = median_coverage,
+                    y = percent_target_region_pos_cov_greaterorequal_138)) +
+  geom_point(pch = 21, alpha = 0.6, size = 2) +
+  theme_bw() +
+  ylim(0, 100) +
+  geom_vline(xintercept = 60, linetype = "dashed")
+
+```
+
+```{r}
+#| label: chr17-coverage
+#| eval: FALSE
+
+chrom17_coverage <- chromosome_qc_all_samples |> 
+  filter(chromosome == "17") 
+
+erbb2_calls_with_chr17_coverage <- erbb2_coarse_pansolid |> 
+  left_join(chrom17_coverage, by = "labno_suffix_worksheet")
+
+foldchange_vs_chr17_reads <- ggplot(erbb2_calls_with_chr17_coverage, 
+       aes(x = fold_change_adjusted, y = total_mapped_reads)) +
+  geom_point(pch = 21, size = 3, alpha = 0.8) +
+  theme_bw() +
+  xlim(0, 45) +
+  ylim(0, 5000000) +
+  labs(x = "Pansolid fold change of ERBB2", y = "Total reads mapped to chromosome 17",
+       title = "Samples with higher fold change have higher chr17 reads")
+
+```
+
+```{r}
+#| label: chr17-full-cohort
+#| eval: FALSE
+
+chr17_reads_sample_cohort <- ggplot(chrom17_coverage, 
+                                    aes(x = reorder(labno_suffix_worksheet, total_mapped_reads),
+                             y = total_mapped_reads)) +
+  geom_point(pch = 21, size = 2) +
+  theme_bw() +
+  geom_point(data = erbb2_calls_with_chr17_coverage,
+             pch = 21, size = 2, fill = safe_red) +
+  theme(axis.text.x = element_blank()) +
+  labs(x = "Samples", y = "Total reads mapped to chromosome 17",
+       title = "ERBB2 amplification samples in red")
+
+random_samples <- c("21019755a_WS128767", "21011525c_WS132125", "23034077_WS133488")
+
+chromosome_qc_all_samples |> 
+  filter(labno_suffix_worksheet %in% random_samples) |> 
+  ggplot(aes(x = chromosome, y = total_mapped_reads)) +
+  geom_col() +
+  facet_wrap(~labno)
+
+coarse_calls |> 
+  left_join(chromosome_qc_all_samples, by = "labno_suffix_worksheet") |> 
+  filter(chromosome.y == "17") |> 
+  filter(gene == "ERBB2" & labno.x == "21011525") |> 
+  ggplot(aes(x = labno_suffix_worksheet, 
+             y = total_mapped_reads)) +
+  geom_boxplot(aes(group = labno_suffix_worksheet)) +
+  theme(axis.text.x = element_text(angle = 45))
+
+```
+
+```{r}
+#| label: coverage-all-chromosomes
+#| echo: FALSE
+
+chromosome_qc_all_samples |> 
+  ggplot(aes(x = chromosome, y = mapped_reads_in_targeted_region_excl_ignored,
+             group = chromosome)) +
+  geom_boxplot() 
+
+```

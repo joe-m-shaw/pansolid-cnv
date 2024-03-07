@@ -1,20 +1,15 @@
 # Pan Solid CNV Functions
 
 library(tidyverse)
+library(readxl)
 library(here)
 
-# DLMS connection -------------------------------------------------------------------
+# Export functions ------------------------------------------------------------------
 
-dbi_con <- DBI::dbConnect(
-  drv = odbc::odbc(),
-  dsn = "moldb")
-
-# CSV timestamp ---------------------------------------------------------------------
-
-export_timestamp <- function(input) {
+csv_timestamp <- function(input) {
   write.csv(input,
             file = here::here(paste0(
-              "outputs/",
+              "outputs/tables/",
               format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
               "_",
               deparse(substitute(input)), ".csv"
@@ -23,13 +18,17 @@ export_timestamp <- function(input) {
   )
 }
 
-# Plot functions --------------------------------------------------------------------
+dna_db_export <- function(input) {
+  write.csv(input,
+            file = here::here(paste0(
+              "data/dna_db_queries/",
+              deparse(substitute(input)), ".csv"
+            )),
+            row.names = FALSE
+  )
+}
 
-safe_blue <- "#88CCEE"
-safe_red <- "#CC6677"
-safe_grey <- "#888888"
-
-save_plot <- function(input_plot, input_width = 15, input_height = 12, dpi = 300) {
+plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi = 300) {
   
   # Default inputs allow for presenting a plot as half an A4 page
   
@@ -41,7 +40,7 @@ save_plot <- function(input_plot, input_width = 15, input_height = 12, dpi = 300
     ),
     plot = input_plot,
     device = "png",
-    path = "plots/",
+    path = here::here("outputs/plots/"),
     units = "cm",
     width = input_width,
     height = input_height,
@@ -49,155 +48,170 @@ save_plot <- function(input_plot, input_width = 15, input_height = 12, dpi = 300
   )
 }
 
-plot_coarse_v_fine <- function(input_gene) {
+
+# Data functions --------------------------------------------------------------------
+
+filename_regex <- regex(
+  r"[
+  (WS\d{6})              # Worksheet number
+  _
+  (\d{8})                # Lab number
+  (a|b|c|)               # Suffix
+  _
+  ([:alnum:]{5,30})      # Patient name - alphanumeric characters only
+  (.xlsx|_S.+.xlsx|_S.+) # Ending varies between patients and controls
+  ]",
+  comments = TRUE
+)
+
+parse_filename <- function(input_file, input_group) {
   
-  plot <- all_calls |> 
-    filter(name == input_gene) |> 
-    group_by(sample_id, setting) |> 
-    summarise(calls = n()) |> 
-    ggplot(aes(x = sample_id, y = calls)) +
-    geom_col(aes(fill = setting), position = "dodge") +
-    theme_bw() +
-    labs(title = as.character(input_gene))
+  output <- str_extract(input_file, filename_regex,
+                        group = input_group)
   
-  return(plot)
+  return(output)
   
 }
 
-# GRCh38 coordinates from NCBI
-egfr_min <- 55019017
-egfr_max <- 55211628
-
-erbb2_min <- 39700064
-erbb2_max <- 39728658
-
-met_min <- 116672196
-met_max <- 116798377
-
-braf_min <- 140713328
-braf_max <- 140924929
-
-myc_min <- 127735434 
-myc_max <- 127742951
-
-by_n <- function(n) { 
+filename_to_df <- function(file) {
   
-  max_value <- max(egfr_min, egfr_max, erbb2_min, erbb2_max, 
-                   met_min, met_max, braf_min, braf_max, myc_min, myc_max)
+  output <- data.frame(
+    worksheet = c(parse_filename(file, 1)),
+    labno = c(as.character(parse_filename(file, 2))),
+    suffix = c(parse_filename(file, 3)),
+    patient_name = c(parse_filename(file, 4))) |> 
+    mutate(
+      labno_suffix = str_c(labno, suffix),
+      labno_suffix_worksheet = str_c(labno_suffix, "_", worksheet))
   
-  seq(0, max_value + 10000000, by = n) 
+  return(output)
   
+}
+
+coarse_tab <- "Oncogenes (Amplified) Coars..."
+fine_tab <- "Oncogenes (Amplified) Fine-..."
+
+read_clc_amp_calls <- function(file, input_sheet) {
+  
+  stopifnot(input_sheet %in% c(coarse_tab, fine_tab))
+  
+  x <- read_excel(path = file, sheet = input_sheet) 
+  
+  # Samples with no calls currently have a table with 0 rows
+  if(nrow(x) == 0) {
+    
+    x <- tibble("Chromosome" = 0, 
+                "Region" = "",
+                "Name" = "", 
+                "Region length" = 0, 
+                "type" = "",
+                "source" = "", 
+                "ID"= "", 
+                "GeneID"= "", 
+                "HGNC"= "",
+                "MIM"= "",
+                "description"= "", 
+                "gbkey"= "", 
+                "gene"= "No calls",
+                "gene_biotype"= "", 
+                "gene_synonym"= "", 
+                "CNV region"= "",
+                "CNV region length"= 0,
+                "Consequence"= "",
+                "Fold-change (adjusted)"= 0,
+                "p-value"= 0,
+                "Number of targets"= 0,
+                "Comments"= "", 
+                "Targets"= "")
+    
   }
-
-
-draw_cnv_plot <- function(df, input_gene, input_setting, 
-                          interval = 200000,
-                          ymax = 70,
-                          gene_min,
-                          gene_max,
-                          buffer = 150000) {
   
-  grch38_primers <- read_csv(file =
-                               here::here("data/CDHS-40079Z-11284.primer3_Converted.csv"),
-                             show_col_types = FALSE) |> 
-    janitor::clean_names()
+  identifiers <- filename_to_df(file)
   
-  grch38_primer_coordinates <- extract_cnv_coordinates(grch38_primers |> 
-                                                         dplyr::rename(cnv_region = region))
+  results <- x |> 
+    janitor::clean_names() |> 
+    mutate(
+      labno = as.character(parse_filename(file, 2)),
+      setting = input_sheet,
+      filename = file) |> 
+    left_join(identifiers, by = "labno") |> 
+    relocate(worksheet, labno, suffix, labno_suffix, patient_name,
+             labno_suffix_worksheet, setting)
   
-  
-  stopifnot(input_gene %in% c("EGFR", "ERBB2", "MET",
-                              "BRAF", "MYC"))
-
-  data_for_plot <- df |> 
-    filter(setting == input_setting) |> 
-    filter(gene == input_gene) 
-  
-  cnv_min <- min(data_for_plot$coordinate)
-  
-  cnv_max <- max(data_for_plot$coordinate)
-  
-  plot_min <- cnv_min - buffer
-  
-  plot_max <- cnv_max + buffer
-  
-  primers_for_plot <- grch38_primer_coordinates |> 
-    dplyr::rename(coordinate = cnv_start) |> 
-    mutate(fold_change_adjusted = 0) |> 
-    filter(coordinate >= plot_min  & coordinate <= plot_max )
-  
-  cnv_plot <- ggplot(data_for_plot, aes(x = coordinate, y = fold_change_adjusted)) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
-    geom_line(linewidth = 2, colour = safe_red) +
-    geom_point(data = primers_for_plot, pch = 21) +
-    geom_vline(xintercept = gene_min, linetype = "dashed") +
-    geom_vline(xintercept = gene_max, linetype = "dashed") +
-    facet_wrap(~sample_id) +
-    ylim(0, ymax) +
-    scale_x_continuous(breaks = by_n(interval),
-                       minor_breaks = NULL,
-                       limits = c(plot_min, plot_max)) +
-    labs(title = str_c(input_gene, " CNV results"),
-         subtitle = str_c("Setting: ", input_setting, ". Dashed lines show gene coordinates"),
-         x = str_c("GRCh38 Genomic coordinates (", interval/1000, " kb intervals)"))
-  
-  return(cnv_plot)
+  return(results)
   
 }
 
-draw_repeat_plot <- function(df, input_sample, input_setting, input_gene, input_ymin = 0,
-                             input_ymax = 70) {
+extract_cnv_coordinates <- function(df) {
   
-  plot <- df |> 
-    filter(setting == input_setting) |> 
-    filter(gene == input_gene) |> 
-    filter(sample_id == input_sample) |> 
-    ggplot(aes(x = coordinate, y = fold_change_adjusted)) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
-    geom_line(linewidth = 3,
-              colour = safe_blue,
-              alpha = 1) +
-    ylim(input_ymin, input_ymax) +
-    geom_vline(xintercept = erbb2_min, linetype = "dashed") +
-    geom_vline(xintercept = erbb2_max, linetype = "dashed") +
-    facet_wrap(~sample_id_worksheet, ncol = 1) +
-    labs(title = str_c("Repeat testing for ", input_sample),
-         subtitle = str_c("Gene: ", input_gene))
+  stopifnot("cnv_region" %in% colnames(df))
   
-  return(plot)
+  cnv_coord_regex <- regex(
+    r"[
+        (|complement\()
+        (\d{1,10})     # first coordinate number (1 to 10 digits)
+        \.\.           # two full stops
+        (\d{1,10})     # second coordinate number (1 to 10 digits)
+        ]",
+    comments = TRUE
+  )
   
-}
-
-draw_repeat_coord_plot <- function(df, input_sample, input_setting, input_gene,
-                                   bin_size) {
+  output <- df |> 
+    mutate(start = as.numeric(str_extract(string = cnv_region, 
+                                          pattern = cnv_coord_regex, 
+                                          group = 2)),
+           end = as.numeric(str_extract(string = cnv_region, 
+                                        pattern = cnv_coord_regex, 
+                                        group = 3))) 
   
-  plot <- df |> 
-    filter(setting == input_setting) |> 
-    filter(gene == input_gene) |> 
-    filter(sample_id == input_sample) |> 
-    ggplot(aes(x = coordinate, y = sample_id_worksheet)) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
-    geom_line(linewidth = 3,
-              aes(colour = fold_change_adjusted)) +
-    scale_colour_binned(breaks = seq(0, 70, by = bin_size)) +
-    geom_vline(xintercept = erbb2_min, linetype = "dashed") +
-    geom_vline(xintercept = erbb2_max, linetype = "dashed") +
-    labs(title = "Repeat testing",
-         subtitle = str_c("Gene: ", input_gene, "  Sample: ", input_sample),
-         caption = str_c("Colour bin size: ", bin_size))
-  
-  return(plot)
+  return(output)
   
 }
 
-# Data wrangling functions ----------------------------------------------------------
+ncc_regex <- regex(
+  r"[
+  (>\d{2}% | \d{2}-\d{2}%)
+  ]",
+  comments = TRUE
+)
+
+parse_ncc <- function(input_string) {
+  
+  # Function for parsing neoplastic cell content values from the comments
+  # column of DNA Database
+  
+  ncc <- str_extract(string = input_string, 
+              pattern = ncc_regex, 
+              group = 1)
+  
+  return(ncc)
+  
+}
+
+format_repeat_table <- function(df) {
+  
+  rpt_table <- df |> 
+    arrange(labno) |> 
+    select(labno, worksheet, gene, fold_change_adjusted, number_of_targets) |>  
+    mutate(fold_change_adjusted = ifelse(
+      
+      gene == "No calls", "No call", round(fold_change_adjusted, 1)),
+      
+      number_of_targets = ifelse(
+        
+        gene == "No calls", "No call", number_of_targets)) |> 
+    
+    select(-gene) |> 
+    rename("ERBB2 fold change" = fold_change_adjusted,
+           "Number of ERBB2 targets" = number_of_targets) 
+  
+  return(rpt_table)
+  
+}
 
 extract_cnv_calls <- function(df, input_gene) {
   
-  stopifnot("Genotype" %in% colnames(df))
+  stopifnot("genotype" %in% colnames(df))
   
   dq_regex <- regex(str_c(
     # Group - input gene
@@ -212,158 +226,78 @@ extract_cnv_calls <- function(df, input_gene) {
     # Group - dosage quotient regex
     "(\\d{1,3}|\\d{1,3}\\.\\d{2})",
     "x"))
-
+  
   output <- df |> 
-    select(LABNO, Genotype) |> 
+    select(labno, genotype) |> 
     mutate(gene_searched = input_gene,
-           gene_match = str_extract(Genotype, dq_regex, group = 1),
-           gene_dq = as.numeric(str_extract(Genotype, dq_regex, group = 4)),
+           gene_match = str_extract(genotype, dq_regex, group = 1),
+           gene_dq = as.numeric(str_extract(genotype, dq_regex, group = 4)),
            core_result = ifelse(!is.na(gene_dq), "Amplification", "No call"))
   
   return(output)
   
 }
 
-get_excel_names <- function(filepath, folder) {
-  
-  output <- list.files(str_c(filepath, folder), pattern = "*.xlsx")
-  
-  return(output)
-  
-}
-
-filename_regex <- regex(
-  r"[
-  (WS\d{6})             # Worksheet number
-  _
-  (\d{8})               # Sample number
-  (a_|b_|c_|_)
-  (.+)                  # Patient name
-  (.xlsx|_.+)
-  ]",
-  comments = TRUE
-)
-
-parse_filename <- function(input_file, input_group) {
-  
-  output <- str_extract(input_file, filename_regex,
-                           group = input_group)
-  
-  return(output)
-  
-}
-
-get_gene_result <- function(df, gene_name) {
-  
-  if (ncol(df) == 0) {
-    
-    output <- "No call"
-    
-  }
-  
-  if (ncol(df) > 1) {
-    
-    x <- df |> 
-      filter(gene == gene_name)
-    
-    output <- case_when(
-      nrow(x) < 1 ~"No call",
-      nrow(x) >= 1 ~"Amplification")
-    
-  }
-  
-  return(output)
-  
-}
-
-summarise_results <- function(file, input_sheet) {
-  
-  results <- read_excel(path = file,
-                        sheet = input_sheet) |> 
-    janitor::clean_names()
-  
-  sample_id <- parse_filename(file, 2)
-  
-  qualifier <- parse_filename(file, 3)
-  
-  sample_id_suffix <- str_c(sample_id, qualifier)
-  
-  patient_name <- parse_filename(file, 4)
-  
-  egfr_result <- get_gene_result(df = results, gene_name = "EGFR")
-  
-  erbb2_result <- get_gene_result(df = results, gene_name = "ERBB2")
-  
-  met_result <- get_gene_result(df = results, gene_name = "MET")
-  
-  summary <- tribble(
-    
-    ~gene, ~result,
-    "EGFR", egfr_result,
-    "ERBB2", erbb2_result,
-    "MET", met_result
-  ) |> 
-    mutate(suffix = qualifier,
-           sample = sample_id,
-           sample_suffix = sample_id_suffix,
-           name = patient_name)
-  
-  return(summary)
-  
-}
-
-
-filename_to_df <- function(file) {
-  
-  output <- data.frame(
-    worksheet = c(parse_filename(file, 1)),
-    sample_id = c(parse_filename(file, 2)),
-    qualifier = c(parse_filename(file, 3)),
-    patient_name = c(parse_filename(file, 4))) |> 
-    mutate(
-      sample_id_suffix = str_c(sample_id, qualifier),
-      sample_id_worksheet = str_c(sample_id_suffix, worksheet))
-  
-  return(output)
-  
-}
-
-read_clc_excel <- function(file, input_sheet) {
-  
-  results <- read_excel(path = file,
-                        sheet = input_sheet) |> 
-    janitor::clean_names() |> 
-    mutate(
-      worksheet =  parse_filename(file, 1),
-      sample_id = parse_filename(file, 2),
-      qualifier = parse_filename(file, 3),
-      sample_id_suffix = str_c(sample_id, qualifier),
-      patient_name = parse_filename(file, 4),
-      sample_id_worksheet = str_c(sample_id_suffix, worksheet),
-      setting = input_sheet) |> 
-    relocate(worksheet, sample_id, qualifier, sample_id_suffix, patient_name,
-             sample_id_worksheet, setting)
-  
-  return(results)
-  
-}
-
 read_summary_tab <- function(file) {
   
   x <- read_excel(path = file,
-             sheet = "Whole Panel UMI Coverage Re...",
-             skip = 1,
-             n_max = 11) |> 
+                  sheet = "Whole Panel UMI Coverage Re...",
+                  skip = 1,
+                  n_max = 11) |> 
     dplyr::rename(value = "...2")
   
   x_wide <- x |> 
     pivot_wider(names_from = Summary,
                 values_from = value) |> 
-    janitor::clean_names()
+    # Renaming as >, < and ≥ are removed in clean_names
+    # Names shortened for ease of use
+    rename(number_target_regions_with_cov_lessthan_138 = `Number of target regions with coverage < 138`,
+           total_length_target_regions_with_pos_cov_lessthan_138 = `Total length of target regions containing positions with coverage < 138`,
+           total_length_target_region_pos_cov_lessthan_138 = `Total length of target region positions with coverage < 138`,
+           total_length_target_region_pos_cov_greaterorequal_138 = `Total length of target region positions with coverage ≥ 138`,
+           percent_target_region_pos_cov_greaterorequal_138 = `Percentage of target region positions with coverage ≥ 138 (%)`) |> 
+    janitor::clean_names() 
   
   identifiers <- filename_to_df(file)
   
   output <- cbind(identifiers, x_wide)
+  
+  return(output)
+  
+}
+
+read_targeted_region_overview <- function(file) {
+  
+  # This function reads the table of reads mapped to each chromosome. 
+  # The position of this table in the "Whole Panel UMI Coverage" tab varies in each file
+  
+  x <- read_excel(path = file,
+                  sheet = "Whole Panel UMI Coverage Re...")
+  
+  num_skip <- match("Targeted region overview", x$`Target regions`) + 1
+  
+  targeted_region_overview <- read_excel(path = file,
+                                         sheet = "Whole Panel UMI Coverage Re...",
+                                         skip = num_skip,
+                                         # 22 autosomes plus 2 sex chromosomes
+                                         n_max = 24) |> 
+    mutate(chrom_mod = case_when(
+      
+      Reference %in% c("X", "Y") ~Reference,
+      
+      TRUE ~as.character(round(as.numeric(Reference), 0))),
+      
+      chromosome = fct(x = chrom_mod, levels = c("1", "2", "3", "4",
+                                                 "5",  "6",  "7",  "8",
+                                                 "9",  "10", "11", "12",
+                                                 "13", "14", "15", "16",
+                                                 "17", "18", "19", "20",
+                                                 "21", "22", "X", "Y")))
+  
+  identifiers <- filename_to_df(file)
+  
+  output <- cbind(identifiers, targeted_region_overview) |> 
+    janitor::clean_names()
   
   return(output)
   
@@ -409,124 +343,401 @@ draw_confusion_matrix <- function(input_gene) {
   
 }
 
-extract_cnv_coordinates <- function(df) {
+calculate_target_copies <- function(fold_change, ncc_percent) {
   
-  stopifnot("cnv_region" %in% colnames(df))
+  ref_sample_copies <- 200
   
-  cnv_coord_regex <- regex(
-      r"[
-        \D{0,11}       # Either 0 or 11 non-digit characters. 11 is "complement("
-        (\d{1,10})     # first coordinate number (1 to 10 digits)
-        \.\.           # two full stops
-        (\d{1,10})     # second coordinate number (1 to 10 digits)
-        ]",
-        comments = TRUE
-        )
+  ncc_fraction <- ncc_percent / 100
   
-  output <- df |> 
-    mutate(cnv_start = as.numeric(str_extract(string = cnv_region, 
-                                              pattern = cnv_coord_regex, 
-                                              group = 1)),
-           cnv_end = as.numeric(str_extract(string = cnv_region, 
-                                            pattern = cnv_coord_regex, 
-                                            group = 2))) 
+  sample_total_target_copies <- fold_change * ref_sample_copies
   
-  return(output)
+  sample_target_copies_in_tumour_cells <- sample_total_target_copies - ((100 * (1-ncc_fraction)) * 2)
+  
+  sample_target_copies_per_tumour_cell <- sample_target_copies_in_tumour_cells / (100 * ncc_fraction)
+  
+  return(sample_target_copies_per_tumour_cell)
   
 }
 
-# Database tables -------------------------------------------------------------------
+true_pos <- "True positive"
 
-extraction_method_key <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                              schema = "dbo",
-                                              table = "MOL_ExtractionMethods")) |> 
-  # Have to remove large columns to avoid Invalid Descriptor Index error
-  select(-c(Checks, Reagents)) |> 
-  collect()
+true_neg <- "True negative"
 
-extraction_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                                  schema = "dbo",
-                                                  table = "MOL_Extractions"))
+false_pos <- "False positive"
 
-extraction_batch_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                                        schema = "dbo",
-                                                        table = "MOL_ExtractionBatches"))
+false_neg <- "False negative"
 
+classifiers = c(true_pos, true_neg, false_pos, false_neg)
 
-sample_tbl <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                              schema = "dbo",
-                                              table = "Samples"))
+make_confusion_matrix <- function(df, input_column = outcome,
+                                  classifiers = c(true_pos, true_neg, false_pos, false_neg),
+                                  initial_test,
+                                  comparison_test,
+                                  positive_state,
+                                  negative_state) {
+  
+  # This function requires an input table with true and false positives and negatives already defined.
+  
+  true_positives <- nrow(df |> 
+                           filter({{ input_column }} == classifiers[1]))
+  
+  true_negatives <- nrow(df |> 
+                           filter({{ input_column }} == classifiers[2]))
+  
+  false_positives <- nrow(df |> 
+                            filter({{ input_column }} == classifiers[3]))
+  
+  false_negatives <- nrow(df |> 
+                            filter({{ input_column }} == classifiers[4]))
+  
+  tp_char <- as.character(true_positives)
+  
+  tn_char <- as.character(true_negatives)
+  
+  fp_char <- as.character(false_positives)
+  
+  fn_char <- as.character(false_negatives)
+  
+  conf_matrix <- tribble(
+    ~"",               ~"",              ~"",                 ~"",         
+    "",                "",               initial_test,        "", 
+    "",                "",               positive_state,      negative_state, 
+    comparison_test,   positive_state,   tp_char,             fn_char,
+    "",                negative_state,   fp_char,             tn_char)
+  
+  
+  opa <- round((true_positives + true_negatives) / (true_positives + false_negatives +
+                                                      false_positives + true_negatives) * 100, 1)
+  
+  return(list(conf_matrix, opa))
+  
+}
 
-tissue_types <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                                schema = "dbo",
-                                                table = "TissueTypes")) |> 
-  collect() |> 
+# Primers ---------------------------------------------------------------------------
+
+grch38_primers <- read_csv(file =
+                             here::here("data/primers/CDHS-40079Z-11284.primer3_Converted.csv"),
+                           show_col_types = FALSE) |> 
   janitor::clean_names()
 
-discode <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
-                                                schema = "dbo",
-                                                table = "Discode")) |> 
-  select(-c("Description", "ReferralDetails")) |> 
-  collect() |> 
-  janitor::clean_names()
+grch38_primer_coordinates <- extract_cnv_coordinates(grch38_primers |> 
+                                                       dplyr::rename(cnv_region = region))
 
-# Database functions ----------------------------------------------------------------
+# Genes and exons -------------------------------------------------------------------
 
-get_columns <- function(table_input) {
-  
-  output <- odbc::odbcConnectionColumns(
-    conn = dbi_con, 
-    catalog_name = "MolecularDB",
-    schema_name = "dbo",
-    name = table_input)
-  
-  return(output)
-  
-}
+transcript_regex <- regex(
+  r"(
+  .+
+  (ENST\d{11})
+  .csv
+  )",
+  comments = TRUE
+)
 
-get_extraction_method <- function(sample_vector) {
+read_ensembl_exon_table <- function(filename) {
   
-  extraction_tbl_samples <- extraction_tbl |> 
-    filter(LabNo %in% sample_vector) |> 
-    collect()
+  transcript_id <- str_extract(string = filename, 
+                               pattern = transcript_regex,
+                               group = 1)
   
-  batches <- unique(extraction_tbl_samples$ExtractionBatchFK)
-  
-  extraction_batch_info <- extraction_batch_tbl |> 
-    filter(ExtractionBatchId %in% batches) |> 
-    collect() |> 
-    # Remove DNA dilutions
-    filter(ExtractionMethodFK != 11) |>
-    left_join(extraction_method_key, join_by(ExtractionMethodFK == ExtractionMethodId))
-
-  output <- extraction_tbl_samples |> 
-    left_join(extraction_batch_info, join_by(ExtractionBatchFK == ExtractionBatchId)) |> 
-    filter(!is.na(MethodName))
-  
-  return(output)
-  
-}
-
-get_sample_tissue <- function(sample_vector) {
-  
-  output <- sample_tbl |> 
-    select(-c(StatusComment, COMMENTS, ConsultantAddress, ADDRESS1)) |> 
-    filter(LABNO %in% sample_vector) |> 
-    collect() |> 
+  table <- read_csv(file = here::here(filename),
+                    show_col_types = FALSE) |> 
     janitor::clean_names() |> 
-    mutate(tissue = as.numeric(tissue)) |> 
-    left_join(tissue_types, join_by(tissue == tissue_type_id))
+    filter(!is.na(no)) |> 
+    rename(exon = no) |> 
+    mutate(transcript = transcript_id) |> 
+    relocate(transcript) |> 
+    select(-sequence)
+  
+  return(table)
+  
+}
+
+gene_labels <- read_excel(path = here::here("data/transcripts/gene_labels.xlsx"),
+                        col_types = c("text", "text", "text", "text",
+                                      "numeric", "numeric")) |> 
+  mutate(y_value = "Genes",
+         # Place gene label half-way along gene locus
+         start = pmin(gene_start, gene_end) + ((pmax(gene_start, gene_end) - pmin(gene_start, gene_end)) / 2))
+
+transcript_files <- list.files(here::here("data/transcripts/"), full.names = TRUE,
+                               pattern = ".csv")
+
+all_transcripts <- transcript_files |>
+  map(\(transcript_files) read_ensembl_exon_table(
+    file = transcript_files
+  )) |>
+  list_rbind() |> 
+  left_join(gene_labels |> 
+              select(label, chromosome, transcript_ensembl), join_by(transcript == transcript_ensembl))
+  
+# Plot colours ----------------------------------------------------------------------
+
+safe_blue <- "#88CCEE"
+safe_red <- "#CC6677"
+safe_grey <- "#888888"
+
+# Plot functions --------------------------------------------------------------------
+
+# CNV plots can be presented as triptychs: 
+# Panel 1) The plot of CNV calls:
+    # a) Either with fold change on the y axis (make_fold_change_plot)
+    # b) Or with lab number on the y axis (make_labno_plot)
+# Panel 2) A plot showing the locations of Qiaseq primers
+# Panel 3) A plot showing annotated locations of gene exons
+
+# The aim of these inter-related functions is to allow maximum flexibility and to keep 
+# the x axes consistent between the different plots.
+
+get_breaks <- function(interval, plot_xmin, plot_xmax) {
+  
+  breaks <- seq(plot_xmin, plot_xmax, by = interval)
+  
+  return(breaks)
+
+}
+
+get_data_for_plot <- function(df, 
+                              gene,
+                              setting) {
+  
+  data_for_plot <- df |> 
+    filter(gene == {{ gene }} & setting == {{ setting }} )
+  
+  return(data_for_plot)
+  
+}
+
+get_plot_xmin <- function(df, buffer) {
+  
+  plot_xmin <- min(df$start) - buffer
+  
+  return(plot_xmin)
+  
+}
+
+get_plot_xmax <- function(df, buffer) {
+  
+  plot_xmax <- max(df$end) + buffer
+  
+  return(plot_xmax)
+  
+}
+
+get_chromosome <- function(gene) {
+  
+  chromosome <- as.character(gene_labels[gene_labels$label == gene, 2])
+  
+  stopifnot(chromosome != "character(0)")
+  
+  return(chromosome)
+  
+}
+
+make_fold_change_plot <- function(df = all_patient_calls, 
+                                  gene = "ERBB2",
+                                  interval = 10000, 
+                                  buffer = 5000, 
+                                  setting = "coarse", 
+                                  ymin = 0,
+                                  ymax = 40) {
+  
+  chromosome <- get_chromosome(gene = {{ gene }})
+  
+  data_for_plot <- get_data_for_plot(df = {{ df }}, 
+                    gene = {{ gene }},
+                    setting = {{ setting }})
+  
+  plot_xmin <- get_plot_xmin(df = data_for_plot,
+                                 buffer = buffer)
+  
+  plot_xmax <- get_plot_xmax(df = data_for_plot,
+                                 buffer = buffer)
+  
+  fold_change_plot <- ggplot(data_for_plot, aes(x = start, y = fold_change_adjusted)) +
     
+    # Add theme
+    theme_bw() +
+    theme(axis.text.x = element_blank()) +
+    
+    # Add CNV calls
+    geom_segment(aes(x = start, xend = end, 
+                     y = fold_change_adjusted, yend = fold_change_adjusted),
+                 linewidth = 2,
+                 colour = safe_red) +
+
+    # Add x axes
+    scale_x_continuous(breaks = get_breaks(interval = {{ interval}},
+                                           plot_xmin = {{ plot_xmin }},
+                                           plot_xmax = {{ plot_xmax }}),
+                       minor_breaks = NULL,
+                       limits = c({{ plot_xmin }}, {{ plot_xmax }} )) +
+    
+    scale_y_continuous(limits = c(ymin, ymax)) +
+    
+    # Add labels
+    labs(
+      y = "Fold change",
+      x = "")
+  
+  return(list(plot_xmin, plot_xmax, interval, fold_change_plot, chromosome))
+  
+}
+
+make_labno_plot <- function(df = all_patient_calls, 
+                            gene = "ERBB2",
+                            interval = 10000, 
+                            buffer = 5000, 
+                            setting = "coarse",
+                            yaxis = labno) {
+  
+  chromosome <- get_chromosome(gene = {{ gene }})
+  
+  data_for_plot <- get_data_for_plot(df = {{ df }}, 
+                                     gene = {{ gene }},
+                                     setting = {{ setting }})
+  
+  max_fold_change <- max(data_for_plot$fold_change_adjusted)
+  
+  min_fold_change <- min(data_for_plot$fold_change_adjusted)
+  
+  plot_xmin <- get_plot_xmin(df = data_for_plot,
+                             buffer = buffer)
+  
+  plot_xmax <- get_plot_xmax(df = data_for_plot,
+                             buffer = buffer)
+  
+  labno_plot <- ggplot(data_for_plot, aes(x = start, y = {{ yaxis }},
+                                                colour = fold_change_adjusted)) +
+    
+    # Add theme
+    theme_bw() +
+    theme(axis.text.x = element_blank()) +
+    
+    # Add CNV calls
+    geom_segment(aes(x = start, xend = end, 
+                     y = {{ yaxis }}, yend = {{ yaxis }}),
+                 linewidth = 2) +
+    
+    scale_colour_gradient(low = "#FF9999", 
+                          high = "#660000", 
+                          limits = c(min_fold_change, max_fold_change),
+                          n.breaks = 4) +
+    
+    # Add x axes
+    scale_x_continuous(breaks = get_breaks(interval = {{ interval}},
+                                           plot_xmin = {{ plot_xmin }},
+                                           plot_xmax = {{ plot_xmax }}),
+                       minor_breaks = NULL,
+                       limits = c({{ plot_xmin }}, {{ plot_xmax }} )) +
+    
+    # Add labels
+    labs(
+      y = "Sample number",
+      x = "",
+      colour = "Fold change")
+  
+  return(list(plot_xmin, plot_xmax, interval, labno_plot, chromosome))
+  
+}
+
+make_primer_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
+  
+  primers_filtered <- grch38_primer_coordinates |> 
+    mutate(y_value = "Primers") |> 
+    filter(chromosome == {{ chromosome }} ) |> 
+    filter(start >= {{ plot_xmin }} & end <= {{ plot_xmax }} )
+  
+  output <-  ggplot(primers_filtered, aes(x = start, y = y_value)) +
+    geom_point(pch = 21) +
+    theme_bw() +
+    theme(axis.text.x = element_blank()) +
+    scale_x_continuous(breaks = get_breaks(interval = {{ interval}},
+                                           plot_xmin = {{ plot_xmin }},
+                                           plot_xmax = {{ plot_xmax }}),
+                       minor_breaks = NULL,
+                       limits = c({{ plot_xmin }}, {{ plot_xmax }} )) +
+    labs (x = "", y = "")
+  
   return(output)
   
 }
 
+make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
+  
+  exon_data_for_plot <- all_transcripts |> 
+    mutate(y_value = "Exons") |> 
+    filter(chromosome == {{ chromosome }}) |> 
+    filter(start >= {{ plot_xmin }} & end <= {{ plot_xmax }})
+  
+  labels_for_plot <- gene_labels |> 
+    filter(chromosome == {{ chromosome }} ) |> 
+    filter(start >= {{ plot_xmin }} & start <= {{ plot_xmax }})
+  
+  output <- ggplot(exon_data_for_plot, 
+                   aes(x = start, y = y_value)) +
+    
+    geom_segment(aes(x = start, xend = end, 
+                     y = y_value, yend = y_value),
+                 linewidth = 5) +
+    
+    theme_bw() +
+    
+    scale_x_continuous(breaks = get_breaks(interval = {{ interval}},
+                                           plot_xmin = {{ plot_xmin }},
+                                           plot_xmax = {{ plot_xmax }}),
+                       minor_breaks = NULL,
+                       limits = c({{ plot_xmin }}, {{ plot_xmax }} )) +
+    
+    scale_y_discrete(limits = rev) +
+    
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+    
+    labs(y = "", x = str_c("Genome coordinate (GRCh38) Chr", 
+                           chromosome)) +
+    
+    geom_label(data = labels_for_plot, label = labels_for_plot$label)
+  
+  return(output)
+  
+}
+
+make_cnv_triptych <- function(plot_xmin,
+                              plot_xmax,
+                              interval,
+                              main_plot,
+                              chromosome) {
+ # Example usage 
+ # make_cnv_triptych(# plot_xmin = make_fold_change_plot()[[1]],
+                  # plot_xmax = make_fold_change_plot()[[2]],
+                  # interval = make_fold_change_plot()[[3]],
+                  # main_plot = make_fold_change_plot()[[4]],
+                  # chromosome = make_fold_change_plot()[[5]])
+
+  primer_plot <- make_primer_plot(plot_xmin = {{ plot_xmin }}, 
+                                  plot_xmax = {{ plot_xmax }},
+                                  interval = {{ interval }},
+                                  chromosome = {{ chromosome }})
+  
+  exon_plot <- make_exon_plot(plot_xmin = {{ plot_xmin }}, 
+                              plot_xmax = {{ plot_xmax }},
+                              interval = {{ interval }},
+                              chromosome = {{ chromosome }})
+  
+  triptych <- (main_plot / primer_plot / exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
+  
+  return(triptych)
+  
+}
 
 # ddPCR functions -------------------------------------------------------------------
 
 read_biorad_csv <- function(worksheet) {
   
-  output <- read_csv(here::here(str_c("data/", worksheet)), 
+  output <- read_csv(here::here(str_c("data/ddpcr_data/", worksheet)), 
               col_types = cols(
                 "Well" = "c",
                 "ExptType" = "c",
@@ -584,7 +795,9 @@ read_biorad_csv <- function(worksheet) {
                 "PoissonFractionalAbundanceMax68" = "d",                
                 "PoissonFractionalAbundanceMin68" = "d")) |> 
   janitor::clean_names() |> 
-  mutate(sample_well = str_c(sample, "_", well))
+  mutate(sample_well = str_c(sample, "_", well),
+         worksheet = worksheet,
+         labno = sample)
   
   return(output)
   

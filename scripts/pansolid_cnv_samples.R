@@ -68,7 +68,7 @@ all_files <- data.frame(
     sample = str_extract(file, pattern = filename_regex, group = 3),
     suffix = str_extract(file, pattern = filename_regex, group = 4),
     name = str_extract(file, pattern = filename_regex, group = 5),
-    worsheet_sample_id = str_c(worksheet, "_", sample, suffix))
+    worksheet_sample_id = str_c(worksheet, "_", sample, suffix))
 
 summary <- all_files |> 
   filter(!is.na(sample)) |> 
@@ -78,10 +78,60 @@ summary <- all_files |>
 # How many samples have been run through CLC?
 length(unique(summary$sample))
 
+# Files analysed by correct version of CLC ------------------------------------------
+
+new_filename_regex <- regex(
+  r"[
+  (WS\d{6})             # Worksheet number
+  _
+  (\d{8})               # Sample number
+  (a_|b_|c_|_)
+  (.+)                  # Patient name
+  (.xlsx|_.+)
+  ]",
+  comments = TRUE
+)
+
+datapath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/00_Amplifications_Fine_vs_Coarse/"
+
+negatives_path <- str_c(datapath, "Negatives/")
+
+correct_files <- data.frame(
+  
+  "file" = c(
+  
+  list.files(str_c(datapath, "CNS_PS/"), full.names = TRUE),
+  
+  list.files(str_c(datapath, "M1_CRC_PS/"), full.names = TRUE),
+  
+  list.files(str_c(datapath, "M3_BREAST_PS/"), full.names = TRUE),
+  
+  list.files(str_c(datapath, "M4_LUNG_PS/"), full.names = TRUE),
+  
+  list.files(str_c(datapath, "PANSOLID/"), full.names = TRUE),
+  
+  list.files(str_c(negatives_path, "CNS_PS/"), full.names = TRUE),
+  
+  list.files(str_c(negatives_path, "M1_CRC_PS/"), full.names = TRUE),
+  
+  list.files(str_c(negatives_path, "M3_BREAST_PS/"), full.names = TRUE),
+  
+  list.files(str_c(negatives_path, "M4_LUNG_PS/"), full.names = TRUE),
+  
+  list.files(str_c(negatives_path, "SchwannCNS_PS/"), full.names = TRUE))) |> 
+  
+  mutate(
+    worksheet = str_extract(file, pattern = new_filename_regex, group = 1),
+    sample = str_extract(file, pattern = new_filename_regex, group = 2),
+    suffix = str_extract(file, pattern = new_filename_regex, group = 3),
+    name = str_extract(file, pattern = new_filename_regex, group = 4),
+    worksheet_sample_id = str_replace(string = str_c(worksheet, "_", sample, suffix),
+                                     pattern = "_$", replacement = ""))
+
 # Repeated samples ------------------------------------------------------------------
 
 repeats <- all_files |> 
-  filter(!duplicated(worsheet_sample_id)) |> 
+  filter(!duplicated(worksheet_sample_id)) |> 
   filter(duplicated(sample, fromLast = TRUE) | duplicated(sample, fromLast = FALSE)) |> 
   arrange(sample)
 
@@ -94,9 +144,52 @@ inter_run_samples <- repeats |>
 
 # 7 samples for inter-run variability (17 data points)
 inter_run_summary <- inter_run_samples |> 
-  group_by(name) |> 
+  group_by(sample) |> 
   count() |> 
   filter(n > 1)
+
+intra_run_summary <- intra_run_samples |> 
+  group_by(sample) |> 
+  count()
+
+repeat_print <- repeats |> 
+  select(sample, name) 
+
+# Samples to rerun ------------------------------------------------------------------
+
+samples_to_rerun <- repeats |> 
+  filter(!worksheet_sample_id %in% correct_files$worksheet_sample_id)
+
+# All samples tested on PanSolid ----------------------------------------------------
+
+standard_columns <- c("sample_id", "sample_name", "panel", 
+                      "enrichment", "qi_aseq_worksheet")
+
+pansolid_samples_2022 <- read_excel(path = "data/QIAseq DNA PanSolid Sample Submission 2022.xlsx",
+                                    sheet = "PanSolid Samples") |> 
+  janitor::clean_names() |> 
+  fill(qi_aseq_worksheet)
+
+pansolid_samples_2023 <- read_excel(path = "data/DNA PanSolid QIAseq Submission Sheet 2023.xlsx",
+                                    sheet = "QIAseq samples") |> 
+  janitor::clean_names()
+
+pansolid_samples <- pansolid_samples_2022 |> 
+  select(all_of(standard_columns)) |> 
+  rbind(pansolid_samples_2023 |> 
+          select(all_of(standard_columns))) |> 
+  filter(enrichment == "PANSOLID") |> 
+  #filter(!duplicated(sample_id)) |> 
+  mutate(worksheet_sample = str_c(qi_aseq_worksheet, "_", sample_id))
+
+# Add panel to samples to rerun -----------------------------------------------------
+
+for_lizzy <- samples_to_rerun |> 
+  left_join(pansolid_samples, join_by("sample" == "sample_id")) |> 
+  filter(!duplicated(worksheet_sample_id)) |> 
+  select(worksheet, sample, suffix, name, panel)
+
+export_timestamp(for_lizzy)
 
 # Core results of samples already tested on PanSolid --------------------------------
 
@@ -126,28 +219,6 @@ core_results <- all_results |>
 pansolid_results <- all_results |> 
   filter(TEST %in% grep(pattern = "pansolid", x = TEST, ignore.case = TRUE,
                         value = TRUE))
-
-
-# All samples tested on PanSolid ----------------------------------------------------
-
-standard_columns <- c("sample_id", "sample_name", "panel", 
-                      "enrichment", "qi_aseq_worksheet")
-
-pansolid_samples_2022 <- read_excel(path = "data/QIAseq DNA PanSolid Sample Submission 2022.xlsx",
-                                    sheet = "PanSolid Samples") |> 
-  janitor::clean_names() |> 
-  fill(qi_aseq_worksheet)
-
-pansolid_samples_2023 <- read_excel(path = "data/DNA PanSolid QIAseq Submission Sheet 2023.xlsx",
-                               sheet = "QIAseq samples") |> 
-  janitor::clean_names()
-
-pansolid_samples <- pansolid_samples_2022 |> 
-  select(all_of(standard_columns)) |> 
-  rbind(pansolid_samples_2023 |> 
-          select(all_of(standard_columns))) |> 
-  filter(enrichment == "PANSOLID") |> 
-  filter(!duplicated(sample_id))
 
 # Samples tested on PanSolid with Core results --------------------------------------
 
@@ -326,11 +397,6 @@ egfr_p <- plot_gene_results(egfr_calls, "EGFR")
 
 ggarrange(met_p, erbb2_p, egfr_p, nrow = 2, ncol = 2)
 
-
-
-
-
-
 # MDM2 amplifications ---------------------------------------------------------------
 
 mdm2_samples <- c(23045472, 23055487, 23041652)
@@ -353,11 +419,44 @@ write.csv(x = all_mdm2_details, file = here::here("outputs/mdm2_samples.csv"),
           row.names = FALSE)
 
 
+# DNA concentrations ----------------------------------------------------------------
 
+pansolid_samples_2022 <- read_excel(path = "data/QIAseq DNA PanSolid Sample Submission 2022.xlsx",
+                                    sheet = "PanSolid Samples") |> 
+  janitor::clean_names() |> 
+  select(sample_id, sample_name, stock_qubit_ng_m_l)
 
+pansolid_samples_2023 <- read_excel(path = "data/DNA PanSolid QIAseq Submission Sheet 2023.xlsx",
+                                    sheet = "QIAseq samples") |> 
+  janitor::clean_names() |> 
+  select(sample_id, sample_name, stock_qubit_ng_m_l)
 
-samples_pansolid_core |> 
-  filter(sample_id %in% repeats$sample) |>  view()
+pansolid_samples_2024 <- read_excel(path = "data/PanSolid Submission sheet 2024.xlsx") |> 
+  janitor::clean_names() |> 
+  rename(stock_qubit_ng_m_l = stock_qubit) |> 
+  select(sample_id, sample_name, stock_qubit_ng_m_l)
 
+qiaseq_samples_2022 <- read_excel(path = "data/OLD DONT USE QIAseq_SampleSubmission2022.xlsx",
+                                  sheet = "QIAseq samples") |> 
+  janitor::clean_names() |> 
+  select(sample_id, sample_name, stock_qubit_ng_m_l)
 
+qiaseq_samples_2021 <- read_excel(path = "data/QIAseq_SampleSubmission2021_New.xlsx",
+                                  sheet = "QIAseq samples") |> 
+  janitor::clean_names() |> 
+  select(sample_id, sample_name, stock_qubit_ng_m_l)
 
+samples <- read_excel(path = "data/WS138765_samples.xlsx")
+
+pansolid_joined <- rbind(qiaseq_samples_2021, qiaseq_samples_2022,
+                         pansolid_samples_2022, pansolid_samples_2023,
+                         pansolid_samples_2024) |> 
+  mutate(sample_id_num = parse_number(sample_id))
+
+sample_concs <- pansolid_joined |> 
+  filter(sample_id_num %in% samples$sample) |> 
+  filter(!duplicated(sample_id_num)) |> 
+  arrange(sample_id_num) |> 
+  select(sample_id_num, sample_name, stock_qubit_ng_m_l)
+
+export_timestamp(sample_concs)

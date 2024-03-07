@@ -1,0 +1,141 @@
+---
+title: "PanSolid Limit of Detection Experiment"
+author: "Joe Shaw"
+date: today
+date-format: "DD/MM/YYYY"
+format: html
+editor: visual
+---
+
+## Background
+
+This is a limit of detection experiment using SeraCare reference materials to test the sensitivity of the PanSolid pipeline for detecting copy number variants at low neoplastic cell contents (NCC).
+
+The aim of the experiment is to end up with 4 mixes, each representing low NCC samples (25%, 12.5%, 6.25% and 0% NCC) at the same total DNA input as a standard clinical sample:
+
+- 20ul of 6ng/ul DNA
+- 120ng DNA 
+- 36,363 haploid genome copies (1 haploid human genome weighs 3.3 picograms)
+
+Of this, the following amounts are taken as the input into the fragmentation, end-repair and A-addition reaction:
+
+- 16.75ul
+- 100.5ng
+- 30,454 haploid genome copies
+
+## Samples
+
+The "tumour" sample is the Seraseq® Solid Tumor CNV Mix (+12 copies of various genes including ERBB2).
+
+The "normal" sample is the Seraseq® DNA WT Mix (no additional gene copies).
+
+```{r}
+#| label: sample-volumes
+#| include: TRUE
+#| message: FALSE
+
+library(tidyverse)
+
+tumour_stock_vol <- 15.8
+
+tumour_stock_conc <- 10.9 
+
+norm_stock_vol <- 14.9
+
+norm_stock_conc <- 28.8
+
+tumour_total_ng <- tumour_stock_vol * tumour_stock_conc
+
+norm_total_ng <- norm_stock_vol * norm_stock_conc
+
+```
+
+## Calculations
+
+```{r}
+#| label: calculations
+#| include: TRUE
+#| message: FALSE
+
+total_c2 <- 6
+
+total_v2 <- 20
+
+total_ng <- total_c2 * total_v2
+
+tumour_additional_copies <- 12
+
+df <- data.frame("target_tumour_percent" = c(25, 12.5, 6.25, 0),
+                 "tumour_c1" = c(tumour_stock_conc / 2, tumour_stock_conc / 4, 
+                                 tumour_stock_conc / 8, 0),
+                 "norm_c1" = c(norm_stock_conc/2, norm_stock_conc/2, norm_stock_conc/2, 
+                               norm_stock_conc/2))
+
+lod_calculations <- df |> 
+  mutate(
+    
+    target_norm_percent = 100-target_tumour_percent,
+    
+    # Calculate nanograms required of each sample (normal and tumour)
+    
+    tumour_ng = round(total_ng * (target_tumour_percent / 100), 1),
+    
+    norm_ng = round(total_ng * (target_norm_percent / 100), 1),
+    
+    total_ng = tumour_ng + norm_ng,
+    
+    # Calculate number of genome equivalents (GE) 
+    # 1 haploid human genome is 3.3 picograms
+    
+    tumour_ge = round((tumour_ng * 1000) / 3.3, 1),
+    
+    norm_ge = round((norm_ng * 1000) / 3.3, 1),
+    
+    total_ge = tumour_ge + norm_ge,
+    
+    # Calculate the starting volumes (v1) of each sample
+    
+    tumour_v1 = ifelse(tumour_ng ==0, 0, round(tumour_ng / tumour_c1, 1)),
+    
+    norm_v1 = ifelse(norm_ng == 0, 0, round(norm_ng / norm_c1, 1)),
+    
+    # Calculate the water volume required
+    
+    water_v1 = total_v2 - (tumour_v1 + norm_v1),
+    
+    final_v2 = water_v1 + tumour_v1 + norm_v1,
+    
+    final_c2 = round(((tumour_v1*tumour_c1) + (norm_v1*norm_c1)) / final_v2,0),
+    
+    # Calculate the additional number of copies in each mix
+    
+    norm_copies = round((target_norm_percent / 100) * 2,2),
+    
+    tumour_copies = round((target_tumour_percent / 100) * (tumour_additional_copies + 2),2),
+    
+    total_copies = round((norm_copies + tumour_copies),2),
+    
+    total_additional_copies = total_copies - 2,
+    
+    expected_fold_change = total_copies / 2
+    
+    )
+
+# Check that we have enough of each control
+
+sum(lod_calculations$tumour_ng) < tumour_total_ng
+
+sum(lod_calculations$norm_ng) < norm_total_ng
+
+knitr::kable(lod_calculations)
+
+```
+
+```{r}
+#| label: export-results
+#| include: FALSE
+
+write.csv(lod_calculations, file = here::here("outputs/lod_calculations.csv"),
+          row.names = FALSE)
+
+```
