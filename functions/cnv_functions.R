@@ -248,17 +248,22 @@ read_ensembl_exon_table <- function(filename) {
   
 }
 
+gene_labels <- read_csv(here::here("data/gene_labels.csv"),
+                        col_types = "cccdd") |> 
+  mutate(y_value = "Genes",
+         # Place gene label half-way along gene locus
+         start = pmin(gene_start, gene_end) + ((pmax(gene_start, gene_end) - pmin(gene_start, gene_end)) / 2))
+
 transcript_files <- list.files(here::here("data/transcripts/"), full.names = TRUE)
 
 all_transcripts <- transcript_files |>
   map(\(transcript_files) read_ensembl_exon_table(
     file = transcript_files
   )) |>
-  list_rbind()
-
-gene_labels <- read_csv(here::here("data/gene_labels.csv")) |> 
-  mutate(y_value = "Genes")
-
+  list_rbind() |> 
+  left_join(gene_labels |> 
+              select(label, chromosome, transcript_ensembl), join_by(transcript == transcript_ensembl))
+  
 # Plot colours ----------------------------------------------------------------------
 
 safe_blue <- "#88CCEE"
@@ -298,14 +303,7 @@ braf_max <- 140924929
 myc_min <- 127735434 
 myc_max <- 127742951
 
-by_n <- function(n) { 
-  
-  max_value <- max(egfr_min, egfr_max, erbb2_min, erbb2_max, 
-                   met_min, met_max, braf_min, braf_max, myc_min, myc_max)
-  
-  seq(0, max_value + 10000000, by = n) 
-  
-  }
+
 
 draw_cnv_plot <- function(df, input_gene, input_setting, 
                           interval = 200000,
@@ -422,6 +420,14 @@ draw_repeat_coord_plot <- function(df, input_sample, input_setting, input_gene,
 # The aim of these inter-related functions is to allow maximum flexibility and to keep 
 # the x axes consistent between the different plots.
 
+get_breaks <- function(interval, plot_xmin, plot_xmax) {
+  
+  breaks <- seq(plot_xmin, plot_xmax, by = interval)
+  
+  return(breaks)
+
+}
+
 get_data_for_plot <- function(df, 
                               gene,
                               setting) {
@@ -449,6 +455,16 @@ get_plot_xmax <- function(df, buffer) {
   
 }
 
+get_chromosome <- function(gene) {
+  
+  chromosome <- as.character(gene_labels[gene_labels$label == gene, 2])
+  
+  stopifnot(chromosome != "character(0)")
+  
+  return(chromosome)
+  
+}
+
 make_fold_change_plot <- function(df = all_patient_calls, 
                                   gene = "ERBB2",
                                   interval = 10000, 
@@ -456,6 +472,8 @@ make_fold_change_plot <- function(df = all_patient_calls,
                                   setting = "coarse", 
                                   ymin = 0,
                                   ymax = 40) {
+  
+  chromosome <- get_chromosome(gene = {{ gene }})
   
   data_for_plot <- get_data_for_plot(df = {{ df }}, 
                     gene = {{ gene }},
@@ -480,9 +498,11 @@ make_fold_change_plot <- function(df = all_patient_calls,
                  colour = safe_red) +
 
     # Add x axes
-    scale_x_continuous(breaks = by_n(interval),
+    scale_x_continuous(breaks = get_breaks(interval = {{ interval}},
+                                           plot_xmin = {{ plot_xmin }},
+                                           plot_xmax = {{ plot_xmax }}),
                        minor_breaks = NULL,
-                       limits = c(plot_xmin, plot_xmax)) +
+                       limits = c({{ plot_xmin }}, {{ plot_xmax }} )) +
     
     scale_y_continuous(limits = c(ymin, ymax)) +
     
@@ -491,7 +511,7 @@ make_fold_change_plot <- function(df = all_patient_calls,
       y = "Fold change",
       x = "")
   
-  return(list(plot_xmin, plot_xmax, interval, fold_change_plot))
+  return(list(plot_xmin, plot_xmax, interval, fold_change_plot, chromosome))
   
 }
 
@@ -501,6 +521,8 @@ make_labno_plot <- function(df = all_patient_calls,
                             buffer = 5000, 
                             setting = "coarse",
                             yaxis = labno) {
+  
+  chromosome <- get_chromosome(gene = {{ gene }})
   
   data_for_plot <- get_data_for_plot(df = {{ df }}, 
                                      gene = {{ gene }},
@@ -534,9 +556,11 @@ make_labno_plot <- function(df = all_patient_calls,
                           n.breaks = 4) +
     
     # Add x axes
-    scale_x_continuous(breaks = by_n(interval),
+    scale_x_continuous(breaks = get_breaks(interval = {{ interval}},
+                                           plot_xmin = {{ plot_xmin }},
+                                           plot_xmax = {{ plot_xmax }}),
                        minor_breaks = NULL,
-                       limits = c(plot_xmin, plot_xmax)) +
+                       limits = c({{ plot_xmin }}, {{ plot_xmax }} )) +
     
     # Add labels
     labs(
@@ -544,37 +568,42 @@ make_labno_plot <- function(df = all_patient_calls,
       x = "",
       colour = "Fold change")
   
-  return(list(plot_xmin, plot_xmax, interval, labno_plot))
+  return(list(plot_xmin, plot_xmax, interval, labno_plot, chromosome))
   
 }
 
-make_primer_plot <- function(plot_xmin, plot_xmax, interval) {
+make_primer_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   
   primers_filtered <- grch38_primer_coordinates |> 
     mutate(y_value = "Primers") |> 
-    filter(start >= plot_xmin  & end <= plot_xmax)
+    filter(chromosome == {{ chromosome }} ) |> 
+    filter(start >= {{ plot_xmin }} & end <= {{ plot_xmax }} )
   
   output <-  ggplot(primers_filtered, aes(x = start, y = y_value)) +
     geom_point(pch = 21) +
     theme_bw() +
     theme(axis.text.x = element_blank()) +
-    scale_x_continuous(breaks = by_n(interval),
+    scale_x_continuous(breaks = get_breaks(interval = {{ interval}},
+                                           plot_xmin = {{ plot_xmin }},
+                                           plot_xmax = {{ plot_xmax }}),
                        minor_breaks = NULL,
-                       limits = c(plot_xmin, plot_xmax)) +
+                       limits = c({{ plot_xmin }}, {{ plot_xmax }} )) +
     labs (x = "", y = "")
   
   return(output)
   
 }
 
-make_exon_plot <- function(plot_xmin, plot_xmax, interval) {
+make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   
   exon_data_for_plot <- all_transcripts |> 
     mutate(y_value = "Exons") |> 
-    filter(start >= plot_xmin & end <= plot_xmax)
+    filter(chromosome == {{ chromosome }}) |> 
+    filter(start >= {{ plot_xmin }} & end <= {{ plot_xmax }})
   
   labels_for_plot <- gene_labels |> 
-    filter(start >= plot_xmin  & start <= plot_xmax)
+    filter(chromosome == {{ chromosome }} ) |> 
+    filter(start >= {{ plot_xmin }} & start <= {{ plot_xmax }})
   
   output <- ggplot(exon_data_for_plot, 
                    aes(x = start, y = y_value)) +
@@ -585,15 +614,18 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval) {
     
     theme_bw() +
     
-    scale_x_continuous(breaks = by_n(interval),
+    scale_x_continuous(breaks = get_breaks(interval = {{ interval}},
+                                           plot_xmin = {{ plot_xmin }},
+                                           plot_xmax = {{ plot_xmax }}),
                        minor_breaks = NULL,
-                       limits = c(plot_xmin, plot_xmax)) +
+                       limits = c({{ plot_xmin }}, {{ plot_xmax }} )) +
     
     scale_y_discrete(limits = rev) +
     
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
     
-    labs(y = "", x = "Genome coordinate (GRCh38)") +
+    labs(y = "", x = str_c("Genome coordinate (GRCh38) Chr", 
+                           chromosome)) +
     
     geom_label(data = labels_for_plot, label = labels_for_plot$label)
   
@@ -604,20 +636,24 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval) {
 make_cnv_triptych <- function(plot_xmin,
                               plot_xmax,
                               interval,
-                              main_plot) {
+                              main_plot,
+                              chromosome) {
  # Example usage 
  # make_cnv_triptych(# plot_xmin = make_fold_change_plot()[[1]],
                   # plot_xmax = make_fold_change_plot()[[2]],
                   # interval = make_fold_change_plot()[[3]],
-                  # main_plot = make_fold_change_plot()[[4]])
+                  # main_plot = make_fold_change_plot()[[4]],
+                  # chromosome = make_fold_change_plot()[[5]])
 
   primer_plot <- make_primer_plot(plot_xmin = {{ plot_xmin }}, 
                                   plot_xmax = {{ plot_xmax }},
-                                  interval = interval)
+                                  interval = {{ interval }},
+                                  chromosome = {{ chromosome }})
   
-  exon_plot <- make_exon_plot(plot_xmin = plot_xmin, 
-                              plot_xmax = plot_xmax,
-                              interval = interval)
+  exon_plot <- make_exon_plot(plot_xmin = {{ plot_xmin }}, 
+                              plot_xmax = {{ plot_xmax }},
+                              interval = {{ interval }},
+                              chromosome = {{ chromosome }})
   
   triptych <- (main_plot / primer_plot / exon_plot) +
     plot_layout(
