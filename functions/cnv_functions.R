@@ -1,6 +1,7 @@
 # Pan Solid CNV Functions
 
 library(tidyverse)
+library(readxl)
 library(here)
 
 # Export functions ------------------------------------------------------------------
@@ -415,7 +416,7 @@ make_confusion_matrix <- function(df, input_column = outcome,
 # Primers ---------------------------------------------------------------------------
 
 grch38_primers <- read_csv(file =
-                             here::here("data/CDHS-40079Z-11284.primer3_Converted.csv"),
+                             here::here("data/primers/CDHS-40079Z-11284.primer3_Converted.csv"),
                            show_col_types = FALSE) |> 
   janitor::clean_names()
 
@@ -452,13 +453,15 @@ read_ensembl_exon_table <- function(filename) {
   
 }
 
-gene_labels <- read_csv(here::here("data/gene_labels.csv"),
-                        col_types = "cccdd") |> 
+gene_labels <- read_excel(path = here::here("data/transcripts/gene_labels.xlsx"),
+                        col_types = c("text", "text", "text", "text",
+                                      "numeric", "numeric")) |> 
   mutate(y_value = "Genes",
          # Place gene label half-way along gene locus
          start = pmin(gene_start, gene_end) + ((pmax(gene_start, gene_end) - pmin(gene_start, gene_end)) / 2))
 
-transcript_files <- list.files(here::here("data/transcripts/"), full.names = TRUE)
+transcript_files <- list.files(here::here("data/transcripts/"), full.names = TRUE,
+                               pattern = ".csv")
 
 all_transcripts <- transcript_files |>
   map(\(transcript_files) read_ensembl_exon_table(
@@ -734,7 +737,7 @@ make_cnv_triptych <- function(plot_xmin,
 
 read_biorad_csv <- function(worksheet) {
   
-  output <- read_csv(here::here(str_c("data/", worksheet)), 
+  output <- read_csv(here::here(str_c("data/ddpcr_data/", worksheet)), 
               col_types = cols(
                 "Well" = "c",
                 "ExptType" = "c",
