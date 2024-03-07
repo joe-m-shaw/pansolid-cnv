@@ -726,17 +726,20 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   
 }
 
-make_cnv_triptych <- function(plot_xmin,
-                              plot_xmax,
-                              interval,
-                              main_plot,
-                              chromosome) {
- # Example usage 
- # make_cnv_triptych(# plot_xmin = make_fold_change_plot()[[1]],
-                  # plot_xmax = make_fold_change_plot()[[2]],
-                  # interval = make_fold_change_plot()[[3]],
-                  # main_plot = make_fold_change_plot()[[4]],
-                  # chromosome = make_fold_change_plot()[[5]])
+make_cnv_triptych <- function(input_plot) {
+ 
+  # This function is a wrapper which takes the outputs of either the 
+  # make_fold_change_plot or make_labno_plot functions
+  
+  plot_xmin <- input_plot[[1]]
+  
+  plot_xmax <- input_plot[[2]]
+  
+  interval <- input_plot[[3]]
+  
+  main_plot <- input_plot[[4]]
+  
+  chromosome <- input_plot[[5]]
 
   primer_plot <- make_primer_plot(plot_xmin = {{ plot_xmin }}, 
                                   plot_xmax = {{ plot_xmax }},
