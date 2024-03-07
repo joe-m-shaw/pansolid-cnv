@@ -478,7 +478,7 @@ knitr::kable(table_calls_per_sample)
 
 ```
 
-```{r} 
+```{r}
 #| label: disproportionate-chromosome-coverage
 #| echo: FALSE
 
@@ -1242,3 +1242,72 @@ chromosome_qc_all_samples |>
   geom_boxplot() 
 
 ```
+
+## Target level calls
+
+```{r}
+#| label: all-target-calls
+#| echo: FALSE
+
+filepath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/QC/"
+
+files <- list.files(filepath, full.names = TRUE, pattern = ".xlsx")
+
+consistent_files <- files[-30]
+
+x <- consistent_files |>
+  map(\(consistent_files) read_clc_target_calls(
+    file = consistent_files
+  )) |>
+  list_rbind() 
+
+x |> 
+  filter(name %in% grep(pattern = "ERBB2", ignore.case = TRUE,
+     x = unique(x$name), value = TRUE)) |> 
+  filter(!duplicated(labno)) |> 
+  ggplot(aes(x = reorder(labno_suffix_worksheet, regional_fold_change), 
+             y = regional_fold_change)) +
+  geom_point(pch = 21) +
+  theme_bw() +
+  geom_hline(yintercept = 2.9, linetype = "dashed") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(y = "Fold change", x = "")
+
+```
+
+```{r}
+#| label: all-target-calls-repeats
+#| echo: FALSE
+
+x |> 
+  select(labno, labno_suffix, labno_suffix_worksheet, patient_name,
+         name, regional_fold_change) |> 
+  distinct() |> 
+  filter(name %in% grep(pattern = "ERBB2", ignore.case = TRUE,
+     x = unique(x$name), value = TRUE)) |>  
+  filter(!duplicated(labno_suffix_worksheet)) |> view ()
+
+
+
+  filter(duplicated(labno, fromLast = TRUE) | duplicated(labno, fromLast = FALSE)) |> 
+  ggplot(aes(x = labno, 
+             y = regional_fold_change)) +
+  geom_jitter(pch = 21) +
+  theme_bw() +
+  geom_hline(yintercept = 2.9, linetype = "dashed") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(y = "Fold change", x = "")
+
+
+
+
+  filter(name %in% grep(pattern = "ERBB2", ignore.case = TRUE,
+     x = unique(x$name), value = TRUE)) |> 
+  filter(!duplicated(labno_suffix_worksheet))
+  
+
+
+```
+
+
+
