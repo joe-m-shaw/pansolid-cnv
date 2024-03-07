@@ -413,6 +413,30 @@ make_confusion_matrix <- function(df, input_column = outcome,
   
 }
 
+read_clc_target_calls <- function(file) {
+  
+  identifiers <- filename_to_df(file)
+  
+  results <- read_excel(path = file, sheet = 2,
+           col_types = c("text", "text", "text",
+                         "numeric", "numeric", "numeric",
+                         "numeric", "numeric", "numeric",
+                         "numeric", "numeric", "numeric",
+                         "text", "text",
+                         "numeric", "numeric",
+                         "text", "text", "text")) |> 
+  janitor::clean_names() |> 
+  mutate(
+    labno = as.character(parse_filename(file, 2)),
+    filename = file) |> 
+  left_join(identifiers, by = "labno") |> 
+  relocate(worksheet, labno, suffix, labno_suffix, patient_name,
+           labno_suffix_worksheet)
+
+  return(results)
+  
+}
+
 # Primers ---------------------------------------------------------------------------
 
 grch38_primers <- read_csv(file =
