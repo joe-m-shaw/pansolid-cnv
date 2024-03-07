@@ -636,10 +636,12 @@ erbb2_labno <- make_labno_plot(df = erbb2_calls_factorised,
                       buffer = 5000, 
                       setting = "coarse")
 
-plot_all_erbb2_amplification_coordinates <- make_cnv_triptych(plot_xmin = erbb2_labno[[1]],
-                  plot_xmax = erbb2_labno[[2]],
-                  interval = erbb2_labno[[3]],
-                  main_plot = erbb2_labno[[4]])
+plot_all_erbb2_amplification_coordinates <- make_cnv_triptych(
+  plot_xmin = erbb2_labno[[1]],
+  plot_xmax = erbb2_labno[[2]],
+  interval = erbb2_labno[[3]],
+  main_plot = erbb2_labno[[4]],
+  chromosome = erbb2_labno[[5]])
 
 plot_all_erbb2_amplification_coordinates
 
@@ -663,7 +665,8 @@ erbb2_labno_zoom <- make_labno_plot(df = short_erbb2_calls,
 plot_erbb2_amplification_accuracy <- make_cnv_triptych(plot_xmin = erbb2_labno_zoom[[1]],
                   plot_xmax = erbb2_labno_zoom[[2]],
                   interval = erbb2_labno_zoom[[3]],
-                  main_plot = erbb2_labno_zoom[[4]])
+                  main_plot = erbb2_labno_zoom[[4]],
+                  chromosome = erbb2_labno_zoom[[5]])
 
 plot_erbb2_amplification_accuracy
 
@@ -701,11 +704,13 @@ copies_3_plot <- copies_3[[4]] +
 
 copies_3_primer <- make_primer_plot(plot_xmin = copies_3[[1]],
                   plot_xmax = copies_3[[2]],
-                  interval = copies_3[[3]])
+                  interval = copies_3[[3]],
+                  chromosome = copies_3[[5]])
 
 copies_3_exon <- make_exon_plot(plot_xmin = copies_3[[1]],
                   plot_xmax = copies_3[[2]],
-                  interval = copies_3[[3]]) +
+                  interval = copies_3[[3]],
+                  chromosome = copies_3[[5]]) +
   labs(x = "")
 
 copies_6 <- make_fold_change_plot(df = all_patient_calls |> 
@@ -717,11 +722,13 @@ copies_6_plot <- copies_6[[4]] +
 
 copies_6_primer <- make_primer_plot(plot_xmin = copies_6[[1]],
                   plot_xmax = copies_6[[2]],
-                  interval = copies_6[[3]])
+                  interval = copies_6[[3]],
+                  chromosome = copies_6[[5]])
 
 copies_6_exon <- make_exon_plot(plot_xmin = copies_6[[1]],
                   plot_xmax = copies_6[[2]],
-                  interval = copies_6[[3]]) +
+                  interval = copies_6[[3]],
+                  chromosome = copies_6[[5]]) +
   labs(x = "Genome coordinate")
 
 copies_12 <- make_fold_change_plot(df = all_patient_calls |> 
@@ -733,11 +740,13 @@ copies_12_plot <- copies_12[[4]] +
 
 copies_12_primer <- make_primer_plot(plot_xmin = copies_12[[1]],
                   plot_xmax = copies_12[[2]],
-                  interval = copies_12[[3]])
+                  interval = copies_12[[3]],
+                  chromosome = copies_12[[5]])
 
 copies_12_exon <- make_exon_plot(plot_xmin = copies_12[[1]],
                   plot_xmax = copies_12[[2]],
-                  interval = copies_12[[3]]) +
+                  interval = copies_12[[3]],
+                  chromosome = copies_12[[5]]) +
   labs(x = "")
 
 plot_seracare_controls_erbb2_results <- copies_3_plot + copies_6_plot + copies_12_plot +
@@ -896,7 +905,8 @@ sample_21011525_plot <- make_labno_plot(df = sample_21011525_results,
 plot_variation_in_21011525 <- make_cnv_triptych(sample_21011525_plot[[1]],
                   sample_21011525_plot[[2]],
                   sample_21011525_plot[[3]],
-                  sample_21011525_plot[[4]])
+                  sample_21011525_plot[[4]],
+                  sample_21011525_plot[[5]])
 
 plot_variation_in_21011525
 
@@ -919,19 +929,36 @@ egfr_plot <- make_labno_plot(df = all_patient_calls |>
 egfr_triptych <- make_cnv_triptych(egfr_plot[[1]],
                   egfr_plot[[2]],
                   egfr_plot[[3]],
-                  egfr_plot[[4]])
+                  egfr_plot[[4]],
+                  egfr_plot[[5]])
 
 egfr_triptych
 
-egfr_fc_plot <- make_fold_change_plot(ymax = 50)
-
+egfr_fc_plot <- make_fold_change_plot(ymax = 70, gene = "EGFR",
+                                      interval = 200000)
 
 egfr_triptych_fc <- make_cnv_triptych(egfr_fc_plot[[1]],
                   egfr_fc_plot[[2]],
                   egfr_fc_plot[[3]],
-                  egfr_fc_plot[[4]])
+                  egfr_fc_plot[[4]],
+                  egfr_fc_plot[[5]])
 
 egfr_triptych_fc
+
+egfr_fc_plot_zoom <- make_fold_change_plot(
+  df = all_patient_calls |> 
+    filter(cnv_region_length < 500000),
+  ymax = 70, 
+  gene = "EGFR",
+  interval = 50000)
+  
+egfr_triptych_fc_zoom <- make_cnv_triptych(egfr_fc_plot_zoom[[1]],
+                  egfr_fc_plot_zoom[[2]],
+                  egfr_fc_plot_zoom[[3]],
+                  egfr_fc_plot_zoom[[4]],
+                  egfr_fc_plot_zoom[[5]])
+
+egfr_triptych_fc_zoom
 
 ```
 
@@ -939,12 +966,13 @@ egfr_triptych_fc
 #| label: braf
 #| echo: FALSE
 
-braf_plot <- make_labno_plot(gene = "BRAF", interval = 200000)
+braf_plot <- make_labno_plot(gene = "BRAF", interval = 500000)
 
 braf_triptych <- make_cnv_triptych(braf_plot[[1]],
                   braf_plot[[2]],
                   braf_plot[[3]],
-                  braf_plot[[4]])
+                  braf_plot[[4]],
+                  braf_plot[[5]])
 
 braf_triptych
 
@@ -959,7 +987,8 @@ met_plot <- make_labno_plot(gene = "MET", interval = 200000)
 met_triptych <- make_cnv_triptych(met_plot[[1]],
                   met_plot[[2]],
                   met_plot[[3]],
-                  met_plot[[4]])
+                  met_plot[[4]],
+                  met_plot[[5]])
 
 met_triptych
 
@@ -971,12 +1000,13 @@ met_triptych
 
 myc_plot <- make_labno_plot(gene = "MYC", interval = 5000000)
 
-make_cnv_triptych(myc_plot[[1]],
+myc_triptych <- make_cnv_triptych(myc_plot[[1]],
                   myc_plot[[2]],
                   myc_plot[[3]],
-                  myc_plot[[4]])
+                  myc_plot[[4]],
+                  myc_plot[[5]])
 
-met_triptych
+myc_triptych
 
 ```
 
