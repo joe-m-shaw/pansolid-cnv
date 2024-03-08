@@ -548,8 +548,8 @@ grch38_primers <- read_csv(file =
                            show_col_types = FALSE) |> 
   janitor::clean_names()
 
-grch38_primer_coordinates <- extract_cnv_coordinates(grch38_primers |> 
-                                                       dplyr::rename(cnv_region = region))
+grch38_primer_coordinates <- extract_cnv_coordinates(df = grch38_primers,
+                                                     cnv_coord_col = region)
 
 # Genes and exons -------------------------------------------------------------------
 

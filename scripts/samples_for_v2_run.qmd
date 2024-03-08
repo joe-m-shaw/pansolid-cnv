@@ -1,0 +1,222 @@
+---
+title: "Selecting Samples for PanSolid v2 Run"
+author: "Joe Shaw"
+date: today
+date-format: "DD/MM/YYYY"
+format: pdf
+editor: visual
+---
+
+## Selecting Samples
+
+We need to select samples for a PanSolid version 2 run to finish the PanSolid copy number variant validation.
+
+```{r}
+#| label: packages
+#| include: FALSE
+
+library(here)
+
+source(here::here("functions/dna_database_functions.R"))
+
+source(here::here("functions/cnv_functions.R"))
+
+```
+
+## QiaSymphony Extractions
+
+There are 41 samples which Louise and Ryan have extracted using the new QiaSymphony method on the following batches.
+
+- Extraction batch 79408 - 14 normal controls
+
+- Extraction batch 79411 - 14 normal controls
+
+- Extraction batches 78934 and 79310 - a mix of patient samples with known CNV status, normal controls and samples for other QiaSymphony validation projects.
+
+The easiest way to pull these out of DNA Database is using the "disease code" which is either 293 286 or 291 for development samples.
+
+```{r}
+#| label: select-qs-samples
+#| include: TRUE
+
+dev_samples <- sample_tbl |> 
+  select(labno, firstname, surname, disease, date_in, concentration) |> 
+  filter(disease %in% c("293", "286", "291")) |> 
+  collect() |> 
+  janitor::clean_names() |> 
+  arrange(labno)
+
+extraction_methods <- get_extraction_method(dev_samples$labno)
+
+samples_extraction_info <- dev_samples |> 
+  left_join(extraction_methods, by = "labno") 
+
+# Extracted samples with low broad range Qubit concentrations
+low_qubit <- c(24012110, 24012049, 24012075)
+
+# Patient samples with known CNVs
+known_cnv_samples <- c(24007929, 24007945, 24007947, 24007949, 24007951, 24007953, 
+                       24008372, 24008849, 24008853, 24009050, 24010112)
+
+# Normals extracted on mixed extraction runs
+additional_normals <- c(24012125, 24012123)
+
+samples_to_get <- c(known_cnv_samples, additional_normals)
+
+qs_for_v2 <- samples_extraction_info |> 
+  filter(extraction_batch_fk %in% c(79408, 79411) |
+           (extraction_batch_fk %in% c(78934, 79310) & labno %in% samples_to_get)) |> 
+  filter(!labno %in% low_qubit) |> 
+  mutate(note = ifelse(labno %in% known_cnv_samples, 
+                       "Patient sample known CNV status",
+                       "Normal control")) |> 
+  select(labno, firstname, surname, concentration, method_name, note)
+
+```
+
+We also need to add the Seracare controls.
+
+```{r}
+#| label: seracare-controls
+#| include: TRUE
+
+seracare_ids <- c("24002064", "24002067", "24002071")
+
+seracare_info <- sample_tbl |> 
+  select(labno, firstname, surname, disease, date_in, concentration) |> 
+  filter(labno %in% seracare_ids) |> 
+  collect() |> 
+  janitor::clean_names() |> 
+  mutate(method_name = "No DNA extraction",
+         note = "SeraCare control") |> 
+  # Qubit concentration from technical product order
+  mutate(concentration = 10.9,
+         panel = "v2PANSOLID",
+         enrichment = "PANSOLIDV2", 
+         sample_name = str_c(firstname, " ", surname)) |> 
+  select(labno, sample_name, panel, enrichment, 
+         concentration, method_name, note)
+
+```
+
+As there is space, we'll also add samples already extracted via the Cobas method. This allows us to check if rerunning Cobas-extracted DNA on PanSolid version 2 will still allow detection of copy number variants. This is in case we receive requests to test historic (i.e. Cobas extracted) samples after the transition to QiaSymphony extractions.
+
+I have picked 7 samples which I've also volume checked in the lab.
+
+- ERBB2 amplifications: 21019092, 21011525
+
+- EGFR amplifications: 23036360, 23039023
+
+- Normal results: 23019668, 23038129, 23034646
+
+```{r}
+#| label: select-cobas-samples
+#| include: TRUE
+
+cobas_samples <- c(21019092, 21011525, 23036360, 
+                   23039023, 23019668, 23038129, 23033445)
+
+cobas_sample_info <- sample_tbl |> 
+  select(labno, firstname, surname, disease, date_in, concentration) |> 
+  filter(labno %in% cobas_samples) |> 
+  collect() |> 
+  # Concentrations are nanodrop readings, so remove
+  mutate(concentration = 0)
+
+cobas_extraction <- get_extraction_method(cobas_sample_info$labno)
+
+cobas_for_v2 <- cobas_sample_info |> 
+  left_join(cobas_extraction, by ="labno") |> 
+  mutate(note = "Cobas extracted CNV status known") |> 
+  select(labno, firstname, surname, concentration, method_name, note)
+
+```
+
+Next we can pull the Qubit concentrations for the Cobas-extracted samples out of the PanSolid submission sheet, to avoid the techs re-Qubitting them.
+
+We can also pull in the sub-panel for these samples if they were tested previously.
+
+```{r}
+#| label: load-submission-sheets
+#| include: TRUE
+#| warning: FALSE
+
+pansolid_submission_2023 <- read_excel(path = here::here("data/dna_submission_sheets/DNA PanSolid QIAseq Submission Sheet 2023.xlsx")) |> 
+  janitor::clean_names() |> 
+  rename(stock_qubit = stock_qubit_ng_m_l) |> 
+  select(date_submitted, sample_id, sample_name,
+                        panel, enrichment, stock_qubit)
+
+pansolid_submission_2024 <- read_excel(path = here::here("data/dna_submission_sheets/PanSolid Submission sheet 2024.xlsx")) |> 
+  janitor::clean_names()  |> 
+  select(date_submitted, sample_id, sample_name,
+                        panel, enrichment, stock_qubit)
+
+# Pansolid began in 2022 so the initial runs were recorded on the Qiaseq spreadsheet
+pansolid_submission_2022 <- read_excel(path = here::here("data/dna_submission_sheets/QIAseq DNA PanSolid Sample Submission 2022.xlsx")) |> 
+  janitor::clean_names() |> 
+  rename(date_submitted = date_sample_submitted,
+         stock_qubit = stock_qubit_ng_m_l) |> 
+  select(date_submitted, sample_id, sample_name,
+                        panel, enrichment, stock_qubit)
+
+all_pansolid <- rbind(pansolid_submission_2023, pansolid_submission_2024)
+
+```
+
+```{r}
+#| label: get-cobas-concentrations
+#| include: TRUE
+
+cobas_concentrations <- all_pansolid |> 
+  filter(sample_id %in% cobas_for_v2$labno) |> 
+  filter(!duplicated(sample_id)) |> 
+  select(sample_id, stock_qubit, panel)
+
+cobas_for_v2_mod <- cobas_for_v2 |> 
+  select(-concentration) |> 
+  left_join(cobas_concentrations, join_by(labno == sample_id)) |> 
+  rename(concentration = stock_qubit) |> 
+  mutate(sample_name = str_c(firstname, " ", surname),
+         enrichment = "PANSOLIDV2") |> 
+  select(labno, sample_name, panel, enrichment, 
+         concentration, method_name, note)
+
+```
+
+Some samples have concentrations lower than 6ng/ul, but this ok as they have over 16.75ul volume and can be added neat.
+
+We can also get the panels for some of the QiaSymphony samples.
+
+```{r}
+#| label: get-panels-for-qs-samples
+#| include: TRUE
+
+qs_for_v2_panel <- qs_for_v2 |> 
+  mutate(sample_name = str_c(firstname, " ", surname),
+         enrichment = "PANSOLIDV2") |>  
+  left_join(all_pansolid |> 
+              select(sample_name, panel), by = "sample_name") |> 
+  mutate(enrichment = "PANSOLIDV2") |> 
+  select(labno, sample_name, panel, enrichment, 
+         concentration, method_name, note) |> 
+  filter(!duplicated(labno))
+
+```
+
+Then we can join them all together in the same format as the PanSolid submission sheet.
+
+```{r}
+#| label: arrange
+#| include: TRUE
+
+samples_for_v2 <- rbind(qs_for_v2_panel, cobas_for_v2_mod, seracare_info) |> 
+  mutate(sample_type = "FALSE",
+         nanodrop = "",
+         stock_qubit = concentration) |> 
+  select(labno, sample_name, panel, enrichment, sample_type, nanodrop, stock_qubit,
+         method_name, note)
+
+csv_timestamp(samples_for_v2)
+
+```
