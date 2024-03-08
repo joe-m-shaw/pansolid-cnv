@@ -160,6 +160,30 @@ plot_timestamp(plot_fold_change_detection_limit)
 ## Load Data
 
 ```{r}
+#| label: load-processed-clc-results
+#| include: FALSE
+
+clc_processed_data_path <- here::here("data/clc_processed_outputs")
+
+processed_files <- list.files(path = clc_processed_data_path, full.names = TRUE,
+                              pattern = ".xlsx")
+
+pos_cnv_results <-  processed_files |> 
+  map(\(processed_files) read_pos_cnv_results(file = processed_files)) |> 
+  list_rbind()
+
+all_amp_gene_results <- processed_files |> 
+  map(\(processed_files) read_all_amp_genes_results(file = processed_files)) |> 
+  list_rbind()
+
+stdev_results <-  processed_files |> 
+  map(\(processed_files) read_stdev_results(file = processed_files)) |> 
+  list_rbind()
+
+
+```
+
+```{r}
 #| label: load-clc-results
 #| include: FALSE
 
