@@ -53,13 +53,13 @@ plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi 
 
 filename_regex <- regex(
   r"[
-  (WS\d{6})              # Worksheet number
+  (WS\d{6})                                   # Worksheet number
   _
-  (\d{8})                # Lab number
-  (a|b|c|)               # Suffix
+  (\d{8})                                     # Lab number
+  (a|b|c|)                                    # Suffix
   _
-  ([:alnum:]{5,30})      # Patient name - alphanumeric characters only
-  (.xlsx|_S.+.xlsx|_S.+) # Ending varies between patients and controls
+  ([:alnum:]{5,30})                           # Patient name - alphanumeric characters only
+  (.xlsx|_S.+.xlsx|_S.+|_CNV_processed.xlsx)  # Ending varies between patients and controls
   ]",
   comments = TRUE
 )
@@ -142,9 +142,7 @@ read_clc_amp_calls <- function(file, input_sheet) {
   
 }
 
-extract_cnv_coordinates <- function(df) {
-  
-  stopifnot("cnv_region" %in% colnames(df))
+extract_cnv_coordinates <- function(df, cnv_coord_col) {
   
   cnv_coord_regex <- regex(
     r"[
@@ -157,10 +155,10 @@ extract_cnv_coordinates <- function(df) {
   )
   
   output <- df |> 
-    mutate(start = as.numeric(str_extract(string = cnv_region, 
+    mutate(start = as.numeric(str_extract(string = {{ cnv_coord_col }}, 
                                           pattern = cnv_coord_regex, 
                                           group = 2)),
-           end = as.numeric(str_extract(string = cnv_region, 
+           end = as.numeric(str_extract(string = {{ cnv_coord_col }}, 
                                         pattern = cnv_coord_regex, 
                                         group = 3))) 
   
@@ -437,19 +435,40 @@ read_clc_target_calls <- function(file) {
   
 }
 
-read_clc_cnv_processed_file <- function(file) {
+
+# Processed Excel functions ---------------------------------------------------------
+
+get_full_tbl <- function(file) {
   
-  identifiers <- filename_to_df(processed_files[5])
+  full_tbl <- read_excel(path = file,
+                         sheet = "Amplifications",
+                         col_names = FALSE) |> 
+    janitor::clean_names()
+  
+  return(full_tbl)
+  
+}
+
+add_identifiers <- function(file, tbl) {
+  
+  identifiers <- filename_to_df(file)
   
   labno <- parse_filename(file, 2)
   
-  full_tbl <- read_excel(path = file,
-                       sheet = "Amplifications",
-                       col_names = FALSE) |> 
-  janitor::clean_names()
-
-  # Get positive CNV results table
+  output <- tbl |> 
+    mutate(labno = labno) |>  
+    left_join(identifiers, by = "labno") |> 
+    relocate(worksheet, labno, suffix, patient_name, 
+             labno_suffix, labno_suffix_worksheet)
   
+  return(output)
+  
+}
+
+read_pos_cnv_results <- function(file) {
+  
+  full_tbl <- get_full_tbl(file)
+
   pos_cnv_tbl_row <- match("Positive CNV results", full_tbl$x1)
   
   na_vector <- which(is.na(full_tbl$x1))
@@ -461,14 +480,24 @@ read_clc_cnv_processed_file <- function(file) {
   pos_cnv_tbl <- read_excel(path = file,
                             sheet = "Amplifications",
                             skip = pos_cnv_tbl_row,
-                            n_max = size_pos_cnv_tbl) |> 
-    janitor::clean_names() |> 
-    mutate(labno = labno) |> 
-    left_join(identifiers, by = "labno") |> 
-    relocate(worksheet, labno, suffix, patient_name, 
-             labno_suffix, labno_suffix_worksheet)
+                            n_max = size_pos_cnv_tbl,
+                            col_types = c("text", "text", "text", 
+                                          "numeric", "text", "numeric",
+                                          "numeric","numeric")) |> 
+    janitor::clean_names() 
   
-  # Get "All amplification genes" table
+  pos_cnv_coord <- extract_cnv_coordinates(df = pos_cnv_tbl, 
+                                           cnv_coord_col = cnv_co_ordinates)
+  
+  output <- add_identifiers(file, pos_cnv_coord)
+  
+  return(output)
+  
+}
+
+read_all_amp_genes_results <- function(file) {
+
+  full_tbl <- get_full_tbl(file)
   
   gene_table_row_start <- match("All amplification genes", full_tbl$x1)
   
@@ -476,13 +505,17 @@ read_clc_cnv_processed_file <- function(file) {
                   sheet = "Amplifications",
                   skip = gene_table_row_start,
                   n_max = 9) |> 
-    janitor::clean_names() |> 
-    mutate(labno = labno) |> 
-    left_join(identifiers, by = "labno") |> 
-    relocate(worksheet, labno, suffix, patient_name, 
-             labno_suffix, labno_suffix_worksheet)
+    janitor::clean_names() 
   
-  # Get standard deviation information
+  output <- add_identifiers(file, gene_tbl)
+  
+  return(output)
+  
+}
+
+read_stdev_results <- function(file) {
+  
+  full_tbl <- get_full_tbl(file)
   
   stdev_1_start <- match("StDev Signal-adjusted Log2 Ratios", full_tbl$x1) - 1
   
@@ -500,16 +533,14 @@ read_clc_cnv_processed_file <- function(file) {
                   n_max = 1) |> 
     janitor::clean_names()
   
-  stdev_tbl <- cbind(stdev_1, stdev_2) |> 
-    mutate(labno = labno) |> 
-    left_join(identifiers, by = "labno") |> 
-    relocate(worksheet, labno, suffix, patient_name, 
-             labno_suffix, labno_suffix_worksheet)
-
-  return(list(pos_cnv_tbl, gene_tbl, stdev_tbl))
+  stdev_tbl <- cbind(stdev_1, stdev_2)
+  
+  output <- add_identifiers(file, stdev_tbl)
+  
+  return(output)
   
 }
-
+  
 # Primers ---------------------------------------------------------------------------
 
 grch38_primers <- read_csv(file =
