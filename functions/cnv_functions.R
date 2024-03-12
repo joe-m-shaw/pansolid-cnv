@@ -456,10 +456,11 @@ add_identifiers <- function(file, tbl) {
   labno <- parse_filename(file, 2)
   
   output <- tbl |> 
-    mutate(labno = labno) |>  
+    mutate(labno = labno, 
+           file = file) |>  
     left_join(identifiers, by = "labno") |> 
     relocate(worksheet, labno, suffix, patient_name, 
-             labno_suffix, labno_suffix_worksheet)
+             labno_suffix, labno_suffix_worksheet, file)
   
   return(output)
   
@@ -488,6 +489,22 @@ read_pos_cnv_results <- function(file) {
   
   pos_cnv_coord <- extract_cnv_coordinates(df = pos_cnv_tbl, 
                                            cnv_coord_col = cnv_co_ordinates)
+  
+  if (nrow(pos_cnv_coord) == 0) {
+    
+    pos_cnv_coord <- data.frame(
+      "gene" = "no positive calls",
+      "chromosome" = "",
+      "cnv_co_ordinates" = "",
+      "cnv_length" = 0,
+      "consequence" = "no call",
+      "fold_change" = 0,
+      "p_value" = 0,
+      "no_targets" = 0,
+      "start" = 0,
+      "end" = 0)
+    
+  }
   
   output <- add_identifiers(file, pos_cnv_coord)
   
@@ -662,7 +679,7 @@ get_chromosome <- function(gene) {
   
 }
 
-make_fold_change_plot <- function(df = all_patient_calls, 
+make_fold_change_plot <- function(df = pos_cnv_results, 
                                   gene = "ERBB2",
                                   interval = 10000, 
                                   buffer = 5000, 
@@ -682,7 +699,7 @@ make_fold_change_plot <- function(df = all_patient_calls,
   plot_xmax <- get_plot_xmax(df = data_for_plot,
                                  buffer = buffer)
   
-  fold_change_plot <- ggplot(data_for_plot, aes(x = start, y = fold_change_adjusted)) +
+  fold_change_plot <- ggplot(data_for_plot, aes(x = start, y = fold_change)) +
     
     # Add theme
     theme_bw() +
@@ -690,7 +707,7 @@ make_fold_change_plot <- function(df = all_patient_calls,
     
     # Add CNV calls
     geom_segment(aes(x = start, xend = end, 
-                     y = fold_change_adjusted, yend = fold_change_adjusted),
+                     y = fold_change, yend = fold_change),
                  linewidth = 2,
                  colour = safe_red) +
 
@@ -712,7 +729,7 @@ make_fold_change_plot <- function(df = all_patient_calls,
   
 }
 
-make_labno_plot <- function(df = all_patient_calls, 
+make_labno_plot <- function(df = pos_cnv_results, 
                             gene = "ERBB2",
                             interval = 10000, 
                             buffer = 5000, 
@@ -725,9 +742,9 @@ make_labno_plot <- function(df = all_patient_calls,
                                      gene = {{ gene }},
                                      setting = {{ setting }})
   
-  max_fold_change <- max(data_for_plot$fold_change_adjusted)
+  max_fold_change <- max(data_for_plot$fold_change)
   
-  min_fold_change <- min(data_for_plot$fold_change_adjusted)
+  min_fold_change <- min(data_for_plot$fold_change)
   
   plot_xmin <- get_plot_xmin(df = data_for_plot,
                              buffer = buffer)
@@ -736,7 +753,7 @@ make_labno_plot <- function(df = all_patient_calls,
                              buffer = buffer)
   
   labno_plot <- ggplot(data_for_plot, aes(x = start, y = {{ yaxis }},
-                                                colour = fold_change_adjusted)) +
+                                                colour = fold_change)) +
     
     # Add theme
     theme_bw() +
