@@ -270,6 +270,9 @@ biobank_ids <- c(23033285, 23033290, 23033295, 23033303, 23033288)
 
 control_ids <- unique(clc_controls$labno)
 
+lod_names <- c("SeraSeq_LOD_25_percent", "SeraSeq_LOD_12_percent",
+               "SeraSeq_LOD_6_percent", "SeraSeq_LOD_0_percent")
+
 ```
 
 ```{r}
@@ -509,6 +512,151 @@ csv_timestamp(table_results_by_tumour_type)
 
 ```
 
+```{r}
+#| label: fold-change-vs-stdev
+#| echo: FALSE
+
+gene_results_with_sd <- all_amp_gene_results |> 
+  pivot_longer(cols = c(max_region_fold_change, min_region_fold_change),
+               names_to = "category",
+               values_to = "fold_change") |> 
+  left_join(stdev_results |> 
+              select(labno_suffix_worksheet, 
+                     st_dev_signal_adjusted_log2_ratios,
+                     st_dev_signal_adjusted_fold_change), by = "labno_suffix_worksheet")
+
+
+
+ggplot(gene_results_with_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
+                                          y = fold_change)) +
+    geom_point(size = 3, pch = 21, alpha = 0.4) +
+    theme_bw() +
+    geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+    xlim(sd_min_limit, sd_max_limit) +
+    ylim(fc_min_limit, fc_max_limit) +
+  geom_point(data = gene_results_with_sd |> 
+               filter(fold_change >= 2.9), fill = safe_red, size = 3,
+             pch = 21) +
+  facet_wrap(~gene)
+
+
+```
+
+```{r}
+#| label: make-individual-plots
+#| eval: FALSE
+
+fc_max_limit <- max(gene_results_with_sd$fold_change) + 5
+
+fc_min_limit <- min(gene_results_with_sd$fold_change) - 5
+
+sd_max_limit <- max(gene_results_with_sd$st_dev_signal_adjusted_log2_ratios) + 0.4
+
+sd_min_limit <- min(gene_results_with_sd$st_dev_signal_adjusted_log2_ratios) - 0.4
+
+draw_fc_sd_plot <- function(id) {
+  
+  x <- gene_results_with_sd |> 
+    filter(labno_suffix_worksheet == id)
+  
+  plot <- ggplot(x, aes(x = st_dev_signal_adjusted_log2_ratios,
+                                          y = fold_change)) +
+    geom_point(size = 3, pch = 21, alpha = 0.4, aes(fill = gene)) +
+    theme_bw() +
+    geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+    xlim(sd_min_limit, sd_max_limit) +
+    ylim(fc_min_limit, fc_max_limit) +
+    labs(title = str_c("Sample: ", id))
+  
+  return(plot)
+  
+}
+
+fc_sd_plots <- list()
+
+for (i in unique(gene_results_with_sd$labno_suffix_worksheet)) {
+  
+  new_plot <- draw_fc_sd_plot(i)
+  
+  fc_sd_plots <- list(fc_sd_plots, new_plot)
+  
+  rm(new_plot)
+  
+}
+
+ggexport(plotlist = fc_sd_plots, filename = here::here("outputs/plots/sd_plot_list.pdf"),
+         width=15, height=8, res=300)
+
+```
+
+```{r}
+#| label: call-size-vs-stdev
+#| echo: FALSE
+
+pos_cnv_results_sd <- pos_cnv_results |> 
+  filter(gene != "no positive calls") |> 
+  left_join(stdev_results |> 
+              select(labno_suffix_worksheet, 
+                     st_dev_signal_adjusted_log2_ratios,
+                     st_dev_signal_adjusted_fold_change), by = "labno_suffix_worksheet")
+  
+ggplot(pos_cnv_results_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
+                               y = cnv_length)) +
+  geom_point(pch = 21, size = 3, alpha = 0.5) +
+  theme_bw() +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  geom_hline(yintercept = 1000000, linetype = "dashed") +
+  facet_wrap(~gene) +
+  scale_y_log10(limits = c(1000, 1000000000)) +
+  xlim(0, 1.25) +
+  labs(y = "CNV length (bp)")
+
+```
+
+```{r}
+#| label: fc-by-gene
+#| echo: FALSE
+
+results_with_tumour_source <- gene_results_with_sd |> 
+  left_join(erbb2_tumour_sources, by = "labno")
+
+ggplot(results_with_tumour_source, aes(x = reorder(gene, fold_change),
+                                 y = fold_change)) +
+  geom_jitter(pch = 21, size = 2, alpha = 0.5, aes(fill = tumour_source)) +
+  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom") +
+  scale_y_continuous(limits = c(-20, 80), breaks = seq(-20, 80, 10)) +
+  labs(x = "", y = "PanSolid Fold Change") 
+
+low_fc_samples <- results_with_tumour_source |> 
+  filter(tumour_source == "Central nervous system" &
+           fold_change < 5)
+  
+```
+
+
+```{r}
+#| label: calls-vs-stdev
+#| echo: FALSE
+
+call_results_with_sd <- pos_cnv_results |> 
+  left_join(stdev_results |> 
+              select(labno_suffix_worksheet, 
+                     st_dev_signal_adjusted_log2_ratios,
+                     st_dev_signal_adjusted_fold_change), by = "labno_suffix_worksheet")
+
+ggplot(call_results_with_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
+                                          y = fold_change)) +
+  geom_point(size = 2, pch = 21, alpha = 0.6) +
+  theme_bw() +
+  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+  facet_wrap(~gene)
+
+```
+
 ## NGS vs ddPCR
 
 ```{r}
@@ -632,6 +780,27 @@ plot_timestamp(plot_fold_change_vs_ddpcr_copy_number)
 
 ```
 
+```{r}
+#| label: discrepant-results-and-sd
+#| echo: FALSE
+
+plot_discrepant_results_sd <- ggplot(gene_results_with_sd |> 
+         filter(gene == "ERBB2"), aes(x = st_dev_signal_adjusted_log2_ratios,
+                                          y = fold_change)) +
+    geom_point(size = 3, pch = 21, alpha = 0.4) +
+    theme_bw() +
+    geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+    xlim(sd_min_limit, sd_max_limit) +
+    ylim(fc_min_limit, fc_max_limit) +
+  geom_point(data = gene_results_with_sd |> 
+               filter(labno %in% discrepant_samples & 
+                        gene == "ERBB2"), size = 3,
+             colour = safe_red, alpha = 0.6) +
+  labs(title = "Discrepant results with ddPCR (in red) are not poor quality")
+
+plot_discrepant_results_sd
+
+```
 ## Variant Coordinates
 
 ```{r}
