@@ -190,10 +190,10 @@ format_repeat_table <- function(df) {
   
   rpt_table <- df |> 
     arrange(labno) |> 
-    select(labno, worksheet, gene, max_region_fold_change) |>  
-    select(-gene) |> 
-    rename("ERBB2 fold change" = max_region_fold_change) 
-  
+    select(labno_suffix, worksheet, gene, max_region_fold_change) |>  
+    mutate("ERBB2 fold change" = round(max_region_fold_change, 1)) |> 
+    select(-gene)
+
   return(rpt_table)
   
 }
