@@ -845,7 +845,7 @@ csv_timestamp(table_comparison_with_seracare_results_ddpcr)
 
 ```{r}
 #| label: repeat-results
-#| eval: FALSE
+#| include: FALSE
 
 repeats <- stdev_results |> 
   filter(duplicated(labno, fromLast = TRUE) | 
@@ -861,7 +861,7 @@ repeat_results <- all_amp_gene_results |>
 
 ```{r}
 #| label: repeat-results-summary
-#| eval: FALSE
+#| include: FALSE
 
 repeat_summary_table <- repeat_results |> 
   group_by(labno) |> 
@@ -876,7 +876,7 @@ repeat_summary_table
 
 ```{r}
 #| label: repeat-tables
-#| eval: FALSE
+#| include: FALSE
 
 table_inter_run_repeat_results <- repeat_results |> 
   filter(!suffix %in% c("b", "c")) |> 
@@ -904,7 +904,7 @@ csv_timestamp(table_intra_run_repeat_results)
 #| label: repeat-plots
 #| eval: FALSE
 
-sample_21011525_results <- all_patient_calls |> 
+sample_21011525_results <- erbb2_pansolid_call_details |> 
   filter(labno == "21011525")
 
 sample_21011525_plot <- make_labno_plot(df = sample_21011525_results, 
