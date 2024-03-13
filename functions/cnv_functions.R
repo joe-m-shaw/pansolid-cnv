@@ -56,7 +56,7 @@ filename_regex <- regex(
   (WS\d{6})                                   # Worksheet number
   _
   (\d{8})                                     # Lab number
-  (a|b|c|)                                    # Suffix
+  (a|b|c|d|)                                   # Suffix
   _
   ([:alnum:]{5,30})                           # Patient name - alphanumeric characters only
   (.xlsx|_S.+.xlsx|_S.+|_CNV_processed.xlsx)  # Ending varies between patients and controls
@@ -68,6 +68,9 @@ parse_filename <- function(input_file, input_group) {
   
   output <- str_extract(input_file, filename_regex,
                         group = input_group)
+  
+  if (is.na(output)) stop("NA in filename parsing",
+                          call. = FALSE)
   
   return(output)
   
@@ -344,8 +347,11 @@ read_clc_target_calls <- function(file) {
   left_join(identifiers, by = "labno") |> 
   relocate(worksheet, labno, suffix, labno_suffix, patient_name,
            labno_suffix_worksheet)
-
-  return(results)
+  
+  output <- extract_cnv_coordinates(df = results,
+                                    cnv_coord_col = region)
+  
+  return(output)
   
 }
 
@@ -557,11 +563,10 @@ get_breaks <- function(interval, plot_xmin, plot_xmax) {
 }
 
 get_data_for_plot <- function(df, 
-                              gene,
-                              setting) {
+                              gene) {
   
   data_for_plot <- df |> 
-    filter(gene == {{ gene }} & setting == {{ setting }} )
+    filter(gene == {{ gene }})
   
   return(data_for_plot)
   
@@ -597,15 +602,13 @@ make_fold_change_plot <- function(df = pos_cnv_results,
                                   gene = "ERBB2",
                                   interval = 10000, 
                                   buffer = 5000, 
-                                  setting = "coarse", 
                                   ymin = 0,
                                   ymax = 40) {
   
   chromosome <- get_chromosome(gene = {{ gene }})
   
   data_for_plot <- get_data_for_plot(df = {{ df }}, 
-                    gene = {{ gene }},
-                    setting = {{ setting }})
+                    gene = {{ gene }})
   
   plot_xmin <- get_plot_xmin(df = data_for_plot,
                                  buffer = buffer)
@@ -647,14 +650,12 @@ make_labno_plot <- function(df = pos_cnv_results,
                             gene = "ERBB2",
                             interval = 10000, 
                             buffer = 5000, 
-                            setting = "coarse",
                             yaxis = labno) {
   
   chromosome <- get_chromosome(gene = {{ gene }})
   
   data_for_plot <- get_data_for_plot(df = {{ df }}, 
-                                     gene = {{ gene }},
-                                     setting = {{ setting }})
+                                     gene = {{ gene }})
   
   max_fold_change <- max(data_for_plot$fold_change)
   
@@ -792,6 +793,29 @@ make_cnv_triptych <- function(input_plot) {
     )
   
   return(triptych)
+  
+}
+
+draw_lod_gene_plot <- function(df, chromosome, gene) {
+  
+  plot_limit_of_detection <- df |> 
+    filter(chromosome == {{ chromosome }}) |> 
+    ggplot(aes(x = start, y = fold_change_adjusted)) +
+    geom_point(pch = 21) +
+    geom_point(data = df |> 
+                 filter(name == {{ gene }}), fill = safe_red, 
+               pch = 21, size = 2) +
+    facet_wrap(~ncc) +
+    theme_bw() +
+    scale_y_continuous(limits = c(-3, 6),
+                       breaks = c(-3, -2, -1, 0, 1, 2, 2.9, 4, 5, 6)) +
+    geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+    labs(x = str_c("Chromosome ", {{ chromosome }}),
+         y = "Target fold change",
+         title = str_c("Limit of detection results: ", {{ gene }}),
+         subtitle = "Seracare +12 copies control spiked into Seracare wild type control (gene in red)")
+  
+  return(plot_limit_of_detection)
   
 }
 
