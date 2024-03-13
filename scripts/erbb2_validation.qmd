@@ -112,7 +112,7 @@ csv_timestamp(table_ERBB2_Qiaseq_Primers)
 plot_qiaseq_primer_length <- grch38_primer_coordinates |> 
   mutate(size = end - start) |>  
   ggplot(aes(x = size, y = )) +
-  geom_histogram() +
+  geom_histogram(binwidth = 1) +
   labs(title = "PanSolid primer lengths",
        x = "Primer length (bp)", y = "Number of primers") +
   theme_bw()
@@ -258,11 +258,12 @@ setdiff(pos_cnv_table_amps$id_gene, all_amp_gene_results_table_amps$id_gene)
 #| label: load-clc-controls
 #| include: FALSE
 
-clc_controls <- read_excel(path = here::here("data/control_data/clc_controls.xlsx")) |> 
-  mutate(labno = as.character(parse_filename(input_file = control,
-                                    input_group = 2)),
-         worksheet = parse_filename(input_file = control,
-                                    input_group = 1))
+control_files <- list.files(here::here("data/control_data/"),
+                            full.names = TRUE, pattern = ".csv")
+
+clc_controls <- control_files |> 
+  map(\(control_files) filename_to_df(file = control_files)) |> 
+  list_rbind()
 
 ```
 
@@ -275,9 +276,6 @@ seracare_ids <- c(24002060, 24002064, 24002067, 24002071)
 biobank_ids <- c(23033285, 23033290, 23033295, 23033303, 23033288)
 
 control_ids <- unique(clc_controls$labno)
-
-lod_names <- c("SeraSeq_LOD_25_percent", "SeraSeq_LOD_12_percent",
-               "SeraSeq_LOD_6_percent", "SeraSeq_LOD_0_percent")
 
 ```
 
@@ -637,7 +635,7 @@ ggplot(pos_cnv_results_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
 results_with_tumour_source <- gene_results_with_sd |> 
   left_join(erbb2_tumour_sources, by = "labno")
 
-ggplot(results_with_tumour_source, aes(x = reorder(gene, fold_change),
+plot_fold_change_tumour_source <- ggplot(results_with_tumour_source, aes(x = reorder(gene, fold_change),
                                  y = fold_change)) +
   geom_jitter(pch = 21, size = 2, alpha = 0.5, aes(fill = tumour_source)) +
   geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
@@ -646,6 +644,8 @@ ggplot(results_with_tumour_source, aes(x = reorder(gene, fold_change),
         legend.position = "bottom") +
   scale_y_continuous(limits = c(-20, 80), breaks = seq(-20, 80, 10)) +
   labs(x = "", y = "PanSolid Fold Change") 
+
+plot_fold_change_tumour_source
 
 low_fc_samples <- results_with_tumour_source |> 
   filter(tumour_source == "Central nervous system" &
@@ -772,18 +772,21 @@ ddpcr_cn_plot
 
 discrepant_samples <- c(23001095, 23002258, 23008380)
 
+ddpcr_pansolid |> 
+  select(sample, labno_suffix_worksheet, max_region_fold_change) |> view()
+
 plot_fold_change_vs_ddpcr_copy_number <- ddpcr_pansolid |> 
   filter(!is.na(max_region_fold_change)) |> 
-  ggplot(aes(x = max_region_fold_change*2, y = cnv)) +
+  ggplot(aes(x = max_region_fold_change, y = cnv)) +
   geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
   geom_point(size = 3, fill = safe_blue, alpha = 0.5, pch = 21) +
   theme_bw() +
   geom_hline(yintercept = 6, linetype = "dashed") +
-  geom_vline(xintercept = 3*2, linetype = "dashed") +
-  labs(x = "PanSolid Fold Change x 2", y = "ddPCR Copy Number",
+  geom_vline(xintercept = fold_change_threshold, linetype = "dashed") +
+  labs(x = "PanSolid Fold Change", y = "ddPCR Copy Number",
          caption = "Samples 23001095, 23002258 and 23008380 in red") +
   scale_y_continuous(limits = c(0, 85), breaks = c(0, 20, 40, 60, 80))  +
-  scale_x_continuous(limits = c(0, 85), breaks = c(0, 20, 40, 60, 80)) +
+  scale_x_continuous(limits = c(-20, 85), breaks = c(-20, 0, 20, 40, 60, 80)) +
   geom_point(data = ddpcr_pansolid |> 
                filter(sample %in% discrepant_samples), size = 3, fill = safe_red,
              pch = 21, alpha = 0.5) +
@@ -836,8 +839,7 @@ erbb2_calls_factorised <- erbb2_pansolid_call_details  |>
 erbb2_labno <- make_labno_plot(df = erbb2_calls_factorised, 
                       gene = "ERBB2",
                       interval = 10000, 
-                      buffer = 5000, 
-                      setting = "coarse")
+                      buffer = 5000)
 
 plot_all_erbb2_amplification_coordinates <- make_cnv_triptych(erbb2_labno)
 
@@ -857,8 +859,7 @@ short_erbb2_calls <- erbb2_calls_factorised |>
 erbb2_labno_zoom <- make_labno_plot(df = short_erbb2_calls, 
                       gene = "ERBB2",
                       interval = 10000, 
-                      buffer = 5000, 
-                      setting = "coarse")
+                      buffer = 5000)
 
 plot_erbb2_amplification_accuracy <- make_cnv_triptych(erbb2_labno_zoom)
 
@@ -889,7 +890,8 @@ The long calls varied from `r min(erbb2_long_calls$cnv_length)` to `r max(erbb2_
 #| label: seracare-results
 #| echo: FALSE
 
-copies_3 <- make_fold_change_plot(df = erbb2_pansolid_call_details |> 
+
+copies_3 <- make_fold_change_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002064"),
                       ymax = 15)
 
@@ -1030,8 +1032,7 @@ csv_timestamp(table_comparison_with_seracare_results_ddpcr)
 
 ```{r}
 #| label: repeat-results
-#| eval: FALSE
-#| include: FALSE
+#| echo: FALSE
 
 repeats <- stdev_results |> 
   filter(duplicated(labno, fromLast = TRUE) | 
@@ -1047,8 +1048,7 @@ repeat_results <- all_amp_gene_results |>
 
 ```{r}
 #| label: repeat-results-summary
-#| eval: FALSE
-#| include: FALSE
+#| echo: FALSE
 
 repeat_summary_table <- repeat_results |> 
   group_by(labno) |> 
@@ -1063,8 +1063,7 @@ repeat_summary_table
 
 ```{r}
 #| label: repeat-tables
-#| eval: FALSE
-#| include: FALSE
+#| echo: FALSE
 
 table_inter_run_repeat_results <- repeat_results |> 
   filter(!suffix %in% c("b", "c")) |> 
@@ -1090,11 +1089,10 @@ csv_timestamp(table_intra_run_repeat_results)
 
 ```{r}
 #| label: repeat-plots
-#| eval: FALSE
-#| include: FALSE
+#| echo: FALSE
 
-sample_21011525_results <- erbb2_pansolid_call_details |> 
-  filter(labno == "21011525")
+sample_21011525_results <- pos_cnv_results |> 
+  filter(gene == "ERBB2" & labno == "21011525")
 
 sample_21011525_plot <- make_labno_plot(df = sample_21011525_results, 
                 yaxis = labno_suffix_worksheet)
@@ -1229,10 +1227,6 @@ csv_timestamp(table_pansolid_vs_core_panel_erbb2_results[[1]])
 #| eval: FALSE
 #| message: FALSE
 #| include: FALSE
-
-control_files <- list.files(here::here("data/control_data/"),
-                            full.names = TRUE,
-                            pattern = ".csv")
 
 control_coverage <- control_files |> 
   map(\(control_files) get_control_coverage(
@@ -1421,48 +1415,51 @@ chromosome_qc_all_samples |>
 
 ```
 
+### Tumour Content Limit of Detection Experiment
+
 ```{r}
-#| label: all-target-calls
-#| eval: FALSE
-#| message: FALSE
-#| include: FALSE
+#| label: limit-of-detection
+#| echo: FALSE
 
-filepath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/QC/"
+target_data_files <- list.files(here::here("data/clc_target_level_outputs/"), 
+                                full.names = TRUE, 
+                                pattern = ".xlsx")
 
-files <- list.files(filepath, full.names = TRUE, pattern = ".xlsx")
+lod_files <- target_data_files[89:92]
 
-consistent_files <- files[-30]
+lod_percents <- data.frame(
+  "labno_suffix" = c("24002060a", "24002060b", "24002060c", "24002060d"),
+  "ncc" = c("25% tumour content mimic", "12.5% tumour content mimic",
+            "6.25% tumour content mimic", "0% tumour content mimic")) |> 
+  mutate(ncc = factor(ncc, levels = c("25% tumour content mimic", "12.5% tumour content mimic",
+            "6.25% tumour content mimic", "0% tumour content mimic")))
 
-x <- consistent_files |>
-  map(\(consistent_files) read_clc_target_calls(
-    file = consistent_files
+lod_target_results <- lod_files |>
+  map(\(lod_files) read_clc_target_calls(
+    file = lod_files
   )) |>
-  list_rbind() 
+  list_rbind() |> 
+  left_join(lod_percents, by = "labno_suffix")
 
-x |> 
-  filter(name %in% grep(pattern = "ERBB2", ignore.case = TRUE,
-     x = unique(x$name), value = TRUE)) |> 
-  filter(!duplicated(labno)) |> 
-  ggplot(aes(x = reorder(labno_suffix_worksheet, regional_fold_change), 
-             y = regional_fold_change)) +
-  geom_point(pch = 21) +
-  theme_bw() +
-  geom_hline(yintercept = 2.9, linetype = "dashed") +
-  theme(axis.text.x = element_text(angle = 90)) +
-  labs(y = "Fold change", x = "")
+lod_erbb2 <- draw_lod_gene_plot(df = lod_target_results, chromosome = "17.0", gene = "ERBB2")
 
-```
+lod_erbb2
 
-```{r}
-#| label: all-target-calls-repeats
-#| eval: FALSE
+lod_braf <- draw_lod_gene_plot(df = lod_target_results, chromosome = "7.0", gene = "BRAF")
 
-x |> 
-  select(labno, labno_suffix, labno_suffix_worksheet, patient_name,
-         name, regional_fold_change) |> 
-  distinct() |> 
-  filter(name %in% grep(pattern = "ERBB2", ignore.case = TRUE,
-     x = unique(x$name), value = TRUE)) |>  
-  filter(!duplicated(labno_suffix_worksheet))
+lod_braf
+
+lod_egfr <- draw_lod_gene_plot(df = lod_target_results, chromosome = "7.0", gene = "EGFR")
+
+lod_egfr
+
+lod_met <- draw_lod_gene_plot(df = lod_target_results, chromosome = "7.0", gene = "MET")
+
+lod_met
+
+lod_myc <- draw_lod_gene_plot(df = lod_target_results, chromosome = "8.0", gene = "MYC")
+
+lod_myc
 
 ```
+
