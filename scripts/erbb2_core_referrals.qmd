@@ -1,0 +1,46 @@
+---
+title: "ERBB2 Core Referrals"
+author: "Joe Shaw"
+format: html
+editor: visual
+---
+
+```{r}
+#| label: source-functions
+#| include: FALSE
+
+source(here::here("functions/dna_database_functions.R"))
+
+source(here::here("functions/cnv_functions.R"))
+
+```
+
+```{r}
+#| label: get-colorectal-referrals
+#| include: FALSE
+
+all_discodes <- sample_tbl |> 
+  select(labno, date_in, disease, disease_2, disease_3, 
+         disease_4, ngis) |> 
+  collect() |> 
+  janitor::clean_names()
+
+crc_discodes_long <- all_discodes |> 
+  pivot_longer(cols = -c(labno, date_in),
+               values_to = "discode") |> 
+  left_join(discode |> 
+              select(discode, disease), by = "discode") |> 
+  filter(discode %in% c(120, 209)) |> 
+  mutate(date = as_datetime(date_in),
+         month = lubridate::floor_date(date, "month")) |> 
+  filter(!is.na(month)) |> 
+  filter(month > as_datetime('13/3/2022', format="%d/%m/%Y"))
+
+crc_plot <- ggplot(crc_discodes_long, aes(x = date, y = )) +
+  geom_histogram(bins = 12) +
+  labs(title = "Monthly Referals for 120 and 209 disease codes")
+
+crc_plot
+
+```
+
