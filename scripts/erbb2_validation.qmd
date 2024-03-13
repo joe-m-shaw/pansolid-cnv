@@ -1,5 +1,5 @@
 ---
-title: "ERBB2 Amplifications"
+title: "*ERBB2* Amplifications"
 author: "Joe Shaw"
 date: today
 date-format: "DD/MM/YYYY"
@@ -7,15 +7,15 @@ format: html
 editor: visual
 ---
 
-## Introduction
+# Introduction
 
-This Quarto document performs the analysis for the validation of somatic ERBB2 gene amplifications.
+This Quarto document performs the analysis for the validation of somatic *ERBB2* gene amplifications.
 
 Exported tables and plots have the prefix "plot" or "table" and are named exactly as they appear in the validation document ("ERBB2 Somatic Amplifications Validation Document.docx") for ease of reference.
 
-Plots do not have titles to avoid confusion with titles in word document.
+Plots do not have titles to avoid confusion with the figure titles in the Word document.
 
-The script should run with the files in the associated data folder, without requiring a connection to the DNA Database. The sample information from the DNA Database was extracted using the erbb2_validation_dna_db_queries.R script.
+The script should run with the files in the associated data folders, without requiring a connection to the DNA Database. 
 
 ```{r}
 #| label: packages
@@ -34,6 +34,8 @@ source(here::here("functions/cnv_functions.R"))
 ```
 
 ## QiaSeq Primers
+
+The overlap of primers between the PanSolid and Core enrichment panels is too great to allow Core panel results to be used for the validation of the PanSolid enrichment.
 
 ```{r}
 #| label: qiaseq-primers
@@ -121,6 +123,8 @@ plot_qiaseq_primer_length
 
 ## Fold Change Threshold
 
+The theoretical limit of detection of the PanSolid pipeline varies with the neoplastic cell content of the sample and the number of copies of the target gene within the tumour cells.
+
 ```{r}
 #| label: fold-change-threshold-plot
 #| echo: FALSE
@@ -157,7 +161,11 @@ plot_timestamp(plot_fold_change_detection_limit)
 
 ```
 
-## Load Data
+## Methods
+
+### Load PanSolid Results
+
+PanSolid results are taken from the formatted Excel (.xlsx) files which are exported from the PanSolid 1.6dev pipeline.
 
 ```{r}
 #| label: load-processed-clc-results
@@ -225,8 +233,6 @@ ggplot(calls_per_gene, aes(x = n, y = )) +
        y = "Number of samples")
 
 ```
-
-
 
 ```{r}
 #| label: check-fold-change-threshold-application
@@ -305,6 +311,10 @@ knitr::kable(table_samples_tested)
 csv_timestamp(table_samples_tested)
 
 ```
+
+### Load Sample Information
+
+The sample information from the DNA Database was extracted using the erbb2_validation_dna_db_queries.R script which uses an ODBC connection. The information was exported as csv files so that this Quarto document should render without the user needing an ODBC connection to the DNA Database.
 
 ```{r}
 #| label: extraction-types
@@ -416,6 +426,10 @@ erbb2_worksheets <- read_csv(here::here("data/dna_db_queries/erbb2_pansolid_ws_d
 
 Samples were tested across `r nrow(erbb2_worksheets)` between `r min(erbb2_worksheets$date)` and `r max(erbb2_worksheets$date)`.
 
+### Load Droplet Digital PCR (ddPCR) Data
+
+ddPCR data was analysed on Quantasoft and the results for each plate were exported as a single csv file.
+
 ```{r}
 #| label: load-ddpcr
 #| include: FALSE
@@ -460,6 +474,8 @@ knitr::kable(table_impact_of_hindiii_digestion)
 csv_timestamp(table_impact_of_hindiii_digestion)
 
 ```
+
+# Results
 
 ## ERBB2 NGS Results
 
@@ -525,7 +541,13 @@ gene_results_with_sd <- all_amp_gene_results |>
                      st_dev_signal_adjusted_log2_ratios,
                      st_dev_signal_adjusted_fold_change), by = "labno_suffix_worksheet")
 
+fc_max_limit <- max(gene_results_with_sd$fold_change) + 5
 
+fc_min_limit <- min(gene_results_with_sd$fold_change) - 5
+
+sd_max_limit <- max(gene_results_with_sd$st_dev_signal_adjusted_log2_ratios) + 0.4
+
+sd_min_limit <- min(gene_results_with_sd$st_dev_signal_adjusted_log2_ratios) - 0.4
 
 ggplot(gene_results_with_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
                                           y = fold_change)) +
@@ -546,14 +568,7 @@ ggplot(gene_results_with_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
 ```{r}
 #| label: make-individual-plots
 #| eval: FALSE
-
-fc_max_limit <- max(gene_results_with_sd$fold_change) + 5
-
-fc_min_limit <- min(gene_results_with_sd$fold_change) - 5
-
-sd_max_limit <- max(gene_results_with_sd$st_dev_signal_adjusted_log2_ratios) + 0.4
-
-sd_min_limit <- min(gene_results_with_sd$st_dev_signal_adjusted_log2_ratios) - 0.4
+#| include: FALSE
 
 draw_fc_sd_plot <- function(id) {
   
@@ -592,7 +607,8 @@ ggexport(plotlist = fc_sd_plots, filename = here::here("outputs/plots/sd_plot_li
 
 ```{r}
 #| label: call-size-vs-stdev
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 pos_cnv_results_sd <- pos_cnv_results |> 
   filter(gene != "no positive calls") |> 
@@ -637,7 +653,6 @@ low_fc_samples <- results_with_tumour_source |>
   
 ```
 
-
 ```{r}
 #| label: calls-vs-stdev
 #| echo: FALSE
@@ -657,7 +672,7 @@ ggplot(call_results_with_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
 
 ```
 
-## NGS vs ddPCR
+## ERBB2 NGS vs ddPCR
 
 ```{r}
 #| label: ddpcr-vs-pansolid
@@ -801,7 +816,8 @@ plot_discrepant_results_sd <- ggplot(gene_results_with_sd |>
 plot_discrepant_results_sd
 
 ```
-## Variant Coordinates
+
+## ERBB2 Copy Number Variant Coordinates
 
 ```{r}
 #| label: erbb2-calls
@@ -867,7 +883,7 @@ knitr::kable(erbb2_long_calls)
 
 The long calls varied from `r min(erbb2_long_calls$cnv_length)` to `r max(erbb2_long_calls$cnv_length)`.
 
-## Limit of detection
+## Limit of Detection
 
 ```{r}
 #| label: seracare-results
@@ -1014,6 +1030,7 @@ csv_timestamp(table_comparison_with_seracare_results_ddpcr)
 
 ```{r}
 #| label: repeat-results
+#| eval: FALSE
 #| include: FALSE
 
 repeats <- stdev_results |> 
@@ -1030,6 +1047,7 @@ repeat_results <- all_amp_gene_results |>
 
 ```{r}
 #| label: repeat-results-summary
+#| eval: FALSE
 #| include: FALSE
 
 repeat_summary_table <- repeat_results |> 
@@ -1045,6 +1063,7 @@ repeat_summary_table
 
 ```{r}
 #| label: repeat-tables
+#| eval: FALSE
 #| include: FALSE
 
 table_inter_run_repeat_results <- repeat_results |> 
@@ -1072,6 +1091,7 @@ csv_timestamp(table_intra_run_repeat_results)
 ```{r}
 #| label: repeat-plots
 #| eval: FALSE
+#| include: FALSE
 
 sample_21011525_results <- erbb2_pansolid_call_details |> 
   filter(labno == "21011525")
@@ -1204,12 +1224,11 @@ csv_timestamp(table_pansolid_vs_core_panel_erbb2_results[[1]])
 
 ```
 
-## Coverage
-
 ```{r}
 #| label: control-coverage
 #| eval: FALSE
 #| message: FALSE
+#| include: FALSE
 
 control_files <- list.files(here::here("data/control_data/"),
                             full.names = TRUE,
@@ -1226,6 +1245,7 @@ control_coverage <- control_files |>
 #| label: all-sample-qc
 #| eval: FALSE
 #| message: FALSE
+#| include: FALSE
 
 qc_data <- all_patient_files |>
   map(\(all_files) read_summary_tab(
@@ -1238,6 +1258,7 @@ qc_data <- all_patient_files |>
 #| label: coverage-plot
 #| eval: FALSE
 #| message: FALSE
+#| include: FALSE
 
 for_plot <- rbind(
   
@@ -1267,6 +1288,7 @@ plot_timestamp(plot_coverage_in_patients_and_controls)
 ```{r}
 #| label: coverage-fold-change-plot
 #| eval: FALSE
+#| message: FALSE
 #| include: FALSE
 
 calls_and_coverage <- ddpcr_pansolid |> 
@@ -1283,6 +1305,7 @@ ggplot(calls_and_coverage, aes(x = percent_target_region_pos_cov_greaterorequal_
 ```{r}
 #| label: errors
 #| eval: FALSE
+#| message: FALSE
 #| include: FALSE
 
 erbb2_coarse_pansolid |> 
@@ -1291,12 +1314,11 @@ erbb2_coarse_pansolid |>
 
 ```
 
-## Quality Investigation
-
 ```{r}
 #| label: read-targeted-region-overview
-#| eval: FALSE 
-#| message: FALSE 
+#| eval: FALSE
+#| message: FALSE
+#| include: FALSE 
 
 chromosome_qc_all_samples <- all_patient_files |>
   map(\(all_files) read_targeted_region_overview(
@@ -1309,6 +1331,7 @@ chromosome_qc_all_samples <- all_patient_files |>
 #| label: cov-vs-fold-change
 #| eval: FALSE
 #| message: FALSE
+#| include: FALSE
 
 fold_change_vs_138 <- coarse_calls |> 
   filter(gene == "ERBB2") |> 
@@ -1329,6 +1352,8 @@ cov_vs_138 <- ggplot(qc_data, aes(x = median_coverage,
 ```{r}
 #| label: chr17-coverage
 #| eval: FALSE
+#| message: FALSE
+#| include: FALSE
 
 chrom17_coverage <- chromosome_qc_all_samples |> 
   filter(chromosome == "17") 
@@ -1350,6 +1375,8 @@ foldchange_vs_chr17_reads <- ggplot(erbb2_calls_with_chr17_coverage,
 ```{r}
 #| label: chr17-full-cohort
 #| eval: FALSE
+#| message: FALSE
+#| include: FALSE
 
 chr17_reads_sample_cohort <- ggplot(chrom17_coverage, 
                                     aes(x = reorder(labno_suffix_worksheet, total_mapped_reads),
@@ -1384,6 +1411,8 @@ coarse_calls |>
 ```{r}
 #| label: coverage-all-chromosomes
 #| eval: FALSE
+#| message: FALSE
+#| include: FALSE
 
 chromosome_qc_all_samples |> 
   ggplot(aes(x = chromosome, y = mapped_reads_in_targeted_region_excl_ignored,
@@ -1392,11 +1421,11 @@ chromosome_qc_all_samples |>
 
 ```
 
-## Target level calls
-
 ```{r}
 #| label: all-target-calls
 #| eval: FALSE
+#| message: FALSE
+#| include: FALSE
 
 filepath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/QC/"
 
