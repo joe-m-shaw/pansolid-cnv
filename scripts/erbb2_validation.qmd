@@ -255,6 +255,55 @@ setdiff(pos_cnv_table_amps$id_gene, all_amp_gene_results_table_amps$id_gene)
 ```
 
 ```{r}
+#| label: fold-change-threshold-check
+#| include: FALSE
+
+current_threshold <- 2.9
+
+proposed_threshold <- 2.8
+
+fc_threshold_df <- all_amp_gene_results |> 
+  mutate(result_current_threshold = case_when(
+    
+      max_region_fold_change >= current_threshold ~"amplification",
+      
+      max_region_fold_change < current_threshold ~"normal"),
+    
+    result_proposed_threshold = case_when(
+      
+      max_region_fold_change >= proposed_threshold ~"amplification",
+      
+      max_region_fold_change < proposed_threshold ~"normal"))
+
+fc_threshold_df_long <- fc_threshold_df |> 
+  pivot_longer(cols = c(result_current_threshold, result_proposed_threshold),
+               names_to = "category",
+               values_to = "result")
+
+fc_threshold_comparison <- fc_threshold_df_long |> 
+  group_by(gene, category) |> 
+  count(result) |> 
+  pivot_wider(id_cols = gene,
+              names_from = c(category, result),
+              values_from = n) |> 
+  mutate(difference_normal =  result_proposed_threshold_normal - result_current_threshold_normal,
+         difference_amp =  result_proposed_threshold_amplification - result_current_threshold_amplification)
+
+csv_timestamp(fc_threshold_comparison)
+
+fc_threshold_change_plot <- ggplot(all_amp_gene_results |> 
+         filter(max_region_fold_change > 0 & max_region_fold_change < 5), 
+       aes(x = gene, y = max_region_fold_change)) +
+  geom_jitter(pch = 21, size = 2, aes(fill = pansolid_call)) +
+  theme_bw() +
+  geom_hline(yintercept = current_threshold, linetype = "dashed") +
+  geom_hline(yintercept = proposed_threshold, linetype = "dashed") 
+
+fc_threshold_change_plot
+
+```
+
+```{r}
 #| label: load-clc-controls
 #| include: FALSE
 
