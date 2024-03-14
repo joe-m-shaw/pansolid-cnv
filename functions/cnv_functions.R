@@ -204,6 +204,28 @@ read_summary_tab <- function(file) {
   
 }
 
+format_chromosome <- function(df, input_col) {
+  
+  # Function for reformating chr
+  
+  output <- df |> 
+    mutate(chrom_mod = case_when(
+    
+      {{ input_col }} %in% c("X", "Y") ~{{ input_col }},
+      
+      TRUE ~as.character(round(as.numeric({{ input_col }}), 0))),
+    
+    chromosome_formatted = fct(x = chrom_mod, levels = c("1", "2", "3", "4",
+                                               "5",  "6",  "7",  "8",
+                                               "9",  "10", "11", "12",
+                                               "13", "14", "15", "16",
+                                               "17", "18", "19", "20",
+                                               "21", "22", "X", "Y")))
+  
+  return(output)
+  
+}
+
 read_targeted_region_overview <- function(file) {
   
   # This function reads the table of reads mapped to each chromosome. 
@@ -219,19 +241,8 @@ read_targeted_region_overview <- function(file) {
                                          skip = num_skip,
                                          # 22 autosomes plus 2 sex chromosomes
                                          n_max = 24) |> 
-    mutate(chrom_mod = case_when(
-      
-      Reference %in% c("X", "Y") ~Reference,
-      
-      TRUE ~as.character(round(as.numeric(Reference), 0))),
-      
-      chromosome = fct(x = chrom_mod, levels = c("1", "2", "3", "4",
-                                                 "5",  "6",  "7",  "8",
-                                                 "9",  "10", "11", "12",
-                                                 "13", "14", "15", "16",
-                                                 "17", "18", "19", "20",
-                                                 "21", "22", "X", "Y")))
-  
+    format_chromosome(input_col = Reference)
+
   identifiers <- filename_to_df(file)
   
   output <- cbind(identifiers, targeted_region_overview) |> 
@@ -320,11 +331,20 @@ make_confusion_matrix <- function(df, input_column = outcome,
     comparison_test,   positive_state,   tp_char,             fn_char,
     "",                negative_state,   fp_char,             tn_char)
   
+  # Overall percent agreement
   
   opa <- round((true_positives + true_negatives) / (true_positives + false_negatives +
                                                       false_positives + true_negatives) * 100, 1)
   
-  return(list(conf_matrix, opa))
+  # Positive percentage agreement
+  
+  ppa <- round((true_positives) / (true_positives + false_negatives) * 100, 1)
+  
+  # Negative percentage agreement
+  
+  npa <- round((true_negatives) / (true_negatives + false_positives) * 100, 1)
+  
+  return(list(conf_matrix, opa, ppa, npa))
   
 }
 
@@ -813,7 +833,8 @@ draw_lod_gene_plot <- function(df, chromosome, gene) {
     labs(x = str_c("Chromosome ", {{ chromosome }}),
          y = "Target fold change",
          title = str_c("Limit of detection results: ", {{ gene }}),
-         subtitle = "Seracare +12 copies control spiked into Seracare wild type control (gene in red)")
+         caption = "Seracare +12 copies control spiked into Seracare wild type control",
+         subtitle = str_c({{ gene }}, " in red"))
   
   return(plot_limit_of_detection)
   
