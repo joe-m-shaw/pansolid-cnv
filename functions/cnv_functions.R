@@ -375,6 +375,27 @@ read_clc_target_calls <- function(file) {
   
 }
 
+calculate_pooled_sd <- function(df, group = labno, target_col, round_places = 2) {
+  
+  output_table <- df |> 
+    group_by( {{ group }}) |> 
+    summarise(sd = sd( {{ target_col }} ),
+              max = max( {{ target_col }} ),
+              min = min( {{ target_col }} ),
+              range = max - min,
+              n = n(),
+              z = (n-1)*sd^2)
+  
+  pooled_sd <- round(sqrt(sum(output_table$z) / 
+                            (sum(output_table$n))), round_places)
+  
+  range <- str_c(round(min(output_table$range), round_places), 
+                 "-", 
+                 round(max(output_table$range), round_places))
+  
+  return(list(output_table, pooled_sd, range))
+  
+}
 
 # Processed Excel functions ---------------------------------------------------------
 
