@@ -62,9 +62,9 @@ calculate_fold_change(50, 10)
 
 ## Fold change threshold
 
-The CLC pipeline uses a fold change threshold of 3 for calling copy number variants.
+The CLC pipeline uses a fold change threshold of 2.9 for calling copy number variants.
 
-We can rearrange the previous function to allow us to calculate the number of target copies required to give a fold change of 3 at each tumour cell content value.
+We can rearrange the previous function to allow us to calculate the number of target copies required to give a fold change of 2.9 at each tumour cell content value.
 
 ```{r}
 #| label: calc-target-copies
@@ -86,14 +86,16 @@ calculate_target_copies <- function(fold_change, tcc_percent) {
 
 ```
 
-This then shows us which combinations of tumour cell content and target copy number lie above the threshold, and which lie beneath it.
+## Theoretical Limit of Detection
+
+This then shows us which combinations of tumour cell content and target copy number lie above the threshold, and which lie beneath it. This is the theoretical limit of detection.
 
 ```{r}
 #| label: draw-plot
 #| echo: FALSE
 
 df <- data.frame(tcc = seq(0, 100, by = 0.1)) |> 
-  mutate(target_copies = calculate_target_copies(fold_change = 3,
+  mutate(target_copies = calculate_target_copies(fold_change = 2.9,
                                                  tcc_percent = tcc))
 fold_change_plot <- df |> 
   filter(target_copies <= 100) |> 
@@ -108,8 +110,73 @@ fold_change_plot <- df |>
   scale_x_continuous(limits = c(0, 100), breaks = seq(0,100,10),
                      minor_breaks = FALSE) +
   geom_text(aes(x = 30, y = 30), size = 4, label = "Detected") +
-  geom_text(aes(x = 10, y = 10), size = 4, label = "Not detected")
+  geom_text(aes(x = 30, y = 5), size = 4, label = "Not detected")
 
 fold_change_plot
+
+```
+
+## Technical Limit of Detection
+
+I did a limit of detection study where I spiked the SeraCare +12 copies CNV control into the SeraCare wild type control at 25%, 12.5%, 6.25% and 0%.
+
+The 25% tumour mimic had a fold change of 2.8 for ERBB2. However, theoretically this sample should have had a fold change of 2.5.
+
+```{r}
+#| label: expected-fold-change
+#| include: TRUE
+
+# Expected ERBB2 copies for 100 diploid cells is 200
+
+expected_copies <- 200
+
+# Actual ERBB2 copies of a 25:75 mix of 14 copies:2 copies cell lines.
+
+actual_copies <- (25*14) + (75*2)
+
+actual_copies / expected_copies
+
+```
+
+So we can then see that the technical detection limit is slightly below the theoretical detect limit. 
+
+```{r}
+#| label: technical-lod
+#| echo: FALSE
+
+lod_comparison <- data.frame(tcc = seq(0, 100, by = 0.1)) |> 
+  mutate("Theoretical detection limit (fold change 2.8)" =
+           calculate_target_copies(fold_change = 2.8,
+                                   tcc_percent = tcc),
+         "Technical detection limit (fold change 2.5" = 
+           calculate_target_copies(fold_change = 2.5,
+                                   tcc_percent = tcc)) |> 
+  pivot_longer(cols = -tcc,
+               names_to = "category",
+               values_to = "target_copies")
+
+lod_exp <- data.frame(
+  target_copies = c(14, 8, 5, 0, 14, 14, 14, 14),
+  tcc = c(100, 100, 100, 100, 25, 12.5, 6.25, 0))
+
+lods_plot <- lod_comparison |> 
+  filter(target_copies <= 100) |> 
+  ggplot(aes(x = target_copies, y = tcc)) +
+  geom_line(linewidth = 1, aes(colour = category)) +
+  scale_color_manual(values = c("red", "black")) +
+  theme_bw() +
+  labs(x = "Target copies per cell", y = "Tumour cell content (%)",
+       title = "Detection limits of CLC pipeline") +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0,100,10),
+                     minor_breaks = FALSE) +
+  scale_x_continuous(limits = c(0, 100), breaks = seq(0,100,10),
+                     minor_breaks = FALSE) +
+  geom_text(aes(x = 30, y = 30), size = 4, label = "Detected") +
+  geom_text(aes(x = 30, y = 5), size = 4, label = "Not detected") +
+  theme(legend.position = "bottom",
+        legend.title = element_blank()) +
+  geom_point(data = lod_exp, pch = 21, size = 2)
+
+lods_plot
 
 ```
