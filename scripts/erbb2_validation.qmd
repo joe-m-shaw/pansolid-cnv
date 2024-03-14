@@ -745,7 +745,13 @@ csv_timestamp(table_erbb2_results_ngs_vs_ddpcr[[1]])
 
 ```
 
-The overall percent agreement between NGS and ddPCR is `r table_erbb2_results_ngs_vs_ddpcr[[2]]`%.
+The percentage agreements between NGS and ddPCR are:
+
+Overall percentage agreement: `r table_erbb2_results_ngs_vs_ddpcr[[2]]`%.
+
+Positive percentage agreement: `r table_erbb2_results_ngs_vs_ddpcr[[3]]`%.
+
+Negative percentage agreement: `r table_erbb2_results_ngs_vs_ddpcr[[4]]`%.
 
 ```{r}
 #| label: ddpcr-vs-pansolid-plot
@@ -771,9 +777,6 @@ ddpcr_cn_plot
 #| echo: FALSE
 
 discrepant_samples <- c(23001095, 23002258, 23008380)
-
-ddpcr_pansolid |> 
-  select(sample, labno_suffix_worksheet, max_region_fold_change) |> view()
 
 plot_fold_change_vs_ddpcr_copy_number <- ddpcr_pansolid |> 
   filter(!is.na(max_region_fold_change)) |> 
@@ -1444,6 +1447,8 @@ lod_target_results <- lod_files |>
 lod_erbb2 <- draw_lod_gene_plot(df = lod_target_results, chromosome = "17.0", gene = "ERBB2")
 
 lod_erbb2
+
+plot_timestamp(lod_erbb2)
 
 lod_braf <- draw_lod_gene_plot(df = lod_target_results, chromosome = "7.0", gene = "BRAF")
 
