@@ -27,11 +27,11 @@ source(here::here("functions/cnv_functions.R"))
 
 There are 41 samples which Louise and Ryan have extracted using the new QiaSymphony method on the following batches.
 
-- Extraction batch 79408 - 14 normal controls
+-   Extraction batch 79408 - 14 normal controls
 
-- Extraction batch 79411 - 14 normal controls
+-   Extraction batch 79411 - 14 normal controls
 
-- Extraction batches 78934 and 79310 - a mix of patient samples with known CNV status, normal controls and samples for other QiaSymphony validation projects.
+-   Extraction batches 78934 and 79310 - a mix of patient samples with known CNV status, normal controls and samples for other QiaSymphony validation projects.
 
 The easiest way to pull these out of DNA Database is using the "disease code" which is either 293 286 or 291 for development samples.
 
@@ -103,11 +103,11 @@ As there is space, we'll also add samples already extracted via the Cobas method
 
 I have picked 7 samples which I've also volume checked in the lab.
 
-- ERBB2 amplifications: 21019092, 21011525
+-   ERBB2 amplifications: 21019092, 21011525
 
-- EGFR amplifications: 23036360, 23039023
+-   EGFR amplifications: 23036360, 23039023
 
-- Normal results: 23019668, 23038129, 23034646
+-   Normal results: 23019668, 23038129, 23034646
 
 ```{r}
 #| label: select-cobas-samples
@@ -218,5 +218,13 @@ samples_for_v2 <- rbind(qs_for_v2_panel, cobas_for_v2_mod, seracare_info) |>
          method_name, note)
 
 csv_timestamp(samples_for_v2)
+
+unique(samples_for_v2$note)
+
+qiasymphony_normal_controls <- samples_for_v2 |> 
+  filter(note == "Normal control") |> 
+  select(-c(panel, enrichment, sample_type, nanodrop))
+  
+csv_timestamp(qiasymphony_normal_controls)
 
 ```
