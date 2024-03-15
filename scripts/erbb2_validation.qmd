@@ -21,8 +21,6 @@ The script should run with the files in the associated data folders, without req
 #| label: packages
 #| include: FALSE
 
-rm(list=ls())
-
 library(tidyverse)
 library(readxl)
 library(here)
@@ -442,18 +440,42 @@ csv_timestamp(table_neoplastic_cell_content)
 
 ```
 
+### Tumour Sources
+
+Initially I attempted to use the DISCODE field in DNA Database to identify the different tumour sources but this wasn't ideal (often multiple tumour sources map to the same disease code). Then I manually checked the scanned referral forms for each sample on DNA Database and collated the results in the labnos.csv file.
+
 ```{r}
 #| label: tumour-sources
 #| echo: FALSE
 
-erbb2_tumour_sources <- read_csv(here::here("data/dna_db_queries/erbb2_tumour_sources.csv"),
-                                    col_types = "cncc")
+erbb2_tissue_sources <- read_csv(here::here("data/erbb2_validation_labnos_and_tissue_sources.csv"),
+                                    col_types = "cc")
 
-table_tumour_sources <- erbb2_tumour_sources |> 
-   filter(labno %in% all_patient_samples & !labno %in% seracare_ids) |>
-  count(tumour_source) |> 
+cns <- c("glioma", "brain", "central nervous system", "meningioma", "glioblastoma",
+         "atsrocytoma")
+
+crc <- c("colon", "rectum", "gastrointestinal", "bowel", "adenocarcinoma", 
+         "liver - gastrointestinal primary")
+
+uterus <- c("fallopian tube", "uterine serous carcinoma", "uterus")
+
+erbb2_tissue_sources_coded <- erbb2_tissue_sources |> 
+  mutate(tissue_code = case_when(
+    
+    tissue_source %in% cns ~"central nervous system",
+    
+    tissue_source %in% crc ~"colorectal",
+    
+    tissue_source %in% uterus ~"uterus/fallopian tube",
+    
+    TRUE ~tissue_source)) |> 
+  filter(tissue_code != "seracare control")
+
+table_tumour_sources <- erbb2_tissue_sources_coded |> 
+   filter(labno %in% all_patient_samples) |>
+  count(tissue_code) |> 
   rename(Total = n,
-         "Tumour type" = tumour_source) |> 
+         "Tumour source" = tissue_code) |> 
   arrange(desc(Total))
 
 knitr::kable(table_tumour_sources)
@@ -561,10 +583,10 @@ Out of `r length(all_patient_samples)` samples, there were `r length(unique(erbb
 
 table_results_by_tumour_type <- erbb2_pansolid_region_results |> 
   filter(!labno %in% seracare_ids) |> 
-  left_join(erbb2_tumour_sources, by = "labno") |> 
-  count(tumour_source, pansolid_call) |> 
+  left_join(erbb2_tissue_sources_coded, by = "labno") |> 
+  count(tissue_code, pansolid_call) |> 
   arrange(desc(n)) |> 
-  pivot_wider(id_cols = tumour_source,
+  pivot_wider(id_cols = tissue_code,
               names_from = pansolid_call,
               values_from = n,
               values_fill = 0)
@@ -682,11 +704,11 @@ ggplot(pos_cnv_results_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
 #| echo: FALSE
 
 results_with_tumour_source <- gene_results_with_sd |> 
-  left_join(erbb2_tumour_sources, by = "labno")
+  left_join(erbb2_tissue_sources_coded, by = "labno")
 
 plot_fold_change_tumour_source <- ggplot(results_with_tumour_source, aes(x = reorder(gene, fold_change),
                                  y = fold_change)) +
-  geom_jitter(pch = 21, size = 2, alpha = 0.5, aes(fill = tumour_source)) +
+  geom_jitter(pch = 21, size = 2, alpha = 0.5, aes(fill = tissue_code)) +
   geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90),
@@ -695,10 +717,6 @@ plot_fold_change_tumour_source <- ggplot(results_with_tumour_source, aes(x = reo
   labs(x = "", y = "PanSolid Fold Change") 
 
 plot_fold_change_tumour_source
-
-low_fc_samples <- results_with_tumour_source |> 
-  filter(tumour_source == "Central nervous system" &
-           fold_change < 5)
   
 ```
 
@@ -941,7 +959,6 @@ The long calls varied from `r min(erbb2_long_calls$cnv_length)` to `r max(erbb2_
 ```{r}
 #| label: seracare-results
 #| echo: FALSE
-
 
 copies_3 <- make_fold_change_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002064"),
