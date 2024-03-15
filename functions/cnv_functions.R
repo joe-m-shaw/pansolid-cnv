@@ -139,9 +139,12 @@ format_repeat_table <- function(df) {
   
   rpt_table <- df |> 
     arrange(labno) |> 
-    select(labno_suffix, worksheet, gene, max_region_fold_change) |>  
-    mutate("ERBB2 fold change" = round(max_region_fold_change, 1)) |> 
-    select(-gene)
+    select(labno_suffix, worksheet, gene, max_region_fold_change,
+           st_dev_signal_adjusted_log2_ratios) |>  
+    mutate("ERBB2 fold change" = round(max_region_fold_change, 1),
+           "Signal adjusted noise" = round(st_dev_signal_adjusted_log2_ratios, 2)) |> 
+    select(-c(gene, max_region_fold_change,
+              st_dev_signal_adjusted_log2_ratios))
 
   return(rpt_table)
   
