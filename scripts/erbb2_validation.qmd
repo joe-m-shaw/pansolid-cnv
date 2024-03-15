@@ -1188,57 +1188,7 @@ calculate_pooled_sd(df = repeat_results,
                     target_col = max_region_fold_change,
                     round_places = 2)
 
-number_replicates <- length(unique(repeat_results$labno_suffix_worksheet))
-
-number_labnos <- length(unique(repeat_results$labno))
-
-make_variation_plot <- function(df = repeat_results, 
-                                y_axis,
-                                yaxis_label,
-                                fill_variable,
-                                threshold,
-                                ymin,
-                                ymax) {
-  
-  plot <- ggplot(df, aes(x = worksheet, y = {{ y_axis }})) +
-    geom_point(pch = 21, size = 3, 
-               aes(fill = {{ fill_variable }}), alpha = 0.4) +
-    scale_fill_manual(values = c(safe_red, safe_blue)) +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5),
-          panel.grid = element_blank()) +
-    geom_hline(yintercept = {{ threshold }}, linetype = "dashed") +
-    ylim({{ ymin }}, {{ ymax }}) +
-              facet_wrap(~labno) +
-              labs(x = "", y = yaxis_label,
-                   title = "Variation in repeated samples",
-                   subtitle = str_c("Number of samples: ", 
-                                    number_labnos, 
-                                    " Number of replicates: ",
-                                    number_replicates))
-  
-  return(plot)
-  
-}
-
-make_variation_plot(y_axis = max_region_fold_change, 
-                    fill_variable = pansolid_call,
-                    threshold = fold_change_threshold,
-                    yaxis_label = "ERBB2 region max fold change",
-                    ymin = -20,
-                    ymax = 50)
-
-make_variation_plot(y_axis = st_dev_signal_adjusted_log2_ratios,
-                    yaxis_label = "Standard deviation Log2Ratio",
-                    fill_variable = qc_check,
-                    threshold = std_dev_threshold,
-                    ymin = 0,
-                    ymax = 2)
-
 ```
-
-
-
 
 ```{r}
 #| label: repeat-plots
