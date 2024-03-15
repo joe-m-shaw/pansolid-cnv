@@ -12,24 +12,30 @@ source(here::here("functions/cnv_functions.R"))
 
 # ERBB2 lab numbers -----------------------------------------------------------------
 
-erbb2_labno_df <- read_csv(file = here::here("data/erbb2_validation_labnos.csv"),
+erbb2_labno_df <- read_csv(file = here::here("data/erbb2_validation_labnos_and_tissue_sources.csv"),
                            col_types = "c")
 
 erbb2_labnos <- erbb2_labno_df$labno
 
-erbb2_ws_df <- read_csv(file = here::here("data/erbb2_validation_pansolid_worksheets.csv"),
-                                          col_types = "c") |> 
-  mutate(pcr_id = parse_number(x  = worksheet))
-
-erbb2_ws <- erbb2_ws_df$pcr_id
-
 # Worksheet details -----------------------------------------------------------------
 
-erbb2_pansolid_ws_details <- dna_db_worksheets |> 
-  filter(pcrid %in% erbb2_ws) |> 
-  select(pcrid, date) |> 
-  collect() |> 
-  janitor::clean_names()
+worksheet_sample_list <- dna_db_pcr_records |> 
+  select(pcrid, sample, name) |> 
+  filter(sample %in% erbb2_labnos) |> 
+  collect()
+
+sample_worksheets <- unique(worksheet_sample_list$pcrid)
+
+sample_worksheet_info <- dna_db_worksheets |> 
+  filter(pcrid %in% sample_worksheets) |> 
+  select(pcrid, date, description, disease, test_type) |> 
+  collect()
+
+pansolid_str_variants <- grep(pattern = "solid", x = sample_worksheet_info$description,
+     ignore.case = TRUE, value = TRUE)
+
+erbb2_pansolid_ws_details  <- sample_worksheet_info |> 
+  filter(description %in% pansolid_str_variants & test_type == 19)
 
 dna_db_export(erbb2_pansolid_ws_details)
 
@@ -46,6 +52,12 @@ dna_db_export(erbb2_sample_extraction)
 erbb2_sample_types <- get_sample_tissue(erbb2_labnos) |> 
   select(labno, tissue_type)
 
+if(length(setdiff(erbb2_sample_types$labno, erbb2_labnos)) != 0) {
+  
+  stop("Not all samples have sample types")
+
+}
+
 dna_db_export(erbb2_sample_types)
 
 # Neoplastic cell content -----------------------------------------------------------
@@ -58,52 +70,6 @@ erbb2_ncc <- sample_tbl |>
   mutate(ncc_db = parse_ncc(comments))
 
 dna_db_export(erbb2_ncc)
-
-# Tumour source ---------------------------------------------------------------------
-
-erbb2_discodes <- sample_tbl |> 
-  select(labno, disease, disease_2, disease_3, 
-         disease_4) |> 
-  filter(labno %in% erbb2_labnos) |> 
-  collect() |> 
-  janitor::clean_names()
-
-erbb2_discodes_long <- erbb2_discodes |> 
-  pivot_longer(cols = -c(labno),
-               values_to = "discode") |> 
-  left_join(discode |> 
-              select(discode, disease), by = "discode") |> 
-  filter(!is.na(discode))
-
-erbb2_tumour_sources <- erbb2_discodes_long |> 
-  
-  # 168: Fusion NGS RNA Panel
-  # 215: DNA Store
-  filter(!discode %in% c(168, 215)) |>
-  
-  mutate(tumour_source = case_when(
-    
-    discode == 123 ~"Lung",
-    
-    discode %in% c(221, 222) ~"Central nervous system",
-    
-    discode %in% c(120, 209, 120,
-                   174, 161) ~"Colorectal"
-  ),
-  
-  tumour_source = case_when(
-    
-    labno == 21019092 ~"Lung",
-    
-    labno == 21011525 ~"Uterus",
-    
-    TRUE ~tumour_source)
-  
-  ) |> 
-  filter(!duplicated(labno)) |> 
-  select(-name)
-  
-dna_db_export(erbb2_tumour_sources)
 
 # Qiaseq core panel results ---------------------------------------------------------
 

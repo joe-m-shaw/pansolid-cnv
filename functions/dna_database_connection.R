@@ -65,9 +65,12 @@ ngiscodes <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
   janitor::clean_names() |> 
   collect()
   
-
 dna_db_worksheets <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                                      schema = "dbo",
                                                      table = "PCR_New"))|> 
   janitor::clean_names()
 
+dna_db_pcr_records <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
+                                schema = "dbo",
+                                table = "PCR_Records"))|> 
+  janitor::clean_names()
