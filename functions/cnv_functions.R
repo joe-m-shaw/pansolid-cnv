@@ -400,6 +400,21 @@ calculate_pooled_sd <- function(df, group = labno, target_col, round_places = 2)
   
 }
 
+
+
+add_extraction_and_pansolid_version <- function(df) {
+  
+  if (!"labno" %in% colnames(df) |
+      !"worksheet" %in% colnames(df)) { stop("Join columns not present")}
+  
+  output <- df |> 
+    left_join(pansolid_ws_details, by = "worksheet") |> 
+    left_join(sample_extraction_details, by = "labno")
+  
+  return(output)
+  
+}
+
 # Processed Excel functions ---------------------------------------------------------
 
 get_full_tbl <- function(file) {
