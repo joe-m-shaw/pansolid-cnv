@@ -1,4 +1,4 @@
-## ERBB2 Validation: DNA Database Queries
+## PanSolid CNV Validation: DNA Database Queries
 
 # Packages --------------------------------------------------------------------------
 
@@ -12,16 +12,16 @@ source(here::here("functions/cnv_functions.R"))
 
 # ERBB2 lab numbers -----------------------------------------------------------------
 
-erbb2_labno_df <- read_csv(file = here::here("data/erbb2_validation_labnos_and_tissue_sources.csv"),
+labno_df <- read_csv(file = here::here("data/cnv_validation_labnos_and_tissue_sources.csv"),
                            col_types = "c")
 
-erbb2_labnos <- erbb2_labno_df$labno
+sample_labnos <- labno_df$labno
 
 # Worksheet details -----------------------------------------------------------------
 
 worksheet_sample_list <- dna_db_pcr_records |> 
   select(pcrid, sample, name) |> 
-  filter(sample %in% erbb2_labnos) |> 
+  filter(sample %in% sample_labnos) |> 
   collect()
 
 sample_worksheets <- unique(worksheet_sample_list$pcrid)
@@ -31,51 +31,57 @@ sample_worksheet_info <- dna_db_worksheets |>
   select(pcrid, date, description, disease, test_type) |> 
   collect()
 
-pansolid_str_variants <- grep(pattern = "solid", x = sample_worksheet_info$description,
+pansolid_str_variants <- grep(pattern = "pan", x = sample_worksheet_info$description,
      ignore.case = TRUE, value = TRUE)
 
-erbb2_pansolid_ws_details  <- sample_worksheet_info |> 
+pansolid_ws_details  <- sample_worksheet_info |> 
   filter(description %in% pansolid_str_variants & test_type == 19)
 
-dna_db_export(erbb2_pansolid_ws_details)
+dna_db_export(pansolid_ws_details)
 
 # Extraction methods ----------------------------------------------------------------
 
-erbb2_sample_extraction <- get_extraction_method(erbb2_labnos) |> 
-  rename(extraction_method = method_name) |> 
-  select(labno, extraction_method)
+# These samples were extracted by Cobas and QiaSymphony on the same lab number
+# Only the Cobas extractions were used for PanSolid testing
 
-dna_db_export(erbb2_sample_extraction)
+dual_extracted_samples <- c("23037135", "23037279")
+
+sample_extraction_details <- get_extraction_method(sample_labnos) |> 
+  rename(extraction_method = method_name) |> 
+  select(labno, extraction_method) |> 
+  filter(!(labno %in% dual_extracted_samples & extraction_method == "QIAsymphony_DNA_FFPE"))
+
+dna_db_export(sample_extraction_details)
 
 # Sample types ----------------------------------------------------------------------
 
-erbb2_sample_types <- get_sample_tissue(erbb2_labnos) |> 
+sample_types <- get_sample_tissue(sample_labnos) |> 
   select(labno, tissue_type)
 
-if(length(setdiff(erbb2_sample_types$labno, erbb2_labnos)) != 0) {
+if(length(setdiff(sample_types$labno, sample_labnos)) != 0) {
   
   stop("Not all samples have sample types")
 
 }
 
-dna_db_export(erbb2_sample_types)
+dna_db_export(sample_types)
 
 # Neoplastic cell content -----------------------------------------------------------
 
-erbb2_ncc <- sample_tbl |> 
+sample_ncc <- sample_tbl |> 
   select(labno, comments) |> 
-  filter(labno %in% erbb2_labnos) |> 
+  filter(labno %in% sample_labnos) |> 
   collect() |> 
   janitor::clean_names() |> 
   mutate(ncc_db = parse_ncc(comments))
 
-dna_db_export(erbb2_ncc)
+dna_db_export(sample_ncc)
 
 # Qiaseq core panel results ---------------------------------------------------------
 
 core_result_info <- results_tbl |> 
   select(labno, test, testtype, genotype, genotype2, genocomm) |> 
-  filter(labno %in% erbb2_labnos) |> 
+  filter(labno %in% sample_labnos) |> 
   collect() |> 
   janitor::clean_names() |> 
   filter(test %in% grep(pattern = "Q.{2,4}seq\\s(Core|NGS\\sCore|Merged)", 
