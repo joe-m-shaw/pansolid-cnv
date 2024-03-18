@@ -103,22 +103,6 @@ csv_timestamp(table_ERBB2_Qiaseq_Primers)
 
 ```
 
-```{r}
-#| label: qiaseq-primer-lengths
-#| echo: FALSE
-
-plot_qiaseq_primer_length <- grch38_primer_coordinates |> 
-  mutate(size = end - start) |>  
-  ggplot(aes(x = size, y = )) +
-  geom_histogram(binwidth = 1) +
-  labs(title = "PanSolid primer lengths",
-       x = "Primer length (bp)", y = "Number of primers") +
-  theme_bw()
-
-plot_qiaseq_primer_length
-
-```
-
 ## Fold Change Threshold
 
 The theoretical limit of detection of the PanSolid pipeline varies with the neoplastic cell content of the sample and the number of copies of the target gene within the tumour cells.
@@ -174,21 +158,20 @@ clc_processed_data_path <- here::here("data/clc_processed_outputs")
 processed_files <- list.files(path = clc_processed_data_path, full.names = TRUE,
                               pattern = ".xlsx")
 
-pos_cnv_results <-  processed_files |> 
+pos_cnv_results_collated <-  processed_files |> 
   map(\(processed_files) read_pos_cnv_results(file = processed_files)) |> 
   list_rbind()
 
-all_amp_gene_results <- processed_files |> 
+all_amp_gene_results_collated <- processed_files |> 
   map(\(processed_files) read_all_amp_genes_results(file = processed_files)) |> 
   list_rbind() |> 
   mutate(pansolid_call = case_when(
     max_region_fold_change >= fold_change_threshold ~"amplification",
-    max_region_fold_change < fold_change_threshold ~"normal result"
-  ))
+    max_region_fold_change < fold_change_threshold ~"normal result"))
   
-stdev_results <-  processed_files |> 
+stdev_results_collated <-  processed_files |> 
   map(\(processed_files) read_stdev_results(file = processed_files)) |> 
-  list_rbind()
+  list_rbind() 
 
 ```
 
@@ -198,14 +181,32 @@ stdev_results <-  processed_files |>
 
 # Check all files have been read
 
-stopifnot(unique(pos_cnv_results$file) == processed_files)
+stopifnot(unique(pos_cnv_results_collated$file) == processed_files)
 
-stopifnot(stdev_results$file == processed_files)
+stopifnot(stdev_results_collated$file == processed_files)
 
-stopifnot(unique(all_amp_gene_results$file) == processed_files)
+stopifnot(unique(all_amp_gene_results_collated$file) == processed_files)
 
 # Check full gene table has been read
-stopifnot(nrow(all_amp_gene_results) / 9 == length(processed_files))
+stopifnot(nrow(all_amp_gene_results_collated) / 9 == length(processed_files))
+
+```
+
+```{r}
+#| label: remove-unnecessary-samples
+#| include: FALSE
+
+# Sample excluded because sample type is fresh frozen tissue
+excluded_samples <- c("23034646")
+
+pos_cnv_results <- pos_cnv_results_collated |>  
+  filter(!labno %in% excluded_samples)
+
+all_amp_gene_results <- all_amp_gene_results_collated |>  
+  filter(!labno %in% excluded_samples)
+
+stdev_results <- stdev_results_collated |>  
+  filter(!labno %in% excluded_samples)
 
 ```
 
@@ -253,55 +254,6 @@ setdiff(pos_cnv_table_amps$id_gene, all_amp_gene_results_table_amps$id_gene)
 ```
 
 ```{r}
-#| label: fold-change-threshold-check
-#| include: FALSE
-
-current_threshold <- 2.9
-
-proposed_threshold <- 2.8
-
-fc_threshold_df <- all_amp_gene_results |> 
-  mutate(result_current_threshold = case_when(
-    
-      max_region_fold_change >= current_threshold ~"amplification",
-      
-      max_region_fold_change < current_threshold ~"normal"),
-    
-    result_proposed_threshold = case_when(
-      
-      max_region_fold_change >= proposed_threshold ~"amplification",
-      
-      max_region_fold_change < proposed_threshold ~"normal"))
-
-fc_threshold_df_long <- fc_threshold_df |> 
-  pivot_longer(cols = c(result_current_threshold, result_proposed_threshold),
-               names_to = "category",
-               values_to = "result")
-
-fc_threshold_comparison <- fc_threshold_df_long |> 
-  group_by(gene, category) |> 
-  count(result) |> 
-  pivot_wider(id_cols = gene,
-              names_from = c(category, result),
-              values_from = n) |> 
-  mutate(difference_normal =  result_proposed_threshold_normal - result_current_threshold_normal,
-         difference_amp =  result_proposed_threshold_amplification - result_current_threshold_amplification)
-
-csv_timestamp(fc_threshold_comparison)
-
-fc_threshold_change_plot <- ggplot(all_amp_gene_results |> 
-         filter(max_region_fold_change > 0 & max_region_fold_change < 5), 
-       aes(x = gene, y = max_region_fold_change)) +
-  geom_jitter(pch = 21, size = 2, aes(fill = pansolid_call)) +
-  theme_bw() +
-  geom_hline(yintercept = current_threshold, linetype = "dashed") +
-  geom_hline(yintercept = proposed_threshold, linetype = "dashed") 
-
-fc_threshold_change_plot
-
-```
-
-```{r}
 #| label: load-clc-controls
 #| include: FALSE
 
@@ -323,37 +275,6 @@ seracare_ids <- c(24002060, 24002064, 24002067, 24002071)
 biobank_ids <- c(23033285, 23033290, 23033295, 23033303, 23033288)
 
 control_ids <- unique(clc_controls$labno)
-
-```
-
-```{r}
-#| label: sample-numbers
-#| echo: FALSE
-
-all_samples <- stdev_results |> 
-  filter(!duplicated(labno)) |> 
-  select(labno, worksheet) |> 
-  rbind(clc_controls |> 
-          select(labno, worksheet)) |> 
-  mutate(sample_group = case_when(
-    
-    labno %in% seracare_ids ~"SeraCare control samples",
-    
-    labno %in% biobank_ids ~"MCRC biobank samples also used as normal controls",
-    
-    labno %in% control_ids ~"MSI normal samples used as normal controls",
-    
-    TRUE ~"Samples tested using the CLC pipeline for ERBB2"))
-
-table_samples_tested <- all_samples |> 
-  count(sample_group) |> 
-  arrange(desc(n)) |> 
-  rename("Samples" = n,
-         "Description" = sample_group)
-
-knitr::kable(table_samples_tested)
-
-csv_timestamp(table_samples_tested)
 
 ```
 
@@ -380,6 +301,58 @@ table_sample_extractions <- erbb2_sample_extraction |>
 knitr::kable(table_sample_extractions)
 
 csv_timestamp(table_sample_extractions)
+
+```
+
+```{r}
+#| label: erbb2-worksheets
+#| include: FALSE
+
+erbb2_worksheets <- read_csv(here::here("data/dna_db_queries/erbb2_pansolid_ws_details.csv"),
+                             show_col_types = FALSE) |> 
+  mutate(pansolid_version = ifelse(pcrid == 139890, 2, 1),
+         worksheet = str_c("WS", pcrid))
+
+```
+
+```{r}
+#| label: sample-numbers
+#| echo: FALSE
+
+all_sample_details <- stdev_results |> 
+  filter(labno != "23000087") |> 
+  select(labno, suffix, worksheet) |> 
+  rbind(clc_controls |> 
+          select(labno, suffix, worksheet)) |> 
+  left_join(erbb2_sample_extraction, by = "labno") |> 
+  left_join(erbb2_worksheets, by = "worksheet") |> 
+  mutate(sample_group = case_when(
+    
+    labno %in% seracare_ids ~"SeraCare control samples",
+    
+    labno %in% biobank_ids ~"MCRC biobank samples also used as normal controls",
+    
+    labno %in% control_ids ~"MSI normal samples used as normal controls",
+    
+    TRUE ~"Samples tested using the CLC pipeline for ERBB2"))
+
+table_samples_tested <- all_sample_details |>
+  group_by(sample_group, extraction_method, pansolid_version) |> 
+  summarise(Samples = length(unique(labno)),
+            Replicates = n()) |> 
+  arrange(desc(Replicates))
+
+total_line <- data.frame(sample_group = "Total",
+                         extraction_method = "",
+                         pansolid_version = 0,
+                         Samples = sum(x$Samples),
+                         Replicates = sum(x$Replicates))
+
+table_samples_tested_totals <- rbind(table_samples_tested, total_line)
+
+knitr::kable(table_samples_tested_totals)
+
+csv_timestamp(table_samples_tested_totals)
 
 ```
 
@@ -484,14 +457,7 @@ csv_timestamp(table_tumour_sources)
 
 ```
 
-```{r}
-#| label: erbb2-worksheets
-#| include: FALSE
 
-erbb2_worksheets <- read_csv(here::here("data/dna_db_queries/erbb2_pansolid_ws_details.csv"),
-                             show_col_types = FALSE)
-
-```
 
 Samples were tested across `r nrow(erbb2_worksheets)` between `r min(erbb2_worksheets$date)` and `r max(erbb2_worksheets$date)`.
 
