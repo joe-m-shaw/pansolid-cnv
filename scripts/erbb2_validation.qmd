@@ -193,45 +193,16 @@ stopifnot(nrow(all_amp_gene_results_collated) / 9 == length(processed_files))
 ```
 
 ```{r}
-#| label: remove-unnecessary-samples
-#| include: FALSE
-
-# Sample excluded because sample type is fresh frozen tissue
-excluded_samples <- c("23034646")
-
-pos_cnv_results <- pos_cnv_results_collated |>  
-  filter(!labno %in% excluded_samples)
-
-all_amp_gene_results <- all_amp_gene_results_collated |>  
-  filter(!labno %in% excluded_samples)
-
-stdev_results <- stdev_results_collated |>  
-  filter(!labno %in% excluded_samples)
-
-```
-
-```{r}
-#| label: calls-per-gene
-#| echo: FALSE
-
-calls_per_gene <- pos_cnv_results |> 
-  filter(gene != "no positive calls") |> 
-  group_by(labno_suffix_worksheet) |> 
-  count(gene)
-
-```
-
-```{r}
 #| label: check-fold-change-threshold-application
 #| include: FALSE
 
-pos_cnv_table_amps <- pos_cnv_results |> 
+pos_cnv_table_amps <- pos_cnv_results_collated |> 
   filter(gene != "no positive calls") |> 
   select(labno_suffix_worksheet, gene) |> 
   arrange(labno_suffix_worksheet, gene) |> 
   mutate(id_gene = str_c(labno_suffix_worksheet, "_", gene))
 
-all_amp_gene_results_table_amps <- all_amp_gene_results |> 
+all_amp_gene_results_table_amps <- all_amp_gene_results_collated |> 
   filter(pansolid_call == "amplification") |> 
   select(labno_suffix_worksheet, gene) |> 
   arrange(labno_suffix_worksheet, gene) |> 
@@ -242,27 +213,28 @@ setdiff(pos_cnv_table_amps$id_gene, all_amp_gene_results_table_amps$id_gene)
 ```
 
 ```{r}
+#| label: identify-unnecessary-samples
+#| include: FALSE
+
+# 23034646: sample excluded because sample type is fresh frozen tissue
+# 23000087: not sure why included - has no ddPCR data
+
+excluded_samples <- c("23034646", "23000087")
+
+```
+
+### Load Control Information
+
+```{r}
 #| label: load-clc-controls
 #| include: FALSE
 
 control_files <- list.files(here::here("data/control_data/"),
                             full.names = TRUE, pattern = ".csv")
 
-clc_controls <- control_files |> 
+clc_controls_collated <- control_files |> 
   map(\(control_files) filename_to_df(file = control_files)) |> 
   list_rbind()
-
-```
-
-```{r}
-#| label: sample-type-identifiers
-#| include: FALSE
-
-seracare_ids <- c(24002060, 24002064, 24002067, 24002071)
-
-biobank_ids <- c(23033285, 23033290, 23033295, 23033303, 23033288)
-
-control_ids <- unique(clc_controls$labno)
 
 ```
 
@@ -277,10 +249,10 @@ The sample information from the DNA Database was extracted using the erbb2_valid
 sample_extraction_details <- read_csv(here::here("data/dna_db_queries/sample_extraction_details.csv"),
                                     col_types = "cc")
 
-all_patient_samples <- unique(stdev_results$labno)
+all_patient_samples <- unique(stdev_results_collated$labno)
 
 table_sample_extractions <- sample_extraction_details |> 
-  filter(labno %in% all_patient_samples) |> 
+  filter(labno %in% all_patient_samples &!labno %in% excluded_samples) |> 
   count(extraction_method) |> 
   arrange(desc(n)) |> 
   rename("Extraction method" = extraction_method,
@@ -304,47 +276,6 @@ pansolid_ws_details <- read_csv(here::here("data/dna_db_queries/pansolid_ws_deta
 ```
 
 ```{r}
-#| label: sample-numbers
-#| echo: FALSE
-
-all_sample_details <- stdev_results |> 
-  filter(labno != "23000087") |> 
-  select(labno, suffix, worksheet) |> 
-  rbind(clc_controls |> 
-          select(labno, suffix, worksheet)) |> 
-  left_join(sample_extraction_details, by = "labno") |> 
-  left_join(pansolid_ws_details, by = "worksheet") |> 
-  mutate(sample_group = case_when(
-    
-    labno %in% seracare_ids ~"SeraCare",
-    
-    labno %in% biobank_ids ~"MCRC biobank",
-    
-    labno %in% control_ids ~"MSI-normal",
-    
-    TRUE ~"Patient FFPE samples"))
-
-table_samples_tested <- all_sample_details |>
-  group_by(sample_group, extraction_method, pansolid_version) |> 
-  summarise(Samples = length(unique(labno)),
-            Replicates = n()) |> 
-  arrange(desc(Replicates))
-
-total_line <- data.frame(sample_group = "Total",
-                         extraction_method = "",
-                         pansolid_version = 0,
-                         Samples = sum(table_samples_tested$Samples),
-                         Replicates = sum(table_samples_tested$Replicates))
-
-table_samples_tested_totals <- rbind(table_samples_tested, total_line)
-
-knitr::kable(table_samples_tested_totals)
-
-csv_timestamp(table_samples_tested_totals)
-
-```
-
-```{r}
 #| label: sample-types
 #| echo: FALSE
 
@@ -352,7 +283,7 @@ sample_types <- read_csv(here::here("data/dna_db_queries/sample_types.csv"),
                                     col_types = "cc")
 
 table_sample_types <- sample_types |> 
-  filter(labno %in% all_patient_samples & !labno %in% seracare_ids) |> 
+  filter(labno %in% all_patient_samples & !labno %in% excluded_samples) |> 
   count(tissue_type) |> 
   arrange(desc(n)) |> 
   rename("Sample type" = tissue_type,
@@ -377,7 +308,7 @@ manual_ncc_check <- read_excel(here::here("data/manual_ncc_check.xlsx"),
 over_20_variants <- c(">30%", ">20%", "20-30%")
 
 ncc_collated <- sample_ncc |> 
-  filter(labno %in% all_patient_samples & !labno %in% seracare_ids) |>
+  filter(labno %in% all_patient_samples & !labno %in% excluded_samples) |>
   left_join(manual_ncc_check, by = "labno") |> 
   mutate(ncc = case_when(
     
@@ -400,8 +331,6 @@ knitr::kable(table_neoplastic_cell_content)
 csv_timestamp(table_neoplastic_cell_content)
 
 ```
-
-### Tumour Sources
 
 Initially I attempted to use the DISCODE field in DNA Database to identify the different tumour sources but this wasn't ideal (often multiple tumour sources map to the same disease code). Then I manually checked the scanned referral forms for each sample on DNA Database and collated the results in the cnv_validation_labnos_and_tissue_sources.csv file.
 
@@ -445,9 +374,92 @@ csv_timestamp(table_tumour_sources)
 
 ```
 
-
-
 Samples were tested across `r nrow(pansolid_ws_details)` between `r min(pansolid_ws_details$date)` and `r max(pansolid_ws_details$date)`.
+
+### Modify NGS data
+
+```{r}
+#| label: add-extraction-and-pansolid-version
+#| include: FALSE
+
+# Add on extraction and PanSolid version to each table, to allow for easier
+# analysis later on
+
+pos_cnv_results <- pos_cnv_results_collated |>  
+  filter(!labno %in% excluded_samples) |> 
+  add_extraction_and_pansolid_version()
+
+all_amp_gene_results <- all_amp_gene_results_collated |>  
+  filter(!labno %in% excluded_samples) |> 
+  add_extraction_and_pansolid_version()
+
+stdev_results <- stdev_results_collated |>  
+  filter(!labno %in% excluded_samples) |> 
+  add_extraction_and_pansolid_version()
+
+clc_controls <- clc_controls_collated |> 
+  add_extraction_and_pansolid_version()
+
+```
+
+```{r}
+#| label: sample-type-identifiers
+#| include: FALSE
+
+seracare_names <- unique(grep(pattern = "seraseq",
+                              x = stdev_results$patient_name, 
+                              ignore.case = TRUE, value = TRUE))
+
+biobank_names <- unique(grep(pattern = "biobank",
+                              x = clc_controls$patient_name, 
+                              ignore.case = TRUE, value = TRUE))
+
+control_ids <- unique(clc_controls$labno)
+
+```
+
+```{r}
+#| label: sample-numbers
+#| echo: FALSE
+
+all_sample_details <- stdev_results |> 
+  select(labno, suffix, worksheet, patient_name, pansolid_version, extraction_method) |> 
+  rbind(clc_controls |> 
+          select(labno, suffix, worksheet, patient_name, pansolid_version, extraction_method)) |> 
+  
+  mutate(sample_group = case_when(
+    
+    patient_name %in% seracare_names ~"SeraCare",
+    
+    patient_name %in% biobank_names ~"MCRC biobank",
+    
+    (labno %in% control_ids & !patient_name %in% biobank_names) ~"MSI-normal",
+    
+    TRUE ~"Patient FFPE samples"),
+    
+    # "FFPE" means EZ1 extraction - see DOC907
+    extraction_method = ifelse(extraction_method == "FFPE", "EZ1", extraction_method))
+
+table_samples_tested <- all_sample_details |>
+  group_by(sample_group, extraction_method, pansolid_version) |> 
+  summarise(Samples = length(unique(labno)),
+            Replicates = n()) |> 
+  arrange(desc(Replicates))
+
+total_line <- data.frame(sample_group = "Total",
+                         extraction_method = "",
+                         pansolid_version = 0,
+                         Samples = sum(table_samples_tested$Samples),
+                         Replicates = sum(table_samples_tested$Replicates))
+
+table_samples_tested_totals <- rbind(table_samples_tested, total_line)
+
+knitr::kable(table_samples_tested_totals)
+
+csv_timestamp(table_samples_tested_totals)
+
+```
+
 
 ### Load Droplet Digital PCR (ddPCR) Data
 
@@ -525,6 +537,17 @@ erbb2_pansolid_region_results <- all_amp_gene_results |>
 erbb2_pansolid_call_details <- pos_cnv_results |> 
   filter(gene == "ERBB2") |> 
   filter(!duplicated(labno))
+
+```
+
+```{r}
+#| label: calls-per-gene
+#| echo: FALSE
+
+calls_per_gene <- pos_cnv_results |> 
+  filter(gene != "no positive calls") |> 
+  group_by(labno_suffix_worksheet) |> 
+  count(gene)
 
 ```
 
@@ -660,7 +683,8 @@ ggplot(call_results_with_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
 #| echo: FALSE
 
 ddpcr_pansolid <- ddpcr_erbb2 |> 
-  filter(!labno %in% c("C3_5ng", "C3_20ng", "NTC")) |> 
+  filter(!labno %in% c("C3_5ng", "C3_20ng", "NTC") &
+           !labno %in% excluded_samples) |> 
   left_join(erbb2_pansolid_region_results, by = "labno") |> 
   mutate(pansolid_result = case_when(
     
@@ -774,7 +798,7 @@ plot_fold_change_vs_ddpcr_copy_number <- ddpcr_pansolid |>
   geom_point(data = ddpcr_pansolid |> 
                filter(sample %in% discrepant_samples), size = 3, fill = safe_red,
              pch = 21, alpha = 0.5) +
-  ggpubr::stat_cor(method = "pearson", label.x = 70, label.y = 20) 
+  ggpubr::stat_cor(method = "pearson", label.x =55, label.y = 20) 
 
 plot_fold_change_vs_ddpcr_copy_number
 
@@ -1238,6 +1262,8 @@ knitr::kable(table_pansolid_vs_core_panel_erbb2_results[[1]])
 csv_timestamp(table_pansolid_vs_core_panel_erbb2_results[[1]])
 
 ```
+
+## Quality Control
 
 ```{r}
 #| label: control-coverage
