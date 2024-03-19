@@ -26,6 +26,7 @@ library(readxl)
 library(here)
 library(ggpubr)
 library(patchwork)
+library(ggvenn)
 
 source(here::here("functions/cnv_functions.R"))
 
@@ -102,6 +103,39 @@ knitr::kable(table_ERBB2_Qiaseq_Primers)
 csv_timestamp(table_ERBB2_Qiaseq_Primers)
 
 ```
+
+```{r}
+#| label: primer-panel-venn-diagram
+#| echo: FALSE
+
+# Design file sent by Qiagen
+pansolid_v2 <- read_table(here::here("data/primers/QIAseq.CDHS-48608z-11752.primers3.txt"),
+           col_names = c("chromosome", "coordinate", "strand", "sequence"))
+
+# Design file from PanSolid validation document (DOC6024)
+pansolid_v1 <- read_table(here::here("data/primers/407C7BF1.txt"),
+           col_names = c("chromosome", "coordinate", "strand", "sequence"))
+
+core_panel <- read_table(here::here("data/primers/CDHS-17500Z-950.primer3.txt"),
+           col_names = c("chromosome", "coordinate", "strand", "sequence"))
+
+primer_comparison <- list("PanSolidv1.2" = pansolid_v1$sequence, 
+                   "PanSolidv2" = pansolid_v2$sequence,
+                   "Core" = core_panel$sequence)
+
+plot_primer_venn <- ggvenn(primer_comparison,
+                           fill_color = c("#0073C2FF", "#3399FF", "#3366CC"),
+                           text_size = 4,
+                           set_name_size = 4,
+                           show_percentage = FALSE,
+                           stroke_size = 0.5)
+
+plot_timestamp(plot_primer_venn)
+
+```
+
+
+
 
 ## Fold Change Threshold
 
