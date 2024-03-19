@@ -238,6 +238,22 @@ clc_controls_collated <- control_files |>
 
 ```
 
+```{r}
+#| label: qs-control-sample-types
+#| include: FALSE
+
+qs_tissue_sources <- read_excel(here::here("data/qiasymphony_normal_tissue_sources.xlsx"))
+
+table_qs_tissue_sources <- qs_tissue_sources |> 
+  count(tissue_source) |> 
+  arrange(desc(n)) |> 
+  rename("Tissue source" = tissue_source,
+         "Number of control samples" =n)
+
+csv_timestamp(table_qs_tissue_sources)
+
+```
+
 ### Load Sample Information
 
 The sample information from the DNA Database was extracted using the erbb2_validation_dna_db_queries.R script which uses an ODBC connection. The information was exported as csv files so that this Quarto document should render without the user needing an ODBC connection to the DNA Database.
@@ -376,6 +392,29 @@ csv_timestamp(table_tumour_sources)
 
 Samples were tested across `r nrow(pansolid_ws_details)` between `r min(pansolid_ws_details$date)` and `r max(pansolid_ws_details$date)`.
 
+```{r}
+#| label: sample-dna-concentrations
+#| echo: FALSE
+
+pansolid_submissions <- join_pansolid_submission_sheets()
+
+sample_dna_concentrations <- pansolid_submissions |> 
+  filter(labno %in% sample_tissue_sources$labno) |> 
+  filter(!duplicated(labno))
+
+ggplot(sample_dna_concentrations, aes(x = reorder(labno, desc(stock_qubit)), 
+                                      y = stock_qubit)) +
+  geom_point() +
+  theme(axis.text.x = element_blank())
+
+max(sample_dna_concentrations$stock_qubit)
+
+median(sample_dna_concentrations$stock_qubit)
+
+min(sample_dna_concentrations$stock_qubit)
+
+```
+
 ### Modify NGS data
 
 ```{r}
@@ -459,7 +498,6 @@ knitr::kable(table_samples_tested_totals)
 csv_timestamp(table_samples_tested_totals)
 
 ```
-
 
 ### Load Droplet Digital PCR (ddPCR) Data
 
@@ -688,7 +726,7 @@ ddpcr_pansolid <- ddpcr_erbb2 |>
   left_join(erbb2_pansolid_region_results, by = "labno") |> 
   mutate(pansolid_result = case_when(
     
-    labno %in% c(biobank_ids, control_ids) ~"pansolid normal control",
+    labno %in% control_ids ~"pansolid normal control",
     
     pansolid_call == "normal result" ~"pansolid normal result",
     
@@ -712,7 +750,7 @@ knitr::kable(ddpcr_pansolid_table)
 #| include: FALSE
 
 ddpcr_normal <- ddpcr_pansolid |> 
-  filter(labno %in% c(biobank_ids, control_ids))
+  filter(labno %in% control_ids)
 
 ```
 
@@ -794,11 +832,11 @@ plot_fold_change_vs_ddpcr_copy_number <- ddpcr_pansolid |>
   labs(x = "PanSolid Fold Change", y = "ddPCR Copy Number",
          caption = "Samples 23001095, 23002258 and 23008380 in red") +
   scale_y_continuous(limits = c(0, 85), breaks = c(0, 20, 40, 60, 80))  +
-  scale_x_continuous(limits = c(-20, 85), breaks = c(-20, 0, 20, 40, 60, 80)) +
+  scale_x_continuous(limits = c(-20, 60), breaks = c(-20, 0, 20, 40, 60)) +
   geom_point(data = ddpcr_pansolid |> 
                filter(sample %in% discrepant_samples), size = 3, fill = safe_red,
              pch = 21, alpha = 0.5) +
-  ggpubr::stat_cor(method = "pearson", label.x =55, label.y = 20) 
+  ggpubr::stat_cor(method = "pearson", label.x = 35, label.y = 20) 
 
 plot_fold_change_vs_ddpcr_copy_number
 
@@ -971,7 +1009,7 @@ plot_timestamp(plot_seracare_controls_erbb2_results, input_width = 16)
 
 ddpcr_pansolid_seracare_plot <- ddpcr_pansolid |> 
   mutate(pansolid_copy_number = max_region_fold_change * 2) |> 
-  filter(labno %in% seracare_ids) |> 
+  filter(patient_name %in% seracare_names) |> 
   filter(!is.na(pansolid_copy_number)) |> 
   ggplot(aes(x = pansolid_copy_number, y = cnv)) +
   geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
@@ -998,7 +1036,7 @@ seracare_erbb2_copies <- read_excel(path = here::here("data/seracare_erbb2_copie
                                                   "text"))
 
 man_v_seracare <- ddpcr_pansolid |> 
-  filter(labno %in% seracare_ids & labno != "24002060") |> 
+  filter(patient_name %in% seracare_names & labno != "24002060") |> 
   left_join(seracare_erbb2_copies, by = "labno") |> 
   mutate(`Additional ERBB2 copies (Manchester NGS)` = round((max_region_fold_change*2)-2, 2),
          `Additional ERBB2 copies (Manchester ddPCR)` = round(cnv - 2, 2),
@@ -1088,7 +1126,7 @@ repeat_summary_table
 ```
 
 ```{r}
-#| label: repeat-tables
+#| label: repeat-tables-and-pooled-sd
 #| echo: FALSE
 
 table_inter_run_repeat_results <- repeat_results |> 
@@ -1103,20 +1141,6 @@ table_intra_run_repeat_results <- repeat_results |>
                                                              fromLast = FALSE)) |> 
   format_repeat_table()
 
-knitr::kable(table_inter_run_repeat_results)
-
-knitr::kable(table_inter_run_repeat_results)
-
-csv_timestamp(table_intra_run_repeat_results)
-
-csv_timestamp(table_intra_run_repeat_results)
-
-```
-
-```{r}
-#| label: standard-deviation-of-repeats
-#| echo: FALSE
-
 calculate_pooled_sd(df = repeat_results, 
                     target_col = st_dev_signal_adjusted_log2_ratios,
                     round_places = 3)
@@ -1125,6 +1149,14 @@ calculate_pooled_sd(df = repeat_results,
 calculate_pooled_sd(df = repeat_results, 
                     target_col = max_region_fold_change,
                     round_places = 2)
+
+knitr::kable(table_inter_run_repeat_results)
+
+knitr::kable(table_intra_run_repeat_results)
+
+csv_timestamp(table_inter_run_repeat_results)
+
+csv_timestamp(table_intra_run_repeat_results)
 
 ```
 
