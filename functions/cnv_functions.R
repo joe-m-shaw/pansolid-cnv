@@ -964,3 +964,46 @@ draw_ddpcr_cnv_plot <- function(worksheet_df, y_max = 10) {
   return(output)
   
 }
+
+
+# PanSolid functions ----------------------------------------------------------------
+
+join_pansolid_submission_sheets <- function() {
+  
+  # This functions wrangles and binds the various submission sheets used for organising
+  # the PanSolid workflow
+  
+  pansolid_submission_2023 <- read_excel(path = here::here("data/dna_submission_sheets/DNA PanSolid QIAseq Submission Sheet 2023.xlsx")) |> 
+    janitor::clean_names() |> 
+    rename(stock_qubit = stock_qubit_ng_m_l,
+           labno = sample_id) |> 
+    mutate(submission_sheet = "2023") |> 
+    select(date_submitted, labno, sample_name,
+           panel, enrichment, stock_qubit, submission_sheet)
+  
+  pansolid_submission_2024 <- read_excel(path = here::here("data/dna_submission_sheets/PanSolid Submission sheet 2024.xlsx"),
+                                         sheet = "PanSolid samples") |> 
+    janitor::clean_names()  |> 
+    rename(stock_qubit = stock_qubit_ng_m_l,
+           labno = sample_id) |> 
+    mutate(submission_sheet = "2024") |> 
+    select(date_submitted, labno, sample_name,
+           panel, enrichment, stock_qubit, submission_sheet)
+  
+  # Pansolid began in 2022 so the initial runs were recorded on the Qiaseq spreadsheet
+  pansolid_submission_2022 <- read_excel(path = here::here("data/dna_submission_sheets/QIAseq DNA PanSolid Sample Submission 2022.xlsx")) |> 
+    janitor::clean_names() |> 
+    rename(date_submitted = date_sample_submitted,
+           stock_qubit = stock_qubit_ng_m_l,
+           labno = sample_id) |> 
+    mutate(submission_sheet = "2022") |> 
+    select(date_submitted, labno, sample_name,
+           panel, enrichment, stock_qubit, submission_sheet)
+  
+  output <- rbind(pansolid_submission_2024,
+                  pansolid_submission_2023,
+                  pansolid_submission_2022)
+  
+  return(output)
+  
+}
