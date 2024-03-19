@@ -134,9 +134,6 @@ plot_timestamp(plot_primer_venn)
 
 ```
 
-
-
-
 ## Fold Change Threshold
 
 The theoretical limit of detection of the PanSolid pipeline varies with the neoplastic cell content of the sample and the number of copies of the target gene within the tumour cells.
@@ -247,13 +244,13 @@ setdiff(pos_cnv_table_amps$id_gene, all_amp_gene_results_table_amps$id_gene)
 ```
 
 ```{r}
-#| label: identify-unnecessary-samples
+#| label: identify-unnecessary-cases
 #| include: FALSE
 
 # 23034646: sample excluded because sample type is fresh frozen tissue
 # 23000087: not sure why included - has no ddPCR data
 
-excluded_samples <- c("23034646", "23000087")
+excluded_cases <- c("23034646", "23000087")
 
 ```
 
@@ -292,6 +289,14 @@ csv_timestamp(table_qs_tissue_sources)
 
 The sample information from the DNA Database was extracted using the erbb2_validation_dna_db_queries.R script which uses an ODBC connection. The information was exported as csv files so that this Quarto document should render without the user needing an ODBC connection to the DNA Database.
 
+I have used the following convention to describe different kinds of data:
+
+ - **Sample**: generic term for any DNA that was tested during this validation. Samples can be cases, controls or reference materials.
+ - **Case**: an FFPE sample from a patient with cancer
+ - **Control**: any sample used as a normal reference for CNV calling. This includes samples with normal microsatellite instability results, samples from the Manchester Cancer Research Centre biobank and samples of normal tissue.
+ - **Reference material**: artificial samples of mixed cell-line and plasmid vector DNA purchased from the company SeraCare.
+ 
+
 ```{r}
 #| label: extraction-types
 #| echo: FALSE
@@ -299,10 +304,10 @@ The sample information from the DNA Database was extracted using the erbb2_valid
 sample_extraction_details <- read_csv(here::here("data/dna_db_queries/sample_extraction_details.csv"),
                                     col_types = "cc")
 
-all_patient_samples <- unique(stdev_results_collated$labno)
+all_cases <- unique(stdev_results_collated$labno)
 
 table_sample_extractions <- sample_extraction_details |> 
-  filter(labno %in% all_patient_samples &!labno %in% excluded_samples) |> 
+  filter(labno %in% all_cases &!labno %in% excluded_cases) |> 
   count(extraction_method) |> 
   arrange(desc(n)) |> 
   rename("Extraction method" = extraction_method,
@@ -332,16 +337,16 @@ pansolid_ws_details <- read_csv(here::here("data/dna_db_queries/pansolid_ws_deta
 sample_types <- read_csv(here::here("data/dna_db_queries/sample_types.csv"),
                                     col_types = "cc")
 
-table_sample_types <- sample_types |> 
-  filter(labno %in% all_patient_samples & !labno %in% excluded_samples) |> 
+table_case_types <- sample_types |> 
+  filter(labno %in% all_cases & !labno %in% excluded_cases) |> 
   count(tissue_type) |> 
   arrange(desc(n)) |> 
   rename("Sample type" = tissue_type,
          "Samples" = n)
 
-knitr::kable(table_sample_types)
+knitr::kable(table_case_types)
 
-csv_timestamp(table_sample_types)
+csv_timestamp(table_case_types)
 
 ```
 
@@ -358,7 +363,7 @@ manual_ncc_check <- read_excel(here::here("data/manual_ncc_check.xlsx"),
 over_20_variants <- c(">30%", ">20%", "20-30%")
 
 ncc_collated <- sample_ncc |> 
-  filter(labno %in% all_patient_samples & !labno %in% excluded_samples) |>
+  filter(labno %in% all_cases & !labno %in% excluded_cases) |>
   left_join(manual_ncc_check, by = "labno") |> 
   mutate(ncc = case_when(
     
@@ -412,7 +417,7 @@ sample_tissue_sources_coded <- sample_tissue_sources |>
   filter(tissue_code != "seracare control")
 
 table_tumour_sources <- sample_tissue_sources_coded |> 
-   filter(labno %in% all_patient_samples) |>
+   filter(labno %in% all_cases) |>
   count(tissue_code) |> 
   rename(Total = n,
          "Tumour source" = tissue_code) |> 
@@ -459,15 +464,15 @@ min(sample_dna_concentrations$stock_qubit)
 # analysis later on
 
 pos_cnv_results <- pos_cnv_results_collated |>  
-  filter(!labno %in% excluded_samples) |> 
+  filter(!labno %in% excluded_cases) |> 
   add_extraction_and_pansolid_version()
 
 all_amp_gene_results <- all_amp_gene_results_collated |>  
-  filter(!labno %in% excluded_samples) |> 
+  filter(!labno %in% excluded_cases) |> 
   add_extraction_and_pansolid_version()
 
 stdev_results <- stdev_results_collated |>  
-  filter(!labno %in% excluded_samples) |> 
+  filter(!labno %in% excluded_cases) |> 
   add_extraction_and_pansolid_version()
 
 clc_controls <- clc_controls_collated |> 
@@ -623,7 +628,7 @@ calls_per_gene <- pos_cnv_results |>
 
 ```
 
-Out of `r length(all_patient_samples)` samples, there were `r length(unique(erbb2_pansolid_call_details$labno))` with ERBB2 amplifications detected, with fold changes ranging from `r round(min(erbb2_pansolid_call_details$fold_change), 1)` to `r round(max(erbb2_pansolid_call_details$fold_change), 1)`.
+Out of `r length(all_cases)` samples, there were `r length(unique(erbb2_pansolid_call_details$labno))` with ERBB2 amplifications detected, with fold changes ranging from `r round(min(erbb2_pansolid_call_details$fold_change), 1)` to `r round(max(erbb2_pansolid_call_details$fold_change), 1)`.
 
 ```{r}
 #| label: calls-by-sample-type
@@ -756,7 +761,7 @@ ggplot(call_results_with_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
 
 ddpcr_pansolid <- ddpcr_erbb2 |> 
   filter(!labno %in% c("C3_5ng", "C3_20ng", "NTC") &
-           !labno %in% excluded_samples) |> 
+           !labno %in% excluded_cases) |> 
   left_join(erbb2_pansolid_region_results, by = "labno") |> 
   mutate(pansolid_result = case_when(
     
