@@ -256,6 +256,8 @@ excluded_cases <- c("23034646", "23000087")
 
 ### Load Control Information
 
+To make sure I am identifying the correct samples as "controls" I have exported the coverage files for the controls from the CLC pipeline.
+
 ```{r}
 #| label: load-clc-controls
 #| include: FALSE
@@ -263,21 +265,31 @@ excluded_cases <- c("23034646", "23000087")
 cobas_control_files <- list.files(here::here("data/controls/cobas_control_data/"),
                             full.names = TRUE, pattern = ".csv")
 
-cobas_controls_collated <- cobas_control_files |> 
+cobas_control_info <- cobas_control_files |> 
   map(\(cobas_control_files) filename_to_df(file = cobas_control_files)) |> 
-  list_rbind()
+  list_rbind() |> 
+  mutate(sample_group = "cobas control",
+         sample_subgroup = case_when(
+           
+           patient_name %in% grep(pattern = "biobank", x = patient_name,
+                                  ignore.case = TRUE, value = TRUE) ~"MCRC control",
+           
+           TRUE ~"MSI-normal control"))
 
-qiasymphony_controls_collated <- read_csv(here::here("data/controls/qiasymphony_controls.csv"),
-                                          col_types = "c") |> 
-  mutate(worksheet = "WS139890")
+qiasymphony_control_files <- list.files(here::here("data/controls/qiasymphony_control_data/"),
+                                       full.names = TRUE, pattern = ".csv")
+
+qiasymphony_control_info <- qiasymphony_control_files |> 
+  map(\(qiasymphony_control_files) filename_to_df(file = qiasymphony_control_files)) |> 
+  list_rbind() |> 
+  mutate(sample_group = "QIAsymphony control",
+         sample_subgroup = "QIAsymphony control")
 
 ```
 
 ```{r}
 #| label: qs-control-sample-types
-#| include: FALSE
-
-qs_tissue_sources <- read_excel(here::here("data/qiasymphony_normal_tissue_sources.xlsx"))
+#| eval: FALSE
 
 table_qs_tissue_sources <- qs_tissue_sources |> 
   count(tissue_source) |> 
@@ -308,19 +320,6 @@ I have used the following convention to describe different kinds of data:
 sample_extraction_details <- read_csv(here::here("data/dna_db_queries/sample_extraction_details.csv"),
                                     col_types = "cc")
 
-all_cases <- unique(stdev_results_collated$labno)
-
-table_sample_extractions <- sample_extraction_details |> 
-  filter(labno %in% all_cases &!labno %in% excluded_cases) |> 
-  count(extraction_method) |> 
-  arrange(desc(n)) |> 
-  rename("Extraction method" = extraction_method,
-         "Samples" = n)
-
-knitr::kable(table_sample_extractions)
-
-csv_timestamp(table_sample_extractions)
-
 ```
 
 ```{r}
@@ -329,7 +328,6 @@ csv_timestamp(table_sample_extractions)
 
 sample_gender <- read_csv(here::here("data/dna_db_queries/sample_gender.csv"),
                           col_types = "cc")
-
 
 ```
 
@@ -352,17 +350,6 @@ pansolid_ws_details <- read_csv(here::here("data/dna_db_queries/pansolid_ws_deta
 sample_types <- read_csv(here::here("data/dna_db_queries/sample_types.csv"),
                                     col_types = "cc")
 
-table_case_types <- sample_types |> 
-  filter(labno %in% all_cases & !labno %in% excluded_cases) |> 
-  count(tissue_type) |> 
-  arrange(desc(n)) |> 
-  rename("Sample type" = tissue_type,
-         "Samples" = n)
-
-knitr::kable(table_case_types)
-
-csv_timestamp(table_case_types)
-
 ```
 
 ```{r}
@@ -378,7 +365,6 @@ manual_ncc_check <- read_excel(here::here("data/manual_ncc_check.xlsx"),
 over_20_variants <- c(">30%", ">20%", "20-30%")
 
 ncc_collated <- sample_ncc |> 
-  filter(labno %in% all_cases & !labno %in% excluded_cases) |>
   left_join(manual_ncc_check, by = "labno") |> 
   mutate(ncc = case_when(
     
@@ -389,16 +375,6 @@ ncc_collated <- sample_ncc |>
       manual_ncc == "10-20%" ~"10-20%",
     
     TRUE ~"No NCC provided"))
-
-table_neoplastic_cell_content <- ncc_collated |> 
-  count(ncc) |> 
-  arrange(desc(n)) |> 
-  rename("NCC (%)" = ncc,
-         "Samples" = n)
-
-knitr::kable(table_neoplastic_cell_content)
-
-csv_timestamp(table_neoplastic_cell_content)
 
 ```
 
@@ -430,18 +406,6 @@ sample_tissue_sources_coded <- sample_tissue_sources |>
     
     TRUE ~tissue_source)) 
 
-table_tumour_sources <- sample_tissue_sources_coded |> 
-  filter(labno %in% all_cases) |>
-  filter(tissue_code != "seracare control") |> 
-  count(tissue_code) |> 
-  rename(Total = n,
-         "Tumour source" = tissue_code) |> 
-  arrange(desc(Total))
-
-knitr::kable(table_tumour_sources)
-
-csv_timestamp(table_tumour_sources)
-
 ```
 
 Samples were tested across `r nrow(pansolid_ws_details)` between `r min(pansolid_ws_details$date)` and `r max(pansolid_ws_details$date)`.
@@ -458,7 +422,17 @@ sample_dna_concentrations <- pansolid_submissions |>
 
 ```
 
-### Modify NGS data
+```{r}
+#| label: nhs-numbers
+#| include: FALSE
+
+sample_nhs_no <- read_csv(here::here("data/dna_db_queries/sample_nhs_no.csv"),
+                          col_types = "cc")
+
+```
+
+
+### Add DNA Database Information
 
 ```{r}
 #| label: add-dna-db-information
@@ -476,92 +450,54 @@ stdev_results <- stdev_results_collated |>
   filter(!labno %in% excluded_cases) |> 
   add_dna_db_info()
 
-cobas_controls <- cobas_controls_collated |> 
+cobas_controls <- cobas_control_info |> 
   add_dna_db_info()
 
-qiasymphony_controls <- qiasymphony_controls_collated |> 
+qiasymphony_controls <- qiasymphony_control_info |> 
   add_dna_db_info()
-
 
 ```
 
-```{r}
-#| label: sample-type-identifiers
-#| include: FALSE
-
-seracare_names <- unique(grep(pattern = "seraseq",
-                              x = stdev_results$patient_name, 
-                              ignore.case = TRUE, value = TRUE))
-
-biobank_names <- unique(grep(pattern = "biobank",
-                              x = cobas_controls_collated$patient_name, 
-                              ignore.case = TRUE, value = TRUE))
-
-cobas_control_ids <- unique(cobas_controls_collated$labno)
-
-qiasymphony_control_ids <- unique(qiasymphony_controls$labno)
-
-```
+### Make Sample Tables for Validation Document
 
 ```{r}
 #| label: sample-numbers
 #| echo: FALSE
 
-seracare_ids <- c(24002060, 24002064, 24002067, 24002071)
-
-biobank_ids <- c(23033285, 23033290, 23033295, 23033303, 23033288)
-
-all_sample_details <- stdev_results |> 
-  select(labno, worksheet, pansolid_version, extraction_method) |> 
-  rbind(cobas_controls |> 
-          select(labno, worksheet, pansolid_version, extraction_method)) |> 
-  rbind(qiasymphony_controls |> 
-          select(labno, worksheet, pansolid_version, extraction_method)) |> 
+case_details_with_groups <- stdev_results |> 
+  mutate(sample_group = "case",
+         sample_subgroup = case_when(
+           
+           patient_name %in% grep(pattern = "seraseq", x = patient_name,
+                                  ignore.case = TRUE, value = TRUE) ~"SeraCare reference material",
+           
+           TRUE ~"Patient FFPE sample"))
   
-  mutate(sample_group = case_when(
-    
-    labno %in% seracare_ids ~"SeraCare",
-    
-    labno %in% cobas_control_ids & labno %in% biobank_ids ~"Cobas MCRC biobank control",
-    
-    labno %in% cobas_control_ids & !labno %in% biobank_ids ~"Cobas MSI-normal control",
-    
-    labno %in% qiasymphony_control_ids ~"Qiasymphony control",
-    
-    TRUE ~"Patient case"),
-    
-    # "FFPE" means EZ1 extraction - see DOC907
-    extraction_method = ifelse(extraction_method == "FFPE", "EZ1", extraction_method))
-
-table_samples_tested <- all_sample_details |>
-  filter(sample_group %in% c("SeraCare", "Patient case")) |> 
-  group_by(sample_group, extraction_method, pansolid_version) |> 
+table_cases_tested <- case_details_with_groups |>
+  group_by(sample_subgroup, extraction_method, pansolid_version) |> 
   summarise(Samples = length(unique(labno)),
             Replicates = n()) |> 
-  arrange(sample_group, extraction_method, desc(Replicates))
+  arrange(sample_subgroup, extraction_method, desc(Replicates))
 
-total_line <- data.frame(sample_group = "Total",
+cases_total_line <- data.frame(sample_group = "Total",
                          extraction_method = "",
                          pansolid_version = 0,
-                         Samples = sum(table_samples_tested$Samples),
-                         Replicates = sum(table_samples_tested$Replicates))
+                         Samples = sum(table_cases_tested$Samples),
+                         Replicates = sum(table_cases_tested$Replicates))
 
-table_samples_tested_totals <- rbind(table_samples_tested, total_line)
+table_cases_tested_totals <- rbind(table_cases_tested, cases_total_line)
 
-knitr::kable(table_samples_tested_totals)
+table_controls_tested <- rbind(cobas_controls, qiasymphony_controls) |>
+  # "FFPE" means EZ1 extraction - see DOC907
+  mutate(extraction_method = ifelse(extraction_method == "FFPE", "EZ1", extraction_method)) |> 
+  group_by(sample_subgroup, extraction_method, pansolid_version) |> 
+  summarise(Samples = length(unique(labno))) |> 
+  arrange(sample_subgroup, extraction_method)
 
-table_controls_tested <- all_sample_details |>
-  filter(!sample_group %in% c("SeraCare", "Patient case")) |> 
-  group_by(sample_group, extraction_method, pansolid_version) |> 
-  summarise(Samples = length(unique(labno)),
-            Replicates = n()) |> 
-  arrange(sample_group, extraction_method, desc(Replicates))
-
-total_control_line <- data.frame(sample_group = "Total",
+total_control_line <- data.frame(sample_subgroup = "Total",
                          extraction_method = "",
                          pansolid_version = 0,
-                         Samples = sum(table_controls_tested$Samples),
-                         Replicates = sum(table_controls_tested$Replicates))
+                         Samples = sum(table_controls_tested$Samples))
 
 table_controls_tested_totals <- rbind(table_controls_tested, total_control_line)
 
@@ -570,6 +506,46 @@ knitr::kable(table_controls_tested_totals)
 csv_timestamp(table_controls_tested_totals)
 
 csv_timestamp(table_samples_tested_totals)
+
+```
+
+```{r}
+#| label: sample-info-tables-export
+#| eval: FALSE
+
+table_sample_extractions <- sample_extraction_details |> 
+  filter(labno %in% stdev_results$labno) |> 
+  count(extraction_method) |> 
+  arrange(desc(n)) |> 
+  rename("Extraction method" = extraction_method,
+         "Samples" = n)
+
+knitr::kable(table_sample_extractions)
+
+csv_timestamp(table_sample_extractions)
+
+table_neoplastic_cell_content <- ncc_collated |> 
+  filter(labno %in% stdev_results$labno) |> 
+  count(ncc) |> 
+  arrange(desc(n)) |> 
+  rename("NCC (%)" = ncc,
+         "Samples" = n)
+
+knitr::kable(table_neoplastic_cell_content)
+
+csv_timestamp(table_neoplastic_cell_content)
+
+table_tumour_sources <- sample_tissue_sources_coded |> 
+  filter(labno %in% stdev_results$labno) |> 
+  filter(tissue_code != "seracare control") |> 
+  count(tissue_code) |> 
+  rename(Total = n,
+         "Tumour source" = tissue_code) |> 
+  arrange(desc(Total))
+
+knitr::kable(table_tumour_sources)
+
+csv_timestamp(table_tumour_sources)
 
 ```
 
@@ -588,7 +564,9 @@ ws138579 <- read_biorad_csv("WS138579_analysed.csv")
 ws138765 <- read_biorad_csv("WS138765_analysed.csv")
 
 ddpcr_erbb2 <- rbind(ws138579, ws138765) |> 
-  filter(target_type == "Ch1Unknown")
+  filter(target_type == "Ch1Unknown") |>
+  # Add NHS number for comparison with PanSolidv2 in later step
+  left_join(sample_nhs_no, by = "labno")
 
 ```
 
@@ -653,11 +631,11 @@ erbb2_pansolid_call_details <- pos_cnv_results |>
 ```
 
 ```{r}
-#| label: calls-per-gene
+#| label: erbb2-calls-per-sample
 #| echo: FALSE
 
-calls_per_gene <- pos_cnv_results |> 
-  filter(gene != "no positive calls") |> 
+erbb2_cases_per_sample <- pos_cnv_results |> 
+  filter(gene == "ERBB2") |> 
   group_by(labno_suffix_worksheet) |> 
   count(gene)
 
@@ -665,57 +643,38 @@ calls_per_gene <- pos_cnv_results |>
 
 Out of `r length(all_cases)` samples, there were `r length(unique(erbb2_pansolid_call_details$labno))` with ERBB2 amplifications detected, with fold changes ranging from `r round(min(erbb2_pansolid_call_details$fold_change), 1)` to `r round(max(erbb2_pansolid_call_details$fold_change), 1)`.
 
-```{r}
-#| label: calls-by-pansolid-version
-#| include: FALSE
-
-erbb2_pansolid_region_results |> 
-  filter(!labno %in% seracare_ids) |> 
-  group_by(pansolid_version) |> 
-  count(pansolid_call)
-
-
-
-
-erbb2_pansolid_region_results |> 
-  filter(pansolid_version == 2) |>
-  select(-file) |>  view()
-
-colnames(ddpcr_pansolid)
-
-ddpcr_pansolid |> 
-  select(labno, patient_name, gene, cnv, max_region_fold_change, pansolid_call) |>  view()
-
-
-```
+In the cases where an ERBB2 amplification was called, the number of CNV calls in ERBB2 ranged from `r max(erbb2_cases_per_sample$n)` to `r min(erbb2_cases_per_sample$n)`.
 
 ```{r}
-
-all_amp_gene_results |> 
-  filter(pansolid_version == 2 & extraction_method == "COBAS" & gene == "ERBB2") |>  
-  select(-file) |>  view()
-
-
-
-
-```
-
-
-
-```{r}
-#| label: calls-by-sample-type
+#| label: calls-by-tumour-type
 #| eval: FALSE
 #| include: FALSE
 
-table_results_by_tumour_type <- erbb2_pansolid_region_results |> 
-  filter(!labno %in% seracare_ids) |> 
-  left_join(sample_tissue_sources_coded, by = "labno") |> 
+table_cobas_results_by_tumour_type <- erbb2_pansolid_region_results |> 
+  filter(extraction_method == "COBAS") |> 
   count(tissue_code, pansolid_call) |> 
   arrange(desc(n)) |> 
   pivot_wider(id_cols = tissue_code,
               names_from = pansolid_call,
               values_from = n,
-              values_fill = 0)
+              values_fill = 0) |> 
+  rename("Tumour type" = tissue_code, 
+         "ERBB2 normal" = "normal result",
+         "ERBB2 amplification" = amplification) |> 
+  select("Tumour type", "ERBB2 normal", "ERBB2 amplification")
+
+table_qiasymphony_results_by_tumour_type <- erbb2_pansolid_region_results |> 
+  filter(extraction_method == "QIAsymphony_DNA_FFPE") |> 
+  count(tissue_code, pansolid_call) |> 
+  arrange(desc(n)) |> 
+  pivot_wider(id_cols = tissue_code,
+              names_from = pansolid_call,
+              values_from = n,
+              values_fill = 0) |> 
+  rename("Tumour type" = tissue_code, 
+         "ERBB2 normal" = "normal result",
+         "ERBB2 amplification" = amplification) |> 
+  select("Tumour type", "ERBB2 normal", "ERBB2 amplification")
 
 knitr::kable(table_results_by_tumour_type)
 
@@ -723,113 +682,15 @@ csv_timestamp(table_results_by_tumour_type)
 
 ```
 
-```{r}
-#| label: fold-change-vs-stdev
-#| echo: FALSE
 
-gene_results_with_sd <- all_amp_gene_results |> 
-  pivot_longer(cols = c(max_region_fold_change, min_region_fold_change),
-               names_to = "category",
-               values_to = "fold_change") |> 
-  left_join(stdev_results |> 
-              select(labno_suffix_worksheet, 
-                     st_dev_signal_adjusted_log2_ratios,
-                     st_dev_signal_adjusted_fold_change), by = "labno_suffix_worksheet")
-
-fc_max_limit <- max(gene_results_with_sd$fold_change) + 5
-
-fc_min_limit <- min(gene_results_with_sd$fold_change) - 5
-
-sd_max_limit <- max(gene_results_with_sd$st_dev_signal_adjusted_log2_ratios) + 0.4
-
-sd_min_limit <- min(gene_results_with_sd$st_dev_signal_adjusted_log2_ratios) - 0.4
-
-ggplot(gene_results_with_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
-                                          y = fold_change)) +
-    geom_point(size = 3, pch = 21, alpha = 0.4) +
-    theme_bw() +
-    geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
-  geom_vline(xintercept = 1, linetype = "dashed") +
-    xlim(sd_min_limit, sd_max_limit) +
-    ylim(fc_min_limit, fc_max_limit) +
-  geom_point(data = gene_results_with_sd |> 
-               filter(fold_change >= 2.9), fill = safe_red, size = 3,
-             pch = 21) +
-  facet_wrap(~gene)
-
-
-```
-
-```{r}
-#| label: call-size-vs-stdev
-#| eval: FALSE
-#| include: FALSE
-
-pos_cnv_results_sd <- pos_cnv_results |> 
-  filter(gene != "no positive calls") |> 
-  left_join(stdev_results |> 
-              select(labno_suffix_worksheet, 
-                     st_dev_signal_adjusted_log2_ratios,
-                     st_dev_signal_adjusted_fold_change), by = "labno_suffix_worksheet")
-  
-ggplot(pos_cnv_results_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
-                               y = cnv_length)) +
-  geom_point(pch = 21, size = 3, alpha = 0.5) +
-  theme_bw() +
-  geom_vline(xintercept = 1, linetype = "dashed") +
-  geom_hline(yintercept = 1000000, linetype = "dashed") +
-  facet_wrap(~gene) +
-  scale_y_log10(limits = c(1000, 1000000000)) +
-  xlim(0, 1.25) +
-  labs(y = "CNV length (bp)")
-
-```
-
-```{r}
-#| label: fc-by-gene
-#| echo: FALSE
-
-results_with_tumour_source <- gene_results_with_sd |> 
-  left_join(sample_tissue_sources_coded, by = "labno")
-
-plot_fold_change_tumour_source <- ggplot(results_with_tumour_source, aes(x = reorder(gene, fold_change),
-                                 y = fold_change)) +
-  geom_jitter(pch = 21, size = 2, alpha = 0.5, aes(fill = tissue_code)) +
-  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = "bottom") +
-  scale_y_continuous(limits = c(-20, 80), breaks = seq(-20, 80, 10)) +
-  labs(x = "", y = "PanSolid Fold Change") 
-
-plot_fold_change_tumour_source
-  
-```
-
-```{r}
-#| label: calls-vs-stdev
-#| echo: FALSE
-
-call_results_with_sd <- pos_cnv_results |> 
-  left_join(stdev_results |> 
-              select(labno_suffix_worksheet, 
-                     st_dev_signal_adjusted_log2_ratios,
-                     st_dev_signal_adjusted_fold_change), by = "labno_suffix_worksheet")
-
-ggplot(call_results_with_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
-                                          y = fold_change)) +
-  geom_point(size = 2, pch = 21, alpha = 0.6) +
-  theme_bw() +
-  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
-  facet_wrap(~gene)
-
-```
 
 ## ERBB2 NGS vs ddPCR
 
 ```{r}
 #| label: ddpcr-vs-pansolid
 #| echo: FALSE
+
+colnames(erbb2_pansolid_region_results)
 
 ddpcr_pansolid <- ddpcr_erbb2 |> 
   filter(!labno %in% c("C3_5ng", "C3_20ng", "NTC") &

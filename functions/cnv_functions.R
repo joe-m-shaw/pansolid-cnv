@@ -56,7 +56,7 @@ filename_regex <- regex(
   (WS\d{6})                                   # Worksheet number
   _
   (\d{8})                                     # Lab number
-  (a|b|c|d|)                                   # Suffix
+  (a|b|c|d|)                                  # Suffix
   _
   ([:alnum:]{5,30})                           # Patient name - alphanumeric characters only
   (.xlsx|_S.+.xlsx|_S.+|_CNV_processed.xlsx)  # Ending varies between patients and controls
