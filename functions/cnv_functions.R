@@ -115,26 +115,6 @@ extract_cnv_coordinates <- function(df, cnv_coord_col) {
   
 }
 
-ncc_regex <- regex(
-  r"[
-  (>\d{2}% | \d{2}-\d{2}%)
-  ]",
-  comments = TRUE
-)
-
-parse_ncc <- function(input_string) {
-  
-  # Function for parsing neoplastic cell content values from the comments
-  # column of DNA Database
-  
-  ncc <- str_extract(string = input_string, 
-              pattern = ncc_regex, 
-              group = 1)
-  
-  return(ncc)
-  
-}
-
 format_repeat_table <- function(df) {
   
   rpt_table <- df |> 
@@ -400,16 +380,31 @@ calculate_pooled_sd <- function(df, group = labno, target_col, round_places = 2)
   
 }
 
-
-
-add_extraction_and_pansolid_version <- function(df) {
+add_dna_db_info <- function(df, 
+                            ps_version_df = pansolid_ws_details,
+                            extraction_df = sample_extraction_details,
+                            gender_df = sample_gender,
+                            type_df = sample_types,
+                            ncc_df = ncc_collated,
+                            tissue_df = sample_tissue_sources_coded,
+                            dna_conc_df = sample_dna_concentrations,
+                            nhsno_df = sample_nhs_no) {
+  
+  # This is a wrapper function that joins useful information from DNA database onto
+  # the results.
   
   if (!"labno" %in% colnames(df) |
       !"worksheet" %in% colnames(df)) { stop("Join columns not present")}
   
   output <- df |> 
-    left_join(pansolid_ws_details, by = "worksheet") |> 
-    left_join(sample_extraction_details, by = "labno")
+    left_join(ps_version_df, by = "worksheet") |> 
+    left_join(extraction_df, by = "labno") |> 
+    left_join(gender_df, by = "labno") |> 
+    left_join(type_df, by = "labno") |> 
+    left_join(ncc_df, by = "labno") |> 
+    left_join(tissue_df, by = "labno") |> 
+    left_join(dna_conc_df, by ="labno") |> 
+    left_join(nhsno_df, by = "labno")
   
   return(output)
   
@@ -513,25 +508,15 @@ read_stdev_results <- function(file) {
   
   full_tbl <- get_full_tbl(file)
   
-  stdev_1_start <- match("StDev Signal-adjusted Log2 Ratios", full_tbl$x1) - 1
+  stdev_start <- match("StDev Signal-adjusted Log2 Ratios", full_tbl$x1) - 1
   
-  stdev_2_start <- match("StDev Signal-adjusted Fold-Change", full_tbl$x1) - 1
-  
-  stdev_1 <- read_excel(path = file,
+  stdev <- read_excel(path = file,
                   sheet = "Amplifications",
-                  skip = stdev_1_start,
+                  skip = stdev_start,
                   n_max = 1) |> 
     janitor::clean_names()
   
-  stdev_2 <- read_excel(path = file,
-                  sheet = "Amplifications",
-                  skip = stdev_2_start,
-                  n_max = 1) |> 
-    janitor::clean_names()
-  
-  stdev_tbl <- cbind(stdev_1, stdev_2)
-  
-  output <- add_identifiers(file, stdev_tbl)
+  output <- add_identifiers(file, stdev)
   
   return(output)
   
@@ -973,20 +958,23 @@ join_pansolid_submission_sheets <- function() {
   # This functions wrangles and binds the various submission sheets used for organising
   # the PanSolid workflow
   
+  # The sample_id field has some surprises. Example: 23024772 has a degree sign (°)
+  # entered after it which is invisible in Excel and R.
+  
   pansolid_submission_2023 <- read_excel(path = here::here("data/dna_submission_sheets/DNA PanSolid QIAseq Submission Sheet 2023.xlsx")) |> 
     janitor::clean_names() |> 
-    rename(stock_qubit = stock_qubit_ng_m_l,
-           labno = sample_id) |> 
-    mutate(submission_sheet = "2023") |> 
+    rename(stock_qubit = stock_qubit_ng_m_l) |> 
+    mutate(submission_sheet = "2023",
+           labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
     select(date_submitted, labno, sample_name,
            panel, enrichment, stock_qubit, submission_sheet)
   
   pansolid_submission_2024 <- read_excel(path = here::here("data/dna_submission_sheets/PanSolid Submission sheet 2024.xlsx"),
                                          sheet = "PanSolid samples") |> 
     janitor::clean_names()  |> 
-    rename(stock_qubit = stock_qubit_ng_m_l,
-           labno = sample_id) |> 
-    mutate(submission_sheet = "2024") |> 
+    rename(stock_qubit = stock_qubit_ng_m_l) |> 
+    mutate(submission_sheet = "2024",
+           labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
     select(date_submitted, labno, sample_name,
            panel, enrichment, stock_qubit, submission_sheet)
   
@@ -994,9 +982,9 @@ join_pansolid_submission_sheets <- function() {
   pansolid_submission_2022 <- read_excel(path = here::here("data/dna_submission_sheets/QIAseq DNA PanSolid Sample Submission 2022.xlsx")) |> 
     janitor::clean_names() |> 
     rename(date_submitted = date_sample_submitted,
-           stock_qubit = stock_qubit_ng_m_l,
-           labno = sample_id) |> 
-    mutate(submission_sheet = "2022") |> 
+           stock_qubit = stock_qubit_ng_m_l) |> 
+    mutate(submission_sheet = "2022",
+           labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
     select(date_submitted, labno, sample_name,
            panel, enrichment, stock_qubit, submission_sheet)
   
