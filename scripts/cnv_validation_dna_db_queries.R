@@ -66,14 +66,29 @@ if(length(setdiff(sample_types$labno, sample_labnos)) != 0) {
 
 dna_db_export(sample_types)
 
+# Sample gender ---------------------------------------------------------------------
+
+sample_gender <- get_sample_gender(sample_labnos) |> 
+  select(labno, gender_string)
+
+if(length(setdiff(sample_gender$labno, sample_labnos)) != 0) {
+  
+  stop("Not all samples have genders")
+  
+}
+
+dna_db_export(sample_gender)
+
+
+# NHS number ------------------------------------------------------------------------
+
+sample_nhs_no <- get_sample_nhs_no(sample_labnos)
+
+dna_db_export(sample_nhs_no)
+
 # Neoplastic cell content -----------------------------------------------------------
 
-sample_ncc <- sample_tbl |> 
-  select(labno, comments) |> 
-  filter(labno %in% sample_labnos) |> 
-  collect() |> 
-  janitor::clean_names() |> 
-  mutate(ncc_db = parse_ncc(comments))
+sample_ncc <- get_sample_ncc(sample_labnos)
 
 dna_db_export(sample_ncc)
 
