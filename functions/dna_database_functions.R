@@ -36,7 +36,6 @@ get_extraction_method <- function(sample_vector) {
   output <- extraction_tbl_samples |> 
     left_join(extraction_batch_info, join_by(extraction_batch_fk == extraction_batch_id)) |> 
     filter(!is.na(method_name)) |> 
-    janitor::clean_names() |> 
     rename(labno = lab_no)
   
   return(output)
@@ -49,10 +48,70 @@ get_sample_tissue <- function(sample_vector) {
     select(-c(status_comment, comments, consultant_address, address1)) |> 
     filter(labno %in% sample_vector) |> 
     collect() |> 
-    janitor::clean_names() |> 
     mutate(tissue = as.numeric(tissue)) |> 
     left_join(tissue_types, join_by(tissue == tissue_type_id))
   
   return(output)
   
+}
+
+get_sample_gender <- function(sample_vector) {
+  
+  output <- sample_tbl |> 
+    select(labno, gender) |> 
+    filter(labno %in% sample_vector) |> 
+    collect() |> 
+    mutate(gender_string = case_when(
+      
+      gender == "1" ~"Male",
+      
+      gender == "2" ~"Female",
+      
+      gender == "9" ~"Unknown"))
+  
+  return(output)
+ 
+}
+
+get_sample_nhs_no <- function(sample_vector) {
+  
+  output <- sample_tbl |> 
+    select(labno, nhsno) |> 
+    filter(labno %in% sample_vector) |> 
+    collect()
+    
+  return(output)
+  
+}
+
+ncc_regex <- regex(
+  r"[
+  (>\d{2}% | \d{2}-\d{2}%)
+  ]",
+  comments = TRUE
+)
+
+parse_ncc <- function(input_string) {
+  
+  # Function for parsing neoplastic cell content values from the comments
+  # column of DNA Database
+  
+  ncc <- str_extract(string = input_string, 
+                     pattern = ncc_regex, 
+                     group = 1)
+  
+  return(ncc)
+  
+}
+
+get_sample_ncc <- function(sample_vector) {
+  
+  output <- sample_tbl |> 
+    select(labno, comments) |> 
+    filter(labno %in% sample_vector) |> 
+    collect() |> 
+    mutate(ncc_db = parse_ncc(comments))
+  
+  return(output)
+
 }
