@@ -500,6 +500,113 @@ qiasymphony_controls <- qiasymphony_control_info |>
 ### Make Sample Tables for Validation Document
 
 ```{r}
+#| label: sample-info-tables-export
+#| eval: FALSE
+
+table_sample_extractions <- sample_extraction_details |> 
+  filter(labno %in% stdev_results$labno) |> 
+  count(extraction_method) |> 
+  arrange(desc(n)) |> 
+  rename("Extraction method" = extraction_method,
+         "Samples" = n)
+
+knitr::kable(table_sample_extractions)
+
+csv_timestamp(table_sample_extractions)
+
+```
+
+```{r}
+#| label: sample-tumour-type-table
+#| echo: FALSE
+
+table_tumour_sources <- stdev_results |> 
+  filter(sample_subgroup == "Patient FFPE sample") |>
+  filter(extraction_method == "cobas®" & pansolid_version == "1") |> 
+  filter(!duplicated(labno)) |> 
+  count(tissue_code) |> 
+  rename("Samples" = n,
+         "Tumour" = tissue_code) |> 
+  arrange(desc(Samples))
+
+total_line <- data.frame("Tumour" = c("Total"),
+                         "Samples" = sum(table_tumour_sources$Samples))
+
+table_tumour_sources_total <- rbind(table_tumour_sources, total_line)
+
+knitr::kable(table_tumour_sources_total)
+
+csv_timestamp(table_tumour_sources_total)
+
+```
+
+```{r}
+#| label: dna-extraction-concentrations
+#| echo: FALSE
+
+stdev_results |> 
+  filter(!is.na(extraction_method)) |> 
+  group_by(extraction_method) |> 
+  summarise(min_dna = min(stock_qubit, na.rm = TRUE),
+            max_dna = max(stock_qubit, na.rm = TRUE),
+            median_dna = median(stock_qubit, na.rm = TRUE))
+
+```
+
+
+```{r}
+#| label: sample-ncc-table
+#| echo: FALSE
+
+table_neoplastic_cell_content <- stdev_results |> 
+  filter(sample_subgroup == "Patient FFPE sample") |>
+  filter(!duplicated(labno)) |> 
+  filter(extraction_method == "cobas®" & pansolid_version == "1") |> 
+  mutate(ncc = factor(x = ncc, levels = c(">20%", "10-20%", "No NCC provided"))) |> 
+  count(ncc) |> 
+  arrange(ncc) |> 
+  rename("NCC" = ncc,
+         "Samples" = n)
+
+total_line <- data.frame("NCC" = c("Total"),
+                         "Samples" = sum(table_neoplastic_cell_content$Samples))
+
+table_neoplastic_cell_content_total <- rbind(table_neoplastic_cell_content, total_line)
+
+knitr::kable(table_neoplastic_cell_content_total)
+
+csv_timestamp(table_neoplastic_cell_content_total)
+
+```
+
+```{r}
+#| label: sample-type-table
+#| echo: FALSE
+
+table_sample_types <- stdev_results |> 
+  filter(sample_subgroup == "Patient FFPE sample") |>
+  filter(!duplicated(labno)) |> 
+  filter(extraction_method == "cobas®" & pansolid_version == "1") |> 
+  count(tissue_type) |> 
+  arrange(desc(n)) |> 
+  rename("Type" = tissue_type,
+         "Samples" = n)
+
+total_line <- data.frame("Type" = c("Total"),
+                         "Samples" = sum(table_sample_types$Samples))
+
+
+table_sample_types_total <- rbind(table_sample_types, total_line)
+
+knitr::kable(table_sample_types_total)
+
+csv_timestamp(table_sample_types_total)
+
+```
+
+These sample numbers should match the numbers given in the flow diagram in the validation document.
+
+```{r}
 #| label: sample-numbers
 #| echo: FALSE
 
@@ -509,13 +616,15 @@ table_cases_tested <- stdev_results |>
             Replicates = n()) |> 
   arrange(sample_subgroup, extraction_method, desc(Replicates))
 
-cases_total_line <- data.frame(sample_group = "Total",
+cases_total_line <- data.frame(sample_subgroup = "Total",
                          extraction_method = "",
-                         pansolid_version = 0,
+                         pansolid_version = "0",
                          Samples = sum(table_cases_tested$Samples),
                          Replicates = sum(table_cases_tested$Replicates))
 
 table_cases_tested_totals <- rbind(table_cases_tested, cases_total_line)
+
+knitr::kable(table_cases_tested_totals)
 
 table_controls_tested <- rbind(cobas_controls, qiasymphony_controls) |>
   group_by(sample_subgroup, extraction_method, pansolid_version) |> 
@@ -531,49 +640,26 @@ table_controls_tested_totals <- rbind(table_controls_tested, total_control_line)
 
 knitr::kable(table_controls_tested_totals)
 
-csv_timestamp(table_controls_tested_totals)
-
-csv_timestamp(table_cases_tested_totals)
-
 ```
 
 ```{r}
-#| label: sample-info-tables-export
-#| eval: FALSE
+#| label: qiasymphony-control-sources
+#| echo: FALSE
 
-table_sample_extractions <- sample_extraction_details |> 
-  filter(labno %in% stdev_results$labno) |> 
-  count(extraction_method) |> 
+table_qs_control_sources <- qiasymphony_controls |> 
+  count(tissue_source) |> 
   arrange(desc(n)) |> 
-  rename("Extraction method" = extraction_method,
+  rename("Source" = tissue_source,
          "Samples" = n)
+  
+total_line <- data.frame("Source" = "Total",
+                         "Samples" = sum(table_qs_control_sources$Samples))
 
-knitr::kable(table_sample_extractions)
+table_qs_control_sources_total <- rbind(table_qs_control_sources, total_line)
 
-csv_timestamp(table_sample_extractions)
+knitr::kable(table_qs_control_sources_total)
 
-table_neoplastic_cell_content <- ncc_collated |> 
-  filter(labno %in% stdev_results$labno) |> 
-  count(ncc) |> 
-  arrange(desc(n)) |> 
-  rename("NCC (%)" = ncc,
-         "Samples" = n)
-
-knitr::kable(table_neoplastic_cell_content)
-
-csv_timestamp(table_neoplastic_cell_content)
-
-table_tumour_sources <- sample_tissue_sources_coded |> 
-  filter(labno %in% stdev_results$labno) |> 
-  filter(tissue_code != "seracare control") |> 
-  count(tissue_code) |> 
-  rename(Total = n,
-         "Tumour source" = tissue_code) |> 
-  arrange(desc(Total))
-
-knitr::kable(table_tumour_sources)
-
-csv_timestamp(table_tumour_sources)
+csv_timestamp(table_qs_control_sources_total)
 
 ```
 
