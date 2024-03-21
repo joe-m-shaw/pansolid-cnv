@@ -1254,6 +1254,24 @@ plot_timestamp(lod_erbb2)
 
 ```
 
+## Signal-adjusted noise
+
+```{r}
+#| label: signal-adjusted-noise
+#| echo: FALSE
+
+cobas_stdev <- stdev_results |> 
+  filter(extraction_method == "cobas®") 
+
+qiasymphony_stdev <-  stdev_results |> 
+  filter(extraction_method == "QIAsymphony") 
+
+
+
+```
+
+The signal-adjusted noise for log2 ratios in the cobas®-extracted sample cohort ranged from to `r round(min(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to `r round(max(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` (median: `r round(median(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)`), and in the QIAsymphony-extracted cohort ranged from `r round(min(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to `r round(max(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` (median: `r round(median(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)`),
+
 
 ## Repeatability
 
@@ -1307,15 +1325,6 @@ table_intra_run_repeat_results <- repeat_results |>
                                                              fromLast = FALSE)) |> 
   format_repeat_table()
 
-calculate_pooled_sd(df = repeat_results, 
-                    target_col = st_dev_signal_adjusted_log2_ratios,
-                    round_places = 3)
-
-
-calculate_pooled_sd(df = repeat_results, 
-                    target_col = max_region_fold_change,
-                    round_places = 2)
-
 knitr::kable(table_inter_run_repeat_results)
 
 knitr::kable(table_intra_run_repeat_results)
@@ -1343,6 +1352,22 @@ plot_variation_in_21011525
 plot_timestamp(plot_variation_in_21011525)
 
 ```
+
+```{r}
+#| label: repeatability-standard-deviation
+#| echo: FALSE
+
+erb2_fold_change_sd <- calculate_pooled_sd(df = repeat_results, 
+                    target_col = max_region_fold_change,
+                    round_places = 2)
+
+signal_noise_sd <- calculate_pooled_sd(df = repeat_results, 
+                    target_col = st_dev_signal_adjusted_log2_ratios,
+                    round_places = 3)
+
+```
+
+The pooled standard deviation of the ERBB2 fold change in `r length(unique(repeat_results$labno_suffix_worksheet))` repeat replicates of `r length(unique(repeat_results$labno))` DNA samples was `r erb2_fold_change_sd[[2]]`. The pooled standard deviation of the signal-adjusted noise for the same cohort was `r signal_noise_sd[[2]]`.
 
 ## cobas®-EZ1 workflow vs QIAsymphony workflow
 
