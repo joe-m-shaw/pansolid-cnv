@@ -318,7 +318,18 @@ I have used the following convention to describe different kinds of data:
 #| echo: FALSE
 
 sample_extraction_details <- read_csv(here::here("data/dna_db_queries/sample_extraction_details.csv"),
-                                    col_types = "cc")
+                                    col_types = "cc") |> 
+  # Change format to be consistent with validation document
+  mutate(extraction_method = case_when(
+    
+    extraction_method == "COBAS" ~"cobas®",
+    
+    extraction_method == "QIAsymphony_DNA_FFPE" ~"QIAsymphony",
+    
+    # "FFPE" means EZ1 extraction - see DOC907
+    extraction_method == "FFPE" ~"EZ1",
+    
+    TRUE ~extraction_method))
 
 ```
 
@@ -338,7 +349,7 @@ sample_gender <- read_csv(here::here("data/dna_db_queries/sample_gender.csv"),
 
 pansolid_ws_details <- read_csv(here::here("data/dna_db_queries/pansolid_ws_details.csv"),
                              show_col_types = FALSE) |> 
-  mutate(pansolid_version = ifelse(pcrid == 139890, 2, 1),
+  mutate(pansolid_version = ifelse(pcrid == 139890, "2", "1"),
          worksheet = str_c("WS", pcrid))
 
 ```
@@ -423,6 +434,15 @@ sample_dna_concentrations <- pansolid_submissions |>
 ```
 
 ```{r}
+#| label: path-block-numbers
+#| include: FALSE
+
+sample_pathnos <- read_csv(here::here("data/dna_db_queries/sample_pathnos.csv"),
+                           col_types = "cc")
+
+```
+
+```{r}
 #| label: nhs-numbers
 #| include: FALSE
 
@@ -431,24 +451,43 @@ sample_nhs_no <- read_csv(here::here("data/dna_db_queries/sample_nhs_no.csv"),
 
 ```
 
-
 ### Add DNA Database Information
 
 ```{r}
 #| label: add-dna-db-information
 #| include: FALSE
 
+add_case_group <- function(df) {
+  
+  stopifnot("patient_name" %in% colnames(df))
+  
+  output <- df |> 
+    mutate(sample_group = "case",
+         sample_subgroup = case_when(
+           
+           patient_name %in% grep(pattern = "seraseq", x = patient_name,
+                                  ignore.case = TRUE, value = TRUE) ~"SeraCare reference material",
+           
+           TRUE ~"Patient FFPE sample"))
+  
+  return(output)
+  
+}
+
 pos_cnv_results <- pos_cnv_results_collated |>  
   filter(!labno %in% excluded_cases) |> 
-  add_dna_db_info()
+  add_dna_db_info() |> 
+  add_case_group()
 
 all_amp_gene_results <- all_amp_gene_results_collated |>  
   filter(!labno %in% excluded_cases) |> 
-  add_dna_db_info()
+  add_dna_db_info() |> 
+  add_case_group()
 
 stdev_results <- stdev_results_collated |>  
   filter(!labno %in% excluded_cases) |> 
-  add_dna_db_info()
+  add_dna_db_info() |> 
+  add_case_group()
 
 cobas_controls <- cobas_control_info |> 
   add_dna_db_info()
@@ -464,16 +503,7 @@ qiasymphony_controls <- qiasymphony_control_info |>
 #| label: sample-numbers
 #| echo: FALSE
 
-case_details_with_groups <- stdev_results |> 
-  mutate(sample_group = "case",
-         sample_subgroup = case_when(
-           
-           patient_name %in% grep(pattern = "seraseq", x = patient_name,
-                                  ignore.case = TRUE, value = TRUE) ~"SeraCare reference material",
-           
-           TRUE ~"Patient FFPE sample"))
-  
-table_cases_tested <- case_details_with_groups |>
+table_cases_tested <- stdev_results |>
   group_by(sample_subgroup, extraction_method, pansolid_version) |> 
   summarise(Samples = length(unique(labno)),
             Replicates = n()) |> 
@@ -488,8 +518,6 @@ cases_total_line <- data.frame(sample_group = "Total",
 table_cases_tested_totals <- rbind(table_cases_tested, cases_total_line)
 
 table_controls_tested <- rbind(cobas_controls, qiasymphony_controls) |>
-  # "FFPE" means EZ1 extraction - see DOC907
-  mutate(extraction_method = ifelse(extraction_method == "FFPE", "EZ1", extraction_method)) |> 
   group_by(sample_subgroup, extraction_method, pansolid_version) |> 
   summarise(Samples = length(unique(labno))) |> 
   arrange(sample_subgroup, extraction_method)
@@ -505,7 +533,7 @@ knitr::kable(table_controls_tested_totals)
 
 csv_timestamp(table_controls_tested_totals)
 
-csv_timestamp(table_samples_tested_totals)
+csv_timestamp(table_cases_tested_totals)
 
 ```
 
@@ -564,9 +592,7 @@ ws138579 <- read_biorad_csv("WS138579_analysed.csv")
 ws138765 <- read_biorad_csv("WS138765_analysed.csv")
 
 ddpcr_erbb2 <- rbind(ws138579, ws138765) |> 
-  filter(target_type == "Ch1Unknown") |>
-  # Add NHS number for comparison with PanSolidv2 in later step
-  left_join(sample_nhs_no, by = "labno")
+  filter(target_type == "Ch1Unknown")
 
 ```
 
@@ -612,9 +638,7 @@ Because of the new processed Excel format, ERBB2 results can be viewed in two wa
 #| label: erbb2-gene-region-results
 #| include: TRUE
 
-erbb2_pansolid_region_results <- all_amp_gene_results |> 
-  filter(gene == "ERBB2") |> 
-  filter(!duplicated(labno))
+head(all_amp_gene_results)
 
 ```
 
@@ -624,9 +648,7 @@ erbb2_pansolid_region_results <- all_amp_gene_results |>
 #| label: erbb2-call-details
 #| include: TRUE
 
-erbb2_pansolid_call_details <- pos_cnv_results |> 
-  filter(gene == "ERBB2") |> 
-  filter(!duplicated(labno))
+head(pos_cnv_results)
 
 ```
 
@@ -650,8 +672,10 @@ In the cases where an ERBB2 amplification was called, the number of CNV calls in
 #| eval: FALSE
 #| include: FALSE
 
-table_cobas_results_by_tumour_type <- erbb2_pansolid_region_results |> 
-  filter(extraction_method == "COBAS") |> 
+table_cobas_results_by_tumour_type <- all_amp_gene_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(!duplicated(labno) &
+           extraction_method == "COBAS") |> 
   count(tissue_code, pansolid_call) |> 
   arrange(desc(n)) |> 
   pivot_wider(id_cols = tissue_code,
@@ -663,8 +687,10 @@ table_cobas_results_by_tumour_type <- erbb2_pansolid_region_results |>
          "ERBB2 amplification" = amplification) |> 
   select("Tumour type", "ERBB2 normal", "ERBB2 amplification")
 
-table_qiasymphony_results_by_tumour_type <- erbb2_pansolid_region_results |> 
-  filter(extraction_method == "QIAsymphony_DNA_FFPE") |> 
+table_qiasymphony_results_by_tumour_type <- all_amp_gene_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(!duplicated(labno) & 
+           extraction_method == "QIAsymphony_DNA_FFPE") |> 
   count(tissue_code, pansolid_call) |> 
   arrange(desc(n)) |> 
   pivot_wider(id_cols = tissue_code,
@@ -676,13 +702,11 @@ table_qiasymphony_results_by_tumour_type <- erbb2_pansolid_region_results |>
          "ERBB2 amplification" = amplification) |> 
   select("Tumour type", "ERBB2 normal", "ERBB2 amplification")
 
-knitr::kable(table_results_by_tumour_type)
+knitr::kable(table_qiasymphony_results_by_tumour_type)
 
 csv_timestamp(table_results_by_tumour_type)
 
 ```
-
-
 
 ## ERBB2 NGS vs ddPCR
 
@@ -690,90 +714,100 @@ csv_timestamp(table_results_by_tumour_type)
 #| label: ddpcr-vs-pansolid
 #| echo: FALSE
 
-colnames(erbb2_pansolid_region_results)
+ddpcr_threshold <- 6
 
-ddpcr_pansolid <- ddpcr_erbb2 |> 
-  filter(!labno %in% c("C3_5ng", "C3_20ng", "NTC") &
-           !labno %in% excluded_cases) |> 
-  left_join(erbb2_pansolid_region_results, by = "labno") |> 
-  mutate(pansolid_result = case_when(
+pansolid_cobas_v1_ddpcr <- all_amp_gene_results |> 
+  filter(gene == "ERBB2" & 
+           extraction_method == "COBAS" &
+           pansolid_version == 1) |> 
+  left_join(ddpcr_erbb2 |> 
+              filter(!duplicated(labno)), by = "labno") |> 
+  mutate(outcome = case_when(
     
-    labno %in% cobas_control_ids ~"pansolid normal control",
-    
-    pansolid_call == "normal result" ~"pansolid normal result",
-    
-    pansolid_call == "amplification" ~"pansolid amplification"),
-    
-    pansolid_result = factor(pansolid_result, levels = c("pansolid normal control",
-                                                         "pansolid normal result",
-                                                         "pansolid amplification"))) |> 
-  # Remove seracare repeats
-  filter(!duplicated(labno))
+        pansolid_call == "amplification" & cnv > ddpcr_threshold ~true_pos,
+        
+        pansolid_call == "normal result" & cnv <= ddpcr_threshold ~true_neg,
+        
+        pansolid_call == "amplification" & cnv <= ddpcr_threshold ~false_pos,
+        
+        pansolid_call == "normal result" & cnv > ddpcr_threshold ~false_neg))
 
-ddpcr_pansolid_table <- ddpcr_pansolid |> 
-  count(pansolid_result)
+if (anyNA(pansolid_cobas_v1_ddpcr$cnv)) { stop("Not all NGS results have a ddPCR result")}
 
-knitr::kable(ddpcr_pansolid_table)
+pansolid_cobas_v2_ddpcr <- all_amp_gene_results |> 
+  filter(gene == "ERBB2" &
+           extraction_method == "COBAS" &
+           pansolid_version == 2) |> 
+  left_join(ddpcr_erbb2 |> 
+              filter(!duplicated(labno)), by = "labno")
+
+if (anyNA(pansolid_cobas_v2_ddpcr$cnv)) { stop("Not all NGS results have a ddPCR result")}
+
+# Currently doesn't work because 21015264 and 24008372 don't have NHS numbers
+pansolid_qiasymphony_v2_ddpcr <- all_amp_gene_results |> 
+  filter(gene == "ERBB2" &
+           extraction_method == "QIAsymphony_DNA_FFPE" &
+           pansolid_version == 2) |> 
+  left_join(ddpcr_erbb2 |> 
+              filter(!duplicated(labno)), by = "nhsno")
 
 ```
 
 ```{r}
-#| label: ddpcr-normal-range
+#| label: cobas-controls-ddpcr-normal-range
 #| include: FALSE
 
-ddpcr_normal <- ddpcr_pansolid |> 
-  filter(labno %in% cobas_control_ids)
+cobas_controls_ddpcr <- cobas_controls |> 
+  left_join(ddpcr_erbb2 |> 
+              filter(!duplicated(labno)), by = "labno")
+
+if (anyNA(cobas_controls_ddpcr$cnv)) { stop("Not all cobas controls have a ddPCR result")}
 
 ```
 
-ddPCR ERBB2 copy number in normal controls ranged from `r min(ddpcr_normal$cnv)` to `r max(ddpcr_normal$cnv)` (median: `r median(ddpcr_normal$cnv)`).
+ddPCR ERBB2 copy number in normal controls ranged from `r min(cobas_controls_ddpcr$cnv)` to `r max(cobas_controls_ddpcr$cnv)` (median: `r median(cobas_controls_ddpcr$cnv)`).
 
 ```{r}
 #| label: ngs-ddpcr-confusion-matrix
 #| echo: FALSE
 
-ddpcr_threshold <- 6
-
-result_comparison <- ddpcr_pansolid |> 
-  filter(pansolid_result != "pansolid normal control") |> 
-  mutate(outcome = case_when(
-    
-        pansolid_result == "pansolid amplification" & cnv > ddpcr_threshold ~true_pos,
-        
-        pansolid_result == "pansolid normal result" & cnv <= ddpcr_threshold ~true_neg,
-        
-        pansolid_result == "pansolid amplification" & cnv <= ddpcr_threshold ~false_pos,
-        
-        pansolid_result == "pansolid normal result" & cnv > ddpcr_threshold ~false_neg))
-
-
-table_erbb2_results_ngs_vs_ddpcr <- make_confusion_matrix(df = result_comparison,
+table_erbb2_results_psv1_vs_ddpcr <- make_confusion_matrix(df = pansolid_cobas_v1_ddpcr |> 
+                                                             filter(!duplicated(labno)),
                                                           initial_test = "PanSolid",
                                                           comparison_test = "ddPCR",
                                                           positive_state = "Amplification",
                                                           negative_state = "Normal")
 
+knitr::kable(table_erbb2_results_psv1_vs_ddpcr[[1]])
 
-knitr::kable(table_erbb2_results_ngs_vs_ddpcr[[1]])
-
-csv_timestamp(table_erbb2_results_ngs_vs_ddpcr[[1]])
+csv_timestamp(table_erbb2_results_psv1_vs_ddpcr[[1]])
 
 ```
 
-The percentage agreements between NGS and ddPCR are:
+```{r}
 
-Overall percentage agreement: `r table_erbb2_results_ngs_vs_ddpcr[[2]]`%.
+table_erbb2_ddpcr_opa <- data.frame(
+  "Metric" = c("Overall percentage agreement", "Positive percentage agreement",
+               "Negative percentage agreement"),
+  "Percentage (%)" = c(table_erbb2_results_psv1_vs_ddpcr[[2]],
+                       table_erbb2_results_psv1_vs_ddpcr[[3]],
+                       table_erbb2_results_psv1_vs_ddpcr[[4]]))
 
-Positive percentage agreement: `r table_erbb2_results_ngs_vs_ddpcr[[3]]`%.
+knitr::kable(table_erbb2_ddpcr_opa)
 
-Negative percentage agreement: `r table_erbb2_results_ngs_vs_ddpcr[[4]]`%.
+csv_timestamp(table_erbb2_ddpcr_opa)
+
+```
 
 ```{r}
 #| label: ddpcr-vs-pansolid-plot
-#| echo: FALSE
+#| eval: FALSE
 
-ddpcr_cn_plot <- ddpcr_pansolid |> 
-  ggplot(aes(x = pansolid_result, y = cnv)) +
+rbind(pansolid_v1_ddpcr |> 
+        select(labno, cnv, sample_group, sample_subgroup),
+  cobas_controls_ddpcr|> 
+    select(labno, cnv, sample_group, sample_subgroup)) |> 
+  ggplot(aes(x = sample_subgroup, y = cnv)) +
   geom_jitter(size = 2, pch = 21, alpha = 0.6) +
   theme_bw() +
   theme(panel.grid = element_blank(),
@@ -793,19 +827,23 @@ ddpcr_cn_plot
 
 discrepant_samples <- c(23001095, 23002258, 23008380)
 
-plot_fold_change_vs_ddpcr_copy_number <- ddpcr_pansolid |> 
-  filter(!is.na(max_region_fold_change)) |> 
+pansolidv1_ddpcr_for_plot <- pansolid_cobas_v1_ddpcr |> 
+  filter(!duplicated(labno))
+
+plot_fold_change_vs_ddpcr_copy_number <- pansolidv1_ddpcr_for_plot |> 
   ggplot(aes(x = max_region_fold_change, y = cnv)) +
   geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
   geom_point(size = 3, fill = safe_blue, alpha = 0.5, pch = 21) +
   theme_bw() +
+  theme(plot.caption = element_text(hjust = 0.5)) +
   geom_hline(yintercept = 6, linetype = "dashed") +
   geom_vline(xintercept = fold_change_threshold, linetype = "dashed") +
   labs(x = "PanSolid Fold Change", y = "ddPCR Copy Number",
-         caption = "Samples 23001095, 23002258 and 23008380 in red") +
+         caption = str_c("Samples 23001095, 23002258 and 23008380 in red. Data for ",
+                         nrow(pansolidv1_ddpcr_for_plot), " samples displayed.")) +
   scale_y_continuous(limits = c(0, 85), breaks = c(0, 20, 40, 60, 80))  +
   scale_x_continuous(limits = c(-20, 60), breaks = c(-20, 0, 20, 40, 60)) +
-  geom_point(data = ddpcr_pansolid |> 
+  geom_point(data = pansolidv1_ddpcr_for_plot |> 
                filter(sample %in% discrepant_samples), size = 3, fill = safe_red,
              pch = 21, alpha = 0.5) +
   ggpubr::stat_cor(method = "pearson", label.x = 35, label.y = 20) 
@@ -1264,6 +1302,104 @@ table_pansolid_vs_core_panel_erbb2_results <- make_confusion_matrix(
 knitr::kable(table_pansolid_vs_core_panel_erbb2_results[[1]])
 
 csv_timestamp(table_pansolid_vs_core_panel_erbb2_results[[1]])
+
+```
+
+## cobas®-EZ1 workflow vs QIAsymphony workflow
+
+I prefer not to use NHS number for the joining of these samples, but the pathology number is manually entered into DNA database and so there are lots of inconsistent formatting issues.
+
+```{r}
+#| label: samples-dual-extracted
+#| echo: FALSE
+
+# Use pathology block for this - not NHS number
+
+pansolid_qiasymphony_v2 <- all_amp_gene_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(extraction_method == "QIAsymphony" &
+           pansolid_version == "2") |> 
+  filter(!is.na(nhsno))
+
+plot_cobas_qs_fold_change <- all_amp_gene_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(nhsno %in% pansolid_qiasymphony_v2$nhsno) |> 
+  ggplot(aes(x = nhsno,
+             y = max_region_fold_change)) +
+  geom_jitter(pch = 21, size = 3, alpha = 0.5, aes(fill = extraction_method),
+              width = 0.2) +
+  scale_fill_manual(values = c(safe_blue, safe_red)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+  labs(y = "ERBB2 region fold change", x = "",
+       fill = "Extraction method") +
+  scale_y_continuous(limits = c(-20, 120),
+                     breaks = c(-20, 0, 20, 40, 60, 80, 100, 120))
+
+plot_cobas_qs_noise <- stdev_results |> 
+  filter(nhsno %in% pansolid_qiasymphony_v2$nhsno) |> 
+  ggplot(aes(x = nhsno,
+             y = st_dev_signal_adjusted_log2_ratios)) +
+  geom_jitter(pch = 21, size = 3, alpha = 0.5, aes(fill = extraction_method),
+              width = 0.2) +
+  scale_fill_manual(values = c(safe_blue, safe_red)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  labs(y = "Signal-adjusted noise", x = "NHS number",
+       fill = "Extraction method")
+
+plot_fc_noise_joined <- plot_cobas_qs_fold_change + plot_cobas_qs_noise +
+  plot_layout(ncol = 1, guides = "collect")
+
+plot_timestamp(plot_fc_noise_joined, input_height = 16)
+
+```
+
+```{r}
+#| label: samples-dual-tested
+#| echo: FALSE
+
+pansolid_cobas_v2 <- all_amp_gene_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(extraction_method == "cobas®" &
+           pansolid_version == "2")
+
+plot_cobas_v1_2_fold_change <- all_amp_gene_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(labno %in% pansolid_cobas_v2$labno) |> 
+  ggplot(aes(x = labno,
+             y = max_region_fold_change)) +
+  geom_jitter(pch = 21, size = 3, alpha = 0.5, aes(fill = pansolid_version),
+              width = 0.2) +
+  scale_fill_manual(values = c(safe_blue, safe_red)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+  labs(y = "ERBB2 region fold change", x = "",
+       fill = "PanSolid version") +
+  scale_y_continuous(limits = c(-10, 25),
+                     breaks = c(-10, -5, 0, 2.9, 5, 10, 15, 20, 25))
+
+plot_cobas_v1_v2_noise <- stdev_results |> 
+  filter(labno %in% pansolid_cobas_v2$labno) |> 
+  ggplot(aes(x = labno,
+             y = st_dev_signal_adjusted_log2_ratios)) +
+  geom_jitter(pch = 21, size = 3, alpha = 0.5, aes(fill = pansolid_version),
+              width = 0.2) +
+  scale_fill_manual(values = c(safe_blue, safe_red)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(y = "Signal-adjusted noise", x = "",
+       fill = "PanSolid version") +
+  scale_y_continuous(limits = c(0, 1))
+
+plot_cobas_v1_2 <- plot_cobas_v1_2_fold_change +
+  plot_cobas_v1_v2_noise +
+  plot_layout(ncol = 1, guides = "collect")
+
+plot_timestamp(plot_cobas_v1_2, input_height = 16)
 
 ```
 
