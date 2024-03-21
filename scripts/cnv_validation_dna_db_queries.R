@@ -79,12 +79,17 @@ if(length(setdiff(sample_gender$labno, sample_labnos)) != 0) {
 
 dna_db_export(sample_gender)
 
-
 # NHS number ------------------------------------------------------------------------
 
 sample_nhs_no <- get_sample_nhs_no(sample_labnos)
 
 dna_db_export(sample_nhs_no)
+
+# Pathology block numbers -----------------------------------------------------------
+
+sample_pathnos <- get_pathno(sample_labnos) 
+
+dna_db_export(sample_pathnos)
 
 # Neoplastic cell content -----------------------------------------------------------
 

@@ -388,6 +388,7 @@ add_dna_db_info <- function(df,
                             ncc_df = ncc_collated,
                             tissue_df = sample_tissue_sources_coded,
                             dna_conc_df = sample_dna_concentrations,
+                            pathno_df = sample_pathnos,
                             nhsno_df = sample_nhs_no) {
   
   # This is a wrapper function that joins useful information from DNA database onto
@@ -404,6 +405,7 @@ add_dna_db_info <- function(df,
     left_join(ncc_df, by = "labno") |> 
     left_join(tissue_df, by = "labno") |> 
     left_join(dna_conc_df, by ="labno") |> 
+    left_join(pathno_df, by = "labno") |> 
     left_join(nhsno_df, by = "labno")
   
   return(output)

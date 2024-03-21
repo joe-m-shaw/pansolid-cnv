@@ -115,3 +115,14 @@ get_sample_ncc <- function(sample_vector) {
   return(output)
 
 }
+
+get_pathno <- function(sample_vector) {
+  
+  output <- sample_tbl |> 
+    select(labno, pathno) |> 
+    filter(labno %in% sample_vector) |> 
+    collect()
+  
+  return(output)
+  
+}
