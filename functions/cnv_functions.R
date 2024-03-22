@@ -412,6 +412,23 @@ add_dna_db_info <- function(df,
   
 }
 
+add_case_group <- function(df) {
+  
+  stopifnot("patient_name" %in% colnames(df))
+  
+  output <- df |> 
+    mutate(sample_group = "case",
+           sample_subgroup = case_when(
+             
+             patient_name %in% grep(pattern = "seraseq", x = patient_name,
+                                    ignore.case = TRUE, value = TRUE) ~"SeraCare reference material",
+             
+             TRUE ~"Patient FFPE sample"))
+  
+  return(output)
+  
+}
+
 # Processed Excel functions ---------------------------------------------------------
 
 get_full_tbl <- function(file) {
