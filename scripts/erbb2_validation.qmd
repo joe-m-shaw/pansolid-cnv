@@ -173,6 +173,22 @@ plot_timestamp(plot_fold_change_detection_limit)
 
 ```
 
+```{r}
+#| label: fold-change-table
+#| echo: FALSE
+
+table_ncc_increments <- fc_vs_ncc |> 
+  filter(ncc %in% seq(10,100, by = 10)) |> 
+  mutate("Lowest number of theoretically detectable target copies" = round(target_copies, 1)) |>
+  rename("Neoplastic cell content (%)" = ncc) |> 
+  select(-target_copies)
+
+knitr::kable(table_ncc_increments)
+
+csv_timestamp(table_ncc_increments)
+
+```
+
 ## Methods
 
 ### Load PanSolid Results
@@ -1208,6 +1224,38 @@ qiasymphony_stdev <-  stdev_results |>
 
 The signal-adjusted noise for log2 ratios in the cobas®-extracted sample cohort ranged from to `r round(min(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to `r round(max(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` (median: `r round(median(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)`), and in the QIAsymphony-extracted cohort ranged from `r round(min(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to `r round(max(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` (median: `r round(median(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)`),
 
+```{r}
+#| label: qc-threshold
+#| echo: FALSE
+
+pos_cnv_results_with_sd <- pos_cnv_results |> 
+  left_join(stdev_results |> 
+              select(labno_suffix_worksheet, st_dev_signal_adjusted_log2_ratios),
+            by = "labno_suffix_worksheet") |> 
+  mutate(cnv_length_mb  = cnv_length / 1000000,
+         gene_mod = ifelse(gene == "no positive calls", "No CNVs detected",
+                           gene),
+         gene_mod = factor(gene_mod, levels = c("No CNVs detected",
+                                        "BRAF", "EGFR", "MET", "MYC",
+                                        "ERBB2")))
+
+plot_signal_adjusted_noise_threshold <- ggplot(pos_cnv_results_with_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
+                                         y = fold_change)) +
+         geom_point(pch = 21, size = 3) +
+  theme_bw() +
+  facet_wrap(~gene_mod) +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  scale_y_log10(limits = c(1, 120), breaks = c(1, 2.9, 10, 100)) +
+  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+  labs(x = "Signal-adjusted noise", y = "Fold change")
+
+
+plot_signal_adjusted_noise_threshold
+
+plot_timestamp(plot_signal_adjusted_noise_threshold)
+
+```
+
 ## Repeatability
 
 ```{r}
@@ -1290,6 +1338,8 @@ The pooled standard deviation of the ERBB2 fold change in `r length(unique(repea
 
 I prefer not to use NHS number for the joining of these samples, but the pathology number is manually entered into DNA database and so there are lots of inconsistent formatting issues.
 
+So I have decided to modify the pathology numbers individually to make them consistent, as this avoids having NHS numbers printed on the X axes of these plots.
+
 ```{r}
 #| label: samples-dual-extracted
 #| echo: FALSE
@@ -1300,10 +1350,25 @@ pansolid_qiasymphony_v2 <- all_amp_gene_results |>
            pansolid_version == "2") |> 
   filter(!is.na(nhsno))
 
-plot_cobas_qs_fold_change <- all_amp_gene_results |> 
+dual_extracted_data_for_plot <- all_amp_gene_results |> 
+  left_join(stdev_results |> 
+              select(labno_suffix_worksheet, st_dev_signal_adjusted_log2_ratios),
+            by = "labno_suffix_worksheet") |> 
   filter(gene == "ERBB2") |> 
   filter(nhsno %in% pansolid_qiasymphony_v2$nhsno) |> 
-  ggplot(aes(x = nhsno,
+  mutate(pathno_clean = case_when(
+    
+    pathno == "H.21.16470 A1"  ~"H21.16470 A1",
+    pathno == "H,22.39922 B2"  ~"H.22.39922 B2",
+    pathno == "H.23.06867 A1" ~"H.23.06867",
+    pathno == "H.22.39095 A5"  ~"H22.39095 A5",
+    pathno == "N,22.569 A5"  ~"N569/22 A5",
+    pathno == "N19-736 A1" ~"N19-739 A1",
+    pathno %in% c("NB21-449 4A", "NB21-449 1C") ~"NB21-449",
+    TRUE ~pathno))
+
+plot_cobas_qs_fold_change <- dual_extracted_data_for_plot |> 
+  ggplot(aes(x = pathno_clean,
              y = max_region_fold_change)) +
   geom_jitter(pch = 21, size = 3, alpha = 0.5, aes(fill = extraction_method),
               width = 0.2) +
@@ -1316,9 +1381,8 @@ plot_cobas_qs_fold_change <- all_amp_gene_results |>
   scale_y_continuous(limits = c(-20, 120),
                      breaks = c(-20, 0, 20, 40, 60, 80, 100, 120))
 
-plot_cobas_qs_noise <- stdev_results |> 
-  filter(nhsno %in% pansolid_qiasymphony_v2$nhsno) |> 
-  ggplot(aes(x = nhsno,
+plot_cobas_qs_noise <- dual_extracted_data_for_plot |> 
+  ggplot(aes(x = pathno_clean,
              y = st_dev_signal_adjusted_log2_ratios)) +
   geom_jitter(pch = 21, size = 3, alpha = 0.5, aes(fill = extraction_method),
               width = 0.2) +
@@ -1326,7 +1390,7 @@ plot_cobas_qs_noise <- stdev_results |>
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90)) +
   geom_hline(yintercept = 1, linetype = "dashed") +
-  labs(y = "Signal-adjusted noise", x = "NHS number",
+  labs(y = "Signal-adjusted noise", x = "Pathology number",
        fill = "Extraction method")
 
 plot_fc_noise_joined <- plot_cobas_qs_fold_change + plot_cobas_qs_noise +
@@ -1356,10 +1420,11 @@ plot_cobas_v1_2_fold_change <- all_amp_gene_results |>
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90)) +
   geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+  geom_hline(yintercept = 2.8, linetype = "dashed") +
   labs(y = "ERBB2 region fold change", x = "",
        fill = "PanSolid version") +
   scale_y_continuous(limits = c(-10, 25),
-                     breaks = c(-10, -5, 0, 2.9, 5, 10, 15, 20, 25))
+                     breaks = c(-10, -5, 0, 5, 10, 15, 20, 25))
 
 plot_cobas_v1_v2_noise <- stdev_results |> 
   filter(labno %in% pansolid_cobas_v2$labno) |> 
@@ -1428,3 +1493,24 @@ knitr::kable(table_pansolid_vs_core_panel_erbb2_results[[1]])
 csv_timestamp(table_pansolid_vs_core_panel_erbb2_results[[1]])
 
 ```
+
+```{r}
+#| label: export-results
+#| echo: FALSE
+
+erbb2_validation_dataset_for_export <- all_amp_gene_results |> 
+  left_join(stdev_results |> 
+              select(labno_suffix_worksheet, st_dev_signal_adjusted_log2_ratios),
+            by = "labno_suffix_worksheet") |> 
+  select(labno, suffix, worksheet, labno_suffix_worksheet,
+         patient_name, pathno, 
+         sample_group, sample_subgroup, 
+         st_dev_signal_adjusted_log2_ratios, 
+         gene, max_region_fold_change, min_region_fold_change,
+         pansolid_call, pansolid_version, extraction_method,
+         ncc, tissue_source, tissue_code, panel, stock_qubit)
+
+csv_timestamp(erbb2_validation_dataset_for_export)
+
+```
+
