@@ -1293,7 +1293,7 @@ repeat_results <- all_amp_gene_results |>
 ```
 
 ```{r}
-#| label: repeat-tables-and-pooled-sd
+#| label: repeat-tables
 #| echo: FALSE
 
 table_inter_run_repeat_results <- repeat_results |> 
@@ -1331,6 +1331,39 @@ signal_noise_sd <- calculate_pooled_sd(df = repeat_results,
                     round_places = 3)
 
 ```
+
+```{r}
+#| label: repeatability-reproducibility
+#| echo: FALSE
+
+inter_run_results <- repeat_results |> 
+                      filter(!suffix %in% c("b", "c")) |> 
+                      filter(duplicated(labno, fromLast = TRUE) |
+                               duplicated(labno, fromLast = FALSE))
+
+intra_run_results <- repeat_results |> 
+                      filter(suffix %in% c("a", "b", "c")) |> 
+                      filter(duplicated(labno, fromLast = TRUE) | 
+                               duplicated(labno, fromLast = FALSE))
+
+repeatability_fold_change_sd <- calculate_pooled_sd(df = intra_run_results,
+                                                    target_col = max_region_fold_change,
+                                                    round_places = 2)
+
+repeatability_noise_sd <- calculate_pooled_sd(df = intra_run_results, 
+                                                    target_col = st_dev_signal_adjusted_log2_ratios,
+                                                    round_places = 2)
+
+reproducibility_fold_change_sd <- calculate_pooled_sd(df = inter_run_results, 
+                                                    target_col = max_region_fold_change,
+                                                    round_places = 2)
+
+reproducibility_fold_change_sd <- calculate_pooled_sd(df = inter_run_results, 
+                                                    target_col = st_dev_signal_adjusted_log2_ratios,
+                                                    round_places = 2)
+```
+
+
 
 The pooled standard deviation of the ERBB2 fold change in `r length(unique(repeat_results$labno_suffix_worksheet))` repeat replicates of `r length(unique(repeat_results$labno))` DNA samples was `r erb2_fold_change_sd[[2]]`. The pooled standard deviation of the signal-adjusted noise for the same cohort was `r signal_noise_sd[[2]]`.
 
@@ -1511,6 +1544,64 @@ erbb2_validation_dataset_for_export <- all_amp_gene_results |>
          ncc, tissue_source, tissue_code, panel, stock_qubit)
 
 csv_timestamp(erbb2_validation_dataset_for_export)
+
+```
+
+```{r}
+#| label: coverage-vs-noise
+#| echo: FALSE
+
+source(here::here("functions/archived_functions.R"))
+
+all_patient_files <- list.files(path = here::here("data/clc_outputs/"), full.names = TRUE, recursive = TRUE,
+                pattern = "*.xlsx")
+
+qc_data <- all_patient_files |>
+  map(\(all_files) read_summary_tab(
+    file = all_files)) |>
+  list_rbind()
+
+qc_data_with_ids <- qc_data |> 
+  left_join(stdev_results |> 
+              select(labno_suffix_worksheet, st_dev_signal_adjusted_log2_ratios),
+            by = "labno_suffix_worksheet")
+
+sample_number <- length(unique(qc_data_with_ids$labno_suffix_worksheet))
+
+
+make_noise_plot <- function(df = qc_data_with_ids, x_axis) {
+  
+      plot <- ggplot(qc_data_with_ids, aes(x = {{ x_axis }}, 
+                  y = st_dev_signal_adjusted_log2_ratios)) +
+      geom_point(pch = 21) +
+      theme_bw() +
+      scale_y_continuous(limits = c(0, 1.25),
+                         breaks = seq(0, 1.2, by = 0.2)) +
+      labs(y = "Signal-adjusted noise") +
+      geom_hline(yintercept = 1, linetype = "dashed")
+      
+      return(plot)
+
+}
+
+p1 <- make_noise_plot(x_axis = percent_target_region_pos_cov_greaterorequal_138) +
+  labs(x = "Percentage target positions covered to greater or equal to 138x")
+      
+p2 <- make_noise_plot(x_axis = number_target_regions_with_cov_lessthan_138) +
+  labs(x = "Number of target regions with coverage below 138x")
+
+p3 <- make_noise_plot(x_axis = median_coverage) +
+  labs(x = "Median coverage (x)",
+       caption = str_c("Data for ", sample_number, " cobas-extracted samples tested on PanSolid v1"))
+
+qc_data_with_ids |> 
+  filter(st_dev_signal_adjusted_log2_ratios < 0.5 &
+           percent_target_region_pos_cov_greaterorequal_138 < 75) |>  view()
+
+qc_plot_combined <- p1 + p2 + p3 +
+  plot_layout(ncol = 1)
+
+plot_timestamp(qc_plot_combined, input_height = 20)
 
 ```
 

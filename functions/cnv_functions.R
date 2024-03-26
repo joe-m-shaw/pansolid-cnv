@@ -871,8 +871,8 @@ draw_lod_gene_plot <- function(df, chromosome, gene) {
     facet_wrap(~ncc) +
     theme_bw() +
     scale_y_continuous(limits = c(-3, 6),
-                       breaks = c(-3, -2, -1, 0, 1, 2, 2.9, 4, 5, 6)) +
-    geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+                       breaks = c(-3, -2, -1, 0, 1, 2, 2.8, 4, 5, 6)) +
+    geom_hline(yintercept = 2.8, linetype = "dashed") +
     labs(x = str_c("Chromosome ", {{ chromosome }}),
          y = "Target fold change",
          title = str_c("Limit of detection results: ", {{ gene }}),
