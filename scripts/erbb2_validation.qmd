@@ -32,13 +32,14 @@ source(here::here("functions/cnv_functions.R"))
 
 ```
 
-## QiaSeq Primers
+## QiaSeq primers
 
 The overlap of primers between the PanSolid and Core enrichment panels is too great to allow Core panel results to be used for the validation of the PanSolid enrichment.
 
 ```{r}
 #| label: qiaseq-primers
 #| echo: FALSE
+#| message: FALSE
 
 pan_solid_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
                              sheet = "Primer Overlap",
@@ -107,6 +108,7 @@ csv_timestamp(table_ERBB2_Qiaseq_Primers)
 ```{r}
 #| label: primer-panel-venn-diagram
 #| echo: FALSE
+#| message: FALSE
 
 # Design file sent by Qiagen
 pansolid_v2 <- read_table(here::here("data/primers/QIAseq.CDHS-48608z-11752.primers3.txt"),
@@ -138,7 +140,7 @@ plot_timestamp(plot_primer_venn)
 
 PanSolidv2 contains `r length(pansolid_v2$sequence) - length(pansolid_v1$sequence)` more primers than PanSolidv1.
 
-## Fold Change Threshold
+## Fold change threshold
 
 The theoretical limit of detection of the PanSolid pipeline varies with the neoplastic cell content of the sample and the number of copies of the target gene within the tumour cells.
 
@@ -178,10 +180,13 @@ plot_timestamp(plot_fold_change_detection_limit)
 #| echo: FALSE
 
 table_ncc_increments <- fc_vs_ncc |> 
+  mutate(target_copies_2_8 = calculate_target_copies(fold_change = 2.8,
+                                                 ncc_percent = ncc)) |> 
   filter(ncc %in% seq(10,100, by = 10)) |> 
-  mutate("Lowest number of theoretically detectable target copies" = round(target_copies, 1)) |>
+  mutate("Lowest number of theoretically detectable target copies (fold change threshold 2.9)" = round(target_copies, 1),
+         "Lowest number of theoretically detectable target copies (fold change threshold 2.8)" = round(target_copies_2_8, 1)) |>
   rename("Neoplastic cell content (%)" = ncc) |> 
-  select(-target_copies)
+  select(-c(target_copies, target_copies_2_8))
 
 knitr::kable(table_ncc_increments)
 
@@ -191,9 +196,11 @@ csv_timestamp(table_ncc_increments)
 
 ## Methods
 
-### Load PanSolid Results
+### Load PanSolid results
 
 PanSolid results are taken from the formatted Excel (.xlsx) files which are exported from the PanSolid 1.6dev pipeline.
+
+The files in the "clc_processed_outputs" folder are all the processed files generated for samples extracted via cobas® or QIAsymphony extractions, and tested on PanSolid version 1 or version 2. These files are structured in the agreed format we finally decided on for analysis, with the tables and plots described in the SOP (DOC6261).
 
 ```{r}
 #| label: load-processed-clc-results
@@ -271,7 +278,7 @@ excluded_cases <- c("23034646", "23000087")
 
 ```
 
-### Load Control Information
+### Load control information
 
 To make sure I am identifying the correct samples as "controls" I have exported the coverage files for the controls from the CLC pipeline.
 
@@ -308,7 +315,7 @@ if (anyNA(qiasymphony_control_info)) { stop("NAs in QIAsymphony control informat
 
 ```
 
-### Load Sample Information
+### Load sample information
 
 The sample information from the DNA Database was extracted using the erbb2_validation_dna_db_queries.R script which uses an ODBC connection. The information was exported as csv files so that this Quarto document should render without the user needing an ODBC connection to the DNA Database.
 
@@ -432,6 +439,8 @@ The DNA concentrations I've pulled from the submission sheets for the PanSolid w
 ```{r}
 #| label: sample-dna-concentrations
 #| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
 
 pansolid_submissions <- join_pansolid_submission_sheets()
 
@@ -461,7 +470,7 @@ sample_nhs_no <- read_csv(here::here("data/dna_db_queries/sample_nhs_no.csv"),
 
 ```
 
-### Add DNA Database Information
+### Add DNA Database information
 
 Adding on the DNA Database information to each table of results allows these tables to act as the base for downstream analysis. The idea is that each table has all the variables I might want to filter by (DNA extraction method, NHS number, PanSolid version, DNA concentration etc) and so reduces joining with other tables downstream.
 
@@ -494,7 +503,7 @@ qiasymphony_controls <- qiasymphony_control_info |>
 
 Samples were tested across `r length(unique(stdev_results$worksheet))` worksheets between `r min(stdev_results$date)` and `r max(stdev_results$date)`.
 
-### Make Sample Tables for Validation Document
+### Make sample tables for validation document
 
 ```{r}
 #| label: sample-info-tables-export
@@ -541,12 +550,14 @@ csv_timestamp(table_tumour_sources_total)
 #| label: dna-extraction-concentrations
 #| echo: FALSE
 
-stdev_results |> 
+table_extraction_method_concentrations <- stdev_results |> 
   filter(!is.na(extraction_method)) |> 
   group_by(extraction_method) |> 
   summarise(min_dna = min(stock_qubit, na.rm = TRUE),
             max_dna = max(stock_qubit, na.rm = TRUE),
             median_dna = median(stock_qubit, na.rm = TRUE))
+
+knitr::kable(table_extraction_method_concentrations)
 
 ```
 
@@ -605,6 +616,7 @@ These sample numbers should match the numbers given in the flow diagram in the v
 ```{r}
 #| label: sample-numbers
 #| echo: FALSE
+#| message: FALSE
 
 table_cases_tested <- stdev_results |>
   group_by(sample_subgroup, extraction_method, pansolid_version) |> 
@@ -659,7 +671,7 @@ csv_timestamp(table_qs_control_sources_total)
 
 ```
 
-### Load Droplet Digital PCR (ddPCR) Data
+### Load droplet digital PCR (ddPCR) data
 
 ddPCR data was analysed on Quantasoft and the results for each plate were exported as a single csv file.
 
@@ -710,33 +722,13 @@ csv_timestamp(table_impact_of_hindiii_digestion)
 
 # Results
 
-## ERBB2 NGS Results
+## ERBB2 NGS results
 
 Because of the new processed Excel format, ERBB2 results can be viewed in two ways:
 
--   
+1)  At the level of the gene region, with maximum and minimum fold changes ("all_amp_gene_results" table).
 
-    1)  At the level of the gene region, with maximum and minimum fold changes
-
-```{r}
-#| label: erbb2-gene-region-results
-#| include: TRUE
-
-head(all_amp_gene_results)
-
-```
-
--   
-
-    2)  At the level of the CNV call, which includes the CNV coordinates
-
-```{r}
-#| label: erbb2-call-details
-#| include: TRUE
-
-head(pos_cnv_results)
-
-```
+2)  At the level of the CNV call, which includes the CNV coordinates ("pos_cnv_results" table).
 
 ```{r}
 #| label: erbb2-calls-per-sample
@@ -900,7 +892,7 @@ plot_timestamp(plot_fold_change_vs_ddpcr_copy_number)
 
 ```
 
-## ERBB2 Copy Number Variant Coordinates
+## ERBB2 copy number variant coordinates
 
 There are three main cohorts of samples to look at:
 
@@ -967,7 +959,7 @@ erbb2_long_calls <- erbb2_cobas_v1_factorise |>
 
 The long calls varied from `r round(min(erbb2_long_calls$cnv_length)/1000, 1)` to `r round(max(erbb2_long_calls$cnv_length)/1000, 1)` kilobases.
 
-## Limit of Detection
+## Limit of detection
 
 Making plots for the SeraCare controls is quite verbose because I designed the triptych functions for the sample cohort more generally.
 
@@ -1173,7 +1165,7 @@ csv_timestamp(table_ddpcr_seracare_comparison)
 
 ```
 
-## Tumour Content Limit of Detection Experiment
+## Tumour content limit of detection experiment
 
 ```{r}
 #| label: limit-of-detection
@@ -1227,6 +1219,7 @@ The signal-adjusted noise for log2 ratios in the cobas®-extracted sample cohort
 ```{r}
 #| label: qc-threshold
 #| echo: FALSE
+#| warning: FALSE
 
 pos_cnv_results_with_sd <- pos_cnv_results |> 
   left_join(stdev_results |> 
@@ -1363,9 +1356,11 @@ reproducibility_fold_change_sd <- calculate_pooled_sd(df = inter_run_results,
                                                     round_places = 2)
 ```
 
-
-
 The pooled standard deviation of the ERBB2 fold change in `r length(unique(repeat_results$labno_suffix_worksheet))` repeat replicates of `r length(unique(repeat_results$labno))` DNA samples was `r erb2_fold_change_sd[[2]]`. The pooled standard deviation of the signal-adjusted noise for the same cohort was `r signal_noise_sd[[2]]`.
+
+Pooled standard deviation for intra-run results for fold change (repeatability): `r repeatability_fold_change_sd`
+
+Pooled standard deviation for inter-run results for fold change (reproducibility): `r reproducibility_fold_change_sd`
 
 ## cobas®-EZ1 workflow vs QIAsymphony workflow
 
@@ -1480,7 +1475,7 @@ plot_timestamp(plot_cobas_v1_2, input_height = 16)
 
 ```
 
-## Comparison to Core Panel
+## Comparison to core panel
 
 ```{r}
 #| label: comparison-to-core
@@ -1536,7 +1531,7 @@ erbb2_validation_dataset_for_export <- all_amp_gene_results |>
               select(labno_suffix_worksheet, st_dev_signal_adjusted_log2_ratios),
             by = "labno_suffix_worksheet") |> 
   select(labno, suffix, worksheet, labno_suffix_worksheet,
-         patient_name, pathno, 
+         pathno, 
          sample_group, sample_subgroup, 
          st_dev_signal_adjusted_log2_ratios, 
          gene, max_region_fold_change, min_region_fold_change,
@@ -1547,13 +1542,21 @@ csv_timestamp(erbb2_validation_dataset_for_export)
 
 ```
 
+## Signal-adjusted noise and other quality metrics
+
+Eleanor also asked me to compare the signal-adjusted noise against other quality metrics.
+
+For this I only had access to the summarised quality metrics for the cobas®-extracted samples tested on PanSolidv1.
+
+The files in the "clc_initial_outputs" folder were generated prior to the work done by Lizzy on adding plots to the Excel outputs.
+
 ```{r}
 #| label: coverage-vs-noise
 #| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
 
-source(here::here("functions/archived_functions.R"))
-
-all_patient_files <- list.files(path = here::here("data/clc_outputs/"), full.names = TRUE, recursive = TRUE,
+all_patient_files <- list.files(path = here::here("data/clc_initial_outputs/"), full.names = TRUE, recursive = TRUE,
                 pattern = "*.xlsx")
 
 qc_data <- all_patient_files |>
@@ -1585,18 +1588,17 @@ make_noise_plot <- function(df = qc_data_with_ids, x_axis) {
 }
 
 p1 <- make_noise_plot(x_axis = percent_target_region_pos_cov_greaterorequal_138) +
-  labs(x = "Percentage target positions covered to greater or equal to 138x")
+  labs(x = "Percentage target positions covered to greater or equal to 138x") +
+  ggpubr::stat_cor(method = "pearson", label.x = 70, label.y = 0.1)
       
 p2 <- make_noise_plot(x_axis = number_target_regions_with_cov_lessthan_138) +
-  labs(x = "Number of target regions with coverage below 138x")
+  labs(x = "Number of target regions with coverage below 138x")  +
+  ggpubr::stat_cor(method = "pearson", label.x = 4000, label.y = 0.1)
 
 p3 <- make_noise_plot(x_axis = median_coverage) +
   labs(x = "Median coverage (x)",
-       caption = str_c("Data for ", sample_number, " cobas-extracted samples tested on PanSolid v1"))
-
-qc_data_with_ids |> 
-  filter(st_dev_signal_adjusted_log2_ratios < 0.5 &
-           percent_target_region_pos_cov_greaterorequal_138 < 75) |>  view()
+       caption = str_c("Data for ", sample_number, " cobas-extracted samples tested on PanSolid v1")) +
+  ggpubr::stat_cor(method = "pearson", label.x = 1100, label.y = 0.1)
 
 qc_plot_combined <- p1 + p2 + p3 +
   plot_layout(ncol = 1)
