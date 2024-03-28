@@ -1429,6 +1429,24 @@ plot_timestamp(plot_fc_noise_joined, input_height = 16)
 ```
 
 ```{r}
+#| label: samples-dual-extracted-erbb2-calls
+#| echo: FALSE
+
+dual_extracted_erbb2 <- pos_cnv_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(nhsno %in% pansolid_qiasymphony_v2$nhsno) |> 
+  mutate(pathno_extraction = str_c(nhsno, "_", extraction_method)) |> 
+  make_labno_plot(yaxis = pathno_extraction)
+
+plot_dual_extracted_erbb2_calls <- make_cnv_triptych(dual_extracted_erbb2)
+
+plot_dual_extracted_erbb2_calls
+
+plot_timestamp(plot_dual_extracted_erbb2_calls)
+
+```
+
+```{r}
 #| label: samples-dual-tested
 #| echo: FALSE
 
@@ -1474,6 +1492,26 @@ plot_cobas_v1_2 <- plot_cobas_v1_2_fold_change +
 plot_timestamp(plot_cobas_v1_2, input_height = 16)
 
 ```
+
+```{r}
+#| label: samples-dual-tested-erbb2-calls
+#| echo: FALSE
+
+dual_tested_erbb2 <- pos_cnv_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(labno %in% pansolid_cobas_v2$labno) |>
+  mutate(labno_pansolid_version = str_c(labno,"_Pansolid_v", pansolid_version)) |> 
+  arrange(labno_pansolid_version) |> 
+  make_labno_plot(yaxis = labno_pansolid_version)
+
+plot_dual_tested_erbb2_calls <- make_cnv_triptych(dual_tested_erbb2)
+
+plot_dual_tested_erbb2_calls
+
+plot_timestamp(plot_dual_tested_erbb2_calls)
+
+```
+
 
 ## Comparison to core panel
 
