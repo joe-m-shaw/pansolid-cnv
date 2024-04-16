@@ -42,5 +42,9 @@ crc_plot <- ggplot(crc_discodes_long, aes(x = date, y = )) +
 
 crc_plot
 
-```
+crc_discode_months <- crc_discodes_long |> 
+  count(month)
 
+median(crc_discode_months$n)
+
+```

@@ -431,10 +431,10 @@ add_case_group <- function(df) {
 
 # Processed Excel functions ---------------------------------------------------------
 
-get_full_tbl <- function(file) {
+get_full_tbl <- function(file, sheet = "Amplifications") {
   
   full_tbl <- read_excel(path = file,
-                         sheet = "Amplifications",
+                         sheet = {{ sheet }},
                          col_names = FALSE) |> 
     janitor::clean_names()
   
@@ -459,9 +459,9 @@ add_identifiers <- function(file, tbl) {
   
 }
 
-read_pos_cnv_results <- function(file) {
+read_pos_cnv_results <- function(file, sheet = "Amplifications") {
   
-  full_tbl <- get_full_tbl(file)
+  full_tbl <- get_full_tbl(file, sheet)
 
   pos_cnv_tbl_row <- match("Positive CNV results", full_tbl$x1)
   
@@ -472,7 +472,7 @@ read_pos_cnv_results <- function(file) {
   size_pos_cnv_tbl <- (first_na_after_pos_cnv_tbl - pos_cnv_tbl_row) - 1
   
   pos_cnv_tbl <- read_excel(path = file,
-                            sheet = "Amplifications",
+                            sheet = {{ sheet }},
                             skip = pos_cnv_tbl_row,
                             n_max = size_pos_cnv_tbl,
                             col_types = c("text", "text", "text", 
@@ -505,14 +505,14 @@ read_pos_cnv_results <- function(file) {
   
 }
 
-read_all_amp_genes_results <- function(file) {
+read_all_amp_genes_results <- function(file, sheet = "Amplifications") {
 
-  full_tbl <- get_full_tbl(file)
+  full_tbl <- get_full_tbl(file, sheet)
   
   gene_table_row_start <- match("All amplification genes", full_tbl$x1)
   
   gene_tbl <- read_excel(path = file,
-                  sheet = "Amplifications",
+                  sheet = {{ sheet }},
                   skip = gene_table_row_start,
                   n_max = 9) |> 
     janitor::clean_names() 
@@ -523,14 +523,14 @@ read_all_amp_genes_results <- function(file) {
   
 }
 
-read_stdev_results <- function(file) {
+read_stdev_results <- function(file, sheet = "Amplifications") {
   
-  full_tbl <- get_full_tbl(file)
+  full_tbl <- get_full_tbl(file, sheet)
   
   stdev_start <- match("StDev Signal-adjusted Log2 Ratios", full_tbl$x1) - 1
   
   stdev <- read_excel(path = file,
-                  sheet = "Amplifications",
+                  sheet = {{ sheet }},
                   skip = stdev_start,
                   n_max = 1) |> 
     janitor::clean_names()

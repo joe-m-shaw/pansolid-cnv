@@ -1,0 +1,121 @@
+---
+title: "PanSolidv2 CNV Audit"
+author: "Joe Shaw"
+date: today
+date-format: "DD/MM/YYYY"
+format: pdf
+editor: visual
+---
+
+```{r}
+#| label: packages
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+library(here)
+
+```
+
+```{r}
+#| label: functions
+#| include: FALSE
+
+source(here::here("functions/cnv_functions.R"))
+
+```
+
+```{r}
+#| label: read-data
+#| include: FALSE
+
+fold_change_threshold <- 2.8
+
+pansolid_worksheets <- read_excel(here::here("data/pansolid_live_service_worksheets.xlsx"))
+
+get_annotated_filepaths <- function(worksheet) {
+  
+  repository_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
+  
+  annotated_filepaths <- list.files(path = str_c(repository_path, {{ worksheet }},
+                                                 "/"),
+                                    recursive = TRUE, 
+                                    pattern = "Annotated_WS\\d{6}_.+.xlsx",
+                                    full.names = TRUE)
+  
+  return(annotated_filepaths)
+  
+}
+
+get_amp_sheetname <- function(filepath) {
+  
+  sheets <- readxl::excel_sheets(filepath)
+  
+  amp_sheet_name <- grep(pattern = "Amplifications_", x = sheets, value = TRUE)
+  
+  return(amp_sheet_name)
+  
+}
+
+
+read_annotated_file_all_amp <- function(filepath) {
+  
+  amp_sheet_name <- get_amp_sheetname(filepath)
+  
+  amp_gene_results <- read_all_amp_genes_results(file = filepath,
+                           sheet = amp_sheet_name)
+  
+  return(amp_gene_results)
+  
+}
+
+read_annotated_file_stdev <- function(filepath) {
+  
+  amp_sheet_name <- get_amp_sheetname(filepath)
+  
+  amp_gene_results <- read_stdev_results(file = filepath,
+                           sheet = amp_sheet_name)
+  
+  return(amp_gene_results)
+  
+}
+
+live_ws_filepaths <- get_annotated_filepaths("WS140721")
+
+live_ws_amp_gene_results <- live_ws_filepaths |> 
+  map(\(live_ws_filepaths) read_annotated_file_all_amp(live_ws_filepaths)) |>
+  list_rbind()
+
+live_ws_stdev_results <- live_ws_filepaths |> 
+  map(\(live_ws_filepaths) read_annotated_file_stdev(live_ws_filepaths)) |>
+  list_rbind()
+
+live_results <- live_ws_amp_gene_results |> 
+  left_join(live_ws_stdev_results |> 
+              select(file, st_dev_signal_adjusted_log2_ratios), by = "file")
+
+```
+
+```{r}
+
+
+live_results_mod <- live_results |> 
+  mutate(result = case_when(
+    
+    max_region_fold_change >= fold_change_threshold ~"Amplification detected",
+    
+    max_region_fold_change < fold_change_threshold ~"No amplification detected"))
+
+```
+
+```{r}
+#| label: check-gene-amps
+#| echo: FALSE
+
+live_results_mod |> 
+  filter(st_dev_signal_adjusted_log2_ratios < 1) |> 
+  group_by(gene, result) |> 
+  count() |> 
+  pivot_wider(names_from = result, values_from = n, values_fill = 0)
+
+```
