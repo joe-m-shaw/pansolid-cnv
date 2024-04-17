@@ -22,6 +22,8 @@ Here is the current plan for the different samples and variant types to be inclu
 
 The idea is that the positive control samples for one variant type will be used as negative control samples for the other variant types.
 
+LOH: loss of heterozygosity
+
 ```{r}
 #| label: load-plan
 #| echo: FALSE
@@ -70,22 +72,54 @@ get_calcs <- function(df, variant_type) {
   x <- df |> 
     filter(variant == variant_type)
   
-  calcs <- epiR::epi.tests(c(as.numeric(x[,2]), 
+  calcs <- summary(epiR::epi.tests(c(as.numeric(x[,2]), 
                              0, 0, as.numeric(x[,3])),
-                           method = "clopper-pearson")
+                           method = "clopper-pearson")) |> 
+    mutate(type = variant_type)
+  
   return(calcs)
   
 }
 
 ```
 
-If we assume that the results of the orthogonal method perfectly match the NGS PanSolid results (sensitivity and specificity = 100%), we can calculate the predicted test metrics for each variant type.
+If we assume that the results of the orthogonal method perfectly match the NGS PanSolid results (sensitivity and specificity = 100%), we can calculate the predicted test metrics for each variant type with 95% confidence intervals.
 
 ```{r}
-#| label: amplifications
-#| include: TRUE
+#| label: perform-calcs
+#| echo: FALSE
 
-get_calcs(variant_categories, "Amplification")
+amps <- get_calcs(variant_categories, "Amplification")
+
+dels <- get_calcs(variant_categories, "Whole gene deletion")
+
+loh <- get_calcs(variant_categories, "Copy neutral LOH")
+
+translocations <- get_calcs(variant_categories, "Translocation")
+
+all_calcs <- rbind(amps, dels, loh, translocations)
+
+all_calcs |> 
+  filter(statistic %in% c("se", "sp")) |> 
+  mutate(metric = case_when(
+    
+    statistic == "se" ~ "Sensitivity",
+    
+    statistic == "sp" ~ "Specificity"
+    
+  )) |> 
+  ggplot(aes(x = type, y = est)) +
+  geom_point(pch = 21, size = 2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_wrap(~metric) +
+  labs(x = "", y = "Proportion", 
+       title = "Predicted test metrics for each variant type",
+       caption = "Assuming 100% concordance with orthogonal test") +
+  ylim(0.5, 1)
+
+
 
 ```
 
@@ -94,8 +128,8 @@ get_calcs(variant_categories, "Amplification")
 ```{r}
 #| label: deletions
 #| include: TRUE
-
-get_calcs(variant_categories, "Whole gene deletion")
+  
+  
 
 ```
 
@@ -105,7 +139,6 @@ get_calcs(variant_categories, "Whole gene deletion")
 #| label: LOH
 #| include: TRUE
 
-get_calcs(variant_categories, "Copy neutral loss of heterozygosity")
 
 ```
 
@@ -115,6 +148,6 @@ get_calcs(variant_categories, "Copy neutral loss of heterozygosity")
 #| label: translocations
 #| include: TRUE
 
-get_calcs(variant_categories, "Translocation")
+
 
 ```
