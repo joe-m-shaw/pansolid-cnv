@@ -1,0 +1,47 @@
+---
+title: "PanSolid CNV Project Planning"
+author: "Joe Shaw"
+date: today
+date-format: "DD/MM/YYYY"
+format: pdf
+editor: visual
+---
+
+```{r}
+#| label: packages
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+library(here)
+library(epiR)
+
+```
+
+```{r}
+#| label: calculate-sensitivity
+#| include: TRUE
+
+variant_types <- read_excel(here("data/pansolid_cnv_variant_type_planning.xlsx"))
+
+calc_sensitivity <- function(true_pos, false_pos, false_neg, true_neg,
+                             stat, cat) {
+  
+  calcs <- epiR::epi.tests(c(true_pos, false_pos, false_neg, true_neg),
+                           method = "clopper-pearson")
+  
+  sensitivity <- calcs$detail[calcs$detail$statistic == {{ stat }}, {{ cat }}]
+  
+  return(sensitivity)
+  
+}
+
+total_samples <- sum(variant_types$number_of_positive_samples)
+
+calc_sensitivity(2, 0, 0, total_samples-2, "sp", "lower")
+
+calc_sensitivity(5, 0, 0, total_samples-5, "sp", "lower")
+
+calc_sensitivity(10, 0, 0, total_samples-2, "sp", "lower")
+
+```
