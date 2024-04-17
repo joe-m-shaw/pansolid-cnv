@@ -1,0 +1,51 @@
+---
+title: "QiaSymphony DNA Extraction Audit"
+author: "Joe Shaw"
+date: today
+date-format: "DD/MM/YYYY"
+format: pdf
+editor: visual
+---
+
+```{r}
+#| label: packages
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+library(here)
+library(odbc)
+library(DBI)
+library(dbplyr)
+library(ggpubr)
+
+source(here::here("functions/dna_database_connection.R"))
+
+source(here::here("functions/dna_database_functions.R"))
+
+source(here::here("functions/cnv_functions.R"))
+
+```
+
+```{r}
+#| label: qiasymphony-extractions
+#| include: FALSE
+
+qiasymphony_batch_tbl <- extraction_batch_tbl |> 
+  filter(extraction_method_fk == 33 &
+          run_date > "2024-03-31 00:00:00") |> 
+  collect()
+
+qiasymphony_batches <- qiasymphony_batch_tbl$extraction_batch_id
+
+qiasymphony_samples <- extraction_tbl |> 
+  filter(extraction_batch_fk %in% qiasymphony_batches) |> 
+  collect()
+
+qiasymphony_batch_summary <- qiasymphony_samples |> 
+  group_by(extraction_batch_fk) |> 
+  count()
+
+sum(qiasymphony_batch_summary$n)
+
+```
