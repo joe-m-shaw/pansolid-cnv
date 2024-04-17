@@ -18,30 +18,103 @@ library(epiR)
 
 ```
 
+Here is the current plan for the different samples and variant types to be included in the project.
+
+The idea is that the positive control samples for one variant type will be used as negative control samples for the other variant types.
+
 ```{r}
-#| label: calculate-sensitivity
-#| include: TRUE
+#| label: load-plan
+#| echo: FALSE
 
-variant_types <- read_excel(here("data/pansolid_cnv_variant_type_planning.xlsx"))
+variant_types <- read_excel(here("data/pansolid_cnv_variant_type_planning.xlsx")) 
 
-calc_sensitivity <- function(true_pos, false_pos, false_neg, true_neg,
-                             stat, cat) {
+total_samples <- sum(variant_types$positive_samples)
+
+```
+
+```{r}
+#| label: show-plan-samples
+#| echo: FALSE
+
+variant_types_mod <- variant_types |> 
+  mutate(negative_samples = total_samples - positive_samples) |> 
+  select(-zygosity)
+
+knitr::kable(variant_types_mod)
+
+```
+
+{{< pagebreak >}}
+
+This is what the plan looks like in terms of the different variant categories.
+
+```{r}
+#| label: show-plan-categories
+#| echo: FALSE
+
+variant_categories <- variant_types |> 
+  group_by(variant) |> 
+  summarise(positive_samples = sum(positive_samples)) |> 
+  mutate(negative_samples = total_samples - positive_samples)
+
+knitr::kable(variant_categories)
+
+```
+
+```{r}
+#| label: calculate-test-metrics
+#| include: FALSE
+
+get_calcs <- function(df, variant_type) {
   
-  calcs <- epiR::epi.tests(c(true_pos, false_pos, false_neg, true_neg),
+  x <- df |> 
+    filter(variant == variant_type)
+  
+  calcs <- epiR::epi.tests(c(as.numeric(x[,2]), 
+                             0, 0, as.numeric(x[,3])),
                            method = "clopper-pearson")
-  
-  sensitivity <- calcs$detail[calcs$detail$statistic == {{ stat }}, {{ cat }}]
-  
-  return(sensitivity)
+  return(calcs)
   
 }
 
-total_samples <- sum(variant_types$number_of_positive_samples)
+```
 
-calc_sensitivity(2, 0, 0, total_samples-2, "sp", "lower")
+If we assume that the results of the orthogonal method perfectly match the NGS PanSolid results (sensitivity and specificity = 100%), we can calculate the predicted test metrics for each variant type.
 
-calc_sensitivity(5, 0, 0, total_samples-5, "sp", "lower")
+```{r}
+#| label: amplifications
+#| include: TRUE
 
-calc_sensitivity(10, 0, 0, total_samples-2, "sp", "lower")
+get_calcs(variant_categories, "Amplification")
+
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: deletions
+#| include: TRUE
+
+get_calcs(variant_categories, "Whole gene deletion")
+
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: LOH
+#| include: TRUE
+
+get_calcs(variant_categories, "Copy neutral loss of heterozygosity")
+
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: translocations
+#| include: TRUE
+
+get_calcs(variant_categories, "Translocation")
 
 ```
