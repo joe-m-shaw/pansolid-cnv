@@ -540,7 +540,54 @@ read_stdev_results <- function(file, sheet = "Amplifications") {
   return(output)
   
 }
+
+get_annotated_filepaths <- function(worksheet) {
   
+  repository_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
+  
+  annotated_filepaths <- list.files(path = str_c(repository_path, {{ worksheet }},
+                                                 "/"),
+                                    recursive = TRUE, 
+                                    pattern = "Annotated_WS\\d{6}_.+.xlsx",
+                                    full.names = TRUE)
+  
+  return(annotated_filepaths)
+  
+}
+
+get_amp_sheetname <- function(filepath) {
+  
+  sheets <- readxl::excel_sheets(filepath)
+  
+  amp_sheet_name <- grep(pattern = "Amplifications_", x = sheets, value = TRUE)
+  
+  return(amp_sheet_name)
+  
+}
+
+
+read_annotated_file_all_amp <- function(filepath) {
+  
+  amp_sheet_name <- get_amp_sheetname(filepath)
+  
+  amp_gene_results <- read_all_amp_genes_results(file = filepath,
+                                                 sheet = amp_sheet_name)
+  
+  return(amp_gene_results)
+  
+}
+
+read_annotated_file_stdev <- function(filepath) {
+  
+  amp_sheet_name <- get_amp_sheetname(filepath)
+  
+  amp_gene_results <- read_stdev_results(file = filepath,
+                                         sheet = amp_sheet_name)
+  
+  return(amp_gene_results)
+  
+}
+
 # Primers ---------------------------------------------------------------------------
 
 grch38_primers <- read_csv(file =
