@@ -15,6 +15,9 @@ library(tidyverse)
 library(readxl)
 library(here)
 library(epiR)
+library(patchwork)
+
+source(here::here("functions/cnv_functions.R"))
 
 ```
 
@@ -119,35 +122,106 @@ all_calcs |>
        caption = "Assuming 100% concordance with orthogonal test") +
   ylim(0.5, 1)
 
-
-
 ```
 
 {{< pagebreak >}}
 
+# Loss of Heterozygosity
+
+Here's an example of how the loss of heterozygosity results could be presented.
+
 ```{r}
-#| label: deletions
-#| include: TRUE
-  
-  
+#| label: loh-analysis
+#| include: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+example_loh <- read_xls(path = here::here("data/tLYNCH_WS130362_23013476.xls"),
+         sheet = "SNV_calls") |> 
+  rename(coordinate = start) |> 
+  mutate(panel = "SNP") |> 
+  janitor::clean_names()
+
+example_loh_long <- example_loh |> 
+  pivot_longer(cols = c("ref_percentage", "alt_percentage"),
+               names_to = "column",
+               values_to = "percentage") |> 
+  mutate(allele = str_extract(column, pattern = "(\\w{3})_percentage",
+         group = 1))
+
+loh_chr3 <- example_loh_long |> 
+               filter(chr == "chr3")
+
+loh_chr2 <- example_loh_long |> 
+  filter(chr == "chr2")
+
+mlh1 <- all_transcripts |> 
+  filter(transcript == "ENST00000231790") |> 
+  mutate(gene = "")
+
+msh2_msh6 <- all_transcripts |> 
+  filter(transcript %in% c("ENST00000233146", "ENST00000234420")) |> 
+  mutate(gene = "")
+
+loh_mlh1_results <- ggplot(loh_chr3, aes(x = coordinate, y = percentage)) +
+  geom_point(pch = 21, size = 3, alpha = 0.6, aes(fill = allele)) +
+  scale_fill_manual(values = c(safe_blue, safe_red)) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, by = 10)) +
+  labs(x = "", y = "Allele percent (%)",
+       title = "LOH results: chromosome 3",
+       fill = "")
+
+loh_msh2_6_results <- ggplot(loh_chr2, aes(x = coordinate, y = percentage)) +
+  geom_point(pch = 21, size = 3, alpha = 0.6, aes(fill = allele)) +
+  scale_fill_manual(values = c(safe_blue, safe_red)) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, by = 10)) +
+  labs(x = "", y = "Allele percent (%)",
+       title = "LOH results: chromosome 2",
+       fill = "")
+
+mlh1_exon_plot <- ggplot(mlh1, aes(x = coordinate, y = gene)) +
+  geom_segment(aes(x = start, xend = end, 
+                     y = gene, yend = gene),
+                 linewidth = 4) +
+  geom_segment(aes(x = min(start), xend = max(end), 
+                     y = gene, yend = gene),
+                 linewidth = 0.5) +
+  scale_x_continuous(limits = c(min(loh_chr3$coordinate), 
+                                max(loh_chr3$coordinate))) +
+  theme_bw() +
+  labs(x = "Genomic coordinate (GRCh37)", y = "") +
+  geom_label(aes(x = 37050000), label = "MLH1",
+             nudge_y = -0.3)
+
+msh2_6_exon_plot <- ggplot(msh2_msh6, aes(x = coordinate, y = gene)) +
+  geom_segment(aes(x = start, xend = end, 
+                     y = gene, yend = gene),
+                 linewidth = 4) +
+  scale_x_continuous(limits = c(min(loh_chr2$coordinate), 
+                                max(loh_chr2$coordinate))) +
+  theme_bw() +
+  labs(x = "Genomic coordinate (GRCh37)", y = "") +
+  geom_label(aes(x = 47650000), label = "MSH2",
+             nudge_y = -0.3) +
+   geom_label(aes(x = 48000000), label = "MSH6",
+             nudge_y = -0.3)
+
+loh_example_visual <- loh_msh2_6_results + loh_mlh1_results +
+   msh2_6_exon_plot + mlh1_exon_plot +
+  plot_layout(ncol = 2, nrow = 2, heights = c(4,2))
 
 ```
 
-{{< pagebreak >}}
-
 ```{r}
-#| label: LOH
-#| include: TRUE
+#| label: loh-plot
+#| echo: FALSE
+#| fig-width: 10
+#| fig-height: 10
 
-
-```
-
-{{< pagebreak >}}
-
-```{r}
-#| label: translocations
-#| include: TRUE
-
-
+loh_example_visual
 
 ```
