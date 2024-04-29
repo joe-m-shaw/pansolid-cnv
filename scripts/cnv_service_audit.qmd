@@ -3,7 +3,7 @@ title: "PanSolidv2 CNV Audit"
 author: "Joe Shaw, Clinical Scientist (CS20980)"
 date: today
 date-format: "DD/MM/YYYY"
-format: pdf
+format: html
 editor: visual
 ---
 
@@ -65,12 +65,14 @@ if (nrow(new_ws_amp_gene_results) == 0 &
     new_pansolid_data <- new_ws_amp_gene_results |> 
       left_join(new_ws_stdev_results |> 
               select(file, st_dev_signal_adjusted_log2_ratios), 
-              by = "file")
+              by = "file") |> 
+      select(-c("x4", "x5", "x6", "x7", "x8"))
     
     pansolid_cnv_collated_data <- rbind(new_pansolid_data,
                                    pansolid_cnv_collated_data)
     
-    write.csv(pansolid_data, here::here("data/pansolid_v2_cnv_service_results.csv"),
+    write.csv(pansolid_cnv_collated_data,
+              here::here("data/pansolid_v2_cnv_service_results.csv"),
               row.names = FALSE)
     
   }
@@ -95,16 +97,16 @@ live_results_mod <- pansolid_cnv_collated_data |>
 Here's the summary of amplifications detected for samples passing the quality filter (signal-adjusted noise metric below 1).
 
 ```{r}
-#| label: summary-gene-amps
+#| label: summary-gene-amps-filter
 #| echo: FALSE
 
-summary_table <- live_results_mod |> 
+summary_table_filter <- live_results_mod |> 
   filter(st_dev_signal_adjusted_log2_ratios < 1) |> 
   group_by(gene, result) |> 
   count() |> 
   pivot_wider(names_from = result, values_from = n, values_fill = 0)
 
-knitr::kable(summary_table)
+knitr::kable(summary_table_filter)
 
 ```
 
@@ -114,10 +116,21 @@ These are the samples with amplifications detected.
 #| label: view-amps
 #| echo: FALSE
 
+new_regex <- regex(
+  r"[
+  .+
+  (WS\d{6}/.+.xlsx)
+  ]",
+  comments = TRUE
+)
+
 amps_detected <- live_results_mod |> 
+  mutate(filepath_edit = str_extract(
+    string = live_results_mod$file, 
+    pattern = new_regex, group = 1)) |> 
   filter(st_dev_signal_adjusted_log2_ratios < 1 &
            result == "Amplification detected") |> 
-  select(worksheet, labno, gene, max_region_fold_change, 
+  select(filepath_edit, gene, max_region_fold_change, 
          st_dev_signal_adjusted_log2_ratios)
 
 knitr::kable(amps_detected)
@@ -132,7 +145,9 @@ And here's the overall view of gene fold changes.
 #| label: amps-plots
 #| echo: FALSE
 
-gene_fold_changes_plot <- ggplot(live_results_mod, aes(x = gene, y = max_region_fold_change)) +
+gene_fold_changes_plot <- ggplot(live_results_mod |> 
+                                   filter(st_dev_signal_adjusted_log2_ratios < 1), 
+                                 aes(x = gene, y = max_region_fold_change)) +
   geom_jitter(pch = 21, width = 0.2, alpha = 0.5, aes(fill = result)) +
   scale_fill_manual(values = c(safe_red, safe_blue)) +
   theme_bw() +
