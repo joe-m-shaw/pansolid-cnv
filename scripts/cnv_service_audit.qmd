@@ -27,63 +27,74 @@ source(here::here("functions/cnv_functions.R"))
 
 ```{r}
 #| label: read-data
+#| eval: FALSE
 #| include: FALSE
-
-fold_change_threshold <- 2.8
 
 # Manually add new worksheets to this Excel
 pansolid_worksheets <- read_excel(here::here("data/pansolid_live_service_worksheets.xlsx"))
 
-# Previously collated data
-pansolid_cnv_collated_data <- read_csv(here::here("data/pansolid_v2_cnv_service_results.csv"))
-
-new_pansolid_worksheets <- pansolid_worksheets |> 
-  filter(!worksheet %in% pansolid_cnv_collated_data$worksheet)
-
-live_worksheets <- list(new_pansolid_worksheets$worksheet)
+live_worksheets <- list(pansolid_worksheets$worksheet)
 
 live_ws_filepaths <- live_worksheets |> 
   map(\(live_worksheets) get_annotated_filepaths(live_worksheets)) |> 
   flatten()
 
-new_ws_amp_gene_results <- live_ws_filepaths |> 
-  map(\(live_ws_filepaths) read_annotated_file_all_amp(live_ws_filepaths)) |>
+# Copy files into C drive directory
+
+file.copy(from = live_ws_filepaths, 
+          to = here::here("data/live_service_annotated_files/"))
+
+copied_filepaths <- list.files(here::here("data/live_service_annotated_files/"),
+                               full.names = TRUE)
+
+# Two files don't have "Amplification" tabs
+copied_filepaths <- copied_filepaths[-c(385,386)]
+
+# Update the script to remove Excels without "Amplifications" tabs
+copied_filepath_sheetnames <- copied_filepaths |> 
+  map(\(copied_filepaths) get_amp_sheetname(copied_filepaths))
+
+new_ws_amp_gene_results <- copied_filepaths |> 
+  map(\(copied_filepaths) read_annotated_file_all_amp(copied_filepaths)) |>
   list_rbind()
 
-new_ws_stdev_results <- live_ws_filepaths |> 
-  map(\(live_ws_filepaths) read_annotated_file_stdev(live_ws_filepaths)) |>
+new_ws_stdev_results <- copied_filepaths |> 
+  map(\(copied_filepaths) read_annotated_file_stdev(copied_filepaths)) |>
   list_rbind()
-
-if (nrow(new_ws_amp_gene_results) == 0 &
-    nrow(new_ws_stdev_results) == 0) {
-  
-  rm(new_ws_amp_gene_results)
-  rm(new_ws_stdev_results)
-  
-  } else {
-    
-    new_pansolid_data <- new_ws_amp_gene_results |> 
-      left_join(new_ws_stdev_results |> 
-              select(file, st_dev_signal_adjusted_log2_ratios), 
-              by = "file") |> 
-      select(-c("x4", "x5", "x6", "x7", "x8"))
-    
-    pansolid_cnv_collated_data <- rbind(new_pansolid_data,
-                                   pansolid_cnv_collated_data)
-    
-    write.csv(pansolid_cnv_collated_data,
-              here::here("data/pansolid_v2_cnv_service_results.csv"),
-              row.names = FALSE)
-    
-  }
 
 ```
 
-In total, `r length(unique(pansolid_cnv_collated_data$labno))` samples have been tested by PanSolidv2 CNV analysis.
+```{r}
+#| label: collate-data
+#| eval: FALSE
+#| include: FALSE
+
+pansolid_cnv_collated_data <- new_ws_amp_gene_results |> 
+      left_join(new_ws_stdev_results |> 
+              select(file, st_dev_signal_adjusted_log2_ratios), 
+              by = "file")
+
+write.csv(pansolid_cnv_collated_data,
+              here::here("data/pansolid_v2_cnv_service_results.csv"),
+              row.names = FALSE)
+    
+```
+
+```{r}
+#| label: load-collated-data
+#| include: FALSE
+
+pansolid_cnv_collated_data <- read_csv(here::here("data/pansolid_v2_cnv_service_results.csv"))
+
+```
+
+In total, `r length(unique(pansolid_cnv_collated_data$labno))` samples are included in this audit.
 
 ```{r}
 #| label: check-amplifications
 #| include: FALSE
+
+fold_change_threshold <- 2.8
 
 live_results_mod <- pansolid_cnv_collated_data |> 
   mutate(result = case_when(
@@ -116,22 +127,12 @@ These are the samples with amplifications detected.
 #| label: view-amps
 #| echo: FALSE
 
-new_regex <- regex(
-  r"[
-  .+
-  (WS\d{6}/.+.xlsx)
-  ]",
-  comments = TRUE
-)
-
 amps_detected <- live_results_mod |> 
-  mutate(filepath_edit = str_extract(
-    string = live_results_mod$file, 
-    pattern = new_regex, group = 1)) |> 
   filter(st_dev_signal_adjusted_log2_ratios < 1 &
            result == "Amplification detected") |> 
-  select(filepath_edit, gene, max_region_fold_change, 
-         st_dev_signal_adjusted_log2_ratios)
+  select(labno, patient_name, gene, max_region_fold_change, 
+         st_dev_signal_adjusted_log2_ratios) |> 
+  arrange(gene, desc(max_region_fold_change))
 
 knitr::kable(amps_detected)
 
