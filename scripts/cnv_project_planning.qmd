@@ -120,7 +120,7 @@ all_calcs |>
   labs(x = "", y = "Proportion", 
        title = "Predicted test metrics for each variant type",
        caption = "Assuming 100% concordance with orthogonal test") +
-  ylim(0.5, 1)
+  ylim(0, 1)
 
 ```
 
