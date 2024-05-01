@@ -1,0 +1,218 @@
+---
+title: "Selecting Whole Genome Sequencing Samples for PanSolidv2"
+author: "Joe Shaw, Clinical Scientist (CS20980)"
+date: today
+date-format: "DD/MM/YYYY"
+format: html
+editor: visual
+---
+
+```{r}
+#| label: packages
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+library(here)
+library(rvest)
+
+```
+
+```{r}
+#| label: dlms
+#| include: FALSE
+
+source(here::here("functions/dna_database_connection.R"))
+
+source(here::here("functions/dna_database_functions.R"))
+
+```
+
+The aim is to find cases from the BRAIN MATRIX study which can be tested by PanSolid version 2 for the validation of somatic copy number variant detection.
+
+Information used in this Quarto is saved at this file location:
+
+```{r}
+#| label: filepath
+#| include: TRUE
+
+clin_trial_filepath <- "S:/central shared/Genetics/Mol_Shared/Cancer Team/100kGP Cancer Program Validation & Feedback/Live Clinical Trials/"
+
+```
+
+```{r}
+#| label: load-brain-matrix-excel
+#| include: FALSE
+
+brain_matrix_data_1 <- read_excel(path = str_c(clin_trial_filepath, "Brain Matrix Data.xlsx"),
+                                sheet = "Sheet1",
+                                col_types = c("text", "text", "text", "text",
+                                              "date", "text", "date", "date",
+                                              "date", "date", "text", "text")) |> 
+  janitor::clean_names()
+
+brain_matrix_data_2 <- read_excel(path = str_c(clin_trial_filepath, "Brain Matrix Data.xlsx"),
+                                sheet = "Sheet2",
+                                col_types = c("text", "text", "text", "date",
+                                              "text", "date", "date", "date", "date")) |> 
+  janitor::clean_names()
+
+shared_cols <- intersect(colnames(brain_matrix_data_2), colnames(brain_matrix_data_1)) 
+
+brain_matrix_data_join <- brain_matrix_data_1 |> 
+  select(all_of(shared_cols)) |> 
+  rbind(brain_matrix_data_2 |> 
+          select(all_of(shared_cols))) |> 
+  filter(!is.na(brain_matrix_id) & brain_matrix_id != "Brain Matrix ID") |> 
+  filter(!duplicated(brain_matrix_id)) |> 
+  mutate(gel_id_clean = str_replace_all(string = gel_id, 
+                                         pattern = " ", replacement = "")) |> 
+  arrange(brain_matrix_id)
+
+```
+
+There are `r length(unique(brain_matrix_data_join$brain_matrix_id))` samples to choose from.
+
+We now need a way to link the patient and referral IDs together.
+
+```{r}
+#| label: load-wgs-tracker
+#| include: FALSE
+
+wgs_tracker <- read_excel(path = str_c(clin_trial_filepath, "WGS tracker.xlsx")) |> 
+  janitor::clean_names() |> 
+  mutate(referral_id_clean = str_replace_all(string = referral_id, 
+                                         pattern = " ", replacement = ""),
+         
+         patient_id_clean = str_replace_all(string = patient_id, 
+                                         pattern = " ", replacement = ""))
+
+```
+
+```{r}
+#| label: find-gel-ids
+#| include: FALSE
+
+brain_matrix_patient_info <- wgs_tracker |> 
+  filter(referral_id_clean %in% brain_matrix_data_join$gel_id |
+           patient_id_clean %in% brain_matrix_data_join$gel_id) |> 
+  filter(!is.na(patient_id_clean))
+
+brain_matrix_p_nos <- list(brain_matrix_patient_info$patient_id_clean)
+
+```
+
+```{r}
+#| label: find-html-files
+#| include: FALSE
+
+get_html_path <- function(patient_id) {
+
+  file <- Sys.glob(paths = str_c(clin_trial_filepath, "MTB sheets/*/*/",
+                       {{ patient_id }}, "*/*.html"))
+  
+  return(file)
+  
+}
+
+brain_matrix_filepaths <- brain_matrix_p_nos |> 
+  map(\(brain_matrix_p_nos) get_html_path(brain_matrix_p_nos)) |> 
+  flatten()
+
+```
+
+```{r}
+#| label: parsing-html-function
+#| include: FALSE
+
+parse_cnv_table <- function(html_filepath) {
+  
+  html <- read_html(x = html_filepath)
+  
+  cnv_table <- html |> 
+    html_element("#d_svcnv_tier1") |> 
+    html_table() |> 
+    janitor::clean_names()
+  
+  header <- html |> 
+    html_element("header") |> 
+    html_text2()
+  
+  header_regex <- regex(
+    r"[
+    .+
+    (r\d{11}) # referral ID
+    .+
+    (p\d{11}) # patient ID
+    .+
+    ]",
+    comments = TRUE
+  )
+
+  r_no <- str_extract(header, header_regex, group = 1)
+  
+  p_no <- str_extract(header, header_regex, group = 2)
+  
+  output <- cnv_table |> 
+    mutate(r_no = r_no,
+           p_no = p_no) |> 
+    relocate(p_no, r_no)
+  
+  return(output)
+  
+}
+
+```
+
+The format of HTML reports appears to have changed over time. I've designed a function to read in the tier 1 structural variants table from the most recent version.
+
+```{r}
+#| label: collate-cnvs
+#| include: FALSE
+
+# The format of the HTMLs seems to change around report 5
+
+brain_matrix_filepaths <- brain_matrix_filepaths[5:14]
+
+brain_matrix_cnvs <- brain_matrix_filepaths |> 
+  map(\(brain_matrix_filepaths) parse_cnv_table(brain_matrix_filepaths)) |> 
+  list_rbind()
+
+```
+
+Here's some of the different gene CNVs present in BRAIN MATRIX samples.
+
+```{r}
+#| label: plot
+#| echo: FALSE
+
+variant_type_regex <- regex(
+  r"[
+  (GAIN|LOSS|INV|DEL|DUP)
+  \((\d{1,3})\)
+  ]",
+  comments = TRUE
+)
+
+brain_matrix_cnvs_mod <- brain_matrix_cnvs |> 
+  mutate(variant = str_extract(variant_type, pattern = variant_type_regex,
+                               group = 1),
+         copy_number = as.numeric(str_extract(variant_type, pattern = variant_type_regex,
+                               group = 2)))
+
+gene_vars <- grep(pattern = "CDKN2A|MET|BRAF|MYC", x = brain_matrix_cnvs_mod$gene,
+                  value = TRUE)
+
+brain_matrix_plot <- brain_matrix_cnvs_mod |> 
+  filter(gene %in% gene_vars) |> 
+  filter(!is.na(copy_number)) |> 
+  ggplot(aes(x = gene, y = copy_number)) +
+  geom_jitter(pch = 21, width = 0.1, size = 2) +
+  theme_bw()
+
+brain_matrix_plot
+
+```
+
+
+
