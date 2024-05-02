@@ -541,7 +541,7 @@ read_stdev_results <- function(file, sheet = "Amplifications") {
   
 }
 
-get_annotated_filepaths <- function(worksheet) {
+get_annotated_filepaths <- function(worksheet, full_names = TRUE) {
   
   repository_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
   
@@ -549,7 +549,7 @@ get_annotated_filepaths <- function(worksheet) {
                                                  "/"),
                                     recursive = TRUE, 
                                     pattern = "Annotated_WS\\d{6}_.+.xlsx",
-                                    full.names = TRUE)
+                                    full.names = full_names)
   
   return(annotated_filepaths)
   
@@ -587,6 +587,18 @@ read_annotated_file_stdev <- function(filepath) {
   return(amp_gene_results)
   
 }
+
+read_annotated_file_pos_cnv_results <- function(filepath) {
+  
+  amp_sheet_name <- get_amp_sheetname(filepath)
+  
+  pos_cnv_results <- read_pos_cnv_results(file = filepath,
+                                         sheet = amp_sheet_name)
+  
+  return(pos_cnv_results)
+  
+}
+
 
 # Primers ---------------------------------------------------------------------------
 

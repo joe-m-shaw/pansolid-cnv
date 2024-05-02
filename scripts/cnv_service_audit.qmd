@@ -17,6 +17,14 @@ library(here)
 
 ```
 
+# Introduction
+
+The aim of this Quarto document is to collate all the copy number variant results generated on the PanSolidv2 QIAseq workflow.
+
+# Collating the Data
+
+Formatted Excel files are automatically saved on the S drive in a folder structure determined by the PanSolid sub-panel.
+
 ```{r}
 #| label: functions
 #| include: FALSE
@@ -26,8 +34,7 @@ source(here::here("functions/cnv_functions.R"))
 ```
 
 ```{r}
-#| label: read-data
-#| eval: FALSE
+#| label: get-filepaths
 #| include: FALSE
 
 # Manually add new worksheets to this Excel
@@ -36,67 +43,139 @@ pansolid_worksheets <- read_excel(here::here("data/pansolid_live_service_workshe
 live_worksheets <- list(pansolid_worksheets$worksheet)
 
 live_ws_filepaths <- live_worksheets |> 
-  map(\(live_worksheets) get_annotated_filepaths(live_worksheets)) |> 
-  flatten()
+  map(\(live_worksheets) get_annotated_filepaths(live_worksheets))
 
-# Copy files into C drive directory
+```
+
+Unfortunately I can't load the Excel files into R whilst scientists have them open. To work around this, I've copied the files onto my C drive.
+
+```{r}
+#| label: copy-data
+#| eval: FALSE
+#| include: FALSE
 
 file.copy(from = live_ws_filepaths, 
           to = here::here("data/live_service_annotated_files/"))
 
-copied_filepaths <- list.files(here::here("data/live_service_annotated_files/"),
-                               full.names = TRUE)
+```
 
-# Two files don't have "Amplification" tabs
-copied_filepaths <- copied_filepaths[-c(385,386)]
+```{r}
+#| label: live-worksheet-df
+#| include: FALSE
 
-# Update the script to remove Excels without "Amplifications" tabs
-copied_filepath_sheetnames <- copied_filepaths |> 
-  map(\(copied_filepaths) get_amp_sheetname(copied_filepaths))
+live_worksheet_df <- tibble(
+  filepath = unlist(live_ws_filepaths)) |> 
+  mutate(filename = str_extract(string = filepath, 
+                                  pattern = "Annotated_WS\\d{6}_.+.xlsx"))
 
-new_ws_amp_gene_results <- copied_filepaths |> 
-  map(\(copied_filepaths) read_annotated_file_all_amp(copied_filepaths)) |>
-  list_rbind()
-
-new_ws_stdev_results <- copied_filepaths |> 
-  map(\(copied_filepaths) read_annotated_file_stdev(copied_filepaths)) |>
-  list_rbind()
+copied_filenames <- list.files(here::here("data/live_service_annotated_files/"),
+                               full.names = FALSE)
 
 ```
+
+Some patients are put on multiple panels, which leads to multiple CNV Excel files with the same name and same data generated, saved in different filepaths. 
+
+```{r}
+#| label: duplicated-files
+#| include: TRUE
+
+dup_files <- live_worksheet_df |> 
+  filter(duplicated(filename, fromLast = TRUE))
+
+nrow(dup_files)
+
+```
+
+These files aren't copied twice.
+
+```{r}
+#| label: check-copied-files
+#| include: TRUE
+
+length(live_worksheet_df$filename) - length(copied_filenames) == nrow(dup_files)
+
+setdiff(live_worksheet_df$filename, copied_filenames)
+
+```
+
+```{r}
+#| label: check-crc
+#| include: FALSE
+
+crc_paths <- grep(pattern = "v2M1_CRC_PS", x = live_worksheet_df$filepath,
+                  value = TRUE)
+
+```
+
+I can then collate the three different tables (positive CNV results, all amplification results and signal-adjusted noise results) from the copied files into separate dataframes.
 
 ```{r}
 #| label: collate-data
 #| eval: FALSE
 #| include: FALSE
 
-pansolid_cnv_collated_data <- new_ws_amp_gene_results |> 
-      left_join(new_ws_stdev_results |> 
-              select(file, st_dev_signal_adjusted_log2_ratios), 
-              by = "file")
+copied_filepaths <- list.files(here::here("data/live_service_annotated_files/"),
+                               full.names = TRUE)
 
-write.csv(pansolid_cnv_collated_data,
-              here::here("data/pansolid_v2_cnv_service_results.csv"),
-              row.names = FALSE)
-    
+amp_gene_results <- copied_filepaths |> 
+  map(\(copied_filepaths) read_annotated_file_all_amp(copied_filepaths)) |> 
+  list_rbind()
+
+std_dev_results <- copied_filepaths |> 
+  map(\(copied_filepaths) read_annotated_file_stdev(copied_filepaths)) |> 
+  list_rbind()
+
+pos_cnv_results <- copied_filepaths |> 
+  map(\(copied_filepaths) read_annotated_file_pos_cnv_results(copied_filepaths)) |> 
+  list_rbind()
+
+write.csv(x = amp_gene_results, 
+          file = here::here("data/live_service_collated_data/live_service_amp_gene_results_collated.csv"),
+          row.names = FALSE)
+
+write.csv(std_dev_results, here::here("data/live_service_collated_data/live_service_std_dev_results_collated.csv"),
+          row.names = FALSE)
+
+write.csv(pos_cnv_results, here::here("data/live_service_collated_data/live_service_pos_cnv_results_collated.csv"),
+          row.names = FALSE)
+
 ```
+
+By saving the collated dataframes onto my C drive I can then load in the data without having to re-copy the original data files and re-collate.
 
 ```{r}
 #| label: load-collated-data
 #| include: FALSE
 
-pansolid_cnv_collated_data <- read_csv(here::here("data/pansolid_v2_cnv_service_results.csv"))
+amp_gene_results <- read_csv(here::here("data/live_service_collated_data/live_service_amp_gene_results_collated.csv"))
+
+pos_cnv_results <- read_csv(here::here("data/live_service_collated_data/live_service_pos_cnv_results_collated.csv"))
+
+std_dev_results <- read_csv(here::here("data/live_service_collated_data/live_service_std_dev_results_collated.csv"))
 
 ```
 
-In total, `r length(unique(pansolid_cnv_collated_data$labno))` samples are included in this audit.
+The Excel files include comments from the scientists analysing the results ("No amp" etc). I can clean these up in the positive CNV results table.
 
 ```{r}
-#| label: check-amplifications
+#| label: filter-pos-cnv-data
+#| include: FALSE
+
+pos_cnv_results_clean <- pos_cnv_results |> 
+  filter(!is.na(fold_change) & fold_change > 0)
+
+```
+
+```{r}
+#| label: join-collated-data
 #| include: FALSE
 
 fold_change_threshold <- 2.8
 
-live_results_mod <- pansolid_cnv_collated_data |> 
+pansolid_cnv_collated_data <- amp_gene_results |> 
+  left_join(std_dev_results |> 
+              select(labno_suffix_worksheet, st_dev_signal_adjusted_log2_ratios),
+            by = "labno_suffix_worksheet") |> 
   mutate(result = case_when(
     
     max_region_fold_change >= fold_change_threshold ~"Amplification detected",
@@ -105,13 +184,19 @@ live_results_mod <- pansolid_cnv_collated_data |>
 
 ```
 
+# Results
+
+In total, `r length(unique(pansolid_cnv_collated_data$labno))` samples are included in this audit.
+
+There have been `r length(crc_paths)` samples tested on the v2M1_CRC_PS panel.
+
 Here's the summary of amplifications detected for samples passing the quality filter (signal-adjusted noise metric below 1).
 
 ```{r}
 #| label: summary-gene-amps-filter
 #| echo: FALSE
 
-summary_table_filter <- live_results_mod |> 
+summary_table_filter <- pansolid_cnv_collated_data |> 
   filter(st_dev_signal_adjusted_log2_ratios < 1) |> 
   group_by(gene, result) |> 
   count() |> 
@@ -127,10 +212,10 @@ These are the samples with amplifications detected.
 #| label: view-amps
 #| echo: FALSE
 
-amps_detected <- live_results_mod |> 
+amps_detected <- pansolid_cnv_collated_data |> 
   filter(st_dev_signal_adjusted_log2_ratios < 1 &
            result == "Amplification detected") |> 
-  select(labno, patient_name, gene, max_region_fold_change, 
+  select(labno, gene, max_region_fold_change, 
          st_dev_signal_adjusted_log2_ratios) |> 
   arrange(gene, desc(max_region_fold_change))
 
@@ -146,15 +231,35 @@ And here's the overall view of gene fold changes.
 #| label: amps-plots
 #| echo: FALSE
 
-gene_fold_changes_plot <- ggplot(live_results_mod |> 
+gene_fold_changes_plot <- ggplot(pansolid_cnv_collated_data |> 
                                    filter(st_dev_signal_adjusted_log2_ratios < 1), 
                                  aes(x = gene, y = max_region_fold_change)) +
   geom_jitter(pch = 21, width = 0.2, alpha = 0.5, aes(fill = result)) +
   scale_fill_manual(values = c(safe_red, safe_blue)) +
   theme_bw() +
-  labs(x = "", y = "Maximum region fold change") +
+  labs(x = "", y = "Maximum region fold change",
+       caption = "Data passing signal-adjusted noise QC") +
   geom_hline(yintercept = fold_change_threshold, linetype = "dashed")
 
 gene_fold_changes_plot
+
+```
+
+We can also look distribution of the "signal-adjusted noise" metric (standard deviation of signal-adjusted log2 ratios).
+
+```{r}
+#| label: qc-plot
+#| echo: FALSE
+
+qc_plot <- ggplot(pansolid_cnv_collated_data |> 
+         filter(!duplicated(labno)), 
+       aes(x = st_dev_signal_adjusted_log2_ratios, y = )) +
+  geom_histogram(binwidth = 0.1) +
+  theme_bw() +
+  scale_x_continuous(breaks = seq(0, 3.5, by = 0.5)) +
+  labs(y = "Number of samples",
+       title = "The majority of samples have signal-adjusted noise values below 0.5")
+
+qc_plot
 
 ```
