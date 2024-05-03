@@ -450,10 +450,10 @@ add_identifiers <- function(file, tbl) {
   
   output <- tbl |> 
     mutate(labno = labno, 
-           file = file) |>  
+           filepath = file) |>  
     left_join(identifiers, by = "labno") |> 
     relocate(worksheet, labno, suffix, patient_name, 
-             labno_suffix, labno_suffix_worksheet, file)
+             labno_suffix, labno_suffix_worksheet, filepath)
   
   return(output)
   
@@ -548,7 +548,7 @@ get_annotated_filepaths <- function(worksheet, full_names = TRUE) {
   annotated_filepaths <- list.files(path = str_c(repository_path, {{ worksheet }},
                                                  "/"),
                                     recursive = TRUE, 
-                                    pattern = "Annotated_WS\\d{6}_.+.xlsx",
+                                    pattern = "^Annotated_WS\\d{6}_.+.xlsx",
                                     full.names = full_names)
   
   return(annotated_filepaths)
