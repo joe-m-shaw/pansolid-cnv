@@ -17,13 +17,9 @@ library(here)
 
 ```
 
-# Introduction
+Copy number variant results are collated using the collate_pansolid_cnv_service_data.R script.
 
-The aim of this Quarto document is to collate all the copy number variant results generated on the PanSolidv2 QIAseq workflow.
-
-# Collating the Data
-
-Formatted Excel files are automatically saved on the S drive in a folder structure determined by the PanSolid sub-panel.
+I haven't collated the positive CNV results table because additional columns have been added to some files by scientists, which makes collation difficult.
 
 ```{r}
 #| label: functions
@@ -34,135 +30,12 @@ source(here::here("functions/cnv_functions.R"))
 ```
 
 ```{r}
-#| label: get-filepaths
-#| include: FALSE
-
-# Manually add new worksheets to this Excel
-pansolid_worksheets <- read_excel(here::here("data/pansolid_live_service_worksheets.xlsx"))
-
-live_worksheets <- list(pansolid_worksheets$worksheet)
-
-live_ws_filepaths <- live_worksheets |> 
-  map(\(live_worksheets) get_annotated_filepaths(live_worksheets))
-
-```
-
-Unfortunately I can't load the Excel files into R whilst scientists have them open. To work around this, I've copied the files onto my C drive.
-
-```{r}
-#| label: copy-data
-#| eval: FALSE
-#| include: FALSE
-
-file.copy(from = live_ws_filepaths, 
-          to = here::here("data/live_service_annotated_files/"))
-
-```
-
-```{r}
-#| label: live-worksheet-df
-#| include: FALSE
-
-live_worksheet_df <- tibble(
-  filepath = unlist(live_ws_filepaths)) |> 
-  mutate(filename = str_extract(string = filepath, 
-                                  pattern = "Annotated_WS\\d{6}_.+.xlsx"))
-
-copied_filenames <- list.files(here::here("data/live_service_annotated_files/"),
-                               full.names = FALSE)
-
-```
-
-Some patients are put on multiple panels, which leads to multiple CNV Excel files with the same name and same data generated, saved in different filepaths. 
-
-```{r}
-#| label: duplicated-files
-#| include: TRUE
-
-dup_files <- live_worksheet_df |> 
-  filter(duplicated(filename, fromLast = TRUE))
-
-nrow(dup_files)
-
-```
-
-These files aren't copied twice.
-
-```{r}
-#| label: check-copied-files
-#| include: TRUE
-
-length(live_worksheet_df$filename) - length(copied_filenames) == nrow(dup_files)
-
-setdiff(live_worksheet_df$filename, copied_filenames)
-
-```
-
-```{r}
-#| label: check-crc
-#| include: FALSE
-
-crc_paths <- grep(pattern = "v2M1_CRC_PS", x = live_worksheet_df$filepath,
-                  value = TRUE)
-
-```
-
-I can then collate the three different tables (positive CNV results, all amplification results and signal-adjusted noise results) from the copied files into separate dataframes.
-
-```{r}
-#| label: collate-data
-#| eval: FALSE
-#| include: FALSE
-
-copied_filepaths <- list.files(here::here("data/live_service_annotated_files/"),
-                               full.names = TRUE)
-
-amp_gene_results <- copied_filepaths |> 
-  map(\(copied_filepaths) read_annotated_file_all_amp(copied_filepaths)) |> 
-  list_rbind()
-
-std_dev_results <- copied_filepaths |> 
-  map(\(copied_filepaths) read_annotated_file_stdev(copied_filepaths)) |> 
-  list_rbind()
-
-pos_cnv_results <- copied_filepaths |> 
-  map(\(copied_filepaths) read_annotated_file_pos_cnv_results(copied_filepaths)) |> 
-  list_rbind()
-
-write.csv(x = amp_gene_results, 
-          file = here::here("data/live_service_collated_data/live_service_amp_gene_results_collated.csv"),
-          row.names = FALSE)
-
-write.csv(std_dev_results, here::here("data/live_service_collated_data/live_service_std_dev_results_collated.csv"),
-          row.names = FALSE)
-
-write.csv(pos_cnv_results, here::here("data/live_service_collated_data/live_service_pos_cnv_results_collated.csv"),
-          row.names = FALSE)
-
-```
-
-By saving the collated dataframes onto my C drive I can then load in the data without having to re-copy the original data files and re-collate.
-
-```{r}
 #| label: load-collated-data
 #| include: FALSE
 
 amp_gene_results <- read_csv(here::here("data/live_service_collated_data/live_service_amp_gene_results_collated.csv"))
 
-pos_cnv_results <- read_csv(here::here("data/live_service_collated_data/live_service_pos_cnv_results_collated.csv"))
-
 std_dev_results <- read_csv(here::here("data/live_service_collated_data/live_service_std_dev_results_collated.csv"))
-
-```
-
-The Excel files include comments from the scientists analysing the results ("No amp" etc). I can clean these up in the positive CNV results table.
-
-```{r}
-#| label: filter-pos-cnv-data
-#| include: FALSE
-
-pos_cnv_results_clean <- pos_cnv_results |> 
-  filter(!is.na(fold_change) & fold_change > 0)
 
 ```
 
@@ -187,8 +60,6 @@ pansolid_cnv_collated_data <- amp_gene_results |>
 # Results
 
 In total, `r length(unique(pansolid_cnv_collated_data$labno))` samples are included in this audit.
-
-There have been `r length(crc_paths)` samples tested on the v2M1_CRC_PS panel.
 
 Here's the summary of amplifications detected for samples passing the quality filter (signal-adjusted noise metric below 1).
 
@@ -261,5 +132,20 @@ qc_plot <- ggplot(pansolid_cnv_collated_data |>
        title = "The majority of samples have signal-adjusted noise values below 0.5")
 
 qc_plot
+
+```
+
+```{r}
+#| label: qc-plot-by-worksheet
+#| echo: FALSE
+
+ggplot(pansolid_cnv_collated_data |> 
+         filter(!duplicated(labno)), 
+       aes(x = worksheet, y = st_dev_signal_adjusted_log2_ratios)) +
+  geom_boxplot() +
+  scale_y_continuous(limits = c(0, 4)) +
+  theme_bw() +
+  labs(x = "", y = "Signal-adjusted noise",
+       title = "Quality seems consistent across worksheets")
 
 ```
