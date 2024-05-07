@@ -55,7 +55,7 @@ filename_regex <- regex(
   r"[
   (WS\d{6})                                   # Worksheet number
   _
-  (\d{8})                                     # Lab number
+  (\d{5,8})                                     # Lab number
   (a|b|c|d|)                                  # Suffix
   _
   ([:alnum:]{5,30})                           # Patient name - alphanumeric characters only
