@@ -122,6 +122,15 @@ brain_matrix_filepaths <- brain_matrix_p_nos |>
 ```
 
 ```{r}
+#| label: copy-files
+#| include: FALSE
+
+file.copy(from = brain_matrix_filepaths, 
+          to = here::here("data/brain_matrix_htmls/"))
+
+```
+
+```{r}
 #| label: parsing-html-function
 #| include: FALSE
 
@@ -194,11 +203,38 @@ variant_type_regex <- regex(
   comments = TRUE
 )
 
+variant_coordinate_regex <- regex(
+  r"[
+  (.{1,2})
+  :
+  (\d{1,12})  
+  (-|:)
+  (\d{1,12})
+  ]",
+  comments = TRUE
+)
+
+
 brain_matrix_cnvs_mod <- brain_matrix_cnvs |> 
   mutate(variant = str_extract(variant_type, pattern = variant_type_regex,
                                group = 1),
          copy_number = as.numeric(str_extract(variant_type, pattern = variant_type_regex,
-                               group = 2)))
+                               group = 2)),
+         
+         chromosome = str_extract(string = variant_gr_ch38_coordinates,
+                                  pattern  = variant_coordinate_regex,
+                                  group = 1),
+         
+         start = as.numeric(str_extract(string = variant_gr_ch38_coordinates,
+                                  pattern  = variant_coordinate_regex,
+                                  group = 2)),
+         
+         end = as.numeric(str_extract(string = variant_gr_ch38_coordinates,
+                                  pattern  = variant_coordinate_regex,
+                                  group = 4)),
+         
+         cnv_size = abs(end - start)
+         )
 
 gene_vars <- grep(pattern = "CDKN2A|MET|BRAF|MYC", x = brain_matrix_cnvs_mod$gene,
                   value = TRUE)
@@ -214,5 +250,24 @@ brain_matrix_plot
 
 ```
 
+```{r}
+#| label: choosing-samples
+#| include: FALSE
 
+brain_matrix_cnvs_mod |> 
+  select(p_no, r_no, gene, impacted_transcript_region, 
+         variant_type, variant, copy_number, cnv_size) |> 
+  arrange(gene, desc(copy_number))
 
+dna_tubes <- sample_tbl |> 
+  filter(labno %in% c("23023889", "23024556", "23025733", "23026481")) |> 
+  select(labno, firstname, surname, tissue, i_gene_r_no, i_gene_s_no,
+         pathno,
+         concentration) |> 
+  collect() |> 
+  arrange(labno)
+
+write.csv(dna_tubes, here::here("data/dna_tubes.csv"),
+          row.names = FALSE)
+
+```
