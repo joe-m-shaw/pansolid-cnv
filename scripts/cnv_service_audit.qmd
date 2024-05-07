@@ -19,6 +19,8 @@ library(here)
 
 Copy number variant results are collated using the collate_pansolid_cnv_service_data.R script.
 
+Results are updated using the update_pansolid_cnv_service_data.R script.
+
 I haven't collated the positive CNV results table because additional columns have been added to some files by scientists, which makes collation difficult.
 
 ```{r}
@@ -145,6 +147,7 @@ ggplot(pansolid_cnv_collated_data |>
   geom_boxplot() +
   scale_y_continuous(limits = c(0, 4)) +
   theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
   labs(x = "", y = "Signal-adjusted noise",
        title = "Quality seems consistent across worksheets")
 
