@@ -88,7 +88,7 @@ These are the samples with amplifications detected.
 amps_detected <- pansolid_cnv_collated_data |> 
   filter(st_dev_signal_adjusted_log2_ratios < 1 &
            result == "Amplification detected") |> 
-  select(labno, gene, max_region_fold_change, 
+  select(worksheet, labno, gene, max_region_fold_change, 
          st_dev_signal_adjusted_log2_ratios) |> 
   arrange(gene, desc(max_region_fold_change))
 
