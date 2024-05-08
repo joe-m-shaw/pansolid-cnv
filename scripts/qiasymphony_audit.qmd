@@ -42,10 +42,6 @@ qiasymphony_samples <- extraction_tbl |>
   filter(extraction_batch_fk %in% qiasymphony_batches) |> 
   collect()
 
-qiasymphony_batch_summary <- qiasymphony_samples |> 
-  group_by(extraction_batch_fk) |> 
-  count()
-
-sum(qiasymphony_batch_summary$n)
-
 ```
+
+There have been `r length(unique(qiasymphony_samples$lab_no))` samples extracted by QiaSymphony so far.
