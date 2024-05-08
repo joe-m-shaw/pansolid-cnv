@@ -250,24 +250,24 @@ brain_matrix_plot
 
 ```
 
+# Getting Pathology Lab Information
+
+Here is the referrer information for the BRAIN MATRIX samples.
+
 ```{r}
 #| label: choosing-samples
-#| include: FALSE
+#| echo: FALSE
 
-brain_matrix_cnvs_mod |> 
-  select(p_no, r_no, gene, impacted_transcript_region, 
-         variant_type, variant, copy_number, cnv_size) |> 
-  arrange(gene, desc(copy_number))
+samples_to_get <- as.character(brain_matrix_patient_info$local_id_252)
 
-dna_tubes <- sample_tbl |> 
-  filter(labno %in% c("23023889", "23024556", "23025733", "23026481")) |> 
+brain_matrix_referrer_information <- sample_tbl |> 
+  filter(labno %in% samples_to_get) |> 
   select(labno, firstname, surname, tissue, i_gene_r_no, i_gene_s_no,
          pathno,
-         concentration) |> 
+         concentration, consultant, consultant_address) |> 
   collect() |> 
   arrange(labno)
 
-write.csv(dna_tubes, here::here("data/dna_tubes.csv"),
-          row.names = FALSE)
+brain_matrix_referrer_information
 
 ```
