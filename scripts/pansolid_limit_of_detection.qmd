@@ -159,13 +159,12 @@ write.csv(lod_calculations, file = here::here("outputs/lod_calculations.csv"),
 
 I set up these dilutions on 01/03/2024 and they were run on worksheet WS139681.
 
-I used the Qubit values from the Seraseq technical product report – there was such limited quantities that I didn’t want to use up some of the sample for additional Qubit.
+I used the Qubit values from the Seraseq technical product report -- there was such limited quantities that I didn't want to use up some of the sample for additional Qubit.
 
-My initial plan was to Qubit the serial dilutions, as Eleanor had suggested. I wanted to use a High Sensitivity Qubit but there aren’t any in pre-PCR, so I used the Broad Range which should have been sensitive down to 0.1ng/ul.
+My initial plan was to Qubit the serial dilutions, as Eleanor had suggested. I wanted to use a High Sensitivity Qubit but there aren't any in pre-PCR, so I used the Broad Range which should have been sensitive down to 0.1ng/ul.
 
-But the Qubit values for each of the serial dilutions were “out of range”. So I continued with the set up and checked the final concentration of each mix using the Broad Range Qubit. 
+But the Qubit values for each of the serial dilutions were "out of range". So I continued with the set up and checked the final concentration of each mix using the Broad Range Qubit.
 
 {{< pagebreak >}}
 
 ![Limit of Detection Experiment](C:/Users/joseph.shaw2/Documents/pansolid_cnv_validation/images/joseph.shaw2_04-03-2024_09-26-29-PR-24977-RICOH.pdf)
-
