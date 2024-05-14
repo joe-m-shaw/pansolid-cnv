@@ -1073,3 +1073,111 @@ join_pansolid_submission_sheets <- function() {
   return(output)
   
 }
+
+# WGS HTML functions ----------------------------------------------------------------
+
+parse_wgs_html_header <- function(html_filepath) {
+  
+  html <- read_html(x = html_filepath)
+  
+  header <- html |> 
+    html_element("header") |> 
+    html_text2()
+  
+  header_regex <- regex(
+    r"[
+    .
+    Report\sversion:\sv(\d{1,2}.\d{1,2}.\d{1,2}|\d{1,2}.\d{1,2})
+    .+
+    Issue\sdate:\s(\d{2}-\d{2}-\d{4})
+    .+
+    (r\d{11}) # referral ID
+    .+
+    (p\d{11}) # patient ID
+    .+
+    ]",
+    comments = TRUE
+  )
+  
+  wgs_version <- str_extract(header, header_regex, group = 1)
+  
+  wgs_analysis_date <- str_extract(header, header_regex, group = 2)
+  
+  wgs_r_no <- str_extract(header, header_regex, group = 3)
+  
+  wgs_p_no <- str_extract(header, header_regex, group = 4)
+  
+  output <- data.frame( 
+    "filepath" = html_filepath,
+    "wgs_r_no" = wgs_r_no,
+    "wgs_p_no" = wgs_p_no,
+    "wgs_version" = wgs_version,
+    "wgs_analysis_date" = wgs_analysis_date)
+  
+  return(output)
+  
+}
+
+parse_wgs_html_pid_text <- function(html_filepath) {
+  
+  html <- read_html(x = html_filepath)
+  
+  pid_text <- html |> 
+    html_element("#pid") |> 
+    html_text2()
+  
+  pid_regex <- regex(
+    r"[
+    ^Name:\s
+    (.{4,30})
+    \n
+    Date\sof\sBirth:\s
+    (\d{1,2}-\w{3}-\d{4})
+    \n
+    NHS\sNo.:\s
+    (\d{3}\s\d{3}\s\d{4})
+    ]",
+    comments = TRUE
+  )
+  
+  name <- str_extract(string = pid_text, pattern = pid_regex,
+                      group = 1)
+  
+  dob <- str_extract(string = pid_text, pattern = pid_regex,
+                     group = 2)
+  
+  nhs_no <- str_extract(string = pid_text, pattern = pid_regex,
+                        group = 3)
+  
+  nhs_no_clean <- str_replace_all(string = nhs_no,
+                                 pattern = " ",
+                                 replacement = "")
+  
+  output <- data.frame( 
+    "filepath" = html_filepath,
+    "patient_name" = name,
+    "patient_dob" = dob,
+    "nhs_no" = nhs_no,
+    "nhs_no_clean" = nhs_no_clean)
+  
+  return(output)
+  
+}
+
+parse_wgs_html_table <- function(html_filepath,
+                                 div_id) {
+  
+  # For version 2.28 and below div_id is "svcnv_tier1"
+  # For later versions div_id is "d_svcnv_tier1"
+  
+  html <- read_html(x = html_filepath)
+  
+  cnv_table <- html |> 
+    html_element( str_c("#", {{ div_id }} )) |> 
+    html_table() |> 
+    janitor::clean_names() |> 
+    mutate(filepath = html_filepath)
+  
+  return(cnv_table)
+  
+}
