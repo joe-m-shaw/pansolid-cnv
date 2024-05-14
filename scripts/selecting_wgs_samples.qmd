@@ -304,7 +304,7 @@ pansolid_samples_extraction_info <- extraction_batch_tbl |>
 
 pansolid_samples_identifiers <- sample_tbl |> 
   filter(labno %in% labnos_run_on_pansolid) |> 
-  select(labno, nhsno) |> 
+  select(labno, nhsno, pathno) |> 
   collect()
 
 useful_pansolid_sample_info <- pansolid_samples_identifiers |> 
@@ -318,5 +318,7 @@ useful_pansolid_sample_info <- pansolid_samples_identifiers |>
   mutate(pansolid_worksheet = case_when(
     labno %in% c("23023889", "23024556", "23025733", "23026481") ~"WS141421",
     labno %in% c("23011114", "23013975", "23024575") ~"WS141565"))
+
+csv_timestamp(useful_pansolid_sample_info)
 
 ```
