@@ -138,7 +138,7 @@ actual_copies / expected_copies
 
 ```
 
-So we can then see that the technical detection limit is slightly below the theoretical detect limit. 
+So we can then see that the technical detection limit is slightly below the theoretical detect limit.
 
 ```{r}
 #| label: technical-lod
