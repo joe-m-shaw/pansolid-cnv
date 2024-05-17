@@ -283,7 +283,8 @@ se_sp_plot
 #| include: FALSE
 
 labnos_run_on_pansolid <- c("23023889", "23024556", "23025733", "23026481",
-                            "23011114", "23013975", "23024575")
+                            "23011114", "23013975", "23024575", "23032153",
+                            "23033921", "24017319", "24017321")
 
 pansolid_samples_extractions <- extraction_tbl |> 
   filter(lab_no %in% labnos_run_on_pansolid) |> 
