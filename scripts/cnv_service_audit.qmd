@@ -73,26 +73,11 @@ summary_table_filter <- pansolid_cnv_collated_data |>
   filter(st_dev_signal_adjusted_log2_ratios < 1) |> 
   group_by(gene, result) |> 
   count() |> 
-  pivot_wider(names_from = result, values_from = n, values_fill = 0)
+  pivot_wider(names_from = result, values_from = n, values_fill = 0) |> 
+  select(gene, `Amplification detected`, `No amplification detected`) |> 
+  arrange(desc(`Amplification detected`))
 
 knitr::kable(summary_table_filter)
-
-```
-
-These are the samples with amplifications detected.
-
-```{r}
-#| label: view-amps
-#| echo: FALSE
-
-amps_detected <- pansolid_cnv_collated_data |> 
-  filter(st_dev_signal_adjusted_log2_ratios < 1 &
-           result == "Amplification detected") |> 
-  select(worksheet, labno, gene, max_region_fold_change, 
-         st_dev_signal_adjusted_log2_ratios) |> 
-  arrange(gene, desc(max_region_fold_change))
-
-knitr::kable(amps_detected)
 
 ```
 
@@ -150,5 +135,24 @@ ggplot(pansolid_cnv_collated_data |>
   theme(axis.text.x = element_text(angle = 90)) +
   labs(x = "", y = "Signal-adjusted noise",
        title = "Quality seems consistent across worksheets")
+
+```
+
+{{< pagebreak >}}
+
+These are the samples with amplifications detected.
+
+```{r}
+#| label: view-amps
+#| echo: FALSE
+
+amps_detected <- pansolid_cnv_collated_data |> 
+  filter(st_dev_signal_adjusted_log2_ratios < 1 &
+           result == "Amplification detected") |> 
+  select(worksheet, labno, gene, max_region_fold_change, 
+         st_dev_signal_adjusted_log2_ratios) |> 
+  arrange(worksheet, gene)
+
+knitr::kable(amps_detected)
 
 ```

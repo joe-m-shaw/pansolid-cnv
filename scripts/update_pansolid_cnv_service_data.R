@@ -31,15 +31,15 @@ local_drive_file_df <- tibble(
   filepath = unlist(list.files(here::here("data/live_service_annotated_files/"),
                                full.names = TRUE))) |> 
   mutate(filename = str_extract(string = filepath, 
-                                pattern = "Annotated_WS\\d{6}_.+.xlsx"))
-
-local_filepaths <- list(local_drive_file_df$filepath) |> 
-  flatten()
+                                pattern = "Annotated_WS\\d{6}_.+.xlsx"),
+         labno = str_extract(string = filename, 
+                             pattern = "\\d{8}"))
 
 # Identify and copy new files -------------------------------------------------------
 
 new_files <- s_drive_file_df |> 
-  filter(!filename %in% local_drive_file_df$filename)
+  filter(!filename %in% local_drive_file_df$filename &
+           labno != "24023280")
 
 if (nrow(new_files) > 0) {
   
@@ -54,10 +54,13 @@ local_drive_file_df <- tibble(
   filepath = unlist(list.files(here::here("data/live_service_annotated_files/"),
                                full.names = TRUE))) |> 
   mutate(filename = str_extract(string = filepath, 
-                                pattern = "Annotated_WS\\d{6}_.+.xlsx"))
+                                pattern = "Annotated_WS\\d{6}_.+.xlsx"),
+         labno = str_extract(string = filename, 
+                             pattern = "\\d{8}"))
 
 new_file_local_paths_df <- local_drive_file_df |> 
-  filter(filename %in% new_files$filename)
+  filter(filename %in% new_files$filename & 
+           labno != "24023280")
 
 new_file_local_paths <- list(new_file_local_paths_df$filepath) |> 
   flatten()
@@ -108,7 +111,6 @@ stopifnot(colnames(amp_gene_results_cols_defined) ==
 
 stopifnot(colnames(std_dev_results_cols_defined) == 
             colnames(new_std_dev_collated_cols_defined))
-
 
 # Add new data to collated data -----------------------------------------------------
 
