@@ -60,6 +60,7 @@ local_drive_file_df <- tibble(
 
 new_file_local_paths_df <- local_drive_file_df |> 
   filter(filename %in% new_files$filename & 
+           # Remove samples without "Amplifications" tab
            labno != "24023280")
 
 new_file_local_paths <- list(new_file_local_paths_df$filepath) |> 
