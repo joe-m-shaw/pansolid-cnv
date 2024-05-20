@@ -46,7 +46,7 @@ all_samples_from_wgs_patients_df <-  sample_tbl |>
   select(labno, nhsno, pathno) |> 
   collect()
 
-all_samples_from_wgs_patients <- all_samples_from_wgs_patients$labno
+all_samples_from_wgs_patients <- all_samples_from_wgs_patients_df$labno
 
 all_samples_from_wgs_patients_extractions <- extraction_tbl |> 
   filter(lab_no %in% all_samples_from_wgs_patients) |> 
@@ -72,3 +72,9 @@ lab_nos_with_method <- all_samples_from_wgs_patients_df |>
   left_join(wgs_pathway_tracker_dna_no_df |> 
               select(labno, ngis_patient_id, ngis_referral_id),
             by = "labno")
+
+qiasymphony_lab_nos <- lab_nos_with_method |> 
+  filter(method_name == "QIAsymphony_DNA_FFPE")
+
+wgs_samples_with_qiasymphony_dna <- lab_nos_with_method |> 
+  filter(nhsno %in% qiasymphony_lab_nos$nhsno)
