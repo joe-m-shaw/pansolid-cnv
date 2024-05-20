@@ -471,10 +471,11 @@ read_pos_cnv_results <- function(file, sheet = "Amplifications") {
   
   size_pos_cnv_tbl <- (first_na_after_pos_cnv_tbl - pos_cnv_tbl_row) - 1
   
+  excel_range <- str_c("A", pos_cnv_tbl_row + 1, ":H", pos_cnv_tbl_row + size_pos_cnv_tbl)
+  
   pos_cnv_tbl <- read_excel(path = file,
                             sheet = {{ sheet }},
-                            skip = pos_cnv_tbl_row,
-                            n_max = size_pos_cnv_tbl,
+                            range = excel_range,
                             col_types = c("text", "text", "text", 
                                           "numeric", "text", "numeric",
                                           "numeric","numeric")) |> 
