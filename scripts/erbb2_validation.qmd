@@ -233,11 +233,11 @@ stdev_results_collated <-  processed_files |>
 
 # Check all files have been read
 
-stopifnot(unique(pos_cnv_results_collated$file) == processed_files)
+stopifnot(unique(pos_cnv_results_collated$filepath) == processed_files)
 
-stopifnot(stdev_results_collated$file == processed_files)
+stopifnot(stdev_results_collated$filepath == processed_files)
 
-stopifnot(unique(all_amp_gene_results_collated$file) == processed_files)
+stopifnot(unique(all_amp_gene_results_collated$filepath) == processed_files)
 
 # Check full gene table has been read
 stopifnot(nrow(all_amp_gene_results_collated) / 9 == length(processed_files))
@@ -1358,9 +1358,9 @@ reproducibility_fold_change_sd <- calculate_pooled_sd(df = inter_run_results,
 
 The pooled standard deviation of the ERBB2 fold change in `r length(unique(repeat_results$labno_suffix_worksheet))` repeat replicates of `r length(unique(repeat_results$labno))` DNA samples was `r erb2_fold_change_sd[[2]]`. The pooled standard deviation of the signal-adjusted noise for the same cohort was `r signal_noise_sd[[2]]`.
 
-Pooled standard deviation for intra-run results for fold change (repeatability): `r repeatability_fold_change_sd`
+Pooled standard deviation for intra-run results for fold change (repeatability): `r repeatability_fold_change_sd[[2]]`
 
-Pooled standard deviation for inter-run results for fold change (reproducibility): `r reproducibility_fold_change_sd`
+Pooled standard deviation for inter-run results for fold change (reproducibility): `r reproducibility_fold_change_sd[[2]]`
 
 ## cobas®-EZ1 workflow vs QIAsymphony workflow
 
@@ -1512,7 +1512,6 @@ plot_timestamp(plot_dual_tested_erbb2_calls)
 
 ```
 
-
 ## Comparison to core panel
 
 ```{r}
@@ -1644,4 +1643,3 @@ qc_plot_combined <- p1 + p2 + p3 +
 plot_timestamp(qc_plot_combined, input_height = 20)
 
 ```
-
