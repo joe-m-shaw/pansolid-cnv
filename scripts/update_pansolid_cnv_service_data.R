@@ -23,7 +23,9 @@ s_drive_filepaths <- worksheet_list |>
 s_drive_file_df <- tibble(
   filepath = unlist(s_drive_filepaths)) |> 
   mutate(filename = str_extract(string = filepath, 
-                                pattern = "Annotated_WS\\d{6}_.+.xlsx"))
+                                pattern = "Annotated_WS\\d{6}_.+.xlsx"),
+         labno = str_extract(string = filename, 
+                             pattern = "\\d{8}"))
 
 # Local drive filepaths -------------------------------------------------------------
 
@@ -61,7 +63,7 @@ local_drive_file_df <- tibble(
 new_file_local_paths_df <- local_drive_file_df |> 
   filter(filename %in% new_files$filename & 
            # Remove samples without "Amplifications" tab
-           labno != "24023280")
+           !labno %in% c("24023280", "24025207"))
 
 new_file_local_paths <- list(new_file_local_paths_df$filepath) |> 
   flatten()
