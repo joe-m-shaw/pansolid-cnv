@@ -542,6 +542,24 @@ read_stdev_results <- function(file, sheet = "Amplifications") {
   
 }
 
+read_percent_138_results <- function(file, sheet = "Amplifications") {
+  
+  full_tbl <- get_full_tbl(file, sheet)
+  
+  percent_panel_start <- match("% Whole Panel Covered at 138X", full_tbl$x1) - 1
+  
+  percent_panel_tbl <- read_excel(path = file,
+                                  sheet = {{ sheet }},
+                                  skip = percent_panel_start,
+                                  n_max = 1) |> 
+    janitor::clean_names()
+  
+  output <- add_identifiers(file, percent_panel_tbl)
+  
+  return(output)
+  
+}
+
 get_annotated_filepaths <- function(worksheet, full_names = TRUE) {
   
   repository_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
@@ -582,10 +600,10 @@ read_annotated_file_stdev <- function(filepath) {
   
   amp_sheet_name <- get_amp_sheetname(filepath)
   
-  amp_gene_results <- read_stdev_results(file = filepath,
+  stdev_results <- read_stdev_results(file = filepath,
                                          sheet = amp_sheet_name)
   
-  return(amp_gene_results)
+  return(stdev_results)
   
 }
 
@@ -600,6 +618,16 @@ read_annotated_file_pos_cnv_results <- function(filepath) {
   
 }
 
+read_annotated_file_percent_138 <- function(filepath) {
+  
+  amp_sheet_name <- get_amp_sheetname(filepath)
+  
+  percent_138_results <- read_percent_138_results(file = filepath,
+                                         sheet = amp_sheet_name)
+  
+  return(percent_138_results)
+  
+}
 
 # Primers ---------------------------------------------------------------------------
 
