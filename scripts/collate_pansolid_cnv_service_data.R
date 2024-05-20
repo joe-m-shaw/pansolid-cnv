@@ -58,6 +58,10 @@ pos_cnv_collated <- local_filepaths |>
   map(\(local_filepaths) read_annotated_file_pos_cnv_results(local_filepaths)) |> 
   list_rbind()
 
+percent_138_collated <- local_filepaths |> 
+  map(\(local_filepaths) read_annotated_file_percent_138(local_filepaths)) |> 
+  list_rbind()
+
 # Save collated data ----------------------------------------------------------------
 
 write.csv(x = amp_gene_collated, 
@@ -68,6 +72,9 @@ write.csv(std_dev_collated, here::here("data/live_service_collated_data/live_ser
           row.names = FALSE)
 
 write.csv(pos_cnv_collated, here::here("data/live_service_collated_data/live_service_pos_cnv_results_collated.csv"),
+          row.names = FALSE)
+
+write.csv(percent_138_collated, here::here("data/live_service_collated_data/live_service_percent_138_results_collated.csv"),
           row.names = FALSE)
 
 # Clear environment -----------------------------------------------------------------
