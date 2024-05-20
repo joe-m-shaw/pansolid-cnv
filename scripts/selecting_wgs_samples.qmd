@@ -199,7 +199,7 @@ knitr::kable(cnv_table)
 
 ```
 
-We can also think in terms of "loci" rather than samples, because 1 sample may have multiple CNVs. One  sample can therefore be used as a negative control for some CNV loci, and a positive control for other CNV loci.
+We can also think in terms of "loci" rather than samples, because 1 sample may have multiple CNVs. One sample can therefore be used as a negative control for some CNV loci, and a positive control for other CNV loci.
 
 ```{r}
 #| label: range-of-variants
@@ -279,6 +279,26 @@ se_sp_plot
 ```
 
 ```{r}
+#| label: get-brain-matrix-dna-numbers
+#| include: FALSE
+
+wgs_pathway_tracker <- read_excel(path = here("data/WGS pathway tracker_copy_2024-05-17.xlsx"),
+                                  sheet = "Cancer") |> 
+  janitor::clean_names()
+
+wgs_pathway_tracker_dna_no_df <- wgs_pathway_tracker |> 
+  filter(!is.na(mol_db_number)) |> 
+  mutate(labno = str_extract(string = mol_db_number,
+                             pattern = "\\d{8}"))
+
+r_numbers_to_get <- local_html_identifiers$wgs_r_no
+
+brain_matrix_lab_ids <- wgs_pathway_tracker |> 
+  filter(ngis_referral_id %in% r_numbers_to_get)
+
+```
+
+```{r}
 #| label: lab-nos-and-extractions
 #| include: FALSE
 
@@ -286,8 +306,10 @@ labnos_run_on_pansolid <- c("23023889", "23024556", "23025733", "23026481",
                             "23011114", "23013975", "23024575", "23032153",
                             "23033921", "24017319", "24017321")
 
+labnos_for_brain_matrix_samples <- brain_matrix_lab_ids$mol_db_number
+
 pansolid_samples_extractions <- extraction_tbl |> 
-  filter(lab_no %in% labnos_run_on_pansolid) |> 
+  filter(lab_no %in% labnos_for_brain_matrix_samples) |> 
   collect()
 
 pansolid_samples_extraction_batches <- pansolid_samples_extractions$extraction_batch_fk
@@ -301,25 +323,34 @@ pansolid_samples_extraction_info <- extraction_batch_tbl |>
             join_by(extraction_method_fk == extraction_method_id)) |> 
   left_join(pansolid_samples_extractions, 
             join_by(extraction_batch_id == extraction_batch_fk)) |> 
-  select(lab_no, method_name)
+  select(lab_no, macro, method_name)
 
 pansolid_samples_identifiers <- sample_tbl |> 
-  filter(labno %in% labnos_run_on_pansolid) |> 
-  select(labno, nhsno, pathno) |> 
-  collect()
+  filter(labno %in% labnos_for_brain_matrix_samples) |> 
+  select(labno, nhsno, pathno, i_gene_r_no, i_gene_s_no, consultant_address) |> 
+  collect() |> 
+  mutate(consultant_address_check = case_when(
+    
+    labno %in% c("23024547", "23024556", "23036271") ~"Salford",
+    
+    TRUE ~consultant_address))
 
-useful_pansolid_sample_info <- pansolid_samples_identifiers |> 
+salford_addresses <- unique(grep(x = pansolid_samples_identifiers$consultant_address_check,
+                                 pattern = "salford", ignore.case = TRUE,
+                                 value = TRUE))
+
+cnv_validation_ffpe_information <- pansolid_samples_identifiers |> 
   left_join(local_html_identifiers |> 
               select(wgs_r_no, wgs_p_no, patient_name, patient_dob, 
                      nhs_no_clean),
             join_by(nhsno == nhs_no_clean)) |>  
   left_join(pansolid_samples_extraction_info,
             join_by(labno == lab_no)) |>  
-  rename(extraction_type = method_name) |>
-  mutate(pansolid_worksheet = case_when(
-    labno %in% c("23023889", "23024556", "23025733", "23026481") ~"WS141421",
-    labno %in% c("23011114", "23013975", "23024575") ~"WS141565"))
+  rename(extraction_type = method_name) |> 
+  filter(extraction_type == "Fresh tissue" &
+           consultant_address_check %in% salford_addresses) |> 
+  select(-c(consultant_address, macro, extraction_type))
 
-csv_timestamp(useful_pansolid_sample_info)
+csv_timestamp(cnv_validation_ffpe_information)
 
 ```
