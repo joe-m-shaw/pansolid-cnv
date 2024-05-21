@@ -284,7 +284,10 @@ se_sp_plot
 
 wgs_pathway_tracker <- read_excel(path = here("data/WGS pathway tracker_copy_2024-05-17.xlsx"),
                                   sheet = "Cancer") |> 
-  janitor::clean_names()
+  janitor::clean_names() |> 
+  mutate(nhs_no_clean = str_replace_all(string = nhs_number,
+                                        pattern = " ",
+                                        replacement = ""))
 
 wgs_pathway_tracker_dna_no_df <- wgs_pathway_tracker |> 
   filter(!is.na(mol_db_number)) |> 
@@ -302,55 +305,75 @@ brain_matrix_lab_ids <- wgs_pathway_tracker |>
 #| label: lab-nos-and-extractions
 #| include: FALSE
 
+get_dlims_information <- function(sample_vector) {
+  
+  pansolid_samples_extractions <- extraction_tbl |> 
+    filter(lab_no %in% sample_vector) |> 
+    collect()
+
+  pansolid_samples_extraction_batches <- pansolid_samples_extractions$extraction_batch_fk
+
+  pansolid_samples_extraction_info <- extraction_batch_tbl |> 
+    filter(extraction_batch_id %in% pansolid_samples_extraction_batches) |> 
+    collect() |> 
+    filter(extraction_method_fk != 11) |> 
+    select(extraction_batch_id, extraction_method_fk) |> 
+    left_join(extraction_method_key, 
+              join_by(extraction_method_fk == extraction_method_id)) |> 
+    left_join(pansolid_samples_extractions, 
+              join_by(extraction_batch_id == extraction_batch_fk)) |> 
+    select(lab_no, macro, method_name)
+
+  pansolid_samples_identifiers <- sample_tbl |> 
+    filter(labno %in% sample_vector) |> 
+    select(labno, nhsno, pathno, i_gene_r_no, i_gene_s_no, consultant_address) |> 
+    collect() 
+
+  output <- pansolid_samples_identifiers |> 
+    left_join(wgs_pathway_tracker |> 
+                filter(!duplicated(nhs_no_clean)) |> 
+                select(ngis_referral_id, ngis_patient_id, forename, surname,
+                       dob, nhs_no_clean),
+              join_by(nhsno == nhs_no_clean)) |>  
+    left_join(pansolid_samples_extraction_info,
+              join_by(labno == lab_no)) |>  
+    rename(extraction_type = method_name) 
+  
+  return(output)
+  
+}
+
 labnos_run_on_pansolid <- c("23023889", "23024556", "23025733", "23026481",
-                            "23011114", "23013975", "23024575", "23032153",
-                            "23033921", "24017319", "24017321")
+                            "23011114", "23013975", "23024575", 
+                            "23032153", "23033921", "24017319", "24017321")
 
 labnos_for_brain_matrix_samples <- brain_matrix_lab_ids$mol_db_number
 
-pansolid_samples_extractions <- extraction_tbl |> 
-  filter(lab_no %in% labnos_for_brain_matrix_samples) |> 
-  collect()
+useful_pansolid_sample_info <- get_dlims_information(labnos_run_on_pansolid) |> 
+  select(-c(macro, consultant_address, dob)) |> 
+  mutate(pansolid_worksheet = case_when(
+    
+    labno %in% c("23023889", "23024556", "23025733", "23026481") ~"WS141421",
+    labno %in% c("23011114", "23013975", "23024575") ~"WS141565",
+    labno %in% c("23033921") ~"WS141818",
+    labno %in% c("23032153", "24017319", "24017321") ~"WS141734")) |> 
+  arrange(nhsno)
 
-pansolid_samples_extraction_batches <- pansolid_samples_extractions$extraction_batch_fk
+csv_timestamp(useful_pansolid_sample_info)
 
-pansolid_samples_extraction_info <- extraction_batch_tbl |> 
-  filter(extraction_batch_id %in% pansolid_samples_extraction_batches) |> 
-  collect() |> 
-  filter(extraction_method_fk != 11) |> 
-  select(extraction_batch_id, extraction_method_fk) |> 
-  left_join(extraction_method_key, 
-            join_by(extraction_method_fk == extraction_method_id)) |> 
-  left_join(pansolid_samples_extractions, 
-            join_by(extraction_batch_id == extraction_batch_fk)) |> 
-  select(lab_no, macro, method_name)
-
-pansolid_samples_identifiers <- sample_tbl |> 
-  filter(labno %in% labnos_for_brain_matrix_samples) |> 
-  select(labno, nhsno, pathno, i_gene_r_no, i_gene_s_no, consultant_address) |> 
-  collect() |> 
+cnv_validation_ffpe_information <- get_dlims_information(labnos_for_brain_matrix_samples) |> 
   mutate(consultant_address_check = case_when(
     
     labno %in% c("23024547", "23024556", "23036271") ~"Salford",
     
     TRUE ~consultant_address))
 
-salford_addresses <- unique(grep(x = pansolid_samples_identifiers$consultant_address_check,
+salford_addresses <- unique(grep(x = cnv_validation_ffpe_information$consultant_address_check,
                                  pattern = "salford", ignore.case = TRUE,
                                  value = TRUE))
 
-cnv_validation_ffpe_information <- pansolid_samples_identifiers |> 
-  left_join(local_html_identifiers |> 
-              select(wgs_r_no, wgs_p_no, patient_name, patient_dob, 
-                     nhs_no_clean),
-            join_by(nhsno == nhs_no_clean)) |>  
-  left_join(pansolid_samples_extraction_info,
-            join_by(labno == lab_no)) |>  
-  rename(extraction_type = method_name) |> 
-  filter(extraction_type == "Fresh tissue" &
-           consultant_address_check %in% salford_addresses) |> 
-  select(-c(consultant_address, macro, extraction_type))
-
-csv_timestamp(cnv_validation_ffpe_information)
+cnv_validation_ffpe_information_salford <- cnv_validation_ffpe_information |> 
+  filter(consultant_address_check %in% salford_addresses &
+           extraction_type == "Fresh tissue")
 
 ```
