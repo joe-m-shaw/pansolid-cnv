@@ -75,6 +75,9 @@ outputs/
 # Word files
 *.docx
 
+# PNG files
+*.png
+
 # RProject
 *.Rproj
 
