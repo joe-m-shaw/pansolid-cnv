@@ -4,6 +4,7 @@ library(tidyverse)
 library(readxl)
 library(here)
 library(rvest)
+library(docstring)
 
 # Export functions ------------------------------------------------------------------
 
@@ -1194,18 +1195,26 @@ parse_wgs_html_pid_text <- function(html_filepath) {
   
 }
 
+
 parse_wgs_html_table_by_div_id <- function(html_filepath,
                                            div_id) {
   
-  # Useful div_ids:
-  # "t_tumour_details"
-  # "t_tumour_sample"
-  # "t_germline_sample"
-  # "t_quality"
-  # "tier1"
-  # "svcnv_tier1" (v2.28 and earlier)
-  # "d_svcnv_tier1" (later versions than v2.28)
-  
+  #' Parse whole genome sequencing HTML files using a CSS
+  #' "div_id" identifier.
+  #'
+  #' @param html_filepath The filepath for the WGS HTML file
+  #' @param div_id The CSS identifier for the table (examples below)
+  #' 
+  #' @return Returns the table from the HTML as a tibble with column names in snake-case.
+  #' 
+  #' @section Useful Identifiers: 
+  #' "t_tumour_details", "t_tumour_sample", 
+  #' "t_germline_sample", "t_quality", "tier1" (Tier 1 sequence variants),
+  #' "svcnv_tier1" (Tier 1 structural and copy number variants, for v2.28 and earlier), 
+  #' "d_svcnv_tier1" (Tier 1 structural and copy number variants,later versions than v2.28)
+  #'
+  #' @examples parse_wgs_html_table_by_div_id(filepath, "t_tumour_details")
+
   html <- read_html(x = html_filepath)
   
   output_table <- html |> 
@@ -1220,6 +1229,18 @@ parse_wgs_html_table_by_div_id <- function(html_filepath,
 
 parse_wgs_html_table_by_number <- function(html_filepath,
                                            table_number) {
+  
+  #' Parse whole genome sequencing HTML files using the table number
+  #'
+  #' @param html_filepath The filepath for the WGS HTML file
+  #' @param table_number The number of the table to select
+  #'
+  #' @return Returns the table from the HTML as a tibble with column names in snake-case.
+  #' @note This function is a less specific version of parse_wgs_html_table_by_div_id.
+  #' It can be used for cases where the table does not have a div_id available. This is 
+  #' specifically relevant to the patient details table - see example.
+  #' 
+  #' @examples patient_ids <- parse_wgs_html_table_by_number(filepath, 1)
   
   html <- read_html(x = html_filepath)
   
