@@ -3,6 +3,7 @@
 library(tidyverse)
 library(readxl)
 library(here)
+library(rvest)
 
 # Export functions ------------------------------------------------------------------
 
