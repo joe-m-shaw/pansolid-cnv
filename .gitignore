@@ -83,8 +83,12 @@ outputs/
 
 # Extra quarto files
 scripts/pansolid_cnv_analysis_files/
+
 scripts/cnv_service_audit_files/
+
 scripts/erbb2_validation_files/
+
 scripts/fold_change_threshold_files/
+
 scripts/selecting_wgs_samples_files/
 
