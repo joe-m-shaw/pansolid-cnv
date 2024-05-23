@@ -1194,20 +1194,42 @@ parse_wgs_html_pid_text <- function(html_filepath) {
   
 }
 
-parse_wgs_html_table <- function(html_filepath,
-                                 div_id) {
+parse_wgs_html_table_by_div_id <- function(html_filepath,
+                                           div_id) {
   
-  # For version 2.28 and below div_id is "svcnv_tier1"
-  # For later versions div_id is "d_svcnv_tier1"
+  # Useful div_ids:
+  # "t_tumour_details"
+  # "t_tumour_sample"
+  # "t_germline_sample"
+  # "t_quality"
+  # "tier1"
+  # "svcnv_tier1" (v2.28 and earlier)
+  # "d_svcnv_tier1" (later versions than v2.28)
   
   html <- read_html(x = html_filepath)
   
-  cnv_table <- html |> 
+  output_table <- html |> 
     html_element( str_c("#", {{ div_id }} )) |> 
     html_table() |> 
     janitor::clean_names() |> 
     mutate(filepath = html_filepath)
   
-  return(cnv_table)
+  return(output_table)
+  
+}
+
+parse_wgs_html_table_by_number <- function(html_filepath,
+                                           table_number) {
+  
+  html <- read_html(x = html_filepath)
+  
+  html_tables <- html |> 
+    html_elements(".table") 
+  
+  output_table <- html_tables[[ {{ table_number }}]] |> 
+    html_table() |> 
+    janitor::clean_names()
+  
+  return(output_table)
   
 }
