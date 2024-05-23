@@ -134,12 +134,12 @@ earlier_html_vector <- earlier_wgs_htmls$filepath
 later_html_vector <- later_wgs_htmls$filepath
 
 early_wgs_cnvs <- earlier_html_vector |> 
-  map(\(earlier_html_vector) parse_wgs_html_table(earlier_html_vector,
+  map(\(earlier_html_vector) parse_wgs_html_table_by_div_id(earlier_html_vector,
                                                   div_id = "svcnv_tier1")) |> 
   list_rbind()
 
 later_wgs_cnvs <-  later_html_vector |> 
-  map(\(later_html_vector) parse_wgs_html_table(later_html_vector, 
+  map(\(later_html_vector) parse_wgs_html_table_by_div_id(later_html_vector, 
                                                 div_id = "d_svcnv_tier1")) |> 
   list_rbind()
 
@@ -160,7 +160,7 @@ stopifnot(anyNA(brain_matrix_cnvs) == FALSE)
 #| include: FALSE
 
 clinical_wgs_cnvs <- clinical_wgs_htmls |> 
-  map(\(clinical_wgs_htmls) parse_wgs_html_table(clinical_wgs_htmls, 
+  map(\(clinical_wgs_htmls) parse_wgs_html_table_by_div_id(clinical_wgs_htmls, 
                                                 div_id = "d_svcnv_tier1")) |> 
   list_rbind() |> 
   select(all_of(shared_cols))
