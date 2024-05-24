@@ -9,6 +9,18 @@ library(docstring)
 # Export functions ------------------------------------------------------------------
 
 csv_timestamp <- function(input) {
+  
+  #' Save a table as a comma-separated file with a timestamp
+  #'
+  #' @param input The table to save
+  #'
+  #' @return Saves the table in the tables folder with a timestamp
+  #'
+  #' @note This function is used for exporting tables from RStudio for inclusion
+  #' in validation documentation.
+  #'
+  #' @examples plot_timestamp(erbb2_table)
+  
   write.csv(input,
             file = here::here(paste0(
               "outputs/tables/",
@@ -30,7 +42,6 @@ dna_db_export <- function(input) {
   )
 }
 
-
 plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi = 300) {
   
   #' Save a plot with a timestamp
@@ -42,7 +53,9 @@ plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi 
   #'
   #' @return Saves the plot in the plots folder with a timestamp
   #'
-  #' @note The default inputs are designed for presenting a plot as half an A4 page
+  #' @note This function is used for exporting plots for inclusions in validation
+  #' documentation. The default inputs are designed for presenting a plot as 
+  #' half an A4 page.
   #'
   #' @examples plot_timestamp(erbb2_plot)
   
@@ -217,7 +230,16 @@ read_summary_tab <- function(file) {
 
 format_chromosome <- function(df, input_col) {
   
-  # Function for reformating chr
+  #' Format a chromosome string
+  #'
+  #' @param df Input dataframe
+  #' @param input_col Column containing chromosome information
+  #'
+  #' @return The input dataframe with an additional column which presents chromosome
+  #' information as a single character string. Autosomes are presented as characters
+  #' without decimal places (i.e. "1" instead of "1.0")
+  #'
+  #' @examples formatted_data <- format_chromosome(df = data, input_col = "chromosome")
   
   output <- df |> 
     mutate(chrom_mod = case_when(
@@ -457,9 +479,11 @@ add_case_group <- function(df) {
   
 }
 
-# Processed Excel functions ---------------------------------------------------------
+# PanSolid CNV results Excel functions ----------------------------------------------
 
 get_full_tbl <- function(file, sheet = "Amplifications") {
+  
+  
   
   full_tbl <- read_excel(path = file,
                          sheet = {{ sheet }},
