@@ -516,7 +516,7 @@ get_full_amp_sheet <- function(file, sheet = "Amplifications") {
   #'
   #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
   #' 
-  #' full_amp_sheet <- get_full_amp_sheet(file = x, sheet = "Amplifications_12345678")
+  #' full_amp_sheet <- get_full_amp_sheet(file = x, sheet = get_amp_sheetname(x))
   
   full_tbl <- read_excel(path = file,
                          sheet = {{ sheet }},
@@ -568,7 +568,7 @@ read_pos_cnv_results <- function(file, sheet = "Amplifications") {
   #'
   #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
   #' 
-  #' pos_cnv <- read_pos_cnv_results(file = x, sheet = "Amplifications_12345678")
+  #' pos_cnv <- read_pos_cnv_results(file = x, sheet = get_amp_sheetname(x))
   
   full_tbl <- get_full_amp_sheet(file, sheet)
 
@@ -626,7 +626,7 @@ read_all_amp_genes_results <- function(file, sheet = "Amplifications") {
   #'
   #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
   #' 
-  #' all_amp <- read_all_amp_genes_results(file = x, sheet = "Amplifications_12345678")
+  #' all_amp <- read_all_amp_genes_results(file = x, sheet = get_amp_sheetname(x))
   
   full_tbl <- get_full_amp_sheet(file, sheet)
   
@@ -655,7 +655,7 @@ read_stdev_results <- function(file, sheet = "Amplifications") {
   #'
   #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
   #' 
-  #' stdev <- read_stdev_results(file = x, sheet = "Amplifications_12345678")
+  #' stdev <- read_stdev_results(file = x, sheet = get_amp_sheetname(x))
   
   full_tbl <- get_full_amp_sheet(file, sheet)
   
@@ -685,7 +685,7 @@ read_percent_138_results <- function(file, sheet = "Amplifications") {
   #'
   #' @examples  x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
   #' 
-  #' percent_138 <- read_percent_138_results(file = x, sheet = "Amplifications_12345678")
+  #' percent_138 <- read_percent_138_results(file = x, sheet = get_amp_sheetname(x))
   
   full_tbl <- get_full_amp_sheet(file, sheet)
   
@@ -750,50 +750,6 @@ get_amp_sheetname <- function(filepath) {
   amp_sheet_name <- grep(pattern = "Amplifications_", x = sheets, value = TRUE)
   
   return(amp_sheet_name)
-  
-}
-
-read_annotated_file_all_amp <- function(filepath) {
-  
-  amp_sheet_name <- get_amp_sheetname(filepath)
-  
-  amp_gene_results <- read_all_amp_genes_results(file = filepath,
-                                                 sheet = amp_sheet_name)
-  
-  return(amp_gene_results)
-  
-}
-
-read_annotated_file_stdev <- function(filepath) {
-  
-  amp_sheet_name <- get_amp_sheetname(filepath)
-  
-  stdev_results <- read_stdev_results(file = filepath,
-                                         sheet = amp_sheet_name)
-  
-  return(stdev_results)
-  
-}
-
-read_annotated_file_pos_cnv_results <- function(filepath) {
-  
-  amp_sheet_name <- get_amp_sheetname(filepath)
-  
-  pos_cnv_results <- read_pos_cnv_results(file = filepath,
-                                         sheet = amp_sheet_name)
-  
-  return(pos_cnv_results)
-  
-}
-
-read_annotated_file_percent_138 <- function(filepath) {
-  
-  amp_sheet_name <- get_amp_sheetname(filepath)
-  
-  percent_138_results <- read_percent_138_results(file = filepath,
-                                         sheet = amp_sheet_name)
-  
-  return(percent_138_results)
   
 }
 
