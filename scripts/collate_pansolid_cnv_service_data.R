@@ -47,19 +47,23 @@ local_filepaths <- list(local_drive_file_df$filepath) |>
 # Collate local data ----------------------------------------------------------------
 
 amp_gene_collated <- local_filepaths |> 
-  map(\(local_filepaths) read_annotated_file_all_amp(local_filepaths)) |> 
+  map(\(local_filepaths) read_all_amp_genes_results(file = local_filepaths, 
+                                            sheet = get_amp_sheetname(local_filepaths))) |> 
   list_rbind()
 
 std_dev_collated <- local_filepaths |> 
-  map(\(local_filepaths) read_annotated_file_stdev(local_filepaths)) |> 
+  map(\(local_filepaths) read_stdev_results(local_filepaths, 
+                                            sheet = get_amp_sheetname(local_filepaths))) |> 
   list_rbind()
 
 pos_cnv_collated <- local_filepaths |> 
-  map(\(local_filepaths) read_annotated_file_pos_cnv_results(local_filepaths)) |> 
+  map(\(local_filepaths) read_pos_cnv_results(local_filepaths, 
+                                              sheet = get_amp_sheetname(local_filepaths))) |> 
   list_rbind()
 
 percent_138_collated <- local_filepaths |> 
-  map(\(local_filepaths) read_annotated_file_percent_138(local_filepaths)) |> 
+  map(\(local_filepaths) read_percent_138_results(local_filepaths, 
+                                                  sheet = get_amp_sheetname(local_filepaths))) |> 
   list_rbind()
 
 # Save collated data ----------------------------------------------------------------
