@@ -93,6 +93,17 @@ filename_regex <- regex(
 
 parse_filename <- function(input_file, input_group) {
   
+  #' Parse an element from a PanSolid results Excel filename
+  #'
+  #' @param input_file The filename to parse
+  #' @param input_group The number of the group to extract, defined by filename_regex
+  #'
+  #' @return The string of the selected regex group
+  #' 
+  #' @examples filename <- "Annotated_WS123456_12345678a_JoeShaw.xlsx"
+  #' 
+  #' worksheet <- parse_filename(filename, 1)
+  
   output <- str_extract(input_file, filename_regex,
                         group = input_group)
   
@@ -104,6 +115,16 @@ parse_filename <- function(input_file, input_group) {
 }
 
 filename_to_df <- function(file) {
+  
+  #' Convert PanSolid results Excel filename identifiers to a dataframe
+  #'
+  #' @param file The filename
+  #'
+  #' @return A dataframe
+  #'
+  #' @examples filename <- "Annotated_WS123456_12345678a_JoeShaw.xlsx"
+  #' 
+  #' id_df <- filename_to_df(filename)
   
   output <- data.frame(
     worksheet = c(parse_filename(file, 1)),
@@ -171,7 +192,10 @@ extract_cnv_calls <- function(df, input_gene) {
   #' @note Genotypes are entered onto the DNA Database as a text string with 
   #' a consistent structure. This function parses results for a 
   #'
-  #' @examples erbb2_cnvs <- extract_cnv_calls(df = dna_db_df, input_gene = "ERBB2")
+  #' @examples data <- data.frame(labno = c(1),
+  #' genotype = c("No SNVS. ERBB2 amplification detected (Mean DQ 11x)"))
+  #' 
+  #' cnvs <- extract_cnv_calls(df = data, input_gene = "ERBB2")
   
   stopifnot("genotype" %in% colnames(df))
   
@@ -481,9 +505,18 @@ add_case_group <- function(df) {
 
 # PanSolid CNV results Excel functions ----------------------------------------------
 
-get_full_tbl <- function(file, sheet = "Amplifications") {
+get_full_amp_sheet <- function(file, sheet = "Amplifications") {
   
-  
+  #' Read the full sheet of the "Amplifications" tab of a PanSolid results Excel
+  #'
+  #' @param file The full filepath of the PanSolid results file
+  #' @param sheet The name of the sheet to read
+  #'
+  #' @return All the information in the "Amplifications" tab as a data-frame.
+  #'
+  #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
+  #' 
+  #' full_amp_sheet <- get_full_amp_sheet(file = x, sheet = "Amplifications_12345678")
   
   full_tbl <- read_excel(path = file,
                          sheet = {{ sheet }},
@@ -495,6 +528,19 @@ get_full_tbl <- function(file, sheet = "Amplifications") {
 }
 
 add_identifiers <- function(file, tbl) {
+  
+  #' Add identifiers in a filename onto a dataframe
+  #'
+  #' @param file The filename with identifiers
+  #' @param tbl The table to add identifiers to
+  #'
+  #' @return A dataframe of the initial table joined to the patient identifiers
+  #'
+  #' @examples filename <- "Annotated_WS123456_12345678a_JoeShaw.xlsx"
+  #' 
+  #' data <- data.frame(gene = c("ERBB2"), dq = c(2))
+  #' 
+  #' data_with_ids <- add_identifiers(file = filename, tbl = data)
   
   identifiers <- filename_to_df(file)
   
@@ -513,7 +559,18 @@ add_identifiers <- function(file, tbl) {
 
 read_pos_cnv_results <- function(file, sheet = "Amplifications") {
   
-  full_tbl <- get_full_tbl(file, sheet)
+  #' Read the "Positive CNV results" table from a PanSolid results Excel
+  #'
+  #' @param file The full filename of the Excel to read
+  #' @param sheet The sheet to read the table from
+  #'
+  #' @return The positive CNV table as a dataframe with filename identifiers
+  #'
+  #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
+  #' 
+  #' pos_cnv <- read_pos_cnv_results(file = x, sheet = "Amplifications_12345678")
+  
+  full_tbl <- get_full_amp_sheet(file, sheet)
 
   pos_cnv_tbl_row <- match("Positive CNV results", full_tbl$x1)
   
@@ -560,7 +617,18 @@ read_pos_cnv_results <- function(file, sheet = "Amplifications") {
 
 read_all_amp_genes_results <- function(file, sheet = "Amplifications") {
 
-  full_tbl <- get_full_tbl(file, sheet)
+  #' Read the "All amplification genes" table from a PanSolid results Excel
+  #'
+  #' @param file The full filename of the Excel to read
+  #' @param sheet The sheet to read the table from
+  #'
+  #' @return The all amp gene CNV table as a dataframe with filename identifiers
+  #'
+  #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
+  #' 
+  #' all_amp <- read_all_amp_genes_results(file = x, sheet = "Amplifications_12345678")
+  
+  full_tbl <- get_full_amp_sheet(file, sheet)
   
   gene_table_row_start <- match("All amplification genes", full_tbl$x1)
   
@@ -578,7 +646,18 @@ read_all_amp_genes_results <- function(file, sheet = "Amplifications") {
 
 read_stdev_results <- function(file, sheet = "Amplifications") {
   
-  full_tbl <- get_full_tbl(file, sheet)
+  #' Read the standard deviation of signal-adjusted noise ratios from a PanSolid Excel
+  #'
+  #' @param file The full filename of the Excel to read 
+  #' @param sheet The sheet to read from
+  #'
+  #' @return A dataframe of the filename identifiers with the standard deviation value
+  #'
+  #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
+  #' 
+  #' stdev <- read_stdev_results(file = x, sheet = "Amplifications_12345678")
+  
+  full_tbl <- get_full_amp_sheet(file, sheet)
   
   stdev_start <- match("StDev Signal-adjusted Log2 Ratios", full_tbl$x1) - 1
   
@@ -596,7 +675,19 @@ read_stdev_results <- function(file, sheet = "Amplifications") {
 
 read_percent_138_results <- function(file, sheet = "Amplifications") {
   
-  full_tbl <- get_full_tbl(file, sheet)
+  #' Read the percentage of the whole panel covered at 138X from a PanSolid Excel
+  #'
+  #' @param file The full filename of the Excel to read 
+  #' @param sheet The sheet to read from
+  #'
+  #' @return A dataframe of the filename identifiers with the percentage of
+  #' the whole panel covered at 138X value
+  #'
+  #' @examples  x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
+  #' 
+  #' percent_138 <- read_percent_138_results(file = x, sheet = "Amplifications_12345678")
+  
+  full_tbl <- get_full_amp_sheet(file, sheet)
   
   percent_panel_start <- match("% Whole Panel Covered at 138X", full_tbl$x1) - 1
   
@@ -614,6 +705,18 @@ read_percent_138_results <- function(file, sheet = "Amplifications") {
 
 get_annotated_filepaths <- function(worksheet, full_names = TRUE) {
   
+  #' Get the filepaths of PanSolid results Excels from the S drive
+  #'
+  #' @param worksheet The PanSolid worksheet
+  #' @param full_names TRUE or FALSE
+  #'
+  #' @return A list of filepaths
+  #'
+  #' @note PanSolid results Excels are automatically saved onto the S drive in a defined
+  #' folder structure
+  #'
+  #' @examples get_annotated_filepaths(worksheet = "WS140721")
+  
   repository_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
   
   annotated_filepaths <- list.files(path = str_c(repository_path, {{ worksheet }},
@@ -628,6 +731,20 @@ get_annotated_filepaths <- function(worksheet, full_names = TRUE) {
 
 get_amp_sheetname <- function(filepath) {
   
+  #' Get the sheet name of the amplifications tab for a PanSolid results Excel
+  #'
+  #' @param filepath The full filename of the Excel 
+  #'
+  #' @return A character string of the amplifications tab name
+  #' 
+  #' @note Prior to go-live, the results Excels defaulted to "Amplifications" as the 
+  #'  name of the tab containing amplification information. After go live this changed
+  #'  to include the sample DNA number (see example).
+  #'
+  #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
+  #' 
+  #' get_amp_sheetname(x)
+  
   sheets <- readxl::excel_sheets(filepath)
   
   amp_sheet_name <- grep(pattern = "Amplifications_", x = sheets, value = TRUE)
@@ -635,7 +752,6 @@ get_amp_sheetname <- function(filepath) {
   return(amp_sheet_name)
   
 }
-
 
 read_annotated_file_all_amp <- function(filepath) {
   
