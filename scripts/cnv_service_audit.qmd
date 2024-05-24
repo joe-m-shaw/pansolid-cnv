@@ -64,9 +64,49 @@ pansolid_cnv_collated_data <- amp_gene_results |>
 
 ```
 
+```{r}
+#| label: count-colorectal-referrals
+#| include: FALSE
+
+pansolidv2_worksheets <- read_excel(here::here("data/pansolid_live_service_worksheets.xlsx"))
+
+worksheet_list <- list(pansolidv2_worksheets$worksheet)
+
+s_drive_filepaths <- worksheet_list |> 
+  map(\(worksheet_list) get_annotated_filepaths(worksheet_list)) |> 
+  flatten()
+
+s_drive_file_df <- tibble(
+  filepath = unlist(s_drive_filepaths)) |> 
+  mutate(filename = str_extract(string = filepath, 
+                                pattern = "Annotated_WS\\d{6}_.+.xlsx"))
+
+colorectal_filepaths <- grep(pattern = "CRC", x = s_drive_file_df$filepath, 
+                             ignore.case = TRUE,
+                             value = TRUE)
+
+colorectal_df <- s_drive_file_df |> 
+  filter(filepath %in% colorectal_filepaths)
+  
+erbb2_crc_results <- amp_gene_results |> 
+  mutate(filename = str_extract(string = filepath, 
+                                pattern = "Annotated_WS\\d{6}_.+.xlsx")) |> 
+  filter(gene == "ERBB2" & max_region_fold_change >= fold_change_threshold) |> 
+  filter(filename %in% colorectal_df$filename)
+
+live_weeks <- round(as.numeric(difftime(today(), date("2024-04-08"), units = "weeks")), 1)
+
+```
+
 # Results
 
-In total, `r length(unique(pansolid_cnv_collated_data$labno))` samples are included in this audit.
+Total samples:                `r length(unique(pansolid_cnv_collated_data$labno))`
+
+Colorectal cancer samples:    `r length(colorectal_filepaths)`
+
+*ERBB2* amplifications in colorectal cancer samples: `r nrow(erbb2_crc_results)`
+
+Weeks PanSolidv2 has been live:    `r live_weeks`
 
 Here's the summary of amplifications detected for samples passing the quality filter (signal-adjusted noise metric below 1).
 
@@ -97,12 +137,13 @@ And here's the overall view of gene fold changes.
 gene_fold_changes_plot <- ggplot(pansolid_cnv_collated_data |> 
                                    filter(st_dev_signal_adjusted_log2_ratios < 1), 
                                  aes(x = gene, y = max_region_fold_change)) +
-  geom_jitter(pch = 21, width = 0.2, alpha = 0.5, aes(fill = result)) +
+  geom_jitter(pch = 21, width = 0.4, alpha = 0.5, aes(fill = result)) +
   scale_fill_manual(values = c(safe_red, safe_blue)) +
   theme_bw() +
+  theme(legend.position = "bottom") +
   labs(x = "", y = "Maximum region fold change",
        caption = "Data passing signal-adjusted noise QC") +
-  geom_hline(yintercept = fold_change_threshold, linetype = "dashed")
+  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") 
 
 gene_fold_changes_plot
 
