@@ -79,7 +79,12 @@ s_drive_filepaths <- worksheet_list |>
 s_drive_file_df <- tibble(
   filepath = unlist(s_drive_filepaths)) |> 
   mutate(filename = str_extract(string = filepath, 
-                                pattern = "Annotated_WS\\d{6}_.+.xlsx"))
+                         pattern = str_replace(string = pansolidv2_excel_regex, 
+                                               pattern = "\\^", 
+                                               replacement = "")),
+         labno = str_extract(string = filename, 
+                             pattern = "WS\\d{6}_(\\d{6,8})_",
+                             group = 1))
 
 colorectal_filepaths <- grep(pattern = "CRC", x = s_drive_file_df$filepath, 
                              ignore.case = TRUE,
@@ -100,13 +105,13 @@ live_weeks <- round(as.numeric(difftime(today(), date("2024-04-08"), units = "we
 
 # Results
 
-Total samples:                `r length(unique(pansolid_cnv_collated_data$labno))`
+Total samples: `r length(unique(pansolid_cnv_collated_data$labno))`
 
-Colorectal cancer samples:    `r length(colorectal_filepaths)`
+Colorectal cancer samples: `r length(colorectal_filepaths)`
 
 *ERBB2* amplifications in colorectal cancer samples: `r nrow(erbb2_crc_results)`
 
-Weeks PanSolidv2 has been live:    `r live_weeks`
+Weeks PanSolidv2 has been live: `r live_weeks`
 
 Here's the summary of amplifications detected for samples passing the quality filter (signal-adjusted noise metric below 1).
 
