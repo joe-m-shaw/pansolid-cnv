@@ -1195,7 +1195,6 @@ parse_wgs_html_pid_text <- function(html_filepath) {
   
 }
 
-
 parse_wgs_html_table_by_div_id <- function(html_filepath,
                                            div_id) {
   
