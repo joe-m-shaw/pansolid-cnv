@@ -30,9 +30,21 @@ dna_db_export <- function(input) {
   )
 }
 
+
 plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi = 300) {
   
-  # Default inputs allow for presenting a plot as half an A4 page
+  #' Save a plot with a timestamp
+  #'
+  #' @param input_plot  Plot to save
+  #' @param input_width Desired plot width
+  #' @param input_height Desired plot height
+  #' @param dpi Desired plot resolution in dots per inch
+  #'
+  #' @return Saves the plot in the plots folder with a timestamp
+  #'
+  #' @note The default inputs are designed for presenting a plot as half an A4 page
+  #'
+  #' @examples plot_timestamp(erbb2_plot)
   
   ggsave(
     filename = paste0(
@@ -57,7 +69,7 @@ filename_regex <- regex(
   r"[
   (WS\d{6})                                   # Worksheet number
   _
-  (\d{5,8})                                     # Lab number
+  (\d{5,8})                                   # Lab number
   (a|b|c|d|)                                  # Suffix
   _
   ([:alnum:]{5,30})                           # Patient name - alphanumeric characters only
@@ -133,6 +145,20 @@ format_repeat_table <- function(df) {
 }
 
 extract_cnv_calls <- function(df, input_gene) {
+  
+  #' Extract CNV calls from DNA Database genotype comments
+  #'
+  #' @param df A dataframe including a "genotype" column of QIAseq results from the 
+  #' DNA Database.
+  #' @param input_gene The gene of interest
+  #'
+  #' @return  A dataframe including the input dataframe with additional columns
+  #' generated from the "genotype" column for the gene CNV result and dosage quotient.
+  #' 
+  #' @note Genotypes are entered onto the DNA Database as a text string with 
+  #' a consistent structure. This function parses results for a 
+  #'
+  #' @examples erbb2_cnvs <- extract_cnv_calls(df = dna_db_df, input_gene = "ERBB2")
   
   stopifnot("genotype" %in% colnames(df))
   
@@ -977,6 +1003,18 @@ draw_lod_gene_plot <- function(df, chromosome, gene) {
 
 read_biorad_csv <- function(worksheet) {
   
+  #' Read a CSV file from a BioRad ddPCR experiment as a data-frame
+  #'
+  #' @param worksheet The full ddPCR worksheet filename, which must be located in the
+  #' ddpcr_data folder
+  #'
+  #' @return The data as a data-frame with column names in snakecase.
+  #'
+  #' @note This function is designed to handle droplet digital polymerase chain reaction
+  #' (ddPCR) csv files exported from Quantasoft v1.7.4 (BioRad).
+  #'
+  #' @examples ddpcr <- read_biorad_csv("WS138419_analysed.csv")
+  
   output <- read_csv(here::here(str_c("data/ddpcr_data/", worksheet)), 
               col_types = cols(
                 "Well" = "c",
@@ -1059,16 +1097,26 @@ draw_ddpcr_cnv_plot <- function(worksheet_df, y_max = 10) {
   
 }
 
-
 # PanSolid functions ----------------------------------------------------------------
 
 join_pansolid_submission_sheets <- function() {
   
-  # This functions wrangles and binds the various submission sheets used for organising
-  # the PanSolid workflow
-  
-  # The sample_id field has some surprises. Example: 23024772 has a degree sign (°)
-  # entered after it which is invisible in Excel and R.
+  #' Load and join PanSolid DNA submission sheets
+  #'
+  #' @return A tidy dataframe for all PanSolid submissions from 2022 to 2024, based on 
+  #' files saved in the local drive.
+  #' 
+  #' @note Excel spreadsheets for coordinating testing on the PanSolid QIAseq 
+  #' enrichment are manually curated by the tech team and stored either on the S
+  #' drive or on the laboratory Sharepoint. This function uses versions of 
+  #' these Excel spreadsheets copied onto a local drive.
+  #' 
+  #' The sample_id field has some surprises. Example: 23024772 has a degree sign (°)
+  #' entered after it which is invisible in Excel and R.
+  #'
+  #' @examples pansolid_sheets <- join_pansolid_submission_sheets()
+  #' 
+  #' sample_info <- pansolid_sheets |> filter(labno == "12345678")
   
   pansolid_submission_2023 <- read_excel(path = here::here("data/dna_submission_sheets/DNA PanSolid QIAseq Submission Sheet 2023.xlsx")) |> 
     janitor::clean_names() |> 
@@ -1108,6 +1156,14 @@ join_pansolid_submission_sheets <- function() {
 # WGS HTML functions ----------------------------------------------------------------
 
 parse_wgs_html_header <- function(html_filepath) {
+  
+  #' Parse the header element of a whole genome sequencing HTML
+  #'
+  #' @param html_filepath The full file-path of the HTML to parse
+  #'
+  #' @return The header identifiers as a data-frame
+  #'
+  #' @examples patient_ids <- parse_wgs_html_header(html_filepath)
   
   html <- read_html(x = html_filepath)
   
@@ -1149,7 +1205,20 @@ parse_wgs_html_header <- function(html_filepath) {
   
 }
 
+
 parse_wgs_html_pid_text <- function(html_filepath) {
+  
+  #' Parse the patient identifier text from a whole genome sequencing HTML
+  #'
+  #' @param html_filepath The full file-path of the HTML to parse
+  #'
+  #' @return The patient identifiers as a data-frame
+  #'
+  #' @note This text appears as 3 rows above the referral ID table on a whole
+  #' genome sequencing HTML. The referral ID table itself needs to be parsed
+  #' using the parse_wgs_html_table_by_number function.
+  #'
+  #' @examples pid_df <- parse_wgs_html_pid_text(html_filepath)
   
   html <- read_html(x = html_filepath)
   
