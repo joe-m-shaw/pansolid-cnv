@@ -95,7 +95,9 @@ colorectal_df <- s_drive_file_df |>
   
 erbb2_crc_results <- amp_gene_results |> 
   mutate(filename = str_extract(string = filepath, 
-                                pattern = "Annotated_WS\\d{6}_.+.xlsx")) |> 
+                         pattern = str_replace(string = pansolidv2_excel_regex, 
+                                               pattern = "\\^", 
+                                               replacement = ""))) |> 
   filter(gene == "ERBB2" & max_region_fold_change >= fold_change_threshold) |> 
   filter(filename %in% colorectal_df$filename)
 
