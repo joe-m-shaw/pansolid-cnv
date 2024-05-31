@@ -18,7 +18,7 @@ source(here::here("functions/dna_database_functions.R"))
 
 # WGS Pathway Tracker ---------------------------------------------------------------
 
-wgs_pathway_tracker <- read_excel(path = here("data/WGS pathway tracker_copy_2024-05-17.xlsx"),
+wgs_pathway_tracker <- read_excel(path = here("data/WGS pathway tracker_copy_2024-05-30.xlsx"),
                                   sheet = "Cancer") |> 
   janitor::clean_names()
 
