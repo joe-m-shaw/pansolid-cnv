@@ -36,17 +36,32 @@ gene_options <- unique(amp_gene_results$gene)
 
 ws_options <- unique(std_dev_results$worksheet)
 
+weeks_live <- round(as.numeric(difftime(time1 = today(), 
+                                        time2 = "2024-04-08", 
+                                        units = "weeks")), 1)
+
+total_samples <- length(unique(std_dev_results$filepath))
+
+samples_per_week <- round(total_samples / weeks_live, 0)
+
 # User Interface --------------------------------------------------------------------
 
 ui <- fluidPage(
   
   theme = bslib::bs_theme(bootswatch = "sandstone"),
   
-  titlePanel("Welcome to the PanSolidv2 audit Shiny!"),
+  titlePanel("PanSolidv2 CNV Audit"),
+  
+  str_c("Date: ", format(today(), "%d-%m-%Y")),
+  
+  str_c("Total samples: ", total_samples),
+  
+  str_c("Weeks live: ", weeks_live),
+  
+  str_c("Samples per week: ", samples_per_week),
 
   fluidRow(
   column(5,
-         h2("Fun gene plot"),
          checkboxGroupInput(inputId = "gene_multiple", 
                             label = "Genes to plot", 
                             choices = gene_options,
@@ -57,7 +72,6 @@ ui <- fluidPage(
          plotOutput("gene_amp_plot")),
   
   column(5,
-         h2("Quality control plot"),
          selectInput(inputId = "ws_select", label = "Worksheet to highlight",
                      choices = ws_options, selected = "WS140721"),
          
@@ -81,8 +95,6 @@ ui <- fluidPage(
     )
   )
 )
-
-?checkboxGroupInput()
 
 # Server ----------------------------------------------------------------------------
 
