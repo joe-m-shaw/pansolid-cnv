@@ -20,17 +20,32 @@ s_drive_filepaths <- worksheet_list |>
   map(\(worksheet_list) get_annotated_filepaths(worksheet_list)) |> 
   flatten()
 
+worksheet_labno_regex <- "(WS\\d{6})_(\\d{6,8})_"
+
+panel_regex <-".+WorksheetAnalysedData/WS\\d{6}/(\\w{1,30})/Ann.+"
+
 s_drive_file_df <- tibble(
   filepath = unlist(s_drive_filepaths)) |> 
   mutate(filename = str_extract(string = filepath, 
                          pattern = str_replace(string = pansolidv2_excel_regex, 
                                                pattern = "\\^", 
                                                replacement = "")),
+         worksheet = str_extract(string = filename, 
+                                 pattern = worksheet_labno_regex,
+                                 group = 1),
          labno = str_extract(string = filename, 
-                             pattern = "WS\\d{6}_(\\d{6,8})_",
+                             pattern = worksheet_labno_regex,
+                             group = 2),
+         panel = str_extract(string = filepath,
+                             pattern = panel_regex,
                              group = 1))
 
 stopifnot(anyNA(s_drive_file_df) == FALSE)
+
+write.csv(s_drive_file_df, 
+          here::here(str_c("data/live_service_collated_data/",
+                           "pansolidv2_sample_worksheet_panel_information.csv")),
+          row.names = FALSE)
 
 # Local drive filepaths -------------------------------------------------------------
 
@@ -74,7 +89,7 @@ local_drive_file_df <- tibble(
 new_file_local_paths_df <- local_drive_file_df |> 
   filter(filename %in% new_files$filename & 
            # Remove samples without "Amplifications" tab
-           !labno %in% c("24023280", "24025207"))
+           !labno %in% c("24023280", "24025207", "24027566"))
 
 new_file_local_paths <- list(new_file_local_paths_df$filepath) |> 
   flatten()
