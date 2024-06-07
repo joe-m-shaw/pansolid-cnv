@@ -35,7 +35,7 @@ tpsab1_validation_repo_path <- "S:/central shared/Genetics/Mol_Shared/Developmen
 #| include: false
 
 ws_tbl <- dna_db_worksheets |> 
-  filter(date > "2024-01-01") |> 
+  filter(date > "2023-04-01") |> 
   select(pcrid, description, date, disease, test_type, team_id) |> 
   collect()
 
@@ -139,7 +139,8 @@ Collating the data shows that overall the ddPCR data from live services looks go
 
 live_service_plot <- ddpcr_data_collated |> 
   filter(target_type == "Ch1Unknown") |> 
-  filter(category == "live service") |> 
+  filter(category == "live service") |>
+  filter(accepted_droplets < 30000) |> 
   ggplot(aes(x = worksheet_id, y = accepted_droplets)) +
   geom_boxplot(aes(colour = is_tpsab)) +
   scale_colour_manual(values = c(safe_grey, safe_red)) +
@@ -150,7 +151,8 @@ live_service_plot <- ddpcr_data_collated |>
   geom_hline(yintercept = 10000, linetype = "dashed") +
   labs(x = "Worksheet", y = "Total droplets", 
        title = "ddPCR live service data",
-       colour = "")
+       colour = "") +
+  facet_wrap(~is_tpsab, nrow = 2)
 
 live_service_plot
 
@@ -170,7 +172,6 @@ tpsab1_plot <- ddpcr_data_collated |>
   ggplot(aes(x = column, y = accepted_droplets)) +
   geom_boxplot() +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 90)) +
   facet_wrap(~category) +
   geom_hline(yintercept = 10000, linetype = "dashed") +
   ylim(0, 25000) +
@@ -205,4 +206,69 @@ tpsab1_positive_plot <- ddpcr_data_collated |>
 
 tpsab1_positive_plot
 
-````
+```
+
+{{< pagebreak >}}
+
+The TPSAB1 service seems to have started with high droplet counts but then this has decreased over the previous few months.
+
+```{r}
+#| label: tpsab1-over-time
+#| echo: false
+
+tpsab1_service_plot <- ddpcr_data_collated |> 
+  filter(target_type == "Ch1Unknown") |> 
+  filter(category == "live service") |>
+  filter(is_tpsab == "TPSAB1") |> 
+  filter(accepted_droplets < 30000) |> 
+  ggplot(aes(x = worksheet_id, y = accepted_droplets)) +
+  geom_boxplot() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom",
+        panel.grid = element_blank()) +
+  geom_hline(yintercept = 10000, linetype = "dashed") +
+  labs(x = "Worksheet", y = "Total droplets", 
+       title = "TPSAB1 ddPCR live service data")
+
+tpsab1_service_plot
+
+```
+
+```{r}
+#| label: extra-code
+#| include: false
+#| eval: false
+
+controls <- c("23024261_PL", "23022367_DM")
+
+ddpcr_data_collated |> 
+  filter(sample %in% controls) |>
+  filter(target_type == "Ch2Reference") |> 
+  ggplot(aes(x = worksheet_id, y = copies_per20u_l_well)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(~sample)
+
+ddpcr_data_collated |> 
+  filter(sample == "WATER") |>
+  #filter(target_type == "Ch2Reference") |> 
+  filter(!is.na(positives)) |> 
+  mutate(channel = str_extract(string = target_type,
+                               pattern = "Ch(\\d{1}).+",
+                               group = 1)) |> 
+  ggplot(aes(x = worksheet_id, y = positives)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        panel.grid = element_blank()) +
+  facet_wrap(~channel)
+
+ddpcr_data_collated |> 
+  filter(sample == "WATER") |>
+  #filter(target_type == "Ch2Reference") |> 
+  filter(!is.na(positives)) |> 
+  filter(positives > 1000) 
+
+```
