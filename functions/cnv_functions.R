@@ -1099,7 +1099,7 @@ draw_lod_gene_plot <- function(df, chromosome, gene) {
 
 # ddPCR functions -------------------------------------------------------------------
 
-read_biorad_csv <- function(worksheet) {
+read_biorad_csv <- function(worksheet, repo = "data/ddpcr_data/") {
   
   #' Read a CSV file from a BioRad ddPCR experiment as a data-frame
   #'
@@ -1113,7 +1113,7 @@ read_biorad_csv <- function(worksheet) {
   #'
   #' @examples ddpcr <- read_biorad_csv("WS138419_analysed.csv")
   
-  output <- read_csv(here::here(str_c("data/ddpcr_data/", worksheet)), 
+  output <- read_csv(here::here(str_c(repo, worksheet)), 
               col_types = cols(
                 "Well" = "c",
                 "ExptType" = "c",
