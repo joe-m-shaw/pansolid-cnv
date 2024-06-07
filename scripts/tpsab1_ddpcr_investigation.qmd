@@ -1,0 +1,208 @@
+---
+title: "TPSAB1 ddPCR Investigation"
+author: "Joe Shaw"
+format: pdf
+---
+
+```{r}
+#| label: functions
+#| include: false
+
+library(here)
+
+source(here::here("functions/dna_database_connection.R"))
+
+source(here::here("functions/dna_database_functions.R"))
+
+source(here::here("functions/cnv_functions.R"))
+
+```
+
+Data are sourced from csv files saved on the S drives in worksheet folders and the development team folder.
+
+```{r}
+#| label: filepaths
+#| include: true
+
+ws_repo_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
+
+tpsab1_validation_repo_path <- "S:/central shared/Genetics/Mol_Shared/Development.Team/Alpha_Tryptasemia/Historical Data/"
+
+```
+
+```{r}
+#| label: find-ddpcr-worksheets
+#| include: false
+
+ws_tbl <- dna_db_worksheets |> 
+  filter(date > "2024-01-01") |> 
+  select(pcrid, description, date, disease, test_type, team_id) |> 
+  collect()
+
+ddpcr_tbl <- ws_tbl |> 
+  filter(description %in% grep(pattern = "dPCR", ignore.case = TRUE, x = description,
+                               value = TRUE)) |> 
+  mutate(worksheet = str_c("WS", pcrid))
+
+worksheet_list <- list(ddpcr_tbl$worksheet)
+
+```
+
+```{r}
+#| label: find-ddpcr-csvs
+#| include: false
+
+get_ddpcr_csv_filepaths <- function(repository_path, worksheet, full_names = TRUE) {
+
+  csv_filepaths <- list.files(path = str_c(repository_path, {{ worksheet }},
+                                                 "/"),
+                                    recursive = TRUE, 
+                                    pattern = "*.csv",
+                                    full.names = full_names)
+  
+  return(csv_filepaths)
+  
+}
+
+ddpcr_service_csv_filepaths <- worksheet_list |> 
+  map(\(worksheet_list) get_ddpcr_csv_filepaths(repository_path = ws_repo_path,
+                                                worksheet = worksheet_list)) |> 
+  flatten()
+
+# Copy live service files
+file.copy(from = ddpcr_service_csv_filepaths, to = here::here("data/ddpcr_data/ddPCR_service_data"))
+
+tpsab1_validation_filepaths <- list.files(path = tpsab1_validation_repo_path,
+                                    recursive = TRUE, 
+                                    pattern = "*.csv",
+                                    full.names = TRUE)
+
+# Copy TPSAB1 validation files
+file.copy(from = tpsab1_validation_filepaths, to = here::here("data/ddpcr_data/TPSAB1_validation"))
+
+live_service_local_paths <- list.files(path = here::here("data/ddpcr_data/ddPCR_service_data/"),
+                                full.names = FALSE,
+                                pattern = "*.csv")
+
+tpsab1_validation_local_paths <- list.files(path = here::here("data/ddpcr_data/TPSAB1_validation/"),
+                                full.names = FALSE,
+                                pattern = "*.csv")
+
+```
+
+```{r}
+#| label: collate-ddpcr-data
+#| include: false
+
+ddpcr_live_service_data <- live_service_local_paths |> 
+  map(\(live_service_local_paths) read_biorad_csv(worksheet = live_service_local_paths,
+                                                  repo = "data/ddpcr_data/ddPCR_service_data/")) |> 
+  list_rbind() |> 
+  mutate(category = "live service")
+
+ddpcr_tpsab1_validation_data <- tpsab1_validation_local_paths |> 
+  map(\(tpsab1_validation_local_paths) read_biorad_csv(worksheet = tpsab1_validation_local_paths,
+                                                  repo = "data/ddpcr_data/TPSAB1_validation/")) |> 
+  list_rbind() |> 
+  mutate(category = "TPSAB1 validation")
+
+cols_to_get <- c("worksheet", "well", "experiment", "sample", "target_type", "target",
+                 "accepted_droplets",
+                 "sample_well", "category", "positives",
+                 "copies_per20u_l_well")
+
+ddpcr_data_collated <- rbind(ddpcr_live_service_data |> 
+                               select(all_of(cols_to_get)), 
+                             ddpcr_tpsab1_validation_data |> 
+                               select(all_of(cols_to_get))) |> 
+  mutate(worksheet_id = str_extract(string = worksheet,
+                                    pattern = "WS(\\d{6})",
+                                    group = 1),
+         is_tpsab = ifelse(grepl(pattern = "TPSAB", x = worksheet, ignore.case = TRUE),
+                           "TPSAB1", "Other"),
+         column = str_extract(string = well,
+                              pattern = "\\w(\\d{2})",
+                              group = 1)) |> 
+  relocate(worksheet_id, is_tpsab, column)
+
+write.csv(x = ddpcr_data_collated,
+                     file = here::here("data/ddpcr_data/collated_data/ddpcr_data_collated.csv"),
+                     row.names = FALSE)
+
+```
+
+Collating the data shows that overall the ddPCR data from live services looks good, but the TPSAB1 worksheets do seem to have lower droplet counts, which may drop below the quality threshold of 10,000 droplets per well.
+
+```{r}
+#| label: live-service-overall-trend
+#| echo: false
+
+live_service_plot <- ddpcr_data_collated |> 
+  filter(target_type == "Ch1Unknown") |> 
+  filter(category == "live service") |> 
+  ggplot(aes(x = worksheet_id, y = accepted_droplets)) +
+  geom_boxplot(aes(colour = is_tpsab)) +
+  scale_colour_manual(values = c(safe_grey, safe_red)) +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        legend.position = "bottom",
+        panel.grid = element_blank()) +
+  geom_hline(yintercept = 10000, linetype = "dashed") +
+  labs(x = "Worksheet", y = "Total droplets", 
+       title = "ddPCR live service data",
+       colour = "")
+
+live_service_plot
+
+```
+
+{{< pagebreak >}}
+
+The TPSAB1 droplet counts don't seem to be as low in the validation data, and the lowest counts are seen in the third column. In the live service, the beta assay is always in the third column, which may be relevant.
+
+```{r}
+#| label: check-tpsab1-vs-validation
+#| echo: false
+
+tpsab1_plot <- ddpcr_data_collated |> 
+  filter(target_type == "Ch1Unknown") |> 
+  filter(is_tpsab == "TPSAB1") |> 
+  ggplot(aes(x = column, y = accepted_droplets)) +
+  geom_boxplot() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(~category) +
+  geom_hline(yintercept = 10000, linetype = "dashed") +
+  ylim(0, 25000) +
+  labs(x = "ddPCR Column", y = "Total droplets", 
+       title = "TPSAB1: comparison of validation and live service")
+
+tpsab1_plot
+
+```
+
+{{< pagebreak >}}
+
+Another finding is that the number of positive droplets (for both FAM-channel 1 and HEX-channel 2) are lower in the live TPSAB1 service than in the TPSAB1 validation data.
+
+```{r}
+#| label: check-tpsab1-positives
+#| echo: false
+
+tpsab1_positive_plot <- ddpcr_data_collated |> 
+  filter(is_tpsab == "TPSAB1") |> 
+  mutate(channel = case_when(
+    target_type == "Ch1Unknown" ~"FAM",
+    target_type == "Ch2Reference" ~"HEX")) |> 
+  ggplot(aes(x = worksheet, y = positives)) +
+  geom_boxplot(aes(colour = category)) +
+  scale_color_manual(values = c(safe_red, safe_blue)) +
+  theme_bw() +
+  theme(axis.text.x = element_blank()) +
+  facet_wrap(~channel) +
+  theme(legend.position = "bottom") +
+  labs(x = "Worksheet", y = "Positive droplets")
+
+tpsab1_positive_plot
+
+````
