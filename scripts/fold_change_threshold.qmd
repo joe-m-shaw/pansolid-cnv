@@ -185,11 +185,11 @@ lods_plot
 
 Clinicians often use 10 copies as threshold for whether or not to change treatment based on a gene amplification.
 
-The neoplastic cell content range provided by pathologists is usually very variable: ">20%", "20-80%" etc.
+The neoplastic cell content range provided by pathologists is usually very variable: "\>20%", "20-80%" etc.
 
 Could using variation in the NCC value used to calculate the target copy number result in a copy number value being above or below 10 and hence change clinical treatment?
 
-According to the plot below, this could happen if the fold change is between 2.8-5 and the NCC range goes higher than approximately 50%. 
+According to the plot below, this could happen if the fold change is between 2.8-5 and the NCC range goes higher than approximately 50%.
 
 ```{r}
 #| label: ncc-range
@@ -198,7 +198,7 @@ According to the plot below, this could happen if the fold change is between 2.8
 df2 <- data.frame(tcc = seq(0, 100, by = 0.1)) |> 
   mutate(fold_change = calculate_fold_change(tcc_percent = tcc,
                                              sample_target_copies_per_tumour_cell = 10))
-df2 |> 
+fold_change_ncc_plot <- df2 |> 
   ggplot(aes(x = fold_change, y = tcc)) +
   geom_line(linewidth = 1) +
   theme_bw() +
@@ -211,5 +211,8 @@ df2 |>
             label = "In this region a CNV will be detected \n but will be below 10 copies") +
   geom_text(aes(x = 4, y = 25), size = 4, 
             label = "In this region a CNV will be detected \n and will be above 10 copies") 
+
+ggsave(here::here("outputs/plots/fold_change_ncc_plot.png"), 
+                  plot = fold_change_ncc_plot)
 
 ```
