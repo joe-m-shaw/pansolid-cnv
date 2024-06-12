@@ -3,7 +3,7 @@ title: "Fold Change Threshold"
 author: "Joe Shaw"
 date: today
 date-format: "DD/MM/YYYY"
-format: html
+format: pdf
 editor: visual
 ---
 
@@ -86,6 +86,8 @@ calculate_target_copies <- function(fold_change, tcc_percent) {
 
 ```
 
+{{< pagebreak >}}
+
 ## Theoretical Limit of Detection
 
 This then shows us which combinations of tumour cell content and target copy number lie above the threshold, and which lie beneath it. This is the theoretical limit of detection.
@@ -116,6 +118,8 @@ fold_change_plot
 
 ```
 
+{{< pagebreak >}}
+
 ## Technical Limit of Detection
 
 I did a limit of detection study where I spiked the SeraCare +12 copies CNV control into the SeraCare wild type control at 25%, 12.5%, 6.25% and 0%.
@@ -145,10 +149,10 @@ So we can then see that the technical detection limit is slightly below the theo
 #| echo: FALSE
 
 lod_comparison <- data.frame(tcc = seq(0, 100, by = 0.1)) |> 
-  mutate("Theoretical detection limit (fold change 2.8)" =
+  mutate("Theoretical limit (fold change 2.8)" =
            calculate_target_copies(fold_change = 2.8,
                                    tcc_percent = tcc),
-         "Technical detection limit (fold change 2.5" = 
+         "Technical limit (fold change 2.5" = 
            calculate_target_copies(fold_change = 2.5,
                                    tcc_percent = tcc)) |> 
   pivot_longer(cols = -tcc,
@@ -181,6 +185,8 @@ lods_plot
 
 ```
 
+{{< pagebreak >}}
+
 ## Neoplastic Cell Content Range
 
 Clinicians often use 10 copies as threshold for whether or not to change treatment based on a gene amplification.
@@ -212,7 +218,6 @@ fold_change_ncc_plot <- df2 |>
   geom_text(aes(x = 4, y = 25), size = 4, 
             label = "In this region a CNV will be detected \n and will be above 10 copies") 
 
-ggsave(here::here("outputs/plots/fold_change_ncc_plot.png"), 
-                  plot = fold_change_ncc_plot)
+fold_change_ncc_plot
 
 ```
