@@ -703,7 +703,7 @@ read_percent_138_results <- function(file, sheet = "Amplifications") {
   
 }
 
-pansolidv2_excel_regex <- "^Annotated(_|_v2PANSOLID_|_v2M\\d{1,3}_.+_PS_)WS\\d{6}_.+.xlsx"
+pansolidv2_excel_regex <- "^Annotated(_|_v2.+_)WS\\d{6}_.+.xlsx"
 
 get_annotated_filepaths <- function(worksheet, full_names = TRUE) {
   
