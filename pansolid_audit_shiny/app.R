@@ -5,6 +5,8 @@
 library(shiny)
 library(tidyverse)
 
+# Functions -------------------------------------------------------------------------
+
 source(here::here("functions/cnv_functions.R"))
 
 # Load Data -------------------------------------------------------------------------
@@ -45,11 +47,10 @@ pos_cnv_results_with_qc <- pos_cnv_results |>
 fold_change_threshold <- 2.8
 
 crc_erbb2_results <- amp_gene_results |> 
-  left_join(panel_info |> 
-              filter(panel == "v2M1_CRC_PS") |> 
+  left_join(panel_info |>
               select(filename, panel),
             by = "filename") |> 
-  filter(!is.na(panel) & gene == "ERBB2") |> 
+  filter(panel == "v2M1_CRC_PS" & gene == "ERBB2") |> 
   mutate(result = case_when(
     max_region_fold_change >= fold_change_threshold ~"ERBB2 Amplification",
     max_region_fold_change < fold_change_threshold ~"No ERBB2 amplification"
@@ -93,10 +94,10 @@ ui <- fluidPage(
   fluidRow(
     h1("Summary"),
     
-    column(5,
+    column(3,
            h2("All amplification results"),
            tableOutput("summary_gene_table")),
-    column(5,
+    column(3,
            h2("Colorectal referrals"),
            tableOutput("crc_summary_table")),
   ),
@@ -121,8 +122,8 @@ ui <- fluidPage(
                               choices = gene_options,
                               selected = gene_options, inline = TRUE),
            sliderInput("y_axis_range", "Fold change range", min = -5, 
-                       max = max(pos_cnv_results$fold_change + 5),
-                       value = c(-5, max(pos_cnv_results$fold_change + 5))),
+                       max = 200,
+                       value = c(-5, 200)),
            plotOutput("gene_amp_plot")),
     
     column(5,
@@ -146,6 +147,11 @@ ui <- fluidPage(
            
            tableOutput("amp_tbl")
     )
+  ),
+  fluidRow(
+    column(3,
+           h2("Panels"),
+           tableOutput("summary_panel_table")),
   )
 )
 
@@ -164,6 +170,14 @@ server <- function(input, output) {
     
   })
 
+  output$summary_panel_table <- renderTable({
+    panel_info |> 
+      count(panel) |> 
+      arrange(desc(n)) |> 
+      rename("Panel" = panel,
+             "Cases" = n)
+  })
+    
   output$crc_summary_table <- renderTable({
     
     crc_erbb2_results |> 
@@ -177,6 +191,7 @@ server <- function(input, output) {
   data_filtered <- reactive({
     
     pos_cnv_results_with_qc |> 
+      filter(!is.na(fold_change)) |> 
       filter(gene == input$gene_select & 
                noise < input$noise_qc) |> 
       select(worksheet, panel, labno,  
