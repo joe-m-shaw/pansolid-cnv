@@ -1,0 +1,57 @@
+---
+title: "ddPCR Inputs"
+author: "Joe Shaw"
+format: pdf
+editor: visual
+---
+
+The dynamic range of the QX200 system is 1 to 120,000 copies per 20ul reaction (0.001 to 120 copies per droplet).
+
+We can assume that copies per droplet (CPD) is 1000 times smaller than copies per microlitre (each droplet is 1 nanolitre).
+
+```{r}
+
+dynamic_range_max <- 120000
+dynamic_range_min <- 1
+
+calc_molecules <- function(reference_molecules, input_cn) {
+  
+  output <- (reference_molecules / 2) * input_cn
+  
+  return(output)
+  
+}
+
+check_dynamic_range <- function(input_molecules) {
+  
+  output <- ifelse(input_molecules >= dynamic_range_min & 
+                     input_molecules <= dynamic_range_max,
+                   "Within range",
+                   "OUTSIDE")
+  
+  return(output)
+  
+}
+
+df <- data.frame(
+  dna_input_ng = c(1, 5, 10, 15, 20, 25)) |> 
+  mutate(
+    
+    # 1 haploid human genome is 3.3 picograms
+    reference_molecules = (dna_input_ng * 1000) / 3.3,
+    ref_check = check_dynamic_range(reference_molecules),
+    cn5_molecules = calc_molecules(reference_molecules, 5),
+    cn5_check = check_dynamic_range(cn5_molecules),
+    cn10_molecules = calc_molecules(reference_molecules, 10),
+    cn10_check = check_dynamic_range(cn10_molecules),
+    cn20_molecules = calc_molecules(reference_molecules, 20),
+    cn20_check = check_dynamic_range(cn20_molecules),
+    cn50_molecules = calc_molecules(reference_molecules, 50),
+    cn50_check = check_dynamic_range(cn50_molecules),
+    cn100_molecules = calc_molecules(reference_molecules, 100),
+    cn100_check = check_dynamic_range(cn100_molecules),
+    cn150_molecules = calc_molecules(reference_molecules, 150),
+    cn150_check = check_dynamic_range(cn150_molecules)
+  )
+
+```
