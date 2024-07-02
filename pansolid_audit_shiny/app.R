@@ -4,33 +4,46 @@
 
 library(shiny)
 library(tidyverse)
+library(here)
 
 # Functions -------------------------------------------------------------------------
 
-source(here::here("functions/cnv_functions.R"))
+source(here("functions/cnv_functions.R"))
 
 # Load Data -------------------------------------------------------------------------
 
-amp_gene_results <- read_csv(here::here("data/live_service_collated_data/live_service_amp_gene_results_collated.csv")) |> 
+collated_data_path <- here("data/live_service_collated_data")
+
+amp_gene_results <- read_csv(str_c(collated_data_path,
+                                   "/live_service_amp_gene_results_collated.csv"),
+                             show_col_types = FALSE) |> 
   mutate(filename = str_extract(string = filepath, 
                          pattern = str_replace(string = pansolidv2_excel_regex, 
                                                pattern = "\\^", 
                                                replacement = "")))
 
-std_dev_results <- read_csv(here::here("data/live_service_collated_data/live_service_std_dev_results_collated.csv")) |> 
+std_dev_results <- read_csv(str_c(collated_data_path,
+                                  "/live_service_std_dev_results_collated.csv"),
+                            show_col_types = FALSE) |> 
   rename(noise = st_dev_signal_adjusted_log2_ratios)
 
-percent_138_results <- read_csv(here::here("data/live_service_collated_data/live_service_percent_138_results_collated.csv"))
+percent_138_results <- read_csv(str_c(collated_data_path,
+                                      "/live_service_percent_138_results_collated.csv"),
+                                show_col_types = FALSE)
 
-pos_cnv_results <- read_csv(here::here("data/live_service_collated_data/live_service_pos_cnv_results_collated.csv")) |> 
+pos_cnv_results <- read_csv(str_c(collated_data_path,
+                                  "/live_service_pos_cnv_results_collated.csv"),
+                            show_col_types = FALSE) |> 
   mutate(gene = factor(gene, levels = unique(amp_gene_results$gene)),
          filename = str_extract(string = filepath, 
                                 pattern = str_replace(string = pansolidv2_excel_regex, 
                                                       pattern = "\\^", 
                                                       replacement = "")))
 
-panel_info <- read_csv(here::here("data/live_service_collated_data/pansolidv2_sample_worksheet_panel_information.csv"))
-
+panel_info <- read_csv(str_c(collated_data_path, 
+                             "/pansolidv2_sample_worksheet_panel_information.csv"),
+                       show_col_types = FALSE)
+  
 pos_cnv_results_with_qc <- pos_cnv_results |> 
   left_join(std_dev_results |> 
               select(filepath, noise),
