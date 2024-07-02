@@ -22,7 +22,7 @@ s_drive_filepaths <- worksheet_list |>
 
 worksheet_labno_regex <- "(WS\\d{6})_(\\d{6,8})_"
 
-panel_regex <-".+WorksheetAnalysedData/WS\\d{6}/(\\w{1,30})/Ann.+"
+panel_regex <-".+WorksheetAnalysedData/WS\\d{6}/(\\w{1,30})/(Ann.+|Genotyped/Ann.+)"
 
 s_drive_file_df <- tibble(
   filepath = unlist(s_drive_filepaths)) |> 
@@ -40,7 +40,13 @@ s_drive_file_df <- tibble(
                              pattern = panel_regex,
                              group = 1))
 
-stopifnot(anyNA(s_drive_file_df) == FALSE)
+if (any(grepl(pattern = "/", x = s_drive_file_df$filename))) {
+  stop("Error: filenames contain backslashes") 
+}
+
+if (anyNA(s_drive_file_df)) {
+  stop("Error: there are NA values in the filepath table")
+}
 
 write.csv(s_drive_file_df, 
           here::here(str_c("data/live_service_collated_data/",
@@ -89,7 +95,8 @@ local_drive_file_df <- tibble(
 new_file_local_paths_df <- local_drive_file_df |> 
   filter(filename %in% new_files$filename & 
            # Remove samples without "Amplifications" tab
-           !labno %in% c("24023280", "24025207", "24027566"))
+           !labno %in% c("24023280", "24025207", "24027566", "24033006",
+                         "24033959"))
 
 new_file_local_paths <- list(new_file_local_paths_df$filepath) |> 
   flatten()
