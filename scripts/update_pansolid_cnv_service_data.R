@@ -8,11 +8,11 @@ library(here)
 
 # Functions -------------------------------------------------------------------------
 
-source(here::here("functions/cnv_functions.R"))
+source(here("functions/cnv_functions.R"))
 
 # S drive filepaths -----------------------------------------------------------------
 
-pansolidv2_worksheets <- read_excel(here::here("data/pansolid_live_service_worksheets.xlsx"))
+pansolidv2_worksheets <- read_excel(here("data/pansolid_live_service_worksheets.xlsx"))
 
 worksheet_list <- list(pansolidv2_worksheets$worksheet)
 
@@ -49,14 +49,14 @@ if (anyNA(s_drive_file_df)) {
 }
 
 write.csv(s_drive_file_df, 
-          here::here(str_c("data/live_service_collated_data/",
+          here(str_c("data/live_service_collated_data/",
                            "pansolidv2_sample_worksheet_panel_information.csv")),
           row.names = FALSE)
 
 # Local drive filepaths -------------------------------------------------------------
 
 local_drive_file_df <- tibble(
-  filepath = unlist(list.files(here::here("data/live_service_annotated_files/"),
+  filepath = unlist(list.files(here("data/live_service_annotated_files/"),
                                full.names = TRUE))) |> 
   mutate(filename = str_extract(string = filepath, 
                                 pattern = str_replace(string = pansolidv2_excel_regex, 
@@ -75,14 +75,14 @@ new_files <- s_drive_file_df |>
 if (nrow(new_files) > 0) {
   
   file.copy(from = new_files$filepath, 
-            to = here::here("data/live_service_annotated_files/"))
+            to = here("data/live_service_annotated_files/"))
   
 }
 
 # Get new file local filepaths ------------------------------------------------------
 
 local_drive_file_df <- tibble(
-  filepath = unlist(list.files(here::here("data/live_service_annotated_files/"),
+  filepath = unlist(list.files(here("data/live_service_annotated_files/"),
                                full.names = TRUE))) |> 
   mutate(filename = str_extract(string = filepath, 
                                 pattern = str_replace(string = pansolidv2_excel_regex, 
@@ -106,23 +106,27 @@ new_file_local_paths <- list(new_file_local_paths_df$filepath) |>
 # Collate new file data -------------------------------------------------------------
 
 new_amp_gene_collated <- new_file_local_paths |> 
-  map(\(new_file_local_paths) read_all_amp_genes_results(file = new_file_local_paths,
-                                                         sheet = get_amp_sheetname(new_file_local_paths))) |> 
+  map(\(new_file_local_paths) 
+      read_all_amp_genes_results(file = new_file_local_paths,
+                                 sheet = get_amp_sheetname(new_file_local_paths))) |> 
   list_rbind()
 
 new_pos_cnv_collated <- new_file_local_paths |> 
-  map(\(new_file_local_paths) read_pos_cnv_results(file = new_file_local_paths,
-                                                   sheet = get_amp_sheetname(new_file_local_paths))) |> 
+  map(\(new_file_local_paths) 
+      read_pos_cnv_results(file = new_file_local_paths,
+                           sheet = get_amp_sheetname(new_file_local_paths))) |> 
   list_rbind()
 
 new_std_dev_collated <- new_file_local_paths |> 
-  map(\(new_file_local_paths) read_stdev_results(file = new_file_local_paths,
-                                                        sheet = get_amp_sheetname(new_file_local_paths))) |> 
+  map(\(new_file_local_paths) 
+      read_stdev_results(file = new_file_local_paths,
+                         sheet = get_amp_sheetname(new_file_local_paths))) |> 
   list_rbind()
 
 new_percent_138_collated <- new_file_local_paths |> 
-  map(\(new_file_local_paths) read_percent_138_results(file = new_file_local_paths,
-                                                        sheet = get_amp_sheetname(new_file_local_paths))) |> 
+  map(\(new_file_local_paths) 
+      read_percent_138_results(file = new_file_local_paths,
+                               sheet = get_amp_sheetname(new_file_local_paths))) |> 
   list_rbind()
 
 # Load previously collated data -----------------------------------------------------
@@ -267,28 +271,28 @@ if(expected_file_number != file_number) {
 # Archive previous collated data ----------------------------------------------------
 
 write.csv(amp_gene_results,
-          here::here(str_c("data/live_service_collated_data/archived_collated_data/",
+          here(str_c("data/live_service_collated_data/archived_collated_data/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
                            "live_service_amp_gene_results_collated.csv")),
           row.names = FALSE)
 
 write.csv(std_dev_results,
-          here::here(str_c("data/live_service_collated_data/archived_collated_data/",
+          here(str_c("data/live_service_collated_data/archived_collated_data/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
                            "live_service_std_dev_results_collated.csv")),
           row.names = FALSE)
 
 write.csv(pos_cnv_results,
-          here::here(str_c("data/live_service_collated_data/archived_collated_data/",
+          here(str_c("data/live_service_collated_data/archived_collated_data/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
                            "live_service_pos_cnv_results_collated.csv")),
           row.names = FALSE)
 
 write.csv(percent_138_results,
-          here::here(str_c("data/live_service_collated_data/archived_collated_data/",
+          here(str_c("data/live_service_collated_data/archived_collated_data/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
                            "live_service_percent_138_results_collated.csv")),
@@ -297,21 +301,21 @@ write.csv(percent_138_results,
 # Save updated collated data --------------------------------------------------------
 
 write.csv(amp_gene_results_updated,
-          here::here(str_c("data/live_service_collated_data/",
+          here(str_c("data/live_service_collated_data/",
                            "live_service_amp_gene_results_collated.csv")),
           row.names = FALSE)
 
 write.csv(std_dev_results_updated,
-          here::here(str_c("data/live_service_collated_data/",
+          here(str_c("data/live_service_collated_data/",
                            "live_service_std_dev_results_collated.csv")),
           row.names = FALSE)
 
 write.csv(pos_cnv_results_updated,
-          here::here(str_c("data/live_service_collated_data/",
+          here(str_c("data/live_service_collated_data/",
                            "live_service_pos_cnv_results_collated.csv")),
           row.names = FALSE)
 
 write.csv(percent_138_results_updated,
-          here::here(str_c("data/live_service_collated_data/",
+          here(str_c("data/live_service_collated_data/",
                            "live_service_percent_138_results_collated.csv")),
           row.names = FALSE)
