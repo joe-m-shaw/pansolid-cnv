@@ -92,11 +92,13 @@ local_drive_file_df <- tibble(
                              pattern = "WS\\d{6}_(\\d{6,8})_",
                              group = 1))
 
+samples_without_amp_tabs <- c("24023280", "24025207", "24027566", "24033006",
+                              "24033959")
+
 new_file_local_paths_df <- local_drive_file_df |> 
   filter(filename %in% new_files$filename & 
            # Remove samples without "Amplifications" tab
-           !labno %in% c("24023280", "24025207", "24027566", "24033006",
-                         "24033959"))
+           !labno %in% samples_without_amp_tabs)
 
 new_file_local_paths <- list(new_file_local_paths_df$filepath) |> 
   flatten()
@@ -125,13 +127,69 @@ new_percent_138_collated <- new_file_local_paths |>
 
 # Load previously collated data -----------------------------------------------------
 
-amp_gene_results <- read_csv(here::here("data/live_service_collated_data/live_service_amp_gene_results_collated.csv"))
+collated_data_path <- here("data/live_service_collated_data")
 
-std_dev_results <- read_csv(here::here("data/live_service_collated_data/live_service_std_dev_results_collated.csv"))
+amp_gene_results <- read_csv(str_c(collated_data_path, 
+                                   "/live_service_amp_gene_results_collated.csv"),
+                             col_types = list(
+                               worksheet = col_character(),
+                               labno = col_character(),
+                               suffix = col_character(),
+                               patient_name = col_character(),
+                               labno_suffix = col_character(),
+                               labno_suffix_worksheet = col_character(),
+                               filepath = col_character(),
+                               gene = col_character(),
+                               max_region_fold_change = col_double(),
+                               min_region_fold_change = col_double()
+                             ))
 
-percent_138_results <- read_csv(here::here("data/live_service_collated_data/live_service_percent_138_results_collated.csv"))
+std_dev_results <- read_csv(str_c(collated_data_path,
+                                  "/live_service_std_dev_results_collated.csv"),
+                            col_types = list(
+                              worksheet = col_character(),
+                              labno = col_character(),
+                              suffix = col_character(),
+                              patient_name = col_character(),
+                              labno_suffix = col_character(),
+                              labno_suffix_worksheet = col_character(),
+                              filepath = col_character(),
+                              st_dev_signal_adjusted_log2_ratios = col_double()
+                            ))
 
-pos_cnv_results <- read_csv(here::here("data/live_service_collated_data/live_service_pos_cnv_results_collated.csv"))
+percent_138_results <- read_csv(str_c(collated_data_path,
+                                      "/live_service_percent_138_results_collated.csv"),
+                                col_types = list(
+                                  worksheet = col_character(),
+                                  labno = col_character(),
+                                  suffix = col_character(),
+                                  patient_name = col_character(),
+                                  labno_suffix = col_character(),
+                                  labno_suffix_worksheet = col_character(),
+                                  filepath = col_character(),
+                                  percent_whole_panel_covered_at_138x = col_double()
+                                ))
+
+pos_cnv_results <- read_csv(str_c(collated_data_path,
+                                  "/live_service_pos_cnv_results_collated.csv"),
+                            col_types = list(
+                              worksheet = col_character(),
+                              labno = col_character(),
+                              suffix = col_character(),
+                              patient_name = col_character(),
+                              labno_suffix = col_character(),
+                              labno_suffix_worksheet = col_character(),
+                              filepath = col_character(),
+                              gene = col_character(),
+                              chromosome = col_character(),
+                              cnv_co_ordinates = col_character(),
+                              cnv_length = col_double(),
+                              consequence = col_character(),
+                              fold_change = col_double(),
+                              p_value = col_double(),
+                              start = col_double(),
+                              end = col_double()
+                            ))
 
 # Check columns ---------------------------------------------------------------------
 
@@ -153,25 +211,58 @@ percent_138_cols <- c(id_cols, "percent_whole_panel_covered_at_138x")
 
 # Add new data to collated data -----------------------------------------------------
 
-amp_gene_results_updated <- rbind(amp_gene_results |> 
+if(all(nrow(new_amp_gene_collated) > 0,
+       nrow(new_amp_gene_collated) > 0,
+       nrow(new_std_dev_collated) > 0,
+       nrow(new_percent_138_collated) > 0)) {
+  
+  amp_gene_results_updated <- rbind(amp_gene_results |> 
                                     select(all_of(all_amp_cols)),
                                   new_amp_gene_collated |> 
                                     select(all_of(all_amp_cols)))
-
-pos_cnv_results_updated <- rbind(pos_cnv_results |> 
+  
+  pos_cnv_results_updated <- rbind(pos_cnv_results |> 
                                    select(all_of(pos_cnv_cols)),
                                  new_pos_cnv_collated |> 
                                    select(all_of(pos_cnv_cols)))
-
-std_dev_results_updated <- rbind(std_dev_results |> 
+  
+  std_dev_results_updated <- rbind(std_dev_results |> 
                                    select(all_of(std_dev_cols)),
                                  new_std_dev_collated |> 
                                    select(all_of(std_dev_cols)))
-
-percent_138_results_updated <- rbind(percent_138_results |> 
+  
+  percent_138_results_updated <- rbind(percent_138_results |> 
                                select(all_of(percent_138_cols)),
                              new_percent_138_collated |> 
                                select(all_of(percent_138_cols)))
+  message("New data added")
+  
+} else {
+  
+  amp_gene_results_updated <- amp_gene_results
+  
+  pos_cnv_results_updated <- pos_cnv_results
+  
+  std_dev_results_updated <- std_dev_results
+  
+  percent_138_results_updated <- percent_138_results
+  
+  message("No new data added")
+  
+}
+
+# Checks ----------------------------------------------------------------------------
+
+# Each PanSolid worksheet should have 48 samples on
+expected_file_number <- (length(unique(pansolidv2_worksheets$worksheet)) * 48)
+
+file_number <- length(list.files(here("data/live_service_annotated_files/"), 
+                                 pattern = ".xlsx"))
+
+if(expected_file_number != file_number) {
+  message(str_c("Check: ", expected_file_number, " files predicted and ",
+                file_number, " files found."))
+}
 
 # Archive previous collated data ----------------------------------------------------
 
