@@ -11,3 +11,7 @@ Example: 21011525 (the 11,525th sample receieved in 2021).
 I have tried to consistently refer to this as "labno", as this is the snakecase version of how it appears on the DNA Database (LABNO).
 
 I have also tried to format labno consistently as a character not a numeric, because this is how it is stored in DNA database and it makes joining tables easier.
+
+## Data
+
+All data is saved internally at the North West GLH. No data should be available in this Github repository.
