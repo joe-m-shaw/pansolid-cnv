@@ -14,6 +14,8 @@ I have also tried to format labno consistently as a character not a numeric, bec
 
 ## Data
 
-All data is saved internally at the North West GLH. No data should be available in this Github repository.
+All data is saved internally at the North West GLH, as it contains patient identifiable information. 
+
+**No data should be available in this Github repository.**
 
 The filepath for the data and outputs folders can be set in "set_shared_drive_filepath.R". 
