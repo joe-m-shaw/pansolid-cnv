@@ -6,13 +6,11 @@ library(shiny)
 library(tidyverse)
 library(here)
 
-# Functions -------------------------------------------------------------------------
+# Filepath --------------------------------------------------------------------------
 
-source(here("functions/cnv_functions.R"))
+source(here("scripts/set_shared_drive_filepath.R"))
 
 # Load Data -------------------------------------------------------------------------
-
-collated_data_path <- here("data/live_service_collated_data")
 
 amp_gene_results <- read_csv(str_c(collated_data_path,
                                    "/live_service_amp_gene_results_collated.csv"),
@@ -88,6 +86,9 @@ total_samples <- length(unique(std_dev_results$filepath))
 
 samples_per_week <- round(total_samples / weeks_live, 0)
 
+erbb2_qiaseq_core_results <- read_csv(file = paste0(data_folder, 
+                                                    "erbb2_qiaseq_core_results.csv"))
+
 # User Interface --------------------------------------------------------------------
 
 ui <- fluidPage(
@@ -111,8 +112,11 @@ ui <- fluidPage(
            h2("All amplification results"),
            tableOutput("summary_gene_table")),
     column(3,
-           h2("Colorectal referrals"),
+           h2("QIAseq PanSolid Colorectal Results"),
            tableOutput("crc_summary_table")),
+    column(3,
+           h2("QIAseq Core Colorectal Results"),
+           tableOutput("core_erbb2_summary_table"))
   ),
   
   fluidRow(
@@ -190,12 +194,24 @@ server <- function(input, output) {
       rename("Panel" = panel,
              "Cases" = n)
   })
+  
+  output$core_erbb2_summary_table <- renderTable({
     
+    erbb2_qiaseq_core_results |> 
+      count(core_result) |> 
+      arrange(desc(n)) |> 
+      mutate(Percentage = round(n/sum(n) * 100, 1)) |> 
+      rename(Cases = n,
+             `Amplification Result` = core_result)
+    
+  })
+  
   output$crc_summary_table <- renderTable({
     
     crc_erbb2_results |> 
       count(result) |> 
       arrange(desc(n)) |> 
+      mutate(Percentage = round(n/sum(n) * 100, 1)) |> 
       rename(Cases = n,
              `Amplification Result` = result)
     
