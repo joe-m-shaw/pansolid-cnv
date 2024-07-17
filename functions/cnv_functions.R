@@ -6,28 +6,31 @@ library(here)
 library(rvest)
 library(docstring)
 
+source(here("scripts/set_shared_drive_filepath.R"))
+
 # Export functions ------------------------------------------------------------------
 
-csv_timestamp <- function(input) {
+csv_timestamp <- function(table, folder) {
   
   #' Save a table as a comma-separated file with a timestamp
   #'
-  #' @param input The table to save
+  #' @param table The table to save
+  #' @param folder The folder to save the file into
   #'
   #' @return Saves the table in the tables folder with a timestamp
   #'
   #' @note This function is used for exporting tables from RStudio for inclusion
   #' in validation documentation.
   #'
-  #' @examples plot_timestamp(erbb2_table)
+  #' @examples csvt_timestamp(erbb2_table)
   
-  write.csv(input,
-            file = here::here(paste0(
-              "outputs/tables/",
+  write.csv(table,
+            file = paste0(
+              folder,
               format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
               "_",
-              deparse(substitute(input)), ".csv"
-            )),
+              deparse(substitute(table)), ".csv"
+            ),
             row.names = FALSE
   )
 }
@@ -705,10 +708,14 @@ read_percent_138_results <- function(file, sheet = "Amplifications") {
 
 pansolidv2_excel_regex <- "^Annotated(_|_v2.+_)WS\\d{6}_.+.xlsx"
 
-get_annotated_filepaths <- function(worksheet, full_names = TRUE) {
+get_annotated_filepaths <- function(
+    repository_path = "S:/central shared/Genetics/Repository/WorksheetAnalysedData/",
+    worksheet, full_names = TRUE) {
   
   #' Get the filepaths of PanSolid results Excels from the S drive
   #'
+  #' @param repository_path The filepath for the worksheet repository - defaults to 
+  #' the standard S drive location.
   #' @param worksheet The PanSolid worksheet
   #' @param full_names TRUE or FALSE
   #'
@@ -718,8 +725,6 @@ get_annotated_filepaths <- function(worksheet, full_names = TRUE) {
   #' folder structure
   #'
   #' @examples get_annotated_filepaths(worksheet = "WS140721")
-  
-  repository_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
   
   annotated_filepaths <- list.files(path = str_c(repository_path, {{ worksheet }},
                                                  "/"),
@@ -757,8 +762,8 @@ get_amp_sheetname <- function(filepath) {
 
 # Primers ---------------------------------------------------------------------------
 
-grch38_primers <- read_csv(file =
-                             here::here("data/primers/CDHS-40079Z-11284.primer3_Converted.csv"),
+grch38_primers <- read_csv(file = paste0(data_folder,
+                                         "primers/CDHS-40079Z-11284.primer3_Converted.csv"),
                            show_col_types = FALSE) |> 
   janitor::clean_names()
 
@@ -795,14 +800,14 @@ read_ensembl_exon_table <- function(filename) {
   
 }
 
-gene_labels <- read_excel(path = here::here("data/transcripts/gene_labels.xlsx"),
+gene_labels <- read_excel(path = paste0(data_folder, "transcripts/gene_labels.xlsx"),
                         col_types = c("text", "text", "text", "text",
                                       "numeric", "numeric")) |> 
   mutate(y_value = "Genes",
          # Place gene label half-way along gene locus
          start = pmin(gene_start, gene_end) + ((pmax(gene_start, gene_end) - pmin(gene_start, gene_end)) / 2))
 
-transcript_files <- list.files(here::here("data/transcripts/"), full.names = TRUE,
+transcript_files <- list.files(paste0(data_folder, "transcripts/"), full.names = TRUE,
                                pattern = ".csv")
 
 all_transcripts <- transcript_files |>
@@ -1099,7 +1104,7 @@ draw_lod_gene_plot <- function(df, chromosome, gene) {
 
 # ddPCR functions -------------------------------------------------------------------
 
-read_biorad_csv <- function(worksheet, repo = "data/ddpcr_data/") {
+read_biorad_csv <- function(worksheet, repo = paste0(data_folder, "ddpcr_data/")) {
   
   #' Read a CSV file from a BioRad ddPCR experiment as a data-frame
   #'
@@ -1113,7 +1118,7 @@ read_biorad_csv <- function(worksheet, repo = "data/ddpcr_data/") {
   #'
   #' @examples ddpcr <- read_biorad_csv("WS138419_analysed.csv")
   
-  output <- read_csv(here::here(str_c(repo, worksheet)), 
+  output <- read_csv(str_c(repo, worksheet), 
               col_types = cols(
                 "Well" = "c",
                 "ExptType" = "c",
@@ -1216,7 +1221,8 @@ join_pansolid_submission_sheets <- function() {
   #' 
   #' sample_info <- pansolid_sheets |> filter(labno == "12345678")
   
-  pansolid_submission_2023 <- read_excel(path = here::here("data/dna_submission_sheets/DNA PanSolid QIAseq Submission Sheet 2023.xlsx")) |> 
+  pansolid_submission_2023 <- read_excel(path = paste0(data_folder, 
+                                                       "dna_submission_sheets/DNA PanSolid QIAseq Submission Sheet 2023.xlsx")) |> 
     janitor::clean_names() |> 
     rename(stock_qubit = stock_qubit_ng_m_l) |> 
     mutate(submission_sheet = "2023",
@@ -1224,7 +1230,7 @@ join_pansolid_submission_sheets <- function() {
     select(date_submitted, labno, sample_name,
            panel, enrichment, stock_qubit, submission_sheet)
   
-  pansolid_submission_2024 <- read_excel(path = here::here("data/dna_submission_sheets/PanSolid Submission sheet 2024.xlsx"),
+  pansolid_submission_2024 <- read_excel(path = paste0(data_folder, "dna_submission_sheets/PanSolid Submission sheet 2024.xlsx"),
                                          sheet = "PanSolid samples") |> 
     janitor::clean_names()  |> 
     rename(stock_qubit = stock_qubit_ng_m_l) |> 
@@ -1234,7 +1240,8 @@ join_pansolid_submission_sheets <- function() {
            panel, enrichment, stock_qubit, submission_sheet)
   
   # Pansolid began in 2022 so the initial runs were recorded on the Qiaseq spreadsheet
-  pansolid_submission_2022 <- read_excel(path = here::here("data/dna_submission_sheets/QIAseq DNA PanSolid Sample Submission 2022.xlsx")) |> 
+  pansolid_submission_2022 <- read_excel(path = paste0(data_folder, 
+                                                       "dna_submission_sheets/QIAseq DNA PanSolid Sample Submission 2022.xlsx")) |> 
     janitor::clean_names() |> 
     rename(date_submitted = date_sample_submitted,
            stock_qubit = stock_qubit_ng_m_l) |> 
@@ -1302,7 +1309,6 @@ parse_wgs_html_header <- function(html_filepath) {
   return(output)
   
 }
-
 
 parse_wgs_html_pid_text <- function(html_filepath) {
   
@@ -1418,5 +1424,70 @@ parse_wgs_html_table_by_number <- function(html_filepath,
     janitor::clean_names()
   
   return(output_table)
+  
+}
+
+wgs_html_variant_type_regex <- regex(
+  r"[
+  (GAIN|LOSS|LOH|INV|DUP|DEL|  # Standard variant types
+  .+)                          # Catch-all category
+  (\(\d{1,3}\)                 # Dosage number
+  |)                           # Value if absent
+  ]",
+  comments = TRUE
+)
+
+parse_wgs_cnv_class <- function(col) {
+  
+  wgs_cnv_class <- str_extract(string = col,
+                               pattern = wgs_html_variant_type_regex,
+                               group = 1)
+  
+  if(anyNA(wgs_cnv_class, recursive = TRUE)) {
+    stop("NA values present")
+  }
+  
+  return(wgs_cnv_class)
+  
+}
+
+parse_wgs_cnv_copy_number <- function(col) {
+  
+  wgs_cnv_copy_number <- parse_number(str_extract(string = {{ col }} ,
+                                                  pattern = wgs_html_variant_type_regex,
+                                                  group = 2))
+  
+  return(wgs_cnv_copy_number)
+  
+}
+
+wgs_html_grch38_coordinates_regex <- regex(
+  r"[
+  (\d{1,2}|X|Y)        # Chromosome
+  :
+  (\d{1,10})           # First coordinate
+  (-|:)
+  (\d{1,10})           # Second coordinate
+  ]",
+  comments = TRUE
+)
+
+parse_wgs_html_grch38_coordinates <- function(col, group) {
+  
+  if(!group %in% c("chromosome", "first coordinate", "second coordinate")) {
+    stop("group must be either chromosome, first coordinate or second coordinate")
+  }
+  
+  group_choice <- case_when(
+    
+    group == "chromosome" ~1,
+    group == "first coordinate" ~2,
+    group == "second coordinate" ~4)
+  
+  output <- str_extract(string  = col,
+                        pattern = wgs_html_grch38_coordinates_regex,
+                        group = group_choice)
+  
+  return(output)
   
 }
