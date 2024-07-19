@@ -9,6 +9,7 @@ library(here)
 # Filepath --------------------------------------------------------------------------
 
 source(here("scripts/set_shared_drive_filepath.R"))
+source(here("functions/cnv_functions.R"))
 
 # Load Data -------------------------------------------------------------------------
 
