@@ -13,63 +13,73 @@ source(here("functions/dna_database_connection.R"))
 source(here("functions/dna_database_functions.R"))
 source(here("functions/cnv_functions.R"))
 
-# PanSolid filepaths ----------------------------------------------------------------
-
-pansolidv2_worksheets <- read_excel(paste0(data_folder,
-                                           "pansolid_live_service_worksheets.xlsx"))
-
-worksheet_list <- list(pansolidv2_worksheets$worksheet)
-
-s_drive_filepaths <- worksheet_list |> 
-  map(\(worksheet_list) get_annotated_filepaths(worksheet = worksheet_list)) |> 
-  flatten()
-
-worksheet_labno_regex <- "(WS\\d{6})_(\\d{6,8})_"
-
-panel_regex <-".+WorksheetAnalysedData/WS\\d{6}/(\\w{1,30})/(Ann.+|Genotyped/Ann.+)"
-
-s_drive_file_df <- tibble(
-  filepath = unlist(s_drive_filepaths)) |> 
-  mutate(filename = str_extract(string = filepath, 
-                                pattern = str_replace(string = pansolidv2_excel_regex, 
-                                                      pattern = "\\^", 
-                                                      replacement = "")),
-         worksheet = str_extract(string = filename, 
-                                 pattern = worksheet_labno_regex,
-                                 group = 1),
-         labno = str_extract(string = filename, 
-                             pattern = worksheet_labno_regex,
-                             group = 2),
-         panel = str_extract(string = filepath,
-                             pattern = panel_regex,
-                             group = 1))
-
 # Deletion cohort samples -----------------------------------------------------------
 
 deletion_cohort <- read_excel(path = paste0(data_folder, "deletion_cohort_samples.xlsx"),
                               col_types = c("text", "text"))
 
 sample_extractions <- get_extraction_method(sample_vector = deletion_cohort$labno) |> 
-  select(labno, method_name)
+  select(labno, method_name) |> 
+  distinct()
 
-worksheet_info <- s_drive_file_df |> 
-  filter(labno %in% deletion_cohort$labno) |> 
-  select(labno, worksheet, panel)
+if(any(duplicated(sample_extractions$labno))) stop()
 
 deletion_samples <- deletion_cohort$labno
 
 sample_info <- sample_tbl |> 
   filter(labno %in% deletion_samples) |> 
-  select(labno, firstname, surname, comments) |> 
+  select(labno, firstname, surname, nhsno, comments) |> 
   collect()
 
+if(any(duplicated(sample_info$labno))) stop()
+
+# Panel information -----------------------------------------------------------------
+
+panel_df <- read_csv(file = paste0(collated_data_path, 
+                                     "pansolidv2_sample_worksheet_panel_information.csv")) |> 
+  mutate(labno = as.character(labno))
+
+worksheet_info <- panel_df |> 
+  filter(labno %in% deletion_cohort$labno) |> 
+  select(labno, worksheet, panel) 
+
+if(any(duplicated(worksheet_info$labno))) stop()
+
+# WGS patient identifiers -----------------------------------------------------------
+
+wgs_htmls <- list.files(path = paste0(data_folder, "wgs_result_htmls/"),
+                        full.names = TRUE,
+                        pattern = "*.html")
+
+wgs_pids <- wgs_htmls |> 
+  map(\(wgs_htmls) parse_wgs_html_pid_text(wgs_htmls)) |> 
+  list_rbind()
+
+wgs_headers <- wgs_htmls |> 
+  map(\(wgs_htmls) parse_wgs_html_header(wgs_htmls)) |> 
+  list_rbind()
+
+wgs_info <- inner_join(wgs_pids, wgs_headers, by = "filepath") 
+
+# Collate information ---------------------------------------------------------------
+
 deletion_cohort_mod <- deletion_cohort |> 
-  left_join(worksheet_info, by = "labno") |> 
-  left_join(sample_info, by = "labno") |> 
-  left_join(sample_extractions, by = "labno") |> 
+  inner_join(worksheet_info, by = "labno") |> 
+  inner_join(sample_info, by = "labno") |> 
+  inner_join(sample_extractions, by = "labno") |> 
+  left_join(wgs_info |> 
+              select(nhs_no_clean, wgs_r_no, wgs_p_no),
+            join_by("nhsno" == "nhs_no_clean")) |> 
   rename(category = note,
          extraction_method = method_name) |> 
-  arrange(worksheet)
+  arrange(worksheet) |> 
+  relocate(category)
 
-write.csv(deletion_cohort_mod, paste0(outputs_folder, "deletion_cohort_info.csv"),
+if(any(duplicated(deletion_cohort_mod$labno))) stop()
+
+# Export ----------------------------------------------------------------------------
+
+time <- format(Sys.time(), "%Y-%m-%d")
+
+write.csv(deletion_cohort_mod, paste0(outputs_folder, time, "_deletion_cohort_info.csv"),
           row.names = FALSE)
