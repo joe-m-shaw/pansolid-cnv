@@ -263,10 +263,8 @@ expected_file_number <- (length(unique(pansolidv2_worksheets$worksheet)) * 48)
 file_number <- length(list.files(paste0(data_folder, "live_service_annotated_files/"), 
                                  pattern = ".xlsx"))
 
-if(expected_file_number != file_number) {
-  message(str_c("Check: ", expected_file_number, " files predicted and ",
+message(str_c("Check: ", expected_file_number, " files predicted and ",
                 file_number, " files found."))
-}
 
 # Archive previous collated data ----------------------------------------------------
 
