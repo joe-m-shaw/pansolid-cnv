@@ -1,0 +1,109 @@
+---
+title: "WGS Cohort PanSolid Analysis"
+author: "Joe Shaw, Clinical Scientist (CS20980)"
+date: today
+date-format: "DD/MM/YYYY"
+format: pdf
+editor: visual
+---
+
+```{r}
+#| label: packages
+#| include: FALSE
+
+library(here)
+
+source(here("functions/cnv_functions.R"))
+
+source(here("scripts/additional_scripts/collate_wgs_htmls.R"))
+
+```
+
+```{r}
+#| label: load-data
+#| include: FALSE 
+
+folder_path <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Deletions/v1_Coarse_FC_1.33/"
+
+pansolid_files <- list.files(path = folder_path, pattern = ".xlsx",
+                             full.names = TRUE)
+
+get_sheet_name <- function(excel_file, search_string) {
+  
+  sheet <- grep(x = excel_sheets(path = excel_file),
+       pattern = search_string,
+       value = TRUE)
+  
+  if(is.na(sheet)) {
+    stop()
+  }
+  
+  return(sheet)
+  
+}
+
+make_table_for_empty_sheet <- function(table, sheet_string) {
+  
+  if(nrow(table) > 0 | ncol(table) > 0) {
+    stop("Input table is not empty")
+  }
+  
+  new_table <- data.frame(
+    "chromosome" = 0,
+    "region" = "0",
+    "name" = str_c("No calls in ", sheet_string, " sheet"),
+    "region_length" = 0,
+    "type" = "0",
+    "source" = "0",
+    "id" = "0",
+    "gene_id" = "0",
+    "hgnc" = "0",
+    "mim" = "0",
+    "description" = "0",
+    "gbkey" = "0",
+    "gene" = "0",
+    "gene_biotype" = "0",
+    "gene_synonym" = "0",
+    "cnv_region" = "0",
+    "cnv_region_length" = 0,
+    "consequence" = "0",         
+    "fold_change_adjusted" = 0, 
+    "p_value" = 0,            
+    "number_of_targets" = 0,
+    "targets" = "0")
+  
+  return(new_table)
+  
+}
+
+read_clc_sheet <- function(excel_file, search_string) {
+  
+  sheet_name <- get_sheet_name(excel_file = {{ excel_file }},
+                               search_string = {{ search_string }})
+  
+  sheet_table <- read_excel(path = excel_file, sheet = sheet_name) |> 
+    janitor::clean_names()
+  
+  if(nrow(sheet_table) == 0) {
+    
+    sheet_table <- make_table_for_empty_sheet(sheet_table, search_string)
+    
+  }
+  
+  if("comments" %in% colnames(sheet_table)) {
+    
+    sheet_table <- select(sheet_table, -comments)
+    
+  }
+  
+  return(sheet_table)
+  
+}
+
+col_data <- pansolid_files |> 
+  map(\(pansolid_files) read_clc_sheet(excel_file = pansolid_files,
+                                       search_string = "TSG")) |> 
+  list_rbind()
+
+```
+
