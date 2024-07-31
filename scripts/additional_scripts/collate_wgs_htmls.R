@@ -14,13 +14,47 @@ wgs_htmls <- list.files(path = paste0(data_folder, "wgs_result_htmls/"),
                         full.names = TRUE,
                         pattern = "*.html")
 
-# Read HTML data --------------------------------------------------------------------
+# Read HTML CNV data ----------------------------------------------------------------
 
-wgs_tier1_cnvs <- wgs_htmls |> 
+wgs_domain1_cnvs <- wgs_htmls |> 
   map(\(wgs_htmls) parse_wgs_html_table_by_div_id(
     html_filepath = wgs_htmls, 
     div_id = "d_svcnv_tier1")) |> 
-  list_rbind()
+  list_rbind() |> 
+  mutate(domain = 1)
+
+wgs_domain2_cnvs <- wgs_htmls |> 
+  map(\(wgs_htmls) parse_wgs_html_table_by_div_id(
+    html_filepath = wgs_htmls, 
+    div_id = "d_svcnv_tier2")) |> 
+  list_rbind() |> 
+  mutate(domain = 2)
+
+wgs_domain3_cnvs <- wgs_htmls |> 
+  map(\(wgs_htmls) parse_wgs_html_table_by_div_id(
+    html_filepath = wgs_htmls, 
+    div_id = "d_svcnv_tier3")) |> 
+  list_rbind() |> 
+  mutate(domain = 3)
+
+# Collate WGS CNV data --------------------------------------------------------------
+
+wgs_html_cnvs <- rbind(wgs_domain1_cnvs  |> 
+                    select(-c(population_germline_allele_frequency,
+                              gene_mode_of_action)), 
+                  wgs_domain2_cnvs |> 
+                    select(-gene_mode_of_action), wgs_domain3_cnvs) |> 
+  mutate(cnv_class = parse_wgs_cnv_class(col = variant_type),
+         cnv_copy_number = parse_wgs_cnv_copy_number(col = variant_type),
+         chromosome = parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
+                                                        group = "chromosome"),
+         cnv_start = as.numeric(parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
+                                                                  group = "first coordinate")),
+         cnv_end = as.numeric(parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
+                                                                group = "second coordinate")),
+         category = "WGS result")
+
+# Read HTML identifiers -------------------------------------------------------------
 
 wgs_pids <- wgs_htmls |> 
   map(\(wgs_htmls) parse_wgs_html_pid_text(wgs_htmls)) |> 
@@ -54,36 +88,17 @@ wgs_pathway_tracker_dna_no_df <- wgs_pathway_tracker |>
                              pattern = "\\d{8}")) |> 
   select(labno, ngis_referral_id)
 
-# Collate data ----------------------------------------------------------------------
+# Collate identifiers ---------------------------------------------------------------
 
-wgs_html_data <- inner_join(x = wgs_headers, y = wgs_pids, by = "filepath") |> 
+wgs_html_ids <- inner_join(x = wgs_headers, y = wgs_pids, by = "filepath") |> 
   left_join(wgs_pathway_tracker_dna_no_df, join_by("wgs_r_no" == "ngis_referral_id"),
             relationship = "one-to-one") |> 
-  left_join(wgs_tumour_details, by = "filepath") |> 
-  left_join(wgs_tier1_cnvs, by = "filepath", relationship = "one-to-many") |> 
-  mutate(cnv_class = parse_wgs_cnv_class(col = variant_type),
-         cnv_copy_number = parse_wgs_cnv_copy_number(col = variant_type),
-         chromosome = parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
-                                                        group = "chromosome"),
-         cnv_start = as.numeric(parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
-                                                              group = "first coordinate")),
-         cnv_end = as.numeric(parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
-                                                               group = "second coordinate")))
+  left_join(wgs_tumour_details, by = "filepath") 
 
-# Plots -----------------------------------------------------------------------------
+# Export collated information -------------------------------------------------------
 
-plot <- wgs_html_data |> 
-  filter(grepl(pattern = "pten", x = gene, ignore.case = TRUE) &
-           cnv_class == "LOSS" &
-           cnv_copy_number == 0) |> 
-  ggplot(aes(x = cnv_start, y = wgs_p_no,
-             colour = cnv_copy_number)) +
-  geom_segment(aes(x = cnv_start, xend = cnv_end,
-               y = wgs_p_no, yend = wgs_p_no),
-               colour = "#660000") +
-  theme_bw() +
-  geom_vline(xintercept = 87863113, linetype = "dashed") +
-  geom_vline(xintercept = 87971930, linetype = "dashed") +
-  labs(title = "Homozygous PTEN deletions by coordinate",
-       subtitle = "Dashed lines show gene coordinates")
+write_csv(x = wgs_html_ids,
+          file = paste0(data_folder, "collated_validation_data/wgs_html_ids.csv"))
 
+write_csv(x = wgs_html_cnvs,
+          file = paste0(data_folder, "collated_validation_data/wgs_html_cnvs.csv"))
