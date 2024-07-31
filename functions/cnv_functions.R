@@ -1491,3 +1491,17 @@ parse_wgs_html_grch38_coordinates <- function(col, group) {
   return(output)
   
 }
+
+get_gene_list <-  function() {
+  
+  amp_gene_list <- read_excel(path = paste0(data_folder, 
+                                            "pansolid_amplification_gene_list.xlsx"))
+  
+  del_gene_list <- read_excel(path = paste0(data_folder, 
+                                            "pansolid_deletion_gene_list.xlsx"))
+  
+  gene_list <- rbind(amp_gene_list, del_gene_list)
+  
+  return(gene_list)
+  
+}
