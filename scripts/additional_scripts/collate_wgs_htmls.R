@@ -43,7 +43,8 @@ wgs_html_cnvs <- rbind(wgs_domain1_cnvs  |>
                     select(-c(population_germline_allele_frequency,
                               gene_mode_of_action)), 
                   wgs_domain2_cnvs |> 
-                    select(-gene_mode_of_action), wgs_domain3_cnvs) |> 
+                    select(-c(population_germline_allele_frequency,
+                           gene_mode_of_action)), wgs_domain3_cnvs) |> 
   mutate(cnv_class = parse_wgs_cnv_class(col = variant_type),
          cnv_copy_number = parse_wgs_cnv_copy_number(col = variant_type),
          chromosome = parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
