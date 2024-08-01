@@ -20,25 +20,80 @@ wgs_html_ids <- read_csv(file = paste0(data_folder, "collated_validation_data/",
 
 # Reformatting functions ------------------------------------------------------------
 
-reformat_wgs_cnv_result <- function(filepath) {
+load_gene_table <- function(cnv_type) {
   
-  del_gene_table <- read_excel(path = paste0(data_folder, 
-                                             "pansolid_deletion_gene_list.xlsx"))
+  if(!cnv_type %in% c("Deletions", "Amplifications")) {
+    stop("cnv_type must be Deletions or Amplifications")
+  }
+  
+  if(cnv_type == "Deletions") {
+    
+    gene_table <- read_excel(path = paste0(data_folder, 
+                                           "pansolid_deletion_gene_list.xlsx"))
+    
+  }
+  
+  if(cnv_type == "Amplifications") {
+    
+    gene_table <- read_excel(path = paste0(data_folder, 
+                                           "pansolid_amplification_gene_list.xlsx"))
+    
+  }
+  
+  return(gene_table)
+  
+}
+
+
+
+reformat_wgs_cnv_result <- function(filepath, cnv_type) {
+  
+  gene_table <- load_gene_table({{ cnv_type }})
   
   sample_cnvs <- wgs_data_collated |> 
     filter(filepath == {{ filepath }}) |> 
     mutate(gene = str_replace_all(string = gene, pattern = "\\*",
                                   replacement = ""))
   
-  sample_cnvs_filtered <- sample_cnvs |> 
-    filter(cnv_class %in% c("LOSS", "DEL")) |> 
-    filter(gene %in% del_gene_table$gene)
+  if(cnv_type == "Deletions") {
+    
+    sample_cnvs_filtered <- sample_cnvs |> 
+      filter(cnv_class %in% c("LOSS", "DEL")) |> 
+      filter(gene %in% gene_table$gene)
+    
+  }
   
-  output_table <- del_gene_table |> 
-    mutate(wgs_result = case_when(
-      gene %in% sample_cnvs_filtered$gene ~"Loss detected",
-      !gene %in% sample_cnvs_filtered$gene ~"No loss detected"
-    ))  |> 
+  if(cnv_type == "Amplifications") {
+    
+    sample_cnvs_filtered <- sample_cnvs |> 
+      filter(cnv_class %in% c("DUP", "GAIN") 
+             #& cnv_copy_number > 6
+             ) |> 
+      filter(gene %in% gene_table$gene)
+    
+  }
+  
+  if(cnv_type == "Deletions") {
+    
+    gene_result_table <- gene_table |> 
+      mutate(wgs_result = case_when(
+        gene %in% sample_cnvs_filtered$gene ~"Loss detected",
+        !gene %in% sample_cnvs_filtered$gene ~"No loss detected"
+      )) 
+    
+  }
+  
+  if(cnv_type == "Amplifications") {
+    
+    gene_result_table <- gene_table |> 
+      mutate(wgs_result = case_when(
+        gene %in% sample_cnvs_filtered$gene ~"Gain detected",
+        !gene %in% sample_cnvs_filtered$gene ~"No gain detected"
+      )) 
+    
+  }
+  
+  output_table <- gene_result_table |> 
     mutate(filepath = filepath) |> 
     relocate(filepath)
   
@@ -46,20 +101,35 @@ reformat_wgs_cnv_result <- function(filepath) {
   
 }
 
-reformat_pansolid_cnv_result <- function(filepath) {
+reformat_pansolid_cnv_result <- function(filepath, cnv_type) {
   
-  del_gene_table <- read_excel(path = paste0(data_folder, 
-                                             "pansolid_deletion_gene_list.xlsx"))
+  gene_table <- load_gene_table({{ cnv_type }})
   
   sample_cnvs <- pansolid_data_collated |> 
     filter(filepath == {{ filepath }}) |> 
-    filter(gene %in% del_gene_table$gene)
+    filter(gene %in% gene_table$gene)
   
-  output_table <- del_gene_table |> 
+  if(cnv_type == "Deletions") {
+    
+    gene_result_table <- gene_table |> 
     mutate(pansolid_result = case_when(
       gene %in% sample_cnvs$gene ~"Loss detected",
       !gene %in% sample_cnvs$gene ~"No loss detected"
-    )) |> 
+    )) 
+    
+  }
+  
+  if(cnv_type == "Amplifications") {
+    
+    gene_result_table <- gene_table |> 
+      mutate(pansolid_result = case_when(
+        gene %in% sample_cnvs$gene ~"Gain detected",
+        !gene %in% sample_cnvs$gene ~"No gain detected"
+      )) 
+    
+  }
+  
+  output_table <- gene_result_table |> 
     mutate(filepath = filepath) |> 
     relocate(filepath)
   
@@ -78,42 +148,38 @@ folder_path <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer
 pansolid_files <- list.files(path = folder_path, pattern = ".xlsx",
                              full.names = TRUE)
 
-wgs_data_reformatted <- wgs_htmls |> 
-  map(\(wgs_htmls) reformat_wgs_cnv_result(wgs_htmls)) |> 
+wgs_del_data_reformatted <- wgs_htmls |> 
+  map(\(wgs_htmls) reformat_wgs_cnv_result(filepath = wgs_htmls,
+                                           cnv_type = "Deletions")) |> 
   list_rbind()
 
-pansolid_data_reformatted <- pansolid_files |> 
-  map(\(pansolid_files) reformat_pansolid_cnv_result(pansolid_files)) |> 
+wgs_amp_data_reformatted <- wgs_htmls |> 
+  map(\(wgs_htmls) reformat_wgs_cnv_result(filepath = wgs_htmls,
+                                           cnv_type = "Amplifications")) |> 
   list_rbind()
+
+pansolid_del_data_reformatted <- pansolid_files |> 
+  map(\(pansolid_files) reformat_pansolid_cnv_result(filepath = pansolid_files,
+                                                     cnv_type = "Deletions")) |> 
+  list_rbind()
+
+pansolid_amp_data_reformatted <- pansolid_files |> 
+  map(\(pansolid_files) reformat_pansolid_cnv_result(filepath = pansolid_files,
+                                                     cnv_type = "Amplifications")) |> 
+  list_rbind()
+
+wgs_data_reformatted_collated <- rbind(wgs_del_data_reformatted, 
+                                       wgs_amp_data_reformatted)
+
+pansolid_data_reformated_collated <- rbind(pansolid_del_data_reformatted,
+                                           pansolid_amp_data_reformatted)
 
 # Add identifiers -------------------------------------------------------------------
 
 ps_reformatted_with_ids <- pansolid_ids |> 
-  left_join(pansolid_data_reformatted, by = "filepath",
+  left_join(pansolid_data_reformated_collated, by = "filepath",
             relationship = "one-to-many")
 
 wgs_reformatted_with_ids <- wgs_html_ids |> 
-  left_join(wgs_data_reformatted, by = "filepath",
+  left_join(wgs_data_reformatted_collated, by = "filepath",
             relationship = "one-to-many")
-
-# Compare results -------------------------------------------------------------------
-
-comparison <- ps_reformatted_with_ids |> 
-  filter(nhsno %in% wgs_reformatted_with_ids$nhs_no_clean) |> 
-  left_join(wgs_reformatted_with_ids |> 
-              select(nhs_no_clean, gene, wgs_result), join_by(nhsno == nhs_no_clean,
-                                              gene == gene)) |> 
-  mutate(outcome = case_when(
-    wgs_result == "Loss detected" & pansolid_result == "Loss detected" ~"True positive",
-    
-    wgs_result == "No loss detected" & pansolid_result == "No loss detected" ~"True negative",
-    
-    wgs_result == "Loss detected" & pansolid_result == "No loss detected" ~"False negative",
-    
-    wgs_result == "No loss detected" & pansolid_result == "Loss detected" ~"False positive"
-    
-  ))
-
-comparison |> 
-  group_by(gene, outcome) |> 
-  count()
