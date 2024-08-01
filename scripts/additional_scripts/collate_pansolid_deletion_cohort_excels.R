@@ -9,6 +9,7 @@ library(readxl)
 # Database connection ---------------------------------------------------------------
 
 source(here("functions/dna_database_connection.R"))
+source(here("functions/dna_database_functions.R"))
 source(here("functions/cnv_functions.R"))
 
 # Functions -------------------------------------------------------------------------
@@ -159,8 +160,15 @@ pansolid_nhs_path_nos <- sample_tbl |>
   select(labno, nhsno, pathno) |> 
   collect()
 
+pansolid_extractions <- get_extraction_method(sample_vector = deletion_cohort_labnos) |> 
+  select(labno, method_name) |> 
+  distinct()
+
+if(any(duplicated(pansolid_extractions$labno))) stop()
+
 pansolid_all_ids <- pansolid_ids |> 
-  left_join(pansolid_nhs_path_nos, by = "labno")
+  left_join(pansolid_nhs_path_nos, by = "labno") |> 
+  left_join(pansolid_extractions, by = "labno")
 
 # Export results --------------------------------------------------------------------
 
