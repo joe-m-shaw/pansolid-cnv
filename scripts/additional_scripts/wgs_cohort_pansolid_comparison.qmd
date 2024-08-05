@@ -128,6 +128,13 @@ wgs_pansolid_comparison <- ps_reformatted_with_ids |>
   )) |> 
   relocate(filepath, method_name)
 
+write.csv(x = wgs_pansolid_comparison, file = paste0(outputs_folder, "tables/",
+                                                     format(Sys.time(),
+                                                            "%Y_%m_%d_%H_%M_%S"),
+                                                     "_",
+                                                     "wgs_pansolid_comparison.csv"),
+          row.names = FALSE)
+
 ```
 
 Here is the summary of results by each gene, including the overall percent agreement (OPA).
@@ -250,3 +257,59 @@ Next steps will be:
 - Check the concordance of the deleted and amplified regions identified by WGS and PanSolid for each gene.
 
 - Investigate the remaining false negatives and false positives.
+
+# Sample numbers
+
+```{r}
+
+wgs_sample_gene_count <- wgs_reformatted_with_ids |> 
+  filter(nhs_no_clean %in% wgs_pansolid_comparison$nhsno) |> 
+  mutate(wgs_code = case_when(
+    
+    wgs_result %in% c("No gain detected", "No loss detected") ~"wgs_negative",
+    
+    wgs_result %in% c("Gain detected", "Loss detected") ~"wgs_positive"
+    )) |> 
+  group_by(gene, wgs_code) |> 
+  summarise(total = n()) |> 
+  pivot_wider(id_cols = gene, 
+              names_from = wgs_code,
+              values_from = total,
+              values_fill = 0)
+
+seraseq_genes <- c("AKT2", "BRAF", "EGFR", "ERBB2", "FGFR3", "KIT", "KRAS",
+                   "MET", "MYC", "MYCN", "NTRK1", "PIK3CA")
+
+seracare_gene_count <- rbind(del_gene_table, amp_gene_table) |> 
+  mutate(seracare_positive = case_when(
+    gene %in% seraseq_genes ~3,
+    TRUE ~0),
+    
+    seracare_negative = case_when(
+      gene %in% seraseq_genes ~1,
+      TRUE ~0))
+
+ddpcr_gene_count <- rbind(del_gene_table, amp_gene_table) |> 
+  mutate(ddpcr_positive = case_when(
+    gene == "ERBB2" ~11,
+    gene == "MYC" ~27,
+    TRUE ~0),
+    
+    ddpcr_negative = case_when(
+      gene  == "ERBB2" ~43,
+      gene == "MYC" ~33,
+      TRUE ~0))
+
+sample_summary <- wgs_sample_gene_count |> 
+  inner_join(seracare_gene_count, by = "gene") |> 
+  inner_join(ddpcr_gene_count, by = "gene") |> 
+  mutate(total_negative = sum(wgs_negative, seracare_negative, ddpcr_negative),
+         total_positive = sum(wgs_positive, seracare_positive, ddpcr_positive)
+         ) |> 
+  filter(gene %in% amp_gene_table$gene) |> 
+  select(gene, total_negative, total_positive)
+
+sum(sample_summary$total_negative)
+sum(sample_summary$total_positive)
+
+```
