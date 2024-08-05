@@ -6,6 +6,8 @@ library(tidyverse)
 library(readxl)
 library(here)
 
+source(here("scripts/set_shared_drive_filepath.R"))
+
 # Load Excel ------------------------------------------------------------------------
 
 folder_path <- "S:/central shared/Genetics/Mol_Shared/Development.Team/Pan Solid CLC Somatic Amplifications Validation/PanSolid live service CNVs/"
@@ -25,8 +27,10 @@ variant_summary
 
 # Add worksheet and panel -----------------------------------------------------------
 
-worksheet_panel_info <- read_csv(here::here("data/live_service_collated_data/pansolidv2_sample_worksheet_panel_information.csv")) |> 
-  filter(!duplicated(labno))
+worksheet_panel_info <- read_csv(paste0(data_folder, 
+                                        "live_service_collated_data/pansolidv2_sample_worksheet_panel_information.csv"),
+                                 col_types = c("ccccc")) |> 
+  filter(!duplicated(labno)) 
 
 pansolid_cnv_list_with_panels <- pansolid_cnv_list |> 
   left_join(worksheet_panel_info |> 
