@@ -67,7 +67,7 @@ reformat_wgs_cnv_result <- function(filepath, cnv_type) {
     
     sample_cnvs_filtered <- sample_cnvs |> 
       filter(cnv_class %in% c("DUP", "GAIN") 
-             #& cnv_copy_number > 6
+             & cnv_copy_number > 10
              ) |> 
       filter(gene %in% gene_table$gene)
     
