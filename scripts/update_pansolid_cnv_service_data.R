@@ -95,7 +95,7 @@ local_drive_file_df <- tibble(
                              group = 1))
 
 samples_without_amp_tabs <- c("24023280", "24025207", "24027566", "24033006",
-                              "24033959")
+                              "24033959", "24038848")
 
 new_file_local_paths_df <- local_drive_file_df |> 
   filter(filename %in% new_files$filename & 
