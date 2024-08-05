@@ -1,6 +1,6 @@
 ---
 title: "PanSolid Copy Number Variant Limit of Detection Experiment"
-author: "Joe Shaw"
+author: "Joe Shaw, Clinical Scientist (CS20980)"
 date: today
 date-format: "DD/MM/YYYY"
 format: pdf
@@ -13,17 +13,21 @@ Code to produce this document is available on [GitHub](https://github.com/joesha
 
 This is a limit of detection experiment using SeraCare reference materials to test the sensitivity of the PanSolid pipeline for detecting copy number variants at low neoplastic cell contents (NCC).
 
-The aim of the experiment is to end up with 4 mixes, each representing low NCC samples (25%, 12.5%, 6.25% and 0% NCC) at the same total DNA input as a standard clinical sample:
+A previous limit of detection experiment was performed on 01/03/2024, with DNA mixes representing 25%, 12.5%, 6.25% and 0% NCC. This was due to the limited volumes of SeraCare reference materials available.
 
--   20ul of 6ng/ul DNA
--   120ng DNA
--   36,363 haploid genome copies (1 haploid human genome weighs 3.3 picograms)
+The aim of this new experiment is to end up with 5 mixes, each representing NCC samples (100%, 50%, 20%, 10% and 0%). This should harmonise the limit of detection for amplifications with the limit of detection for single nucleotide variants.
+
+Each mix will have the same total DNA input as a standard clinical sample:
+
+-   20 ul of 6ng/ul DNA
+-   `r round(20*6, 0)`ng DNA
+-   `r round(((20*6)*1000) / 3.3, 0)` haploid genome copies (1 haploid human genome weighs 3.3 picograms)
 
 Of this, the following amounts are taken as the input into the fragmentation, end-repair and A-addition reaction:
 
 -   16.75ul
--   100.5ng
--   30,454 haploid genome copies
+-   `r round(16.75*6, 1)` ng
+-   `r round(((16.75*6)*1000) / 3.3, 0)` haploid genome copies
 
 {{< pagebreak >}}
 
@@ -33,6 +37,10 @@ The "tumour" sample is the Seraseq® Solid Tumor CNV Mix (+12 copies of various 
 
 The "normal" sample is the Seraseq® DNA WT Mix (no additional gene copies).
 
+The documentation for the Seraseq® Solid Tumor CNV Mix and the Seraseq® DNA WT Mix state that the DNA concentrations are 10.9 ng/ul and 28.8 ng/ul, respectively, when measured with the Qubit dsDNA Broad Range assay.
+
+I measured each control using the Qubit dsDNA Broad Range assay in the lab and the DNA concentrations were 7.28 ng/ul and 22.4 ng/ul.
+
 ```{r}
 #| label: sample-volumes
 #| include: TRUE
@@ -41,13 +49,13 @@ The "normal" sample is the Seraseq® DNA WT Mix (no additional gene copies).
 
 library(tidyverse)
 
-tumour_stock_vol <- 15.8
+tumour_stock_vol <- 20
 
-tumour_stock_conc <- 10.9 
+tumour_stock_conc <- 7.28
 
-norm_stock_vol <- 14.9
+norm_stock_vol <- 20
 
-norm_stock_conc <- 28.8
+norm_stock_conc <- 22.4
 
 tumour_total_ng <- tumour_stock_vol * tumour_stock_conc
 
@@ -64,19 +72,38 @@ norm_total_ng <- norm_stock_vol * norm_stock_conc
 #| include: TRUE
 #| message: FALSE
 
-total_c2 <- 6
+total_c2 <- 5
 
-total_v2 <- 20
+# Change to 18 because not all will be transferred
+total_v2 <- 18
 
 total_ng <- total_c2 * total_v2
 
 tumour_additional_copies <- 12
 
-df <- data.frame("target_tumour_percent" = c(25, 12.5, 6.25, 0),
-                 "tumour_c1" = c(tumour_stock_conc / 2, tumour_stock_conc / 4, 
-                                 tumour_stock_conc / 8, 0),
-                 "norm_c1" = c(norm_stock_conc/2, norm_stock_conc/2, norm_stock_conc/2, 
-                               norm_stock_conc/2))
+df <- data.frame("target_tumour_percent" = c(100, 50, 20, 10, 0),
+                 "tumour_c1" = c(
+                   # 100% NCC
+                   tumour_stock_conc, 
+                   # 50% NCC
+                   tumour_stock_conc * 0.5, 
+                   # 20% NCC
+                   tumour_stock_conc * 0.25, 
+                   # 10% NCC
+                   tumour_stock_conc * 0.25,
+                   # 0% NCC
+                   0),
+                 "norm_c1" = c(
+                   # 100% NCC
+                   0, 
+                   # 50% NCC
+                   norm_stock_conc * 0.5, 
+                   # 20% NCC
+                   norm_stock_conc * 0.5, 
+                   # 10% NCC
+                   norm_stock_conc * 0.5,
+                   # 0% NCC
+                   norm_stock_conc * 0.5))
 
 lod_calculations <- df |> 
   mutate(
@@ -135,8 +162,8 @@ sum(lod_calculations$tumour_ng) < tumour_total_ng
 sum(lod_calculations$norm_ng) < norm_total_ng
 
 lod_table <- lod_calculations |> 
-  select(target_tumour_percent, tumour_c1, 
-         norm_c1, tumour_v1, norm_v1, water_v1, 
+  select(target_tumour_percent, tumour_c1, tumour_v1,
+         norm_c1, norm_v1, water_v1, 
          final_v2, final_c2) |> 
   rename("Target tumour %" = target_tumour_percent)
   
@@ -157,14 +184,4 @@ write.csv(lod_calculations, file = here::here("outputs/lod_calculations.csv"),
 
 # Lab Work
 
-I set up these dilutions on 01/03/2024 and they were run on worksheet WS139681.
-
-I used the Qubit values from the Seraseq technical product report -- there was such limited quantities that I didn't want to use up some of the sample for additional Qubit.
-
-My initial plan was to Qubit the serial dilutions, as Eleanor had suggested. I wanted to use a High Sensitivity Qubit but there aren't any in pre-PCR, so I used the Broad Range which should have been sensitive down to 0.1ng/ul.
-
-But the Qubit values for each of the serial dilutions were "out of range". So I continued with the set up and checked the final concentration of each mix using the Broad Range Qubit.
-
-{{< pagebreak >}}
-
-![Limit of Detection Experiment](C:/Users/joseph.shaw2/Documents/pansolid_cnv_validation/images/joseph.shaw2_04-03-2024_09-26-29-PR-24977-RICOH.pdf)
+To add
