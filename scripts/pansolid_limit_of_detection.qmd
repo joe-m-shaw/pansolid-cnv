@@ -15,7 +15,7 @@ This is a limit of detection experiment using SeraCare reference materials to te
 
 A previous limit of detection experiment was performed on 01/03/2024, with DNA mixes representing 25%, 12.5%, 6.25% and 0% NCC. This was due to the limited volumes of SeraCare reference materials available.
 
-The aim of this new experiment is to end up with 5 mixes, each representing NCC samples (100%, 50%, 20%, 10% and 0%). This should harmonise the limit of detection for amplifications with the limit of detection for single nucleotide variants.
+The aim of this new experiment is to end up with 4 mixes, each representing NCC samples (30%, 20%, 10% and 0%). This should harmonise the limit of detection for amplifications with the limit of detection for single nucleotide variants, which is currently 20%.
 
 Each mix will have the same total DNA input as a standard clinical sample:
 
@@ -33,13 +33,17 @@ Of this, the following amounts are taken as the input into the fragmentation, en
 
 ## Samples
 
-The "tumour" sample is the Seraseq® Solid Tumor CNV Mix (+12 copies of various genes including ERBB2).
+The "tumour" sample is the Seraseq® Solid Tumor CNV Mix (+12 copies of 12 genes).
 
 The "normal" sample is the Seraseq® DNA WT Mix (no additional gene copies).
 
 The documentation for the Seraseq® Solid Tumor CNV Mix and the Seraseq® DNA WT Mix state that the DNA concentrations are 10.9 ng/ul and 28.8 ng/ul, respectively, when measured with the Qubit dsDNA Broad Range assay.
 
 I measured each control using the Qubit dsDNA Broad Range assay in the lab and the DNA concentrations were 7.28 ng/ul and 22.4 ng/ul.
+
+I will use my Qubit measurements from the laboratory's Qubits because this is how clinical samples will be measured.
+
+In the previous limit of detection I used the Qubit values provided by SeraCare, which may have led to an over-estimation of the limit of detection.
 
 ```{r}
 #| label: sample-volumes
@@ -72,31 +76,26 @@ norm_total_ng <- norm_stock_vol * norm_stock_conc
 #| include: TRUE
 #| message: FALSE
 
-total_c2 <- 5
+total_c2 <- 6
 
-# Change to 18 because not all will be transferred
-total_v2 <- 18
+total_v2 <- 20
 
 total_ng <- total_c2 * total_v2
 
 tumour_additional_copies <- 12
 
-df <- data.frame("target_tumour_percent" = c(100, 50, 20, 10, 0),
+df <- data.frame("target_tumour_percent" = c(30, 20, 10, 0),
                  "tumour_c1" = c(
-                   # 100% NCC
-                   tumour_stock_conc, 
-                   # 50% NCC
+                   # 30% NCC
                    tumour_stock_conc * 0.5, 
                    # 20% NCC
-                   tumour_stock_conc * 0.25, 
+                   tumour_stock_conc * 0.5, 
                    # 10% NCC
-                   tumour_stock_conc * 0.25,
+                   tumour_stock_conc * 0.5,
                    # 0% NCC
                    0),
                  "norm_c1" = c(
-                   # 100% NCC
-                   0, 
-                   # 50% NCC
+                   # 30% NCC
                    norm_stock_conc * 0.5, 
                    # 20% NCC
                    norm_stock_conc * 0.5, 
@@ -129,7 +128,7 @@ lod_calculations <- df |>
     
     # Calculate the starting volumes (v1) of each sample
     
-    tumour_v1 = ifelse(tumour_ng ==0, 0, round(tumour_ng / tumour_c1, 1)),
+    tumour_v1 = ifelse(tumour_ng == 0, 0, round(tumour_ng / tumour_c1, 1)),
     
     norm_v1 = ifelse(norm_ng == 0, 0, round(norm_ng / norm_c1, 1)),
     
@@ -162,7 +161,7 @@ sum(lod_calculations$tumour_ng) < tumour_total_ng
 sum(lod_calculations$norm_ng) < norm_total_ng
 
 lod_table <- lod_calculations |> 
-  select(target_tumour_percent, tumour_c1, tumour_v1,
+  select(target_tumour_percent, tumour_c1, tumour_v1, tumour_ng,
          norm_c1, norm_v1, water_v1, 
          final_v2, final_c2) |> 
   rename("Target tumour %" = target_tumour_percent)
@@ -184,4 +183,4 @@ write.csv(lod_calculations, file = here::here("outputs/lod_calculations.csv"),
 
 # Lab Work
 
-To add
+I performed the lab work for this experiment on 08/08/2024 (WS144265).
