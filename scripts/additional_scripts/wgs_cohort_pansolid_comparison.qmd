@@ -38,13 +38,13 @@ source(here("scripts/additional_scripts/reformat_pansolid_and_wgs_data.R"))
 
 This script has the following caveats:
 
-- Only the 9 genes on the PanSolid amplification genes list and the 20 genes on the deletion genes list are analysed.
+-   Only the 9 genes on the PanSolid amplification genes list and the 20 genes on the deletion genes list are analysed.
 
-- The analysis is split in terms of gains and losses - amplification genes are only examined for gains and deletion genes are only examined for losses. For example, the WGS may detect a loss of the SUFU gene, which is on the PanSolid amplifications list and so a loss is not reported. This counts as an agreement between the two methods, because both methods agree that there is a not a gain in this gene.
+-   The analysis is split in terms of gains and losses - amplification genes are only examined for gains and deletion genes are only examined for losses. For example, the WGS may detect a loss of the SUFU gene, which is on the PanSolid amplifications list and so a loss is not reported. This counts as an agreement between the two methods, because both methods agree that there is a not a gain in this gene.
 
-- When a target gene is not listed in any of the CNV tables in the WGS HTML report, it is inferred that the result for this gene was normal.
+-   When a target gene is not listed in any of the CNV tables in the WGS HTML report, it is inferred that the result for this gene was normal.
 
-- Likewise, if a target gene is not listed in the PanSolid Excel output, it is inferred that the result for this gene was normal.
+-   Likewise, if a target gene is not listed in the PanSolid Excel output, it is inferred that the result for this gene was normal.
 
 ```{r}
 #| label: gene-lists
@@ -61,13 +61,13 @@ amp_gene_table <- read_excel(path = paste0(data_folder,
 
 I have restricted the comparison to 7 samples which have the following criteria:
 
-- DNA for the same patient was tested by both PanSolid and WGS
+-   DNA for the same patient was tested by both PanSolid and WGS
 
-- The DNA tested on PanSolid was from the same pathology block as the DNA tested by WGS
+-   The DNA tested on PanSolid was from the same pathology block as the DNA tested by WGS
 
-- The DNA tested on PanSolid was extracted by the QIAsymphony method
+-   The DNA tested on PanSolid was extracted by the QIAsymphony method
 
-- The PanSolid result had a signal-adjusted noise value below 1
+-   The PanSolid result had a signal-adjusted noise value below 1
 
 ```{r}
 #| label: sample-selection
@@ -75,7 +75,7 @@ I have restricted the comparison to 7 samples which have the following criteria:
 
 pansolid_sample_selection <- pansolid_ids |> 
   filter(nhsno %in% wgs_reformatted_with_ids$nhs_no_clean) |> 
-  filter(method_name == "QIAsymphony_DNA_FFPE") |> 
+  #filter(method_name == "QIAsymphony_DNA_FFPE") |> 
   # One patient has 2 QIAsymphony extractions with the same Pansolid results
   # I've arbitrarily chosen one to include
   filter(!labno %in% c("24030945", 
@@ -186,9 +186,9 @@ knitr::kable(accuracy_summary)
 
 ```
 
-Notably the sensitivity for amplifications is poor due to a high number of "false negatives". When I looked at the WGS reports, the majority of these cases where copy numbers of 3 reported for recurring genes like BRAF, MET, MYC and EGFR. 
+Notably the sensitivity for amplifications is poor due to a high number of "false negatives". When I looked at the WGS reports, the majority of these cases where copy numbers of 3 reported for recurring genes like BRAF, MET, MYC and EGFR.
 
-PanSolid is designed to detect amplifications with 10 or more copies when the neoplastic cell content is 50%. 
+PanSolid is designed to detect amplifications with 10 or more copies when the neoplastic cell content is 50%.
 
 If I rerun the analysis by classifying WGS copy numbers below 10 as "not amplified" then the sensitivity of PanSolid for amplifications increases to 74%.
 
@@ -254,13 +254,15 @@ The PanSolid pipeline seems to have high concordance with WGS for detecting dele
 
 Next steps will be:
 
-- Check the concordance of the deleted and amplified regions identified by WGS and PanSolid for each gene.
+-   Check the concordance of the deleted and amplified regions identified by WGS and PanSolid for each gene.
 
-- Investigate the remaining false negatives and false positives.
+-   Investigate the remaining false negatives and false positives.
 
 # Sample numbers
 
 ```{r}
+#| label: sample-count-by-gene
+#| echo: FALSE
 
 wgs_sample_gene_count <- wgs_reformatted_with_ids |> 
   filter(nhs_no_clean %in% wgs_pansolid_comparison$nhsno) |> 
@@ -293,11 +295,17 @@ ddpcr_gene_count <- rbind(del_gene_table, amp_gene_table) |>
   mutate(ddpcr_positive = case_when(
     gene == "ERBB2" ~11,
     gene == "MYC" ~27,
+    gene == "EGFR" ~3,
+    gene == "MET" ~3,
+    gene == "BRAF" ~1,
     TRUE ~0),
     
     ddpcr_negative = case_when(
       gene  == "ERBB2" ~43,
       gene == "MYC" ~33,
+      gene == "EGFR" ~2,
+      gene == "MET" ~2,
+      gene == "BRAF" ~4,
       TRUE ~0))
 
 sample_summary <- wgs_sample_gene_count |> 
