@@ -1104,21 +1104,21 @@ draw_lod_gene_plot <- function(df, chromosome, gene) {
 
 # ddPCR functions -------------------------------------------------------------------
 
-read_biorad_csv <- function(worksheet, repo = paste0(data_folder, "ddpcr_data/")) {
+read_biorad_csv <- function(filepath) {
   
   #' Read a CSV file from a BioRad ddPCR experiment as a data-frame
   #'
-  #' @param worksheet The full ddPCR worksheet filename, which must be located in the
-  #' ddpcr_data folder
+  #' @param filepath The full filepath of the CSV
   #'
-  #' @return The data as a data-frame with column names in snakecase.
-  #'
-  #' @note This function is designed to handle droplet digital polymerase chain reaction
+  #' @return The data as a data-frame with column names in snakecase and 
+  #' appropriate column types.
+  #' 
+  #' @note This function is designed to handle droplet digital polymerase chain reaction 
   #' (ddPCR) csv files exported from Quantasoft v1.7.4 (BioRad).
   #'
-  #' @examples ddpcr <- read_biorad_csv("WS138419_analysed.csv")
+  #' @examples read_biorad_csv(here("WS138419_analysed.csv"))
   
-  output <- read_csv(str_c(repo, worksheet), 
+  output <- read_csv(filepath, 
               col_types = cols(
                 "Well" = "c",
                 "ExptType" = "c",
@@ -1176,9 +1176,7 @@ read_biorad_csv <- function(worksheet, repo = paste0(data_folder, "ddpcr_data/")
                 "PoissonFractionalAbundanceMax68" = "d",                
                 "PoissonFractionalAbundanceMin68" = "d")) |> 
   janitor::clean_names() |> 
-  mutate(sample_well = str_c(sample, "_", well),
-         worksheet = worksheet,
-         labno = sample)
+    mutate(filepath = filepath)
   
   return(output)
   
