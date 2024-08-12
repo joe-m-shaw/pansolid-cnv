@@ -1104,7 +1104,7 @@ draw_lod_gene_plot <- function(df, chromosome, gene) {
 
 # ddPCR functions -------------------------------------------------------------------
 
-read_biorad_csv <- function(filepath) {
+read_biorad_ddpcr_csv <- function(filepath) {
   
   #' Read a CSV file from a BioRad ddPCR experiment as a data-frame
   #'
@@ -1118,7 +1118,7 @@ read_biorad_csv <- function(filepath) {
   #'
   #' @examples read_biorad_csv(here("WS138419_analysed.csv"))
   
-  output <- read_csv(filepath, 
+  ddpcr_df <- read_csv(filepath, 
               col_types = cols(
                 "Well" = "c",
                 "ExptType" = "c",
@@ -1175,7 +1175,17 @@ read_biorad_csv <- function(filepath) {
                 "TotalFractionalAbundanceMin68" = "d",
                 "PoissonFractionalAbundanceMax68" = "d",                
                 "PoissonFractionalAbundanceMin68" = "d")) |> 
-  janitor::clean_names() |> 
+  janitor::clean_names() 
+  
+  if(ncol(ddpcr_df) != 63) {
+    stop("Incorrect number of columns in ddPCR dataframe")
+  }
+  
+  if(nrow(ddpcr_df) == 0) {
+    stop("No rows in ddPCR dataframe")
+  }
+  
+  output <- ddpcr_df |> 
     mutate(filepath = filepath)
   
   return(output)
@@ -1493,13 +1503,132 @@ parse_wgs_html_grch38_coordinates <- function(col, group) {
 get_gene_list <-  function() {
   
   amp_gene_list <- read_excel(path = paste0(data_folder, 
-                                            "pansolid_amplification_gene_list.xlsx"))
+                                            "gene_lists/pansolid_amplification_gene_list.xlsx"))
   
   del_gene_list <- read_excel(path = paste0(data_folder, 
-                                            "pansolid_deletion_gene_list.xlsx"))
+                                            "gene_lists/pansolid_deletion_gene_list.xlsx"))
   
   gene_list <- rbind(amp_gene_list, del_gene_list)
   
   return(gene_list)
+  
+}
+
+# Reformatting functions ------------------------------------------------------------
+
+load_gene_table <- function(cnv_type) {
+  
+  if(!cnv_type %in% c("Deletions", "Amplifications")) {
+    stop("cnv_type must be Deletions or Amplifications")
+  }
+  
+  if(cnv_type == "Deletions") {
+    
+    gene_table <- read_excel(path = paste0(data_folder, 
+                                           "gene_lists/pansolid_deletion_gene_list.xlsx"))
+    
+  }
+  
+  if(cnv_type == "Amplifications") {
+    
+    gene_table <- read_excel(path = paste0(data_folder, 
+                                           "gene_lists/pansolid_amplification_gene_list.xlsx"))
+    
+  }
+  
+  return(gene_table)
+  
+}
+
+
+
+reformat_wgs_cnv_result <- function(filepath, cnv_type) {
+  
+  gene_table <- load_gene_table({{ cnv_type }})
+  
+  sample_cnvs <- wgs_data_collated |> 
+    filter(filepath == {{ filepath }}) |> 
+    mutate(gene = str_replace_all(string = gene, pattern = "\\*",
+                                  replacement = ""))
+  
+  if(cnv_type == "Deletions") {
+    
+    sample_cnvs_filtered <- sample_cnvs |> 
+      filter(cnv_class %in% c("LOSS", "DEL")) |> 
+      filter(gene %in% gene_table$gene)
+    
+  }
+  
+  if(cnv_type == "Amplifications") {
+    
+    sample_cnvs_filtered <- sample_cnvs |> 
+      filter(cnv_class %in% c("DUP", "GAIN") 
+             & cnv_copy_number > 10
+      ) |> 
+      filter(gene %in% gene_table$gene)
+    
+  }
+  
+  if(cnv_type == "Deletions") {
+    
+    gene_result_table <- gene_table |> 
+      mutate(wgs_result = case_when(
+        gene %in% sample_cnvs_filtered$gene ~"Loss detected",
+        !gene %in% sample_cnvs_filtered$gene ~"No loss detected"
+      )) 
+    
+  }
+  
+  if(cnv_type == "Amplifications") {
+    
+    gene_result_table <- gene_table |> 
+      mutate(wgs_result = case_when(
+        gene %in% sample_cnvs_filtered$gene ~"Gain detected",
+        !gene %in% sample_cnvs_filtered$gene ~"No gain detected"
+      )) 
+    
+  }
+  
+  output_table <- gene_result_table |> 
+    mutate(filepath = filepath) |> 
+    relocate(filepath)
+  
+  return(output_table)
+  
+}
+
+reformat_pansolid_cnv_result <- function(filepath, cnv_type) {
+  
+  gene_table <- load_gene_table({{ cnv_type }})
+  
+  sample_cnvs <- pansolid_data_collated |> 
+    filter(filepath == {{ filepath }}) |> 
+    filter(gene %in% gene_table$gene)
+  
+  if(cnv_type == "Deletions") {
+    
+    gene_result_table <- gene_table |> 
+      mutate(pansolid_result = case_when(
+        gene %in% sample_cnvs$gene ~"Loss detected",
+        !gene %in% sample_cnvs$gene ~"No loss detected"
+      )) 
+    
+  }
+  
+  if(cnv_type == "Amplifications") {
+    
+    gene_result_table <- gene_table |> 
+      mutate(pansolid_result = case_when(
+        gene %in% sample_cnvs$gene ~"Gain detected",
+        !gene %in% sample_cnvs$gene ~"No gain detected"
+      )) 
+    
+  }
+  
+  output_table <- gene_result_table |> 
+    mutate(filepath = filepath) |> 
+    relocate(filepath)
+  
+  return(output_table)
   
 }
