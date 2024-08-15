@@ -1,0 +1,139 @@
+---
+title: "PanSolid Gene Amplifications Validation"
+author: "Joe Shaw, Clinical Scientist (CS20980)"
+date: today
+date-format: "DD/MM/YYYY"
+format: pdf
+editor: visual
+---
+
+# Introduction
+
+This Quarto document performs the analysis for the validation of somatic gene amplifications on the PanSolid QIAseq enrichment, which is detailed in DOC6283 ("Validation of Detecting Somatic Gene Amplifications with the PanSolid CLC pipeline.docx").
+
+The aim is to compare samples results from the PanSolid enrichment to results for the same samples tested by 2 other methods:
+
+-   droplet digital PCR (ddPCR)
+-   whole genome sequencing
+
+```{r}
+#| label: packages-and-data
+#| warning: FALSE
+#| include: FALSE
+
+library(tidyverse)
+library(here)
+library(patchwork)
+
+source(here("scripts/set_shared_drive_filepath.R"))
+
+source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
+
+# Data collation for PanSolid is performed in the 
+# collate_pansolid_excel_validation_data.R script
+
+validation_all_amp_gene_results_collated <- read_csv(paste0(data_folder, 
+                                "validation/collated/",
+                              "validation_all_amp_gene_results_collated.csv"),
+                                col_types = list(
+                                  "worksheet" = col_character(),
+                                  "labno" = col_character(),
+                                  "suffix" = col_character(),
+                                  "patient_name" = col_character(),
+                                  "labno_suffix" = col_character(),
+                                  "labno_suffix_worksheet" = col_character(),
+                                  "gene" = col_character(),
+                                  "max_region_fold_change" = col_double(),
+                                  "min_region_fold_change" = col_double(),
+                                  "pansolid_call" = col_character()
+                                ))
+
+```
+
+{{< pagebreak >}}
+
+# Comparison to droplet digital PCR
+
+```{r}
+#| label: ddpcr-comparison
+#| include: FALSE
+
+ddpcr_vs_pansolid <- ddpcr_validation_data |> 
+  mutate(gene = str_extract(string = experiment,
+                            pattern = "^(\\w{3,5})\\sEx.+",
+                            group = 1),
+         sample_experiment = str_c(sample, "_", experiment)) |> 
+  filter(target == "ch1_target" & 
+           experiment %in% c("MYC Ex3_1",
+                              "BRAF Ex10_1",
+                              "MET Ex2_1",
+                              "EGFR Ex6_1")) |> 
+    filter(!duplicated(sample_experiment)) |>  
+  inner_join(validation_all_amp_gene_results_collated,
+             join_by(sample == labno, 
+                     gene)) |> 
+  mutate(ddpcr_result = case_when(
+    cnv >= 5.4 ~"amplification",
+    cnv < 5.4 ~"normal result"),
+    
+    outcome = case_when(
+      
+      ddpcr_result == "amplification" & pansolid_call == "amplification" 
+      ~"true_positive",
+      ddpcr_result == "normal result" & pansolid_call == "normal result" 
+      ~"true_negative",
+      ddpcr_result == "amplification" & pansolid_call == "normal result"
+      ~"false_negative",
+      ddpcr_result == "normal result" & pansolid_call == "amplification" 
+      ~"false_positive"
+    ))
+
+```
+
+ddPCR data is available for the MYC, BRAF, MET and EGFR genes.
+
+```{r}
+#| label: ddpcr-plots
+#| echo: FALSE
+
+egfr_met_myc_plot <- ggplot(ddpcr_vs_pansolid |> 
+         filter(gene != "MYC"), aes(x = cnv, y = max_region_fold_change)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  labs(x = "ddPCR copy number",
+       y = "PanSolid fold change",
+       title = "ddPCR vs PanSolid by gene") +
+  ggpubr::stat_cor(method = "pearson", label.x = 10, label.y = 1)  +
+  facet_wrap(~gene)
+
+myc_plot <- ggplot(ddpcr_vs_pansolid |> 
+         filter(gene == "MYC"), aes(x = cnv, y = max_region_fold_change)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  labs(x = "ddPCR copy number",
+       y = "PanSolid fold change") +
+  ggpubr::stat_cor(method = "pearson", label.x = 100, label.y = 10)  +
+  facet_wrap(~gene)
+
+egfr_met_myc_plot
+
+myc_plot
+
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: ddpcr-metrics
+#| echo: FALSE
+
+ddpcr_summary <- ddpcr_vs_pansolid |> 
+  count(gene, outcome) |> 
+  pivot_wider(id_cols = gene,
+              names_from = outcome,
+              values_from = n,
+              values_fill = 0)
+
+knitr::kable(ddpcr_summary)
+
+```
