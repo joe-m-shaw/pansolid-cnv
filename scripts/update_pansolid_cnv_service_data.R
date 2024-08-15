@@ -22,7 +22,7 @@ s_drive_filepaths <- worksheet_list |>
   map(\(worksheet_list) get_annotated_filepaths(worksheet = worksheet_list)) |> 
   flatten()
 
-worksheet_labno_regex <- "(WS\\d{6})_(\\d{6,8})_"
+worksheet_labno_regex <- "(WS\\d{6})_(\\d{6,8})(|a|b|c|d)_"
 
 panel_regex <-".+WorksheetAnalysedData/WS\\d{6}/(\\w{1,30})/.+"
 
