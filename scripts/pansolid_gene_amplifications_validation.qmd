@@ -32,6 +32,8 @@ source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
 # Data collation for PanSolid is performed in the 
 # collate_pansolid_excel_validation_data.R script
 
+# source(here("scripts/collate_pansolid_excel_validation_data.R"))
+
 validation_all_amp_gene_results_collated <- read_csv(paste0(data_folder, 
                                 "validation/collated/",
                               "validation_all_amp_gene_results_collated.csv"),
@@ -48,6 +50,19 @@ validation_all_amp_gene_results_collated <- read_csv(paste0(data_folder,
                                   "pansolid_call" = col_character()
                                 ))
 
+validation_stdev_results_collated <- read_csv(paste0(data_folder, 
+                                "validation/collated/",
+                              "validation_stdev_results_collated.csv"),
+                                col_types = list(
+                                  "worksheet" = col_character(),
+                                  "labno" = col_character(),
+                                  "suffix" = col_character(),
+                                  "patient_name" = col_character(),
+                                  "labno_suffix" = col_character(),
+                                  "labno_suffix_worksheet" = col_character(),
+                                  "filepath" = col_character(),
+                                  "st_dev_signal_adjusted_log2_ratios" = col_double()))
+
 ```
 
 {{< pagebreak >}}
@@ -57,6 +72,8 @@ validation_all_amp_gene_results_collated <- read_csv(paste0(data_folder,
 ```{r}
 #| label: ddpcr-comparison
 #| include: FALSE
+
+ddpcr_cnv_amp_threshold <- 5
 
 ddpcr_vs_pansolid <- ddpcr_validation_data |> 
   mutate(gene = str_extract(string = experiment,
@@ -72,9 +89,12 @@ ddpcr_vs_pansolid <- ddpcr_validation_data |>
   inner_join(validation_all_amp_gene_results_collated,
              join_by(sample == labno, 
                      gene)) |> 
+  mutate(labno_suffix_gene = str_c(labno_suffix, "_", gene)) |> 
+  # Some samples were run twice on PanSolid
+  filter(!duplicated(labno_suffix_gene)) |> 
   mutate(ddpcr_result = case_when(
-    cnv >= 5.4 ~"amplification",
-    cnv < 5.4 ~"normal result"),
+    cnv >= ddpcr_cnv_amp_threshold ~"amplification",
+    cnv < ddpcr_cnv_amp_threshold ~"normal result"),
     
     outcome = case_when(
       
@@ -123,6 +143,8 @@ myc_plot
 
 {{< pagebreak >}}
 
+## ddPCR summary
+
 ```{r}
 #| label: ddpcr-metrics
 #| echo: FALSE
@@ -134,6 +156,94 @@ ddpcr_summary <- ddpcr_vs_pansolid |>
               values_from = n,
               values_fill = 0)
 
+ddpcr_vs_pansolid |> 
+  filter(outcome %in% c("false_negative")) |>  view()
+
 knitr::kable(ddpcr_summary)
 
 ```
+
+The three false negative samples are:
+
+- 24002064 - SeraSeq +3 copies control: MYC not detected on PanSolid (fold change 2.6) but borderline on ddPCR (copy number 5.6)
+
+- 24037724 - MYC not detected on PanSolid (fold change 2.2) and copy number of 9 on ddPCR. The whole genome plot shows a deletion on 5q, which may be where the AP3B1 ddPCR reference gene is located, leading to an artificially high ddPCR copy number.
+
+- 23033921 - EGFR has a fold change of 2.7 on PanSolid (borderline), and a ddPCR copy number of 5.3 (also borderline).
+
+So the 3 discrepant results are 2 borderline samples and a sample where the ddPCR reference gene is not at a copy number of 2.
+
+AP3B1 coordinates (GRCh38): Chromosome 5: 78,000,522-78,294,762 (5q14.1)
+
+{{< pagebreak >}}
+
+# Repeatability
+
+```{r}
+#| label: repeatability
+#| echo: FALSE
+
+repeat_noise_data <- validation_stdev_results_collated |> 
+  filter(duplicated(labno, fromLast = TRUE) |
+           duplicated(labno, fromLast = FALSE)) |> 
+  # Excel file produced twice as sample is in 2 cohorts
+  filter(labno != "24030966") |> 
+  # This is the limit of detection sample
+  filter(labno != "24039973")
+
+repeat_all_amp_data <- validation_all_amp_gene_results_collated |> 
+  filter(labno %in% repeat_noise_data$labno)
+
+low_fold_change_repeat_plot <- ggplot(repeat_all_amp_data |> 
+         filter(labno != "24027774"), aes(x = gene, y = max_region_fold_change)) +
+  geom_jitter(shape = 21, size = 2, width = 0.2) +
+  theme_bw() +
+  geom_hline(yintercept = 2.8, linetype = "dashed") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(~patient_name) +
+  labs(x = "", y = "Fold change", title = "Repeatability data")
+
+low_fold_change_repeat_plot
+
+high_fold_change_repeat_plot <- ggplot(repeat_all_amp_data |> 
+         filter(labno == "24027774"), aes(x = gene, y = max_region_fold_change)) +
+  geom_jitter(shape = 21, size = 2, width = 0.2) +
+  theme_bw() +
+  geom_hline(yintercept = 2.8, linetype = "dashed") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(~patient_name) +
+  labs(x = "", y = "Fold change", title = "Repeatability data")
+
+high_fold_change_repeat_plot
+
+```
+
+```{r}
+#| label: repeatability-noise
+#| echo: FALSE
+
+repeat_plot_facet_labno <- ggplot(repeat_noise_data, aes(x = worksheet,
+                              y = st_dev_signal_adjusted_log2_ratios)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ylim(0, 1) +
+  labs(y = "Signal-adjusted noise", x = "", title = "Repeatability noise data") +
+  facet_wrap(~labno)
+
+repeat_plot_facet_labno
+
+repeat_plot_worksheet <- ggplot(repeat_noise_data, aes(x = worksheet,
+                              y = st_dev_signal_adjusted_log2_ratios)) +
+  geom_jitter(shape = 21, width = 0.2, size = 3,
+              aes(fill = labno), alpha = 0.6) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ylim(0, 1) +
+  labs(y = "Signal-adjusted noise", x = "", title = "Repeatability noise data")
+
+repeat_plot_worksheet
+
+```
+
+
