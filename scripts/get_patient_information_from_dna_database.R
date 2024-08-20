@@ -19,15 +19,22 @@ validation_stdev_results_collated <- read_csv(paste0(data_folder,
                                                      "validation/collated/",
                                                      "validation_stdev_results_collated.csv"))
 
-sample_labnos <- validation_stdev_results_collated$labno
+sample_labnos <- unique(validation_stdev_results_collated$labno)
 
-validation_sample_patient_info <- sample_tbl |> 
+patient_info <- sample_tbl |> 
   filter(labno %in% sample_labnos) |> 
-  select(labno, firstname, surname, nhsno, pathno,
+  select(labno, firstname, surname, date_in, tissue, nhsno, pathno,
          comments) |> 
-  collect() |> 
-  mutate(ncc = parse_ncc(comments))
+  collect() 
 
+# Add NCC and tissue type -----------------------------------------------------------
+
+patient_info_ncc <- patient_info |> 
+  mutate(ncc = parse_ncc(comments),
+         tissue = as.numeric(tissue)) |> 
+  left_join(tissue_types |> 
+              select(tissue_type_id, tissue_type),
+            join_by("tissue" == "tissue_type_id"))
 
 # Extract cancer type from comments field -------------------------------------------
 
@@ -48,7 +55,7 @@ cancer_type_regex <- paste0("(",
                             paste(cancer_type_vector, collapse  = "|"),
                             ")")
 
-validation_sample_patient_info_mod <- validation_sample_patient_info |> 
+patient_info_cancer_type <- patient_info_ncc |> 
   mutate(cancer_comment = tolower(str_extract(pattern = cancer_type_regex,
                         string = comments,
                         group = 1)),
@@ -60,15 +67,23 @@ validation_sample_patient_info_mod <- validation_sample_patient_info |>
            
            TRUE ~cancer_comment))
 
-cancer_type_summary <- validation_sample_patient_info_mod |> 
-  filter(!is.na(cancer_group)) |> 
-  count(cancer_group) |> 
-  arrange(desc(n))
+# Add DNA extraction method ---------------------------------------------------------
 
+extraction_methods <- get_extraction_method(sample_vector = sample_labnos) |> 
+  select(labno, method_name) |> 
+  # Some samples were on a QIAsymphony run with an instrument failure
+  # so they have multiple extraction entries for the same lab number
+  filter(!duplicated(labno))
+
+patient_info_extraction_method <- patient_info_cancer_type |> 
+  left_join(extraction_methods, by = "labno")
 
 # Export results --------------------------------------------------------------------
 
-write.csv(x = validation_sample_patient_info_mod,
+validation_sample_patient_info <- patient_info_extraction_method |> 
+  select(-c(tissue))
+
+write.csv(x = validation_sample_patient_info,
           file = paste0(data_folder, "validation/collated/", 
                         "validation_sample_patient_info.csv"),
           row.names = FALSE)
