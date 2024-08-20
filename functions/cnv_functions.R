@@ -47,7 +47,8 @@ dna_db_export <- function(input) {
   )
 }
 
-plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi = 300) {
+plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi = 300,
+                           folder) {
   
   #' Save a plot with a timestamp
   #'
@@ -55,6 +56,7 @@ plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi 
   #' @param input_width Desired plot width
   #' @param input_height Desired plot height
   #' @param dpi Desired plot resolution in dots per inch
+  #' @param folder The folder to save the plot into
   #'
   #' @return Saves the plot in the plots folder with a timestamp
   #'
@@ -72,7 +74,7 @@ plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi 
     ),
     plot = input_plot,
     device = "png",
-    path = here::here("outputs/plots/"),
+    path = paste0(folder, "/"),
     units = "cm",
     width = input_width,
     height = input_height,
