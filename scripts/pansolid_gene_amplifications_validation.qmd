@@ -26,8 +26,13 @@ library(here)
 library(patchwork)
 
 source(here("scripts/set_shared_drive_filepath.R"))
+source(here("functions/cnv_functions.R"))
 
-source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
+```
+
+```{r}
+#| label: load-pansolid-data
+#| include: FALSE
 
 # Data collation for PanSolid is performed in the 
 # collate_pansolid_excel_validation_data.R script
@@ -50,6 +55,28 @@ validation_all_amp_gene_results_collated <- read_csv(paste0(data_folder,
                                   "pansolid_call" = col_character()
                                 ))
 
+validation_pos_cnv_results_collated <- read_csv(paste0(data_folder, 
+                                "validation/collated/",
+                              "validation_pos_cnv_results_collated.csv"),
+                                col_types = list(
+                                  "worksheet" = col_character(),
+                                  "labno" = col_character(),
+                                  "suffix" = col_character(),
+                                  "patient_name" = col_character(),
+                                  "labno_suffix" = col_character(),
+                                  "labno_suffix_worksheet" = col_character(),
+                                  "filepath" = col_character(),
+                                  "gene" = col_character(),
+                                  "cnv_co_ordinates" = col_character(),
+                                  "cnv_length" = col_double(),
+                                  "consequence" = col_character(),
+                                  "fold_change" = col_double(),
+                                  "p_value" = col_double(),
+                                  "no_targets" = col_double(),
+                                  "start" = col_double(),
+                                  "end" = col_double()
+                                ))
+
 validation_stdev_results_collated <- read_csv(paste0(data_folder, 
                                 "validation/collated/",
                               "validation_stdev_results_collated.csv"),
@@ -65,6 +92,217 @@ validation_stdev_results_collated <- read_csv(paste0(data_folder,
 
 ```
 
+```{r}
+#| label: load-pansolid-patient-info
+#| include: FALSE
+
+source(here("scripts/get_patient_information_from_dna_database.R"))
+
+validation_sample_patient_info <- read_csv(paste0(data_folder, 
+                                "validation/collated/",
+                              "validation_sample_patient_info.csv"),
+                               col_types = list(
+                               "labno" = col_character(),
+                               "firstname" = col_character(),
+                               "surname" = col_character(),
+                               "date_in" = col_datetime(format = "%Y-%m-%d %H:%M:%OS"),
+                               "nhsno" = col_character(),
+                               "pathno" = col_character(),
+                               "comments" = col_character(),
+                               "ncc" = col_character(),
+                               "tissue_type" = col_character(),
+                               "cancer_comment" = col_character(),
+                               "cancer_group" = col_character(),
+                               "method_name" = col_character()
+                               ))
+
+cancer_type_summary <- validation_sample_patient_info |> 
+  count(cancer_group) |> 
+  rename("Samples" = n,
+         "Cancer" = cancer_group) |> 
+  arrange(desc(Samples))
+
+csv_timestamp(cancer_type_summary, paste0(outputs_folder, "tables"))
+
+extraction_type_summary <- validation_sample_patient_info |> 
+  count(method_name) |> 
+  rename("DNA extraction method" = method_name,
+         "Samples" = n) |> 
+  arrange(desc(Samples))
+
+csv_timestamp(extraction_type_summary, paste0(outputs_folder, "tables"))
+
+ncc_summary <- validation_sample_patient_info |> 
+  count(ncc) |> 
+  rename("Neoplastic cell content" = ncc,
+         "Samples" = n) |> 
+  arrange(desc(Samples))
+
+csv_timestamp(ncc_summary, paste0(outputs_folder, "tables"))
+
+tissue_type_summary <- validation_sample_patient_info |> 
+  mutate("Tissue type" = case_when(
+    tissue_type == "Shavings" ~"FFPE shavings",
+    tissue_type %in% c("Slides", "Positively-charged slides") ~"FFPE slides",
+    TRUE ~tissue_type
+  )) |> 
+  count(`Tissue type`) |> 
+  rename("Samples" = n) |> 
+  arrange(desc(Samples))
+  
+csv_timestamp(tissue_type_summary, paste0(outputs_folder, "tables"))
+
+```
+
+```{r}
+#| label: gene-tables
+#| include: FALSE
+
+del_gene_table <- read_excel(path = paste0(data_folder, "gene_lists/",
+                                           "pansolid_deletion_gene_list.xlsx"))
+
+amp_gene_table <- read_excel(path = paste0(data_folder, "gene_lists/",
+                                           "pansolid_amplification_gene_list.xlsx"))
+
+```
+
+# PanSolid overall results
+
+```{r}
+#| label: pansolid-overall-results
+#| include: FALSE
+
+single_results <- validation_stdev_results_collated |> 
+  filter(!duplicated(labno))
+
+pansolid_gene_results_table <- validation_all_amp_gene_results_collated |> 
+  filter(filepath %in% single_results$filepath) |> 
+  count(gene, pansolid_call) |> 
+  pivot_wider(id_cols = gene,
+              names_from = pansolid_call,
+              values_from = n,
+              values_fill = 0) |> 
+  arrange(gene)
+  
+csv_timestamp(pansolid_gene_results_table, paste0(outputs_folder, "tables"))
+
+```
+
+
+
+# Comparison to whole genome sequencing
+
+```{r}
+#| label: load-wgs
+#| include: FALSE
+
+source(here("scripts/collate_wgs_htmls.R"))
+source(here("scripts/reformat_wgs_cnv_data.R"))
+
+```
+
+```{r}
+#| label: select-wgs-samples
+#| include: FALSE
+
+pansolid_wgs_sample_selection <- validation_sample_patient_info |> 
+  filter(nhsno %in% wgs_reformatted_with_ids$nhs_no_clean) |> 
+  filter(method_name == "QIAsymphony_DNA_FFPE") |> 
+  # One patient has 2 QIAsymphony extractions with the same Pansolid results
+  # I've arbitrarily chosen one to include
+  filter(!labno %in% c("24030945", 
+                      # This sample pathology block does not match the WGS
+                      "24018922",
+                      # This sample has a signal-adjusted noise above 1
+                      "24030364")) |> 
+  left_join(wgs_html_ids |> 
+              select(patient_name, wgs_r_no, wgs_p_no, nhs_no_clean), 
+            join_by("nhsno" == "nhs_no_clean")) 
+
+```
+
+```{r}
+#| label: compare-wgs-and-pansolid
+#| include: FALSE
+
+wgs_pansolid_comparison <- validation_all_amp_gene_results_collated |> 
+  filter(gene %in% amp_gene_table$gene) |> 
+  filter(labno %in% pansolid_wgs_sample_selection$labno) |> 
+  # One WGS sample was repeated for repeatability studies on worksheets
+  # WS144291 and WS144291
+  filter(!worksheet %in% c("WS144291", "WS144364")) |> 
+  left_join(validation_sample_patient_info |> 
+              select(labno, nhsno), by = "labno") |> 
+  left_join(wgs_reformatted_with_ids |> 
+              select(nhs_no_clean, gene, wgs_result, wgs_pathno), 
+            join_by(nhsno == nhs_no_clean, gene == gene)) |> 
+  mutate(outcome = case_when(
+      (wgs_result == "Gain detected" & pansolid_call == "amplification") ~"true_positive",
+    
+      (wgs_result == "No gain detected" & pansolid_call == "normal result") ~"true_negative",
+    
+      (wgs_result == "Gain detected" & pansolid_call == "normal result") ~"false_negative",
+    
+      (wgs_result == "No gain detected" & pansolid_call == "amplification") ~"false_positive"
+    
+  ))
+
+```
+
+```{r}
+#| label: wgs-gene-accuracy
+#| echo: FALSE
+
+wgs_gene_accuracy_summary <- wgs_pansolid_comparison |> 
+  group_by(gene, outcome) |> 
+  count() |> 
+  pivot_wider(id_cols = c(gene),
+              names_from = outcome,
+              values_from = n,
+              values_fill = 0) |> 
+  select(gene, true_negative, true_positive, false_negative)
+
+knitr::kable(wgs_gene_accuracy_summary)
+
+csv_timestamp(wgs_gene_accuracy_summary, paste0(outputs_folder, "tables"))
+
+```
+
+```{r}
+#| label: wgs-dosage-accuracy
+#| echo: FALSE
+
+cases_with_calls <- wgs_pansolid_comparison |> 
+  filter(wgs_result == "Gain detected") |>
+  select(labno, nhsno)
+
+wgs_egfr_calls <- wgs_html_cnvs |> 
+  filter(gene == "*EGFR") |> 
+  left_join(wgs_html_ids, by = "filepath") |> 
+  filter(nhs_no_clean %in% cases_with_calls$nhsno) |>  
+  filter(!duplicated(wgs_p_no)) 
+
+pansolid_egfr_calls <- validation_all_amp_gene_results_collated |> 
+              filter(gene == "EGFR") |> 
+  left_join(validation_sample_patient_info, by = "labno") |> 
+  filter(method_name == "QIAsymphony_DNA_FFPE") |> 
+  filter(labno != "24030945")
+
+egfr_wgs_pansolid_dosage_plot <- wgs_egfr_calls |> 
+  left_join(pansolid_egfr_calls, join_by("nhs_no_clean" == "nhsno")) |>  
+  ggplot(aes(x = cnv_copy_number, y = max_region_fold_change)) +
+  geom_point(shape = 21, size = 3) +
+  theme_bw() +
+  labs(x = "WGS copy number", y = "Pansolid fold change") +
+  ylim(0, 140) +
+  xlim(0, 70) +
+  ggpubr::stat_cor(method = "pearson", label.x = 10, label.y = 100)
+
+
+
+
+```
+
 {{< pagebreak >}}
 
 # Comparison to droplet digital PCR
@@ -72,6 +310,8 @@ validation_stdev_results_collated <- read_csv(paste0(data_folder,
 ```{r}
 #| label: ddpcr-comparison
 #| include: FALSE
+
+source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
 
 ddpcr_cnv_amp_threshold <- 5
 
@@ -123,7 +363,7 @@ egfr_met_myc_plot <- ggplot(ddpcr_vs_pansolid |>
   labs(x = "ddPCR copy number",
        y = "PanSolid fold change",
        title = "ddPCR vs PanSolid by gene") +
-  ggpubr::stat_cor(method = "pearson", label.x = 10, label.y = 1)  +
+  ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = 0)  +
   facet_wrap(~gene)
 
 myc_plot <- ggplot(ddpcr_vs_pansolid |> 
@@ -132,12 +372,24 @@ myc_plot <- ggplot(ddpcr_vs_pansolid |>
   theme_bw() +
   labs(x = "ddPCR copy number",
        y = "PanSolid fold change") +
-  ggpubr::stat_cor(method = "pearson", label.x = 100, label.y = 10)  +
+  ggpubr::stat_cor(method = "pearson", label.x = 75, label.y = 10)  +
   facet_wrap(~gene)
 
-egfr_met_myc_plot
+ggplot(ddpcr_vs_pansolid, aes(x = cnv, y = max_region_fold_change)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  labs(x = "ddPCR copy number",
+       y = "PanSolid fold change") +
+  ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = 0)
 
-myc_plot
+combined_ddpcr_plot <- egfr_met_myc_plot + myc_plot + plot_layout(nrow = 2,
+                                           heights = c(7,7))
+
+combined_ddpcr_plot
+
+plot_timestamp(input_plot = combined_ddpcr_plot, 
+               folder = paste0(outputs_folder, "plots"),
+               input_height = 15)
 
 ```
 
@@ -156,10 +408,9 @@ ddpcr_summary <- ddpcr_vs_pansolid |>
               values_from = n,
               values_fill = 0)
 
-ddpcr_vs_pansolid |> 
-  filter(outcome %in% c("false_negative")) |>  view()
-
 knitr::kable(ddpcr_summary)
+
+csv_timestamp(ddpcr_summary, paste0(outputs_folder, "tables"))
 
 ```
 
@@ -177,6 +428,43 @@ AP3B1 coordinates (GRCh38): Chromosome 5: 78,000,522-78,294,762 (5q14.1)
 
 {{< pagebreak >}}
 
+
+
+
+
+# Genomic Coordinates
+
+```{r}
+#| label: coordinates
+#| echo: FALSE
+
+pos_cnv_with_noise <- validation_pos_cnv_results_collated |> 
+  left_join(stdev_results_collated |> 
+              select(filepath, st_dev_signal_adjusted_log2_ratios), by = "filepath") |> 
+  filter(st_dev_signal_adjusted_log2_ratios < 1)
+
+egfr_labno_plot <- make_labno_plot(df = pos_cnv_with_noise, 
+                gene = "EGFR",
+                interval = 100000, 
+                buffer = 100000, 
+                yaxis = labno)
+
+egfr_triptych <- make_cnv_triptych(egfr_labno_plot)
+
+myc_labno_plot <- make_labno_plot(df = pos_cnv_with_noise |> 
+                                    filter(cnv_length < 100000), 
+                gene = "MYC",
+                interval = 100000, 
+                buffer = 100000, 
+                yaxis = labno)
+
+make_cnv_triptych(myc_labno_plot)
+
+```
+
+
+{{< pagebreak >}}
+
 # Repeatability
 
 ```{r}
@@ -189,7 +477,9 @@ repeat_noise_data <- validation_stdev_results_collated |>
   # Excel file produced twice as sample is in 2 cohorts
   filter(labno != "24030966") |> 
   # This is the limit of detection sample
-  filter(labno != "24039973")
+  filter(labno != "24039973") |> 
+  filter(!grepl(pattern = "SERA", x = patient_name,
+               ignore.case = TRUE))
 
 repeat_all_amp_data <- validation_all_amp_gene_results_collated |> 
   filter(labno %in% repeat_noise_data$labno)
@@ -199,11 +489,11 @@ low_fold_change_repeat_plot <- ggplot(repeat_all_amp_data |>
   geom_jitter(shape = 21, size = 2, width = 0.2) +
   theme_bw() +
   geom_hline(yintercept = 2.8, linetype = "dashed") +
+  scale_y_continuous(limits = c(-2, 10),
+                     breaks = c(-2, 0, 2.8, 5, 7.5, 10)) +
   theme(axis.text.x = element_text(angle = 90)) +
-  facet_wrap(~patient_name) +
-  labs(x = "", y = "Fold change", title = "Repeatability data")
-
-low_fold_change_repeat_plot
+  facet_wrap(~labno) +
+  labs(x = "", y = "Fold change")
 
 high_fold_change_repeat_plot <- ggplot(repeat_all_amp_data |> 
          filter(labno == "24027774"), aes(x = gene, y = max_region_fold_change)) +
@@ -211,10 +501,18 @@ high_fold_change_repeat_plot <- ggplot(repeat_all_amp_data |>
   theme_bw() +
   geom_hline(yintercept = 2.8, linetype = "dashed") +
   theme(axis.text.x = element_text(angle = 90)) +
-  facet_wrap(~patient_name) +
-  labs(x = "", y = "Fold change", title = "Repeatability data")
+  facet_wrap(~labno) +
+  labs(x = "", y = "Fold change")
 
-high_fold_change_repeat_plot
+repeatability_plots <- low_fold_change_repeat_plot +
+  high_fold_change_repeat_plot + plot_layout(nrow = 2,
+                                             heights = c(5,5))
+
+repeatability_plots
+
+plot_timestamp(input_plot = repeatability_plots, 
+               folder = paste0(outputs_folder, "plots"),
+               input_height = 15)
 
 ```
 
@@ -243,6 +541,30 @@ repeat_plot_worksheet <- ggplot(repeat_noise_data, aes(x = worksheet,
   labs(y = "Signal-adjusted noise", x = "", title = "Repeatability noise data")
 
 repeat_plot_worksheet
+
+```
+
+```{r}
+#| label: limit-of-detection
+#| echo: FALSE
+
+validation_all_amp_gene_results_collated |> 
+  filter(labno == "24039973" & worksheet == "WS144291") |> 
+  mutate(lod_percent = case_when(
+    suffix == "a" ~"30%",
+    suffix == "b" ~"20%",
+    suffix == "c" ~"10%",
+    suffix == "d" ~"0%"
+  )) |> 
+  ggplot(aes(x = gene, y = max_region_fold_change)) +
+  geom_point(shape = 21, size = 2) +
+  theme_bw() +
+  geom_hline(yintercept = 2.8) +
+  facet_wrap(~lod_percent)
+
+
+
+
 
 ```
 
