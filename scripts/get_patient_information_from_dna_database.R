@@ -36,6 +36,30 @@ patient_info_ncc <- patient_info |>
               select(tissue_type_id, tissue_type),
             join_by("tissue" == "tissue_type_id"))
 
+patient_ncc_manual <- patient_info_ncc |> 
+  filter(is.na(ncc)) |> 
+  select(labno) |> 
+  mutate(ncc_manual = "")
+
+write.csv(x = patient_ncc_manual,
+          file = paste0(data_folder, "validation/collated/", 
+                        "patient_ncc_manual.csv"),
+          row.names = FALSE)
+
+manual_ncc_values <- read_csv(file = paste0(data_folder, "validation/collated/",
+                       "patient_ncc_manual_edit.csv"),
+                       col_types = list(
+                         "labno" = col_character(),
+                         "ncc_manual" = col_character()))
+
+patient_info_ncc_edit <- patient_info_ncc |> 
+  left_join(manual_ncc_values, by = "labno") |> 
+  mutate(neoplastic_cell_content = case_when(
+    
+    is.na(ncc) & !is.na(ncc_manual) ~ncc_manual,
+    !is.na(ncc) & is.na(ncc_manual) ~ncc,
+    TRUE ~"Error"))
+
 # Extract cancer type from comments field -------------------------------------------
 
 cancer_type_vector <- c("(?:O|o)varian",
@@ -55,7 +79,7 @@ cancer_type_regex <- paste0("(",
                             paste(cancer_type_vector, collapse  = "|"),
                             ")")
 
-patient_info_cancer_type <- patient_info_ncc |> 
+patient_info_cancer_type <- patient_info_ncc_edit |> 
   mutate(cancer_comment = tolower(str_extract(pattern = cancer_type_regex,
                         string = comments,
                         group = 1)),
@@ -67,16 +91,60 @@ patient_info_cancer_type <- patient_info_ncc |>
            
            TRUE ~cancer_comment))
 
+cancer_type_manual <- patient_info_cancer_type |> 
+  filter(is.na(cancer_group)) |> 
+  select(labno) |> 
+  mutate(cancer_group_manual = "")
+
+write.csv(x = cancer_type_manual,
+          file = paste0(data_folder, "validation/collated/", 
+                        "cancer_type_manual.csv"),
+          row.names = FALSE)
+
+
+manual_cancer_types <- read_csv(file = paste0(data_folder, "validation/collated/",
+                                            "cancer_type_manual_edit.csv"),
+                              col_types = list(
+                                "labno" = col_character(),
+                                "cancer_group_manual" = col_character()))
+
+patient_info_cancer_type_edit <- patient_info_cancer_type |> 
+  left_join(manual_cancer_types, by = "labno") |> 
+  mutate(cancer_type_new = case_when(
+    
+    is.na(cancer_group) & !is.na(cancer_group_manual) ~cancer_group_manual,
+    !is.na(cancer_group) & is.na(cancer_group_manual) ~cancer_group,
+    TRUE ~"Error"))
+
 # Add DNA extraction method ---------------------------------------------------------
 
 extraction_methods <- get_extraction_method(sample_vector = sample_labnos) |> 
-  select(labno, method_name) |> 
   # Some samples were on a QIAsymphony run with an instrument failure
   # so they have multiple extraction entries for the same lab number
-  filter(!duplicated(labno))
+  filter(!duplicated(labno)) |> 
+  # The method for extraction batch 81056 was incorrectly entered
+  # as "QIAsymphony_RNA_FFPE", but it should have been "QIAsymphony_DNA_FFPE"
+  mutate(method_name = ifelse(extraction_batch_fk == 81056,
+                              "QIAsymphony_DNA_FFPE",
+                              method_name))
 
-patient_info_extraction_method <- patient_info_cancer_type |> 
+patient_info_extraction_method <- patient_info_cancer_type_edit |> 
   left_join(extraction_methods, by = "labno")
+
+# Get worksheet details -------------------------------------------------------------
+
+pansolid_worksheets <- data.frame(
+  "worksheet" = c(unique(validation_stdev_results_collated$worksheet))) |> 
+  mutate(pcrid = str_extract(string = worksheet, 
+                      pattern = "WS(\\d{6})",
+                      group = 1))
+
+pansolid_pcrids <- pansolid_worksheets$pcrid
+
+pansolid_worksheet_details <- dna_db_worksheets |> 
+  filter(pcrid %in% pansolid_pcrids) |> 
+  select(pcrid, description, date) |> 
+  collect()
 
 # Export results --------------------------------------------------------------------
 
@@ -86,4 +154,9 @@ validation_sample_patient_info <- patient_info_extraction_method |>
 write.csv(x = validation_sample_patient_info,
           file = paste0(data_folder, "validation/collated/", 
                         "validation_sample_patient_info.csv"),
+          row.names = FALSE)
+
+write.csv(x = pansolid_worksheet_details,
+          file = paste0(data_folder, "validation/collated/", 
+                        "pansolid_worksheet_details.csv"),
           row.names = FALSE)
