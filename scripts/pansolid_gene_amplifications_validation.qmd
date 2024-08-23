@@ -90,13 +90,26 @@ validation_stdev_results_collated <- read_csv(paste0(data_folder,
                                   "filepath" = col_character(),
                                   "st_dev_signal_adjusted_log2_ratios" = col_double()))
 
+validation_percent_138_collated <- read_csv(paste0(data_folder, 
+                                "validation/collated/",
+                              "validation_percent_138_collated.csv"),
+                                col_types = list(
+                                  "worksheet" = col_character(),
+                                  "labno" = col_character(),
+                                  "suffix" = col_character(),
+                                  "patient_name" = col_character(),
+                                  "labno_suffix" = col_character(),
+                                  "labno_suffix_worksheet" = col_character(),
+                                  "filepath" = col_character(),
+                                  "percent_whole_panel_covered_at_138x" = col_double()))
+
 ```
 
 ```{r}
 #| label: load-pansolid-patient-info
 #| include: FALSE
 
-source(here("scripts/get_patient_information_from_dna_database.R"))
+# source(here("scripts/get_patient_information_from_dna_database.R"))
 
 validation_sample_patient_info <- read_csv(paste0(data_folder, 
                                 "validation/collated/",
@@ -117,9 +130,10 @@ validation_sample_patient_info <- read_csv(paste0(data_folder,
                                ))
 
 cancer_type_summary <- validation_sample_patient_info |> 
-  count(cancer_group) |> 
+  filter(cancer_type_new != "Reference material") |> 
+  count(cancer_type_new) |> 
   rename("Samples" = n,
-         "Cancer" = cancer_group) |> 
+         "Cancer" = cancer_type_new) |> 
   arrange(desc(Samples))
 
 csv_timestamp(cancer_type_summary, paste0(outputs_folder, "tables"))
@@ -133,10 +147,26 @@ extraction_type_summary <- validation_sample_patient_info |>
 csv_timestamp(extraction_type_summary, paste0(outputs_folder, "tables"))
 
 ncc_summary <- validation_sample_patient_info |> 
-  count(ncc) |> 
-  rename("Neoplastic cell content" = ncc,
-         "Samples" = n) |> 
-  arrange(desc(Samples))
+  filter(neoplastic_cell_content != "Reference material") |> 
+  mutate(ncc_class = case_when(
+    neoplastic_cell_content %in% c(">10", "10-20%") ~">10%",
+    neoplastic_cell_content %in% c("20-50", "20-30%",
+                                   ">20%", ">20", 
+                                   "20") ~">20%",
+    neoplastic_cell_content %in% c(">30%", ">30") ~">30%",
+    neoplastic_cell_content %in% c("50-75") ~">50%",
+    neoplastic_cell_content %in% c( ">75", "80") ~">75%",
+    TRUE ~neoplastic_cell_content
+  ),
+  ncc_class = factor(ncc_class, levels = c(">75%",
+                                           ">50%",
+                                           ">30%",
+                                           ">20%",
+                                           ">10%",
+                                           "No NCC provided"))) |> 
+  count(ncc_class) |> 
+  rename("Neoplastic cell content" = ncc_class,
+         "Samples" = n)
 
 csv_timestamp(ncc_summary, paste0(outputs_folder, "tables"))
 
@@ -188,8 +218,6 @@ csv_timestamp(pansolid_gene_results_table, paste0(outputs_folder, "tables"))
 
 ```
 
-
-
 # Comparison to whole genome sequencing
 
 ```{r}
@@ -204,6 +232,18 @@ source(here("scripts/reformat_wgs_cnv_data.R"))
 ```{r}
 #| label: select-wgs-samples
 #| include: FALSE
+
+# Check how many samples were tested on PanSolid and of which 
+# extraction type
+wgs_html_ids |> 
+  inner_join(validation_sample_patient_info,
+             join_by("nhs_no_clean" == "nhsno")) |> 
+  select(patient_name, method_name) |>  view()
+
+validation_sample_patient_info |> 
+  count(method_name) |>  view()
+
+
 
 pansolid_wgs_sample_selection <- validation_sample_patient_info |> 
   filter(nhsno %in% wgs_reformatted_with_ids$nhs_no_clean) |> 
@@ -298,9 +338,6 @@ egfr_wgs_pansolid_dosage_plot <- wgs_egfr_calls |>
   xlim(0, 70) +
   ggpubr::stat_cor(method = "pearson", label.x = 10, label.y = 100)
 
-
-
-
 ```
 
 {{< pagebreak >}}
@@ -316,10 +353,7 @@ source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
 ddpcr_cnv_amp_threshold <- 5
 
 ddpcr_vs_pansolid <- ddpcr_validation_data |> 
-  mutate(gene = str_extract(string = experiment,
-                            pattern = "^(\\w{3,5})\\sEx.+",
-                            group = 1),
-         sample_experiment = str_c(sample, "_", experiment)) |> 
+  mutate(sample_experiment = str_c(sample, "_", experiment)) |> 
   filter(target == "ch1_target" & 
            experiment %in% c("MYC Ex3_1",
                               "BRAF Ex10_1",
@@ -393,6 +427,21 @@ plot_timestamp(input_plot = combined_ddpcr_plot,
 
 ```
 
+```{r}
+#| label: ddpcr-seracare
+#| echo: FALSE
+
+seracare_labnos <- c("24002060", "24039975", "24002064", 
+                     "24002067", "24002071", "24039973")
+
+ddpcr_validation_data |> 
+  filter(sample %in% seracare_labnos)
+
+
+
+
+```
+
 {{< pagebreak >}}
 
 ## ddPCR summary
@@ -414,23 +463,40 @@ csv_timestamp(ddpcr_summary, paste0(outputs_folder, "tables"))
 
 ```
 
+```{r}
+#| label: ddpcr-false-negatives
+#| echo: FALSE
+
+ddpcr_false_neg_table <- ddpcr_vs_pansolid |> 
+  filter(outcome == "false_negative") |> 
+  mutate(`PanSolid fold change` = round(max_region_fold_change, 1),
+         `ddPCR copy number` = round(cnv, 1)) |> 
+  rename(`ddPCR result` = ddpcr_result,
+         `Lab number` = sample,
+         `Gene` = gene,
+         `PanSolid result` = pansolid_call) |> 
+  select(`Lab number`,  `Gene`, `ddPCR copy number`, 
+         `PanSolid fold change`, `ddPCR result`, `PanSolid result`)
+
+knitr::kable(ddpcr_false_neg_table)
+
+csv_timestamp(ddpcr_false_neg_table, paste0(outputs_folder, "tables"))
+
+```
+
 The three false negative samples are:
 
-- 24002064 - SeraSeq +3 copies control: MYC not detected on PanSolid (fold change 2.6) but borderline on ddPCR (copy number 5.6)
+-   24002064 - SeraSeq +3 copies control: MYC not detected on PanSolid (fold change 2.6) but borderline on ddPCR (copy number 5.6)
 
-- 24037724 - MYC not detected on PanSolid (fold change 2.2) and copy number of 9 on ddPCR. The whole genome plot shows a deletion on 5q, which may be where the AP3B1 ddPCR reference gene is located, leading to an artificially high ddPCR copy number.
+-   24037724 - MYC not detected on PanSolid (fold change 2.2) and copy number of 9 on ddPCR. The whole genome plot shows a deletion on 5q, which may be where the AP3B1 ddPCR reference gene is located, leading to an artificially high ddPCR copy number.
 
-- 23033921 - EGFR has a fold change of 2.7 on PanSolid (borderline), and a ddPCR copy number of 5.3 (also borderline).
+-   23033921 - EGFR has a fold change of 2.7 on PanSolid (borderline), and a ddPCR copy number of 5.3 (also borderline).
 
 So the 3 discrepant results are 2 borderline samples and a sample where the ddPCR reference gene is not at a copy number of 2.
 
 AP3B1 coordinates (GRCh38): Chromosome 5: 78,000,522-78,294,762 (5q14.1)
 
 {{< pagebreak >}}
-
-
-
-
 
 # Genomic Coordinates
 
@@ -461,7 +527,6 @@ myc_labno_plot <- make_labno_plot(df = pos_cnv_with_noise |>
 make_cnv_triptych(myc_labno_plot)
 
 ```
-
 
 {{< pagebreak >}}
 
@@ -562,10 +627,25 @@ validation_all_amp_gene_results_collated |>
   geom_hline(yintercept = 2.8) +
   facet_wrap(~lod_percent)
 
+```
 
+# Quality control
+
+```{r}
+#| label: pansolid-overall-noise
+#| include: FALSE
+
+combined_qc_data <- validation_percent_138_collated |> 
+  inner_join(validation_stdev_results_collated |> 
+               select(filepath, st_dev_signal_adjusted_log2_ratios), by = "filepath") |> 
+  left_join(validation_sample_patient_info, by = "labno",
+            relationship = "many-to-one")
+
+ggplot(combined_qc_data, aes(x = st_dev_signal_adjusted_log2_ratios,
+                             y = percent_whole_panel_covered_at_138x)) +
+  geom_point(shape = 21, aes(fill = method_name)) +
+  theme_bw()
 
 
 
 ```
-
-
