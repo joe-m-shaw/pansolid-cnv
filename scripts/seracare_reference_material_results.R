@@ -48,7 +48,10 @@ seracare_gene_copies <- read_excel(path = paste0(data_folder,
                                                  "seracare_reference_materials/",
                                                  "seracare_gene_copies.xlsx")) |> 
   mutate(total_copies_ddpcr_seracare = additional_copies_ddpcr + 2,
-         total_copies_ngs_seracare = additional_copies_ngs + 2)
+         total_copies_ngs_seracare = additional_copies_ngs + 2,
+         reference_material_short = factor(x = reference_material_short,
+                                           levels = c("WT", "3 copies added",
+                                           "6 copies added", "12 copies added")))
 
 # SeraCare lab numbers --------------------------------------------------------------
 
@@ -63,15 +66,17 @@ seracare_ids <- validation_all_amp_gene_results_collated |>
 # NGS comparison --------------------------------------------------------------------
 
 seracare_colours <- c(
-  "#D55E00",
-  "#E69F00", 
+  "#009E73",
   "#F0E442",
-  "#009E73"
+  "#E69F00", 
+  "#D55E00"
 )
 
 seracare_ngs_comparison <- validation_all_amp_gene_results_collated |> 
   # Remove limit of detection samples
   filter(!(worksheet == "WS144291" & labno ==  "24039973")) |> 
+  # Remove samples run on PanSolid version 1
+  filter(!worksheet == "WS138156") |> 
   inner_join(seracare_gene_copies, 
              join_by("patient_name" == "reference_material",
                      "gene" == "gene")) |> 
@@ -79,16 +84,19 @@ seracare_ngs_comparison <- validation_all_amp_gene_results_collated |>
                                levels = c("CNVMix12CopiesSERASEQ",
                                           "CNVMix6CopiesSERASEQ",
                                           "CNVMix3copiesSERASEQ",
-                                          "DNAWTmixSERASEQ")))
+                                          "DNAWTmixSERASEQ")),
+         
+         predicted_fold_change = (expected_additional_copies + 2) / 2)
 
 ngs_comparison_plot <- ggplot(seracare_ngs_comparison, 
                               aes(x = total_copies_ngs_pansolid,
                                     y = total_copies_ngs_seracare )) +
   geom_abline(linetype = "dashed") +
-  geom_point(shape = 21, size = 3, alpha = 0.6, aes(fill = patient_name)) +
+  geom_point(shape = 21, size = 3, alpha = 0.6, aes(fill = reference_material_short)) +
   scale_fill_manual(values = seracare_colours) +
   ggpubr::stat_cor(method = "pearson", label.x = 0, label.y = 30) +
   theme_bw() +
+  theme(legend.position = "bottom") +
   scale_x_continuous(limits = c(-5, 35), 
                      breaks = c(0, 10, 20, 30)) +
   scale_y_continuous(limits = c(-5, 35), 
@@ -96,9 +104,26 @@ ngs_comparison_plot <- ggplot(seracare_ngs_comparison,
   facet_wrap(~gene) +
   labs(x = "Total copies NGS (Manchester)",
        y = "Total copies NGS (SeraCare)",
-       title = "Comparison of NGS results for SeraCare reference materials",
        fill = "")
-  
+
+plot_timestamp(input_plot = ngs_comparison_plot, folder = paste0(outputs_folder,
+                                                                   "plots/"))
+
+seracare_ngs_comparison_for_doc <- seracare_ngs_comparison |>
+  mutate(`Pansolid fold change` = round(max_region_fold_change, 1),
+         `PanSolid total copies` = round(total_copies_ngs_pansolid, 1),
+         `SeraCare NGS total copies` = round(total_copies_ngs_seracare, 1)) |> 
+  rename(`Lab number` = labno,
+         `Reference material` = patient_name,
+         `Gene` = gene,
+         `Predicted fold change` = predicted_fold_change) |> 
+  select(`Lab number`, `Reference material`, `Gene`, `Predicted fold change`, 
+         `Pansolid fold change`,
+         `PanSolid total copies`, `SeraCare NGS total copies`)
+
+csv_timestamp(seracare_ngs_comparison_for_doc, 
+              folder = paste0(outputs_folder, "tables/"))
+
 # ddPCR comparison ------------------------------------------------------------------
 
 seracare_ddpcr_comparison <- ddpcr_validation_data |> 
@@ -116,17 +141,44 @@ ddpcr_comparison_plot <- ggplot(seracare_ddpcr_comparison,
                               aes(x = cnv,
                                   y = total_copies_ddpcr_seracare )) +
   geom_abline(linetype = "dashed") +
-  geom_point(shape = 21, size = 3, alpha = 0.6, aes(fill = patient_name)) +
+  geom_point(shape = 21, size = 3, alpha = 0.6, aes(fill = reference_material_short)) +
   scale_fill_manual(values = seracare_colours) +
   facet_wrap(~gene) +
-  ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = 2) +
+  ggpubr::stat_cor(method = "pearson", label.x = 0, label.y = 20) +
   theme_bw() +
+  theme(legend.position = "bottom") +
   scale_x_continuous(limits = c(0, 25), 
                      breaks = c(0, 10, 20)) +
   scale_y_continuous(limits = c(0, 25), 
                      breaks = c(0, 10, 20)) +
   labs(x = "Total copies ddPCR (Manchester)",
        y = "Total copies ddPCR (SeraCare)",
-       title = "Comparison of ddPCR results for SeraCare reference materials",
-       subtitle = "Pearson's coefficient not calculated for genes with only 2 data points",
+       caption = "Pearson's coefficient not calculated for genes with only 2 data points",
        fill = "")
+
+plot_timestamp(input_plot = ddpcr_comparison_plot, folder = paste0(outputs_folder,
+                                                                   "plots/"))
+
+# Dilution mix results --------------------------------------------------------------
+
+lod_dilution_mix_results <- validation_all_amp_gene_results_collated |> 
+  filter(labno %in% c("24039973", "24039975") & worksheet == "WS144291") |> 
+  filter(gene %in% c("ERBB2", "EGFR", "BRAF", "MET", "MYC")) |> 
+  mutate(lod_percent = case_when(
+    suffix == "a" ~30,
+    suffix == "b" ~20,
+    suffix == "c" ~10,
+    suffix == "d" ~0
+  ),
+  lod_proportion = lod_percent/ 100,
+  max_region_fold_change = round(max_region_fold_change, 1),
+  predicted_fold_change = ((14 * lod_proportion) + (2 * (1 - lod_proportion))) / 2 ) |> 
+  arrange(lod_percent) |> 
+  rename(`Simulated NCC` = lod_percent,
+         `Gene` = gene,
+         `Predicted PanSolid fold change` = predicted_fold_change,
+         `PanSolid fold change` = max_region_fold_change) |> 
+  select(`Simulated NCC`, `Gene`, `Predicted PanSolid fold change`, `PanSolid fold change`)
+
+
+csv_timestamp(lod_dilution_mix_results, folder = paste0(outputs_folder, "tables/"))
