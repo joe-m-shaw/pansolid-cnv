@@ -34,7 +34,10 @@ patient_info_ncc <- patient_info |>
          tissue = as.numeric(tissue)) |> 
   left_join(tissue_types |> 
               select(tissue_type_id, tissue_type),
-            join_by("tissue" == "tissue_type_id"))
+            join_by("tissue" == "tissue_type_id")) |> 
+  # WGS frozen tissue is coded as "Other" on DNA Database
+  mutate(tissue_type = ifelse(tissue_type == "Other", "Frozen tissue",
+                              tissue_type))
 
 patient_ncc_manual <- patient_info_ncc |> 
   filter(is.na(ncc)) |> 
@@ -129,7 +132,10 @@ extraction_methods <- get_extraction_method(sample_vector = sample_labnos) |>
                               method_name))
 
 patient_info_extraction_method <- patient_info_cancer_type_edit |> 
-  left_join(extraction_methods, by = "labno")
+  left_join(extraction_methods, by = "labno") |> 
+  mutate(method_name = case_when(
+    is.na(method_name) & surname == "Seraseq" ~"No DNA extraction performed",
+    TRUE ~method_name))
 
 # Get worksheet details -------------------------------------------------------------
 
