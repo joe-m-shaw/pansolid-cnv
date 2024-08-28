@@ -44,13 +44,14 @@ gene_tbl_mod <- gene_tbl |>
                                                    coord2 = gene_end,
                                                    df = primer_df_mod)) |> 
   filter(label %in% amp_genes$gene |
-           label == "EGFRvIII") |> 
+           label %in% c("MDM2", "SMO", "MYCN", "EGFRvIII")) |> 
   arrange(label)
 
 # Count targets for each gene -------------------------------------------------------
 
 gene_target_counts <- target_df |> 
-  filter(name %in% amp_genes$gene) |> 
+  filter(name %in% amp_genes$gene |
+           name %in% c("MDM2", "SMO", "MYCN")) |> 
   count(name)
 
 gene_tbl_for_doc <- gene_tbl_mod |> 
