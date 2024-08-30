@@ -6,28 +6,33 @@ library(here)
 library(rvest)
 library(docstring)
 
+source(here("scripts/set_shared_drive_filepath.R"))
+
 # Export functions ------------------------------------------------------------------
 
-csv_timestamp <- function(input) {
+csv_timestamp <- function(table, folder) {
   
   #' Save a table as a comma-separated file with a timestamp
   #'
-  #' @param input The table to save
+  #' @param table The table to save
+  #' @param folder The filepath of the folder to save the file into, without a 
+  #' backlash at the end
   #'
-  #' @return Saves the table in the tables folder with a timestamp
+  #' @return Saves the table in the desired folder with a timestamp
   #'
   #' @note This function is used for exporting tables from RStudio for inclusion
   #' in validation documentation.
   #'
-  #' @examples plot_timestamp(erbb2_table)
+  #' @examples csv_timestamp(gene_tbl_for_doc, paste0(outputs_folder, "tables"))
   
-  write.csv(input,
-            file = here::here(paste0(
-              "outputs/tables/",
+  write.csv(table,
+            file = paste0(
+              folder,
+              "/",
               format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
               "_",
-              deparse(substitute(input)), ".csv"
-            )),
+              deparse(substitute(table)), ".csv"
+            ),
             row.names = FALSE
   )
 }
@@ -42,7 +47,8 @@ dna_db_export <- function(input) {
   )
 }
 
-plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi = 300) {
+plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi = 300,
+                           folder) {
   
   #' Save a plot with a timestamp
   #'
@@ -50,6 +56,7 @@ plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi 
   #' @param input_width Desired plot width
   #' @param input_height Desired plot height
   #' @param dpi Desired plot resolution in dots per inch
+  #' @param folder The folder to save the plot into
   #'
   #' @return Saves the plot in the plots folder with a timestamp
   #'
@@ -67,7 +74,7 @@ plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi 
     ),
     plot = input_plot,
     device = "png",
-    path = here::here("outputs/plots/"),
+    path = paste0(folder, "/"),
     units = "cm",
     width = input_width,
     height = input_height,
@@ -705,10 +712,14 @@ read_percent_138_results <- function(file, sheet = "Amplifications") {
 
 pansolidv2_excel_regex <- "^Annotated(_|_v2.+_)WS\\d{6}_.+.xlsx"
 
-get_annotated_filepaths <- function(worksheet, full_names = TRUE) {
+get_annotated_filepaths <- function(
+    repository_path = "S:/central shared/Genetics/Repository/WorksheetAnalysedData/",
+    worksheet, full_names = TRUE) {
   
   #' Get the filepaths of PanSolid results Excels from the S drive
   #'
+  #' @param repository_path The filepath for the worksheet repository - defaults to 
+  #' the standard S drive location.
   #' @param worksheet The PanSolid worksheet
   #' @param full_names TRUE or FALSE
   #'
@@ -718,8 +729,6 @@ get_annotated_filepaths <- function(worksheet, full_names = TRUE) {
   #' folder structure
   #'
   #' @examples get_annotated_filepaths(worksheet = "WS140721")
-  
-  repository_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
   
   annotated_filepaths <- list.files(path = str_c(repository_path, {{ worksheet }},
                                                  "/"),
@@ -757,13 +766,63 @@ get_amp_sheetname <- function(filepath) {
 
 # Primers ---------------------------------------------------------------------------
 
-grch38_primers <- read_csv(file =
-                             here::here("data/primers/CDHS-40079Z-11284.primer3_Converted.csv"),
+grch38_primers <- read_csv(file = paste0(data_folder,
+                                         "primers/CDHS-40079Z-11284.primer3_Converted.csv"),
                            show_col_types = FALSE) |> 
   janitor::clean_names()
 
 grch38_primer_coordinates <- extract_cnv_coordinates(df = grch38_primers,
                                                      cnv_coord_col = region)
+
+count_primers_in_region <- function(chrom, coord1, coord2, df) {
+  #' Count the QIAseq primers within a region
+  #'
+  #' @param chrom The chromosome of the region of interest
+  #' @param coord1 The first coordinate of the region of interest
+  #' @param coord2 The second coordinate of the region of interest
+  #' @param df The dataframe containing the primer coordinate information.
+  #' This should be in the format of one primer per row with one column each for the 
+  #' primer start and end coordinates. 
+  #' 
+  #' @return Returns the number of primers within the specified region
+  #' 
+  #' @examples count_primers_in_region(chrom = "17", coord1 = 39700064,
+  #' coord2 = 39728658)
+  
+  if(typeof(chrom) != "character") {
+    stop("Chromosome argument must be a character")
+  }
+  
+  if (typeof(coord1) != "double" |
+      typeof(coord2) != "double") {
+    stop("Coordinates must be type double")
+  }
+  
+  if(!("primer_start" %in% colnames(df) & "primer_end" %in% colnames(df))) {
+    stop("Primer dataframe does not contain primer_start and primer_end columns")
+  }
+  
+  region_start <- min(coord1, coord2)
+  
+  region_end <- max(coord1, coord2)
+  
+  df2 <- df |> 
+    filter(chromosome == chrom) |> 
+    mutate(in_region = case_when(
+      
+      (primer_start >= region_start &
+         primer_start <= region_end) |
+        (primer_end >= region_start &
+           primer_end <= region_end) ~"Yes",
+      TRUE ~"No"
+      
+    ))
+  
+  primers_in_region <- sum(df2$in_region == "Yes")
+  
+  return(primers_in_region)
+  
+}
 
 # Genes and exons -------------------------------------------------------------------
 
@@ -795,14 +854,14 @@ read_ensembl_exon_table <- function(filename) {
   
 }
 
-gene_labels <- read_excel(path = here::here("data/transcripts/gene_labels.xlsx"),
+gene_labels <- read_excel(path = paste0(data_folder, "transcripts/gene_labels.xlsx"),
                         col_types = c("text", "text", "text", "text",
                                       "numeric", "numeric")) |> 
   mutate(y_value = "Genes",
          # Place gene label half-way along gene locus
          start = pmin(gene_start, gene_end) + ((pmax(gene_start, gene_end) - pmin(gene_start, gene_end)) / 2))
 
-transcript_files <- list.files(here::here("data/transcripts/"), full.names = TRUE,
+transcript_files <- list.files(paste0(data_folder, "transcripts/"), full.names = TRUE,
                                pattern = ".csv")
 
 all_transcripts <- transcript_files |>
@@ -1099,21 +1158,21 @@ draw_lod_gene_plot <- function(df, chromosome, gene) {
 
 # ddPCR functions -------------------------------------------------------------------
 
-read_biorad_csv <- function(worksheet, repo = "data/ddpcr_data/") {
+read_biorad_ddpcr_csv <- function(filepath) {
   
   #' Read a CSV file from a BioRad ddPCR experiment as a data-frame
   #'
-  #' @param worksheet The full ddPCR worksheet filename, which must be located in the
-  #' ddpcr_data folder
+  #' @param filepath The full filepath of the CSV
   #'
-  #' @return The data as a data-frame with column names in snakecase.
-  #'
-  #' @note This function is designed to handle droplet digital polymerase chain reaction
+  #' @return The data as a data-frame with column names in snakecase and 
+  #' appropriate column types.
+  #' 
+  #' @note This function is designed to handle droplet digital polymerase chain reaction 
   #' (ddPCR) csv files exported from Quantasoft v1.7.4 (BioRad).
   #'
-  #' @examples ddpcr <- read_biorad_csv("WS138419_analysed.csv")
+  #' @examples read_biorad_csv(here("WS138419_analysed.csv"))
   
-  output <- read_csv(here::here(str_c(repo, worksheet)), 
+  ddpcr_df <- read_csv(filepath, 
               col_types = cols(
                 "Well" = "c",
                 "ExptType" = "c",
@@ -1170,10 +1229,18 @@ read_biorad_csv <- function(worksheet, repo = "data/ddpcr_data/") {
                 "TotalFractionalAbundanceMin68" = "d",
                 "PoissonFractionalAbundanceMax68" = "d",                
                 "PoissonFractionalAbundanceMin68" = "d")) |> 
-  janitor::clean_names() |> 
-  mutate(sample_well = str_c(sample, "_", well),
-         worksheet = worksheet,
-         labno = sample)
+  janitor::clean_names() 
+  
+  if(ncol(ddpcr_df) != 63) {
+    stop("Incorrect number of columns in ddPCR dataframe")
+  }
+  
+  if(nrow(ddpcr_df) == 0) {
+    stop("No rows in ddPCR dataframe")
+  }
+  
+  output <- ddpcr_df |> 
+    mutate(filepath = filepath)
   
   return(output)
   
@@ -1216,7 +1283,8 @@ join_pansolid_submission_sheets <- function() {
   #' 
   #' sample_info <- pansolid_sheets |> filter(labno == "12345678")
   
-  pansolid_submission_2023 <- read_excel(path = here::here("data/dna_submission_sheets/DNA PanSolid QIAseq Submission Sheet 2023.xlsx")) |> 
+  pansolid_submission_2023 <- read_excel(path = paste0(data_folder, 
+                                                       "dna_submission_sheets/DNA PanSolid QIAseq Submission Sheet 2023.xlsx")) |> 
     janitor::clean_names() |> 
     rename(stock_qubit = stock_qubit_ng_m_l) |> 
     mutate(submission_sheet = "2023",
@@ -1224,7 +1292,7 @@ join_pansolid_submission_sheets <- function() {
     select(date_submitted, labno, sample_name,
            panel, enrichment, stock_qubit, submission_sheet)
   
-  pansolid_submission_2024 <- read_excel(path = here::here("data/dna_submission_sheets/PanSolid Submission sheet 2024.xlsx"),
+  pansolid_submission_2024 <- read_excel(path = paste0(data_folder, "dna_submission_sheets/PanSolid Submission sheet 2024.xlsx"),
                                          sheet = "PanSolid samples") |> 
     janitor::clean_names()  |> 
     rename(stock_qubit = stock_qubit_ng_m_l) |> 
@@ -1234,7 +1302,8 @@ join_pansolid_submission_sheets <- function() {
            panel, enrichment, stock_qubit, submission_sheet)
   
   # Pansolid began in 2022 so the initial runs were recorded on the Qiaseq spreadsheet
-  pansolid_submission_2022 <- read_excel(path = here::here("data/dna_submission_sheets/QIAseq DNA PanSolid Sample Submission 2022.xlsx")) |> 
+  pansolid_submission_2022 <- read_excel(path = paste0(data_folder, 
+                                                       "dna_submission_sheets/QIAseq DNA PanSolid Sample Submission 2022.xlsx")) |> 
     janitor::clean_names() |> 
     rename(date_submitted = date_sample_submitted,
            stock_qubit = stock_qubit_ng_m_l) |> 
@@ -1302,7 +1371,6 @@ parse_wgs_html_header <- function(html_filepath) {
   return(output)
   
 }
-
 
 parse_wgs_html_pid_text <- function(html_filepath) {
   
@@ -1416,6 +1484,204 @@ parse_wgs_html_table_by_number <- function(html_filepath,
   output_table <- html_tables[[ {{ table_number }}]] |> 
     html_table() |> 
     janitor::clean_names()
+  
+  return(output_table)
+  
+}
+
+wgs_html_variant_type_regex <- regex(
+  r"[
+  (GAIN|LOSS|LOH|INV|DUP|DEL|  # Standard variant types
+  .+)                          # Catch-all category
+  (\(\d{1,3}\)                 # Dosage number
+  |)                           # Value if absent
+  ]",
+  comments = TRUE
+)
+
+parse_wgs_cnv_class <- function(col) {
+  
+  wgs_cnv_class <- str_extract(string = col,
+                               pattern = wgs_html_variant_type_regex,
+                               group = 1)
+  
+  if(anyNA(wgs_cnv_class, recursive = TRUE)) {
+    stop("NA values present")
+  }
+  
+  return(wgs_cnv_class)
+  
+}
+
+parse_wgs_cnv_copy_number <- function(col) {
+  
+  wgs_cnv_copy_number <- parse_number(str_extract(string = {{ col }} ,
+                                                  pattern = wgs_html_variant_type_regex,
+                                                  group = 2))
+  
+  return(wgs_cnv_copy_number)
+  
+}
+
+wgs_html_grch38_coordinates_regex <- regex(
+  r"[
+  (\d{1,2}|X|Y)        # Chromosome
+  :
+  (\d{1,10})           # First coordinate
+  (-|:)
+  (\d{1,10})           # Second coordinate
+  ]",
+  comments = TRUE
+)
+
+parse_wgs_html_grch38_coordinates <- function(col, group) {
+  
+  if(!group %in% c("chromosome", "first coordinate", "second coordinate")) {
+    stop("group must be either chromosome, first coordinate or second coordinate")
+  }
+  
+  group_choice <- case_when(
+    
+    group == "chromosome" ~1,
+    group == "first coordinate" ~2,
+    group == "second coordinate" ~4)
+  
+  output <- str_extract(string  = col,
+                        pattern = wgs_html_grch38_coordinates_regex,
+                        group = group_choice)
+  
+  return(output)
+  
+}
+
+get_gene_list <-  function() {
+  
+  amp_gene_list <- read_excel(path = paste0(data_folder, 
+                                            "gene_lists/pansolid_amplification_gene_list.xlsx"))
+  
+  del_gene_list <- read_excel(path = paste0(data_folder, 
+                                            "gene_lists/pansolid_deletion_gene_list.xlsx"))
+  
+  gene_list <- rbind(amp_gene_list, del_gene_list)
+  
+  return(gene_list)
+  
+}
+
+# Reformatting functions ------------------------------------------------------------
+
+load_gene_table <- function(cnv_type) {
+  
+  if(!cnv_type %in% c("Deletions", "Amplifications")) {
+    stop("cnv_type must be Deletions or Amplifications")
+  }
+  
+  if(cnv_type == "Deletions") {
+    
+    gene_table <- read_excel(path = paste0(data_folder, 
+                                           "gene_lists/pansolid_deletion_gene_list.xlsx"))
+    
+  }
+  
+  if(cnv_type == "Amplifications") {
+    
+    gene_table <- read_excel(path = paste0(data_folder, 
+                                           "gene_lists/pansolid_amplification_gene_list.xlsx"))
+    
+  }
+  
+  return(gene_table)
+  
+}
+
+
+
+reformat_wgs_cnv_result <- function(filepath, cnv_type) {
+  
+  gene_table <- load_gene_table({{ cnv_type }})
+  
+  sample_cnvs <- wgs_data_collated |> 
+    filter(filepath == {{ filepath }}) |> 
+    mutate(gene = str_replace_all(string = gene, pattern = "\\*",
+                                  replacement = ""))
+  
+  if(cnv_type == "Deletions") {
+    
+    sample_cnvs_filtered <- sample_cnvs |> 
+      filter(cnv_class %in% c("LOSS", "DEL")) |> 
+      filter(gene %in% gene_table$gene)
+    
+  }
+  
+  if(cnv_type == "Amplifications") {
+    
+    sample_cnvs_filtered <- sample_cnvs |> 
+      filter(cnv_class %in% c("DUP", "GAIN") 
+             & cnv_copy_number > 10
+      ) |> 
+      filter(gene %in% gene_table$gene)
+    
+  }
+  
+  if(cnv_type == "Deletions") {
+    
+    gene_result_table <- gene_table |> 
+      mutate(wgs_result = case_when(
+        gene %in% sample_cnvs_filtered$gene ~"Loss detected",
+        !gene %in% sample_cnvs_filtered$gene ~"No loss detected"
+      )) 
+    
+  }
+  
+  if(cnv_type == "Amplifications") {
+    
+    gene_result_table <- gene_table |> 
+      mutate(wgs_result = case_when(
+        gene %in% sample_cnvs_filtered$gene ~"Gain detected",
+        !gene %in% sample_cnvs_filtered$gene ~"No gain detected"
+      )) 
+    
+  }
+  
+  output_table <- gene_result_table |> 
+    mutate(filepath = filepath) |> 
+    relocate(filepath)
+  
+  return(output_table)
+  
+}
+
+reformat_pansolid_cnv_result <- function(filepath, cnv_type) {
+  
+  gene_table <- load_gene_table({{ cnv_type }})
+  
+  sample_cnvs <- pansolid_data_collated |> 
+    filter(filepath == {{ filepath }}) |> 
+    filter(gene %in% gene_table$gene)
+  
+  if(cnv_type == "Deletions") {
+    
+    gene_result_table <- gene_table |> 
+      mutate(pansolid_result = case_when(
+        gene %in% sample_cnvs$gene ~"Loss detected",
+        !gene %in% sample_cnvs$gene ~"No loss detected"
+      )) 
+    
+  }
+  
+  if(cnv_type == "Amplifications") {
+    
+    gene_result_table <- gene_table |> 
+      mutate(pansolid_result = case_when(
+        gene %in% sample_cnvs$gene ~"Gain detected",
+        !gene %in% sample_cnvs$gene ~"No gain detected"
+      )) 
+    
+  }
+  
+  output_table <- gene_result_table |> 
+    mutate(filepath = filepath) |> 
+    relocate(filepath)
   
   return(output_table)
   

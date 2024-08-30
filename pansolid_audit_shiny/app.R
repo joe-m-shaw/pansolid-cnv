@@ -6,15 +6,14 @@ library(shiny)
 library(tidyverse)
 library(here)
 
-# Functions -------------------------------------------------------------------------
+# Filepath --------------------------------------------------------------------------
 
+source(here("scripts/set_shared_drive_filepath.R"))
 source(here("functions/cnv_functions.R"))
 
 # Load Data -------------------------------------------------------------------------
 
-collated_data_path <- here("data/live_service_collated_data")
-
-amp_gene_results <- read_csv(str_c(collated_data_path,
+amp_gene_results <- read_csv(str_c(data_folder, "live_service/collated/",
                                    "/live_service_amp_gene_results_collated.csv"),
                              show_col_types = FALSE) |> 
   mutate(filename = str_extract(string = filepath, 
@@ -22,16 +21,16 @@ amp_gene_results <- read_csv(str_c(collated_data_path,
                                                pattern = "\\^", 
                                                replacement = "")))
 
-std_dev_results <- read_csv(str_c(collated_data_path,
+std_dev_results <- read_csv(str_c(data_folder, "live_service/collated/",
                                   "/live_service_std_dev_results_collated.csv"),
                             show_col_types = FALSE) |> 
   rename(noise = st_dev_signal_adjusted_log2_ratios)
 
-percent_138_results <- read_csv(str_c(collated_data_path,
+percent_138_results <- read_csv(str_c(data_folder, "live_service/collated/",
                                       "/live_service_percent_138_results_collated.csv"),
                                 show_col_types = FALSE)
 
-pos_cnv_results <- read_csv(str_c(collated_data_path,
+pos_cnv_results <- read_csv(str_c(data_folder, "live_service/collated/",
                                   "/live_service_pos_cnv_results_collated.csv"),
                             show_col_types = FALSE) |> 
   mutate(gene = factor(gene, levels = unique(amp_gene_results$gene)),
@@ -40,7 +39,7 @@ pos_cnv_results <- read_csv(str_c(collated_data_path,
                                                       pattern = "\\^", 
                                                       replacement = "")))
 
-panel_info <- read_csv(str_c(collated_data_path, 
+panel_info <- read_csv(str_c(data_folder, "live_service/collated/",
                              "/pansolidv2_sample_worksheet_panel_information.csv"),
                        show_col_types = FALSE)
   
@@ -88,6 +87,9 @@ total_samples <- length(unique(std_dev_results$filepath))
 
 samples_per_week <- round(total_samples / weeks_live, 0)
 
+erbb2_qiaseq_core_results <- read_csv(file = paste0(data_folder, 
+                                                    "erbb2_qiaseq_core_results.csv"))
+
 # User Interface --------------------------------------------------------------------
 
 ui <- fluidPage(
@@ -111,8 +113,11 @@ ui <- fluidPage(
            h2("All amplification results"),
            tableOutput("summary_gene_table")),
     column(3,
-           h2("Colorectal referrals"),
+           h2("QIAseq PanSolid Colorectal Results"),
            tableOutput("crc_summary_table")),
+    column(3,
+           h2("QIAseq Core Colorectal Results"),
+           tableOutput("core_erbb2_summary_table"))
   ),
   
   fluidRow(
@@ -190,12 +195,24 @@ server <- function(input, output) {
       rename("Panel" = panel,
              "Cases" = n)
   })
+  
+  output$core_erbb2_summary_table <- renderTable({
     
+    erbb2_qiaseq_core_results |> 
+      count(core_result) |> 
+      arrange(desc(n)) |> 
+      mutate(Percentage = round(n/sum(n) * 100, 1)) |> 
+      rename(Cases = n,
+             `Amplification Result` = core_result)
+    
+  })
+  
   output$crc_summary_table <- renderTable({
     
     crc_erbb2_results |> 
       count(result) |> 
       arrange(desc(n)) |> 
+      mutate(Percentage = round(n/sum(n) * 100, 1)) |> 
       rename(Cases = n,
              `Amplification Result` = result)
     

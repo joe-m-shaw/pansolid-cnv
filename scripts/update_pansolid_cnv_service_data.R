@@ -6,23 +6,25 @@ library(tidyverse)
 library(readxl)
 library(here)
 
-# Functions -------------------------------------------------------------------------
+# Functions and filepaths -----------------------------------------------------------
 
+source(here("scripts/set_shared_drive_filepath.R"))
 source(here("functions/cnv_functions.R"))
 
 # S drive filepaths -----------------------------------------------------------------
 
-pansolidv2_worksheets <- read_excel(here("data/pansolid_live_service_worksheets.xlsx"))
+pansolidv2_worksheets <- read_excel(paste0(data_folder,
+                                           "live_service/pansolid_live_service_worksheets.xlsx"))
 
 worksheet_list <- list(pansolidv2_worksheets$worksheet)
 
 s_drive_filepaths <- worksheet_list |> 
-  map(\(worksheet_list) get_annotated_filepaths(worksheet_list)) |> 
+  map(\(worksheet_list) get_annotated_filepaths(worksheet = worksheet_list)) |> 
   flatten()
 
-worksheet_labno_regex <- "(WS\\d{6})_(\\d{6,8})_"
+worksheet_labno_regex <- "(WS\\d{6})_(\\d{6,8})(|a|b|c|d)_"
 
-panel_regex <-".+WorksheetAnalysedData/WS\\d{6}/(\\w{1,30})/(Ann.+|Genotyped/Ann.+)"
+panel_regex <-".+WorksheetAnalysedData/WS\\d{6}/(\\w{1,30})/.+"
 
 s_drive_file_df <- tibble(
   filepath = unlist(s_drive_filepaths)) |> 
@@ -49,14 +51,14 @@ if (anyNA(s_drive_file_df)) {
 }
 
 write.csv(s_drive_file_df, 
-          here(str_c("data/live_service_collated_data/",
-                           "pansolidv2_sample_worksheet_panel_information.csv")),
+          paste0(data_folder, "live_service/collated/",
+                 "pansolidv2_sample_worksheet_panel_information.csv"),
           row.names = FALSE)
 
-# Local drive filepaths -------------------------------------------------------------
+# Single folder filepaths -----------------------------------------------------------
 
-local_drive_file_df <- tibble(
-  filepath = unlist(list.files(here("data/live_service_annotated_files/"),
+single_folder_file_df <- tibble(
+  filepath = unlist(list.files(paste0(data_folder, "live_service/raw/"),
                                full.names = TRUE))) |> 
   mutate(filename = str_extract(string = filepath, 
                                 pattern = str_replace(string = pansolidv2_excel_regex, 
@@ -69,20 +71,20 @@ local_drive_file_df <- tibble(
 # Identify and copy new files -------------------------------------------------------
 
 new_files <- s_drive_file_df |> 
-  filter(!filename %in% local_drive_file_df$filename &
+  filter(!filename %in% single_folder_file_df$filename &
            labno != "24023280")
 
 if (nrow(new_files) > 0) {
   
   file.copy(from = new_files$filepath, 
-            to = here("data/live_service_annotated_files/"))
+            to = paste0(data_folder, "live_service/raw/"))
   
 }
 
-# Get new file local filepaths ------------------------------------------------------
+# Get new single folder filepaths ---------------------------------------------------
 
-local_drive_file_df <- tibble(
-  filepath = unlist(list.files(here("data/live_service_annotated_files/"),
+single_folder_file_df <- tibble(
+  filepath = unlist(list.files(paste0(data_folder, "live_service/raw/"),
                                full.names = TRUE))) |> 
   mutate(filename = str_extract(string = filepath, 
                                 pattern = str_replace(string = pansolidv2_excel_regex, 
@@ -93,47 +95,45 @@ local_drive_file_df <- tibble(
                              group = 1))
 
 samples_without_amp_tabs <- c("24023280", "24025207", "24027566", "24033006",
-                              "24033959")
+                              "24033959", "24038848")
 
-new_file_local_paths_df <- local_drive_file_df |> 
+new_file_paths_df <- single_folder_file_df |> 
   filter(filename %in% new_files$filename & 
            # Remove samples without "Amplifications" tab
            !labno %in% samples_without_amp_tabs)
 
-new_file_local_paths <- list(new_file_local_paths_df$filepath) |> 
+new_file_paths <- list(new_file_paths_df$filepath) |> 
   flatten()
 
 # Collate new file data -------------------------------------------------------------
 
-new_amp_gene_collated <- new_file_local_paths |> 
-  map(\(new_file_local_paths) 
-      read_all_amp_genes_results(file = new_file_local_paths,
-                                 sheet = get_amp_sheetname(new_file_local_paths))) |> 
+new_amp_gene_collated <- new_file_paths |> 
+  map(\(new_file_paths) 
+      read_all_amp_genes_results(file = new_file_paths,
+                                 sheet = get_amp_sheetname(new_file_paths))) |> 
   list_rbind()
 
-new_pos_cnv_collated <- new_file_local_paths |> 
-  map(\(new_file_local_paths) 
-      read_pos_cnv_results(file = new_file_local_paths,
-                           sheet = get_amp_sheetname(new_file_local_paths))) |> 
+new_pos_cnv_collated <- new_file_paths |> 
+  map(\(new_file_paths) 
+      read_pos_cnv_results(file = new_file_paths,
+                           sheet = get_amp_sheetname(new_file_paths))) |> 
   list_rbind()
 
-new_std_dev_collated <- new_file_local_paths |> 
-  map(\(new_file_local_paths) 
-      read_stdev_results(file = new_file_local_paths,
-                         sheet = get_amp_sheetname(new_file_local_paths))) |> 
+new_std_dev_collated <- new_file_paths |> 
+  map(\(new_file_paths) 
+      read_stdev_results(file = new_file_paths,
+                         sheet = get_amp_sheetname(new_file_paths))) |> 
   list_rbind()
 
-new_percent_138_collated <- new_file_local_paths |> 
-  map(\(new_file_local_paths) 
-      read_percent_138_results(file = new_file_local_paths,
-                               sheet = get_amp_sheetname(new_file_local_paths))) |> 
+new_percent_138_collated <- new_file_paths |> 
+  map(\(new_file_paths) 
+      read_percent_138_results(file = new_file_paths,
+                               sheet = get_amp_sheetname(new_file_paths))) |> 
   list_rbind()
 
 # Load previously collated data -----------------------------------------------------
 
-collated_data_path <- here("data/live_service_collated_data")
-
-amp_gene_results <- read_csv(str_c(collated_data_path, 
+amp_gene_results <- read_csv(str_c(data_folder, "live_service/collated/",
                                    "/live_service_amp_gene_results_collated.csv"),
                              col_types = list(
                                worksheet = col_character(),
@@ -148,7 +148,7 @@ amp_gene_results <- read_csv(str_c(collated_data_path,
                                min_region_fold_change = col_double()
                              ))
 
-std_dev_results <- read_csv(str_c(collated_data_path,
+std_dev_results <- read_csv(str_c(data_folder, "live_service/collated/", 
                                   "/live_service_std_dev_results_collated.csv"),
                             col_types = list(
                               worksheet = col_character(),
@@ -161,7 +161,7 @@ std_dev_results <- read_csv(str_c(collated_data_path,
                               st_dev_signal_adjusted_log2_ratios = col_double()
                             ))
 
-percent_138_results <- read_csv(str_c(collated_data_path,
+percent_138_results <- read_csv(str_c(data_folder, "live_service/collated/", 
                                       "/live_service_percent_138_results_collated.csv"),
                                 col_types = list(
                                   worksheet = col_character(),
@@ -174,7 +174,7 @@ percent_138_results <- read_csv(str_c(collated_data_path,
                                   percent_whole_panel_covered_at_138x = col_double()
                                 ))
 
-pos_cnv_results <- read_csv(str_c(collated_data_path,
+pos_cnv_results <- read_csv(str_c(data_folder, "live_service/collated/", 
                                   "/live_service_pos_cnv_results_collated.csv"),
                             col_types = list(
                               worksheet = col_character(),
@@ -260,62 +260,60 @@ if(all(nrow(new_amp_gene_collated) > 0,
 # Each PanSolid worksheet should have 48 samples on
 expected_file_number <- (length(unique(pansolidv2_worksheets$worksheet)) * 48)
 
-file_number <- length(list.files(here("data/live_service_annotated_files/"), 
+file_number <- length(list.files(paste0(data_folder, "live_service/raw/"), 
                                  pattern = ".xlsx"))
 
-if(expected_file_number != file_number) {
-  message(str_c("Check: ", expected_file_number, " files predicted and ",
+message(str_c("Check: ", expected_file_number, " files predicted and ",
                 file_number, " files found."))
-}
 
 # Archive previous collated data ----------------------------------------------------
 
 write.csv(amp_gene_results,
-          here(str_c("data/live_service_collated_data/archived_collated_data/",
+          paste0(data_folder, "live_service/collated/archive/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
-                           "live_service_amp_gene_results_collated.csv")),
+                           "live_service_amp_gene_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(std_dev_results,
-          here(str_c("data/live_service_collated_data/archived_collated_data/",
+          paste0(data_folder, "live_service/collated/archive/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
-                           "live_service_std_dev_results_collated.csv")),
+                           "live_service_std_dev_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(pos_cnv_results,
-          here(str_c("data/live_service_collated_data/archived_collated_data/",
+          paste0(data_folder, "live_service/collated/archive/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
-                           "live_service_pos_cnv_results_collated.csv")),
+                           "live_service_pos_cnv_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(percent_138_results,
-          here(str_c("data/live_service_collated_data/archived_collated_data/",
+          paste0(data_folder, "live_service/collated/archive/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
-                           "live_service_percent_138_results_collated.csv")),
+                           "live_service_percent_138_results_collated.csv"),
           row.names = FALSE)
 
 # Save updated collated data --------------------------------------------------------
 
 write.csv(amp_gene_results_updated,
-          here(str_c("data/live_service_collated_data/",
-                           "live_service_amp_gene_results_collated.csv")),
+          paste0(data_folder, "live_service/collated/",
+                           "live_service_amp_gene_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(std_dev_results_updated,
-          here(str_c("data/live_service_collated_data/",
-                           "live_service_std_dev_results_collated.csv")),
+          paste0(data_folder, "live_service/collated/",
+                           "live_service_std_dev_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(pos_cnv_results_updated,
-          here(str_c("data/live_service_collated_data/",
-                           "live_service_pos_cnv_results_collated.csv")),
+          paste0(data_folder, "live_service/collated/",
+                           "live_service_pos_cnv_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(percent_138_results_updated,
-          here(str_c("data/live_service_collated_data/",
-                           "live_service_percent_138_results_collated.csv")),
+          paste0(data_folder, "live_service/collated/",
+                           "live_service_percent_138_results_collated.csv"),
           row.names = FALSE)

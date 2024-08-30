@@ -1,0 +1,323 @@
+---
+title: "WGS Cohort PanSolid Analysis"
+author: "Joe Shaw, Clinical Scientist (CS20980)"
+date: today
+date-format: "DD/MM/YYYY"
+format: pdf
+editor: visual
+---
+
+```{r}
+#| label: packages
+#| include: FALSE
+#| warning: FALSE
+
+library(here)
+
+source(here("scripts/set_shared_drive_filepath.R"))
+
+```
+
+# Introduction
+
+This is a comparison of the results from the PanSolid pipeline for somatic amplifications and deletions with the results from whole genome sequencing (WGS).
+
+WGS somatic copy number variant (CNV) calls in domains 1-3 were extracted from the HTML reports using the collate_wgs_htmls.R script.
+
+PanSolid results were collated from the exported Excels using the collate_pansolid_deletion_cohort_excels.R script.
+
+Both collated datasets were then reformatted with the reformat_pansolid_and_wgs_data.R script.
+
+```{r}
+#| label: reformat-data
+#| include: FALSE
+
+source(here("scripts/additional_scripts/reformat_pansolid_and_wgs_data.R"))
+
+```
+
+This script has the following caveats:
+
+-   Only the 9 genes on the PanSolid amplification genes list and the 20 genes on the deletion genes list are analysed.
+
+-   The analysis is split in terms of gains and losses - amplification genes are only examined for gains and deletion genes are only examined for losses. For example, the WGS may detect a loss of the SUFU gene, which is on the PanSolid amplifications list and so a loss is not reported. This counts as an agreement between the two methods, because both methods agree that there is a not a gain in this gene.
+
+-   When a target gene is not listed in any of the CNV tables in the WGS HTML report, it is inferred that the result for this gene was normal.
+
+-   Likewise, if a target gene is not listed in the PanSolid Excel output, it is inferred that the result for this gene was normal.
+
+```{r}
+#| label: gene-lists
+#| include: FALSE
+
+del_gene_table <- read_excel(path = paste0(data_folder, 
+                                           "pansolid_deletion_gene_list.xlsx"))
+
+amp_gene_table <- read_excel(path = paste0(data_folder, 
+                                           "pansolid_amplification_gene_list.xlsx"))
+```
+
+# The Samples
+
+I have restricted the comparison to 7 samples which have the following criteria:
+
+-   DNA for the same patient was tested by both PanSolid and WGS
+
+-   The DNA tested on PanSolid was from the same pathology block as the DNA tested by WGS
+
+-   The DNA tested on PanSolid was extracted by the QIAsymphony method
+
+-   The PanSolid result had a signal-adjusted noise value below 1
+
+```{r}
+#| label: sample-selection
+#| echo: FALSE
+
+pansolid_sample_selection <- pansolid_ids |> 
+  filter(nhsno %in% wgs_reformatted_with_ids$nhs_no_clean) |> 
+  #filter(method_name == "QIAsymphony_DNA_FFPE") |> 
+  # One patient has 2 QIAsymphony extractions with the same Pansolid results
+  # I've arbitrarily chosen one to include
+  filter(!labno %in% c("24030945", 
+                      # This sample pathology block does not match the WGS
+                      "24018922",
+                      # This sample has a signal-adjusted noise above 1
+                      "24030364")) |> 
+  select(-patient_name) |> 
+  left_join(wgs_html_ids |> 
+              select(patient_name, wgs_r_no, wgs_p_no, nhs_no_clean), 
+            join_by("nhsno" == "nhs_no_clean")) |> 
+  select(c(worksheet, labno))
+
+knitr::kable(pansolid_sample_selection)
+
+```
+
+{{< pagebreak >}}
+
+# The Comparison
+
+I can then compare the results for these samples.
+
+```{r}
+#| label: compare-results
+#| include: FALSE
+
+wgs_pansolid_comparison <- ps_reformatted_with_ids |> 
+  mutate(cnv_category = case_when(
+    gene %in% del_gene_table$gene ~"Deletions",
+    gene %in% amp_gene_table$gene ~"Amplifications"
+  )) |> 
+  filter(labno %in% pansolid_sample_selection$labno) |> 
+  left_join(wgs_reformatted_with_ids |> 
+              select(nhs_no_clean, gene, wgs_result, wgs_pathno), join_by(nhsno == nhs_no_clean,
+                                              gene == gene)) |> 
+  mutate(outcome = case_when(
+    (wgs_result == "Loss detected" & pansolid_result == "Loss detected") |
+      (wgs_result == "Gain detected" & pansolid_result == "Gain detected") ~"true_positive",
+    
+    (wgs_result == "No loss detected" & pansolid_result == "No loss detected") |
+      (wgs_result == "No gain detected" & pansolid_result == "No gain detected") ~"true_negative",
+    
+    (wgs_result == "Loss detected" & pansolid_result == "No loss detected") |
+      (wgs_result == "Gain detected" & pansolid_result == "No gain detected") ~"false_negative",
+    
+    (wgs_result == "No loss detected" & pansolid_result == "Loss detected") |
+      (wgs_result == "No gain detected" & pansolid_result == "Gain detected") ~"false_positive"
+    
+  )) |> 
+  relocate(filepath, method_name)
+
+write.csv(x = wgs_pansolid_comparison, file = paste0(outputs_folder, "tables/",
+                                                     format(Sys.time(),
+                                                            "%Y_%m_%d_%H_%M_%S"),
+                                                     "_",
+                                                     "wgs_pansolid_comparison.csv"),
+          row.names = FALSE)
+
+```
+
+Here is the summary of results by each gene, including the overall percent agreement (OPA).
+
+```{r}
+#| label: gene-comparison-summary
+#| echo: FALSE
+#| message: FALSE
+
+gene_accuracy_summary <- wgs_pansolid_comparison |> 
+  group_by(cnv_category, gene, outcome) |> 
+  count() |> 
+  pivot_wider(id_cols = c(cnv_category, gene),
+              names_from = outcome,
+              values_from = n,
+              values_fill = 0) |> 
+  select(gene, true_positive, true_negative, false_positive, false_negative) |> 
+  mutate(total = true_negative + true_positive + false_positive + false_negative,
+         opa = round((true_negative + true_positive) / total, 2),
+         sens = round(true_positive / (true_positive + false_negative), 2),
+         spec = round(true_negative / (true_negative + false_positive), 2))
+
+knitr::kable(gene_accuracy_summary)
+
+```
+
+{{< pagebreak >}}
+
+And here is the summary of results by each CNV class.
+
+```{r}
+#| label: total-comparison-summary
+#| echo: FALSE
+
+accuracy_summary <- wgs_pansolid_comparison |> 
+  group_by(cnv_category, outcome) |> 
+  count() |> 
+  pivot_wider(id_cols = cnv_category,
+              names_from = outcome,
+              values_from = n,
+              values_fill = 0) |> 
+  select(cnv_category, true_positive, true_negative, false_positive, false_negative) |> 
+  mutate(total = true_negative + true_positive + false_positive + false_negative,
+         opa = round((true_negative + true_positive) / total, 2),
+         sens = round(true_positive / (true_positive + false_negative), 2),
+         spec = round(true_negative / (true_negative + false_positive), 2))
+
+knitr::kable(accuracy_summary)
+
+```
+
+Notably the sensitivity for amplifications is poor due to a high number of "false negatives". When I looked at the WGS reports, the majority of these cases where copy numbers of 3 reported for recurring genes like BRAF, MET, MYC and EGFR.
+
+PanSolid is designed to detect amplifications with 10 or more copies when the neoplastic cell content is 50%.
+
+If I rerun the analysis by classifying WGS copy numbers below 10 as "not amplified" then the sensitivity of PanSolid for amplifications increases to 74%.
+
+{{< pagebreak >}}
+
+# Fold change versus copy number
+
+Being able to distinguish between heterozygous and homozygous deletions is clinically useful for certain genes.
+
+There is a general trend that genes with copy numbers of 0 on WGS have lower PanSolid fold change, except for one sample for CDKN2A.
+
+Note: CDKN2A and CDKN2B are contained within the same deletion call, so I have not included a separate CDKN2B facet on this plot.
+
+```{r}
+#| label: fold-change-and-copy-number
+#| echo: FALSE
+
+wgs_data_with_ids <- wgs_data_collated |> 
+  left_join(wgs_html_ids, by = "filepath",
+            relationship = "many-to-one") |> 
+  mutate(category = "WGS")
+
+pansolid_data_with_ids <- pansolid_data_collated |> 
+  left_join(pansolid_ids, by = "filepath",
+            relationship = "many-to-one") |> 
+  mutate(category = "Pansolid")
+
+fold_change_copy_number_df <- pansolid_data_with_ids |> 
+  filter(gene %in% del_gene_table$gene &
+           gene != "CDKN2B") |> 
+  filter(labno %in% pansolid_sample_selection$labno) |> 
+  select(labno, nhsno, gene, fold_change_adjusted) |> 
+  left_join(
+    wgs_data_with_ids |> 
+  mutate(gene = str_replace_all(string = gene, pattern = "\\*",
+                                replacement = "")) |> 
+      filter(gene %in% del_gene_table$gene &
+               cnv_class %in% c("LOSS", "DEL")) |> 
+  
+      select(nhs_no_clean, cnv_class, cnv_copy_number, gene),
+  
+  join_by("nhsno" == "nhs_no_clean",
+                       "gene" == "gene")) |> 
+  filter(!is.na(cnv_copy_number))
+
+ggplot(fold_change_copy_number_df, 
+       aes(x = cnv_copy_number, y = fold_change_adjusted)) +
+  geom_jitter(pch = 21, height = 0.05, width = 0.05) +
+  theme_bw() +
+  facet_wrap(~gene) +
+  scale_x_continuous(limits = c(-0.5, 1.5),
+                     breaks = c(0, 1)) +
+  scale_y_continuous(limits = c(-15, 0),
+                     breaks = c(0, -5, -10, -15)) +
+  labs(x = "WGS copy number", y = "PanSolid fold change",
+       title = "Comparison of deletions detected on WGS and PanSolid")
+
+```
+
+# Conclusion
+
+The PanSolid pipeline seems to have high concordance with WGS for detecting deletions and amplifications above 10 copies for the 29 genes of interest.
+
+Next steps will be:
+
+-   Check the concordance of the deleted and amplified regions identified by WGS and PanSolid for each gene.
+
+-   Investigate the remaining false negatives and false positives.
+
+# Sample numbers
+
+```{r}
+#| label: sample-count-by-gene
+#| echo: FALSE
+
+wgs_sample_gene_count <- wgs_reformatted_with_ids |> 
+  filter(nhs_no_clean %in% wgs_pansolid_comparison$nhsno) |> 
+  mutate(wgs_code = case_when(
+    
+    wgs_result %in% c("No gain detected", "No loss detected") ~"wgs_negative",
+    
+    wgs_result %in% c("Gain detected", "Loss detected") ~"wgs_positive"
+    )) |> 
+  group_by(gene, wgs_code) |> 
+  summarise(total = n()) |> 
+  pivot_wider(id_cols = gene, 
+              names_from = wgs_code,
+              values_from = total,
+              values_fill = 0)
+
+seraseq_genes <- c("AKT2", "BRAF", "EGFR", "ERBB2", "FGFR3", "KIT", "KRAS",
+                   "MET", "MYC", "MYCN", "NTRK1", "PIK3CA")
+
+seracare_gene_count <- rbind(del_gene_table, amp_gene_table) |> 
+  mutate(seracare_positive = case_when(
+    gene %in% seraseq_genes ~3,
+    TRUE ~0),
+    
+    seracare_negative = case_when(
+      gene %in% seraseq_genes ~1,
+      TRUE ~0))
+
+ddpcr_gene_count <- rbind(del_gene_table, amp_gene_table) |> 
+  mutate(ddpcr_positive = case_when(
+    gene == "ERBB2" ~11,
+    gene == "MYC" ~27,
+    gene == "EGFR" ~3,
+    gene == "MET" ~3,
+    gene == "BRAF" ~1,
+    TRUE ~0),
+    
+    ddpcr_negative = case_when(
+      gene  == "ERBB2" ~43,
+      gene == "MYC" ~33,
+      gene == "EGFR" ~2,
+      gene == "MET" ~2,
+      gene == "BRAF" ~4,
+      TRUE ~0))
+
+sample_summary <- wgs_sample_gene_count |> 
+  inner_join(seracare_gene_count, by = "gene") |> 
+  inner_join(ddpcr_gene_count, by = "gene") |> 
+  mutate(total_negative = sum(wgs_negative, seracare_negative, ddpcr_negative),
+         total_positive = sum(wgs_positive, seracare_positive, ddpcr_positive)
+         ) |> 
+  filter(gene %in% amp_gene_table$gene) |> 
+  select(gene, total_negative, total_positive)
+
+sum(sample_summary$total_negative)
+sum(sample_summary$total_positive)
+
+```
