@@ -1,0 +1,151 @@
+---
+title: "Validation of Detecting Somatic Gene Amplifications with the PanSolid CLC Pipeline"
+format: 
+  docx:
+    reference-doc: DOC6283_template.docx
+toc: true
+toc-title: "Table of Contents"
+number-sections: true
+---
+
+# Introduction
+
+This is me attempting to write a validation document completely in R using Quarto and the Word template provided on QPulse.
+
+```{r}
+#| label: packages
+#| eval: FALSE
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+library(here)
+library(ggpubr)
+library(patchwork)
+library(ggvenn)
+
+source(here::here("functions/cnv_functions.R"))
+
+```
+
+# Methods
+
+Description of methods
+
+## NGS
+
+Text here
+
+## ddPCR
+
+Text here
+
+{{< pagebreak >}}
+
+# Results
+
+Here's an example of some analysis I did on the primers in the PanSolid and Core panels.
+
+```{r}
+#| label: primer-panel-venn-diagram
+#| eval: FALSE
+#| include: FALSE
+
+# Design file sent by Qiagen
+pansolid_v2 <- read_table(here::here("data/primers/QIAseq.CDHS-48608z-11752.primers3.txt"),
+           col_names = c("chromosome", "coordinate", "strand", "sequence"))
+
+# Design file from PanSolid validation document (DOC6024)
+pansolid_v1 <- read_table(here::here("data/primers/407C7BF1.txt"),
+           col_names = c("chromosome", "coordinate", "strand", "sequence"))
+
+core_panel <- read_table(here::here("data/primers/CDHS-17500Z-950.primer3.txt"),
+           col_names = c("chromosome", "coordinate", "strand", "sequence"))
+
+primer_comparison <- list("PanSolidv1.2" = pansolid_v1$sequence, 
+                   "PanSolidv2" = pansolid_v2$sequence,
+                   "Core" = core_panel$sequence)
+
+plot_primer_venn <- ggvenn(primer_comparison,
+                           fill_color = c("#0073C2FF", "#3399FF", "#3366CC"),
+                           text_size = 4,
+                           set_name_size = 4,
+                           show_percentage = FALSE,
+                           stroke_size = 0.5)
+
+plot_primer_venn
+
+```
+
+Here's an example of printing a table using knitr::kable.
+
+```{r}
+#| label: qiaseq-primers
+#| eval: FALSE
+#| include: FALSE
+
+pan_solid_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+                             sheet = "Primer Overlap",
+                             range = "A2:D11024",
+                             col_names = c("chromosome", "coordinates", "sequence",
+                                           "gene"),
+                             col_types = c("text", "text", "text", "text")) |> 
+  mutate(category = "Unique to 44038Z-11379",
+         text = "PanSolid only")
+
+core_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+                        sheet = "Primer Overlap",
+                        range = "G2:J595",
+                        col_names = c("chromosome", "coordinates", "sequence",
+                                      "gene"),
+                        col_types = c("text", "text", "text", "text")) |> 
+  mutate(category = "Unique to 17500Z-950",
+         text = "Core only")
+
+both_panels <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+                          sheet = "Primer Overlap",
+                          range = "L2:O357",
+                          col_names = c("chromosome", "coordinates", "sequence",
+                                        "gene"),
+                          col_types = c("text", "text", "text", "text")) |> 
+  mutate(category = "common to both 44038Z-11379 and 17500Z-950",
+         text = "Both")
+
+stopifnot(intersect(pan_solid_only$sequence, core_only$sequence) == 0)
+
+all_primers <- rbind(pan_solid_only, core_only, both_panels) |> 
+  mutate(gene_clean = case_when(
+    
+    gene == "ERBB2, MIR4728" ~"ERBB2",
+    gene == "EGFR, EGFR-AS1" ~"EGFR",
+    TRUE ~gene)) 
+
+primer_table <- all_primers |> 
+  filter(gene_clean == "ERBB2") |>
+  filter(text != "Core only") |> 
+  group_by(gene_clean, text) |> 
+  summarise(total = n(), .groups = "drop_last") |> 
+  mutate(prop = round(total/sum(total) * 100, 1)) |> 
+  ungroup() |> 
+  pivot_wider(names_from = c(text),
+              values_from = c(total, prop)) |> 
+  arrange(desc(total_Both))
+
+table_ERBB2_Qiaseq_Primers <- primer_table |> 
+  rename(Gene = gene_clean,
+         "Primers shared with Core panel" = total_Both,
+         "Primers shared with Core panel (%)" = prop_Both,
+         "Primers unique to PanSolid" = "total_PanSolid only",
+         "Primers unique to PanSolid (%)" = "prop_PanSolid only") |> 
+  select(Gene, "Primers shared with Core panel",
+         "Primers shared with Core panel (%)",
+         "Primers unique to PanSolid",
+         "Primers unique to PanSolid (%)")
+
+knitr::kable(table_ERBB2_Qiaseq_Primers) 
+
+```
+
+## Conclusions
+
+The idea is that this could cut down on the time it takes me to manually add plots and graphs to validation documents.
