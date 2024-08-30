@@ -24,6 +24,7 @@ The aim is to compare samples results from the PanSolid enrichment to results fo
 library(tidyverse)
 library(here)
 library(patchwork)
+library(janitor)
 
 source(here("scripts/set_shared_drive_filepath.R"))
 source(here("functions/cnv_functions.R"))
@@ -130,11 +131,12 @@ validation_sample_patient_info <- read_csv(paste0(data_folder,
                                ))
 
 cancer_type_summary <- validation_sample_patient_info |> 
-  filter(cancer_type_new != "Reference material") |> 
+  #filter(cancer_type_new != "Reference material") |> 
   count(cancer_type_new) |> 
   rename("Samples" = n,
          "Cancer" = cancer_type_new) |> 
-  arrange(desc(Samples))
+  arrange(desc(Samples)) |> 
+  adorn_totals()
 
 csv_timestamp(cancer_type_summary, paste0(outputs_folder, "tables"))
 
@@ -142,7 +144,8 @@ extraction_type_summary <- validation_sample_patient_info |>
   count(method_name) |> 
   rename("DNA extraction method" = method_name,
          "Samples" = n) |> 
-  arrange(desc(Samples))
+  arrange(desc(Samples)) |> 
+  adorn_totals()
 
 csv_timestamp(extraction_type_summary, paste0(outputs_folder, "tables"))
 
@@ -166,7 +169,8 @@ ncc_summary <- validation_sample_patient_info |>
                                            "No NCC provided"))) |> 
   count(ncc_class) |> 
   rename("Neoplastic cell content" = ncc_class,
-         "Samples" = n)
+         "Samples" = n) |> 
+  adorn_totals()
 
 csv_timestamp(ncc_summary, paste0(outputs_folder, "tables"))
 
@@ -178,7 +182,8 @@ tissue_type_summary <- validation_sample_patient_info |>
   )) |> 
   count(`Tissue type`) |> 
   rename("Samples" = n) |> 
-  arrange(desc(Samples))
+  arrange(desc(Samples)) |> 
+  adorn_totals()
   
 csv_timestamp(tissue_type_summary, paste0(outputs_folder, "tables"))
 
@@ -215,6 +220,28 @@ pansolid_gene_results_table <- validation_all_amp_gene_results_collated |>
   arrange(gene)
   
 csv_timestamp(pansolid_gene_results_table, paste0(outputs_folder, "tables"))
+
+```
+
+# PanSolid results by tumour types
+
+```{r}
+#| label: pansolid-results-by-tumour-type
+#| include: FALSE
+
+validation_results_with_sample_info <- validation_all_amp_gene_results_collated |> 
+  left_join(validation_sample_patient_info, by = "labno")
+
+ggplot(validation_results_with_sample_info, aes(x = gene,
+                                                y = max_region_fold_change)) +
+  geom_point(shape = 21, aes(fill = cancer_type_new))
+
+validation_results_with_sample_info |> 
+  group_by(cancer_type_new, gene, pansolid_call) |> 
+  count() |>  view()
+
+
+unique(validation_results_with_sample_info$cancer_type_new)
 
 ```
 
@@ -427,21 +454,6 @@ plot_timestamp(input_plot = combined_ddpcr_plot,
 
 ```
 
-```{r}
-#| label: ddpcr-seracare
-#| echo: FALSE
-
-seracare_labnos <- c("24002060", "24039975", "24002064", 
-                     "24002067", "24002071", "24039973")
-
-ddpcr_validation_data |> 
-  filter(sample %in% seracare_labnos)
-
-
-
-
-```
-
 {{< pagebreak >}}
 
 ## ddPCR summary
@@ -609,26 +621,6 @@ repeat_plot_worksheet
 
 ```
 
-```{r}
-#| label: limit-of-detection
-#| echo: FALSE
-
-validation_all_amp_gene_results_collated |> 
-  filter(labno == "24039973" & worksheet == "WS144291") |> 
-  mutate(lod_percent = case_when(
-    suffix == "a" ~"30%",
-    suffix == "b" ~"20%",
-    suffix == "c" ~"10%",
-    suffix == "d" ~"0%"
-  )) |> 
-  ggplot(aes(x = gene, y = max_region_fold_change)) +
-  geom_point(shape = 21, size = 2) +
-  theme_bw() +
-  geom_hline(yintercept = 2.8) +
-  facet_wrap(~lod_percent)
-
-```
-
 # Quality control
 
 ```{r}
@@ -645,7 +637,5 @@ ggplot(combined_qc_data, aes(x = st_dev_signal_adjusted_log2_ratios,
                              y = percent_whole_panel_covered_at_138x)) +
   geom_point(shape = 21, aes(fill = method_name)) +
   theme_bw()
-
-
 
 ```
