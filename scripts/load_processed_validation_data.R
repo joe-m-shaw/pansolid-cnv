@@ -85,3 +85,10 @@ validation_sample_patient_info <- read_csv(paste0(data_folder,
                                              "cancer_group" = col_character(),
                                              "method_name" = col_character()
                                            ))
+
+validation_ddpcr_collated <- read_csv(paste0(data_folder, 
+                                             "validation/processed/",
+                                             "validation_ddpcr_collated.csv"),
+                                      col_types = list(
+                                        "sample" = col_character()
+                                      ))
