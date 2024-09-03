@@ -27,6 +27,8 @@ CLC:			Acronym unknown. CLC Bio was acquired by Qiagen in 2013.
 
 CNV:			Copy Number Variant
 
+ddPCR:    droplet digital Polymerase Chain Reaction
+
 EGFR:			Epidermal Growth Factor Receptor
 
 ERBB2:			ERythroBlastic oncogene B 2
@@ -61,6 +63,7 @@ The detection of ERBB2 gene amplifications was validated on the PanSolid enrichm
 #| include: FALSE
 
 library(tidyverse)
+library(knitr)
 library(here)
 library(patchwork)
 library(janitor)
@@ -293,7 +296,162 @@ All data analysed in this validation is saved here:\
 
 {{< pagebreak >}}
 
-# Results
+# Results\
+## Gene amplifications\
+
+## Comparison to ddPCR\
+
+```{r}
+#| label: ddpcr-comparison
+#| include: FALSE
+
+ddpcr_cnv_amp_threshold <- 5
+
+ddpcr_vs_pansolid <- validation_ddpcr_collated |> 
+  mutate(sample_experiment = str_c(sample, "_", experiment)) |> 
+  filter(target == "ch1_target" & 
+           experiment %in% c("MYC Ex3_1",
+                              "BRAF Ex10_1",
+                              "MET Ex2_1",
+                              "EGFR Ex6_1")) |> 
+    filter(!duplicated(sample_experiment)) |>  
+  inner_join(validation_all_amp_gene_results_collated,
+             join_by(sample == labno, 
+                     gene)) |> 
+  mutate(labno_suffix_gene = str_c(labno_suffix, "_", gene)) |> 
+  # Some samples were run twice on PanSolid
+  filter(!duplicated(labno_suffix_gene)) |> 
+  mutate(ddpcr_result = case_when(
+    cnv >= ddpcr_cnv_amp_threshold ~"amplification",
+    cnv < ddpcr_cnv_amp_threshold ~"normal result"),
+    
+    outcome = case_when(
+      
+      ddpcr_result == "amplification" & pansolid_call == "amplification" 
+      ~"true_positive",
+      ddpcr_result == "normal result" & pansolid_call == "normal result" 
+      ~"true_negative",
+      ddpcr_result == "amplification" & pansolid_call == "normal result"
+      ~"false_negative",
+      ddpcr_result == "normal result" & pansolid_call == "amplification" 
+      ~"false_positive"
+    ))
+
+```
+
+```{r}
+#| label: tbl-ddpcr-vs-pansolid
+#| tbl-cap: "PanSolid comparison to ddPCR"
+#| echo: FALSE
+
+ddpcr_summary <- ddpcr_vs_pansolid |> 
+  count(gene, outcome) |> 
+  pivot_wider(id_cols = gene,
+              names_from = outcome,
+              values_from = n,
+              values_fill = 0) |> 
+  mutate(`False positive` = 0) |> 
+  rename(`Gene` = gene,
+         `True negatives` = true_negative,
+         `True positives` = true_positive,
+         `False negatives` = false_negative)
+
+kable(ddpcr_summary)
+
+```
+
+```{r}
+#| label: tbl-ddpcr-false-negatives
+#| echo: FALSE
+
+ddpcr_false_neg_table <- ddpcr_vs_pansolid |> 
+  filter(outcome == "false_negative") |> 
+  mutate(`PanSolid fold change` = round(max_region_fold_change, 1),
+         `ddPCR copy number` = round(cnv, 1)) |> 
+  rename(`ddPCR result` = ddpcr_result,
+         `Lab number` = sample,
+         `Gene` = gene,
+         `PanSolid result` = pansolid_call) |> 
+  select(`Lab number`,  `Gene`, `ddPCR copy number`, 
+         `PanSolid fold change`, `ddPCR result`, `PanSolid result`)
+
+kable(ddpcr_false_neg_table)
+
+```
+
+```{r}
+#| label: fig-ddpcr-vs-pansolid-ngs
+#| fig-cap: "ddPCR vs PanSolid by gene"
+#| echo: FALSE
+
+egfr_met_myc_plot <- ggplot(ddpcr_vs_pansolid |> 
+         filter(gene != "MYC"), aes(x = cnv, y = max_region_fold_change)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  labs(x = "ddPCR copy number",
+       y = "PanSolid fold change",
+       title = "ddPCR vs PanSolid by gene") +
+  ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = 0)  +
+  facet_wrap(~gene)
+
+myc_plot <- ggplot(ddpcr_vs_pansolid |> 
+         filter(gene == "MYC"), aes(x = cnv, y = max_region_fold_change)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  labs(x = "ddPCR copy number",
+       y = "PanSolid fold change") +
+  ggpubr::stat_cor(method = "pearson", label.x = 75, label.y = 10)  +
+  facet_wrap(~gene)
+
+combined_ddpcr_plot <- egfr_met_myc_plot + myc_plot + plot_layout(nrow = 2,
+                                           heights = c(7,7))
+
+combined_ddpcr_plot
+
+```
+
+## Limit of detection\
+
+### SeraCare reference materials\
+
+The Seraseq® TNA (DNA) WT Mix was tested on the PanSolid v2 enrichment on worksheet WS144291 and the +3 copies, +6 copies and +12 copies reference materials were tested on worksheet WS139890. The results for the 5 genes with defined copy number gains in the reference materials which are also on the list of targets for this validation are shown in  Table 1. The whole genome plot for each reference material is shown in Figure 3.\
+
+The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the EGFR and ERBB2 genes for the +3 copies, +6 copies and +12 copies reference materials. Conversely, the PanSolid results for MYC were consistently lower than the predicted fold chance and SeraCare results (Figure 5). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (Figure 6).
+
+
+### SeraCare dilution mixes\
+
+## Repeat testing\
+
+## Quality metrics\
+
+
+{{< pagebreak >}}
+
+# Discussion\
+
+# Review of test requirements\
+
+# Requirement for clinical implementation\
+
+
+# Conclusion\
+
+{{< pagebreak >}}
+
+# References\
+
+
+{{< pagebreak >}}
+
+# Appendix
+
+
+
+
+
+
+
 
 
 
