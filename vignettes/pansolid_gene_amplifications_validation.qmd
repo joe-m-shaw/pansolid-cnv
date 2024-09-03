@@ -132,9 +132,14 @@ gene_coordinate_tbl <- gene_tbl_mod |>
          primers_in_gene) |> 
   left_join(gene_target_counts, 
             join_by("gene" == "name")) |> 
-  rename(targets_in_gene = n)
+  rename(`Targets in gene` = n,
+         `Gene` = gene,
+         `Coordinates (GRCh38)` = grch38_coordinates,
+         `Size (kb)` = gene_size_kb,
+         `Transcript (RefSeq)` = transcript_refseq,
+         `Primers in gene` = primers_in_gene)
 
-knitr::kable(gene_coordinate_tbl)
+kable(gene_coordinate_tbl)
 
 ```
 \
@@ -163,11 +168,11 @@ The requirements for this new method are as follows:\
 
 - **Analysis:** there should be a clear procedure for analysis of copy number variants by laboratory staff.\
 
-# Methodology
+# Methodology\
 
-## Validation Structure
+## Validation Structure\
 
-## Samples
+## Samples\
 
 Samples were received at the North West GLH between December 2019 and July 2024. Details of the normal control cohort used for the PanSolid CLC pipeline are given in the ERBB2 validation document (DOC6260). In total, 94 different samples were tested on the PanSolid version 2 enrichment during this validation.\
 
@@ -188,12 +193,13 @@ tissue_type_summary <- validation_sample_patient_info |>
     arrange(desc(Samples)) |> 
     adorn_totals()
 
-knitr::kable(tissue_type_summary)
+kable(tissue_type_summary)
 
 ```
 
 ```{r}
 #| label: cancer-types-table
+#| tbl-cap: "Sample cancer types"
 #| echo: FALSE
 
 cancer_type_summary <- validation_sample_patient_info |> 
@@ -205,12 +211,13 @@ cancer_type_summary <- validation_sample_patient_info |>
   arrange(desc(Samples)) |> 
   adorn_totals()
 
-knitr::kable(cancer_type_summary)
+kable(cancer_type_summary)
 
 ```
 
 ```{r}
 #| label: extraction-types-table
+#| tbl-cap: "DNA extraction methods"
 #| echo: FALSE
 
 extraction_type_summary <- validation_sample_patient_info |> 
@@ -221,12 +228,13 @@ extraction_type_summary <- validation_sample_patient_info |>
   arrange(desc(Samples)) |> 
   adorn_totals()
 
-knitr::kable(cancer_type_summary)
+kable(extraction_type_summary)
 
 ```
 
 ```{r}
 #| label: ncc-table
+#| tbl-cap: "Sample neoplastic cell contents"
 #| echo: FALSE
 
 ncc_summary <- validation_sample_patient_info |> 
@@ -253,7 +261,7 @@ ncc_summary <- validation_sample_patient_info |>
            "Samples" = n) |> 
     adorn_totals()
 
-knitr::kable(ncc_summary)
+kable(ncc_summary)
 
 ```
 
@@ -265,7 +273,7 @@ Reference materials were ordered from the company SeraCare to act as positive co
 
 The details of the SeraCare controls are shown in Table 8. Note that there were two tubes of both the Seraseq® TNA (DNA) WT Mix and the Seraseq® Solid Tumor CNV Mix, +12 copies mix.\
 
-### Limit of detection DNA mixtures
+### Limit of detection DNA mixtures\
 
 A limit of detection experiment was performed using the Seraseq® Solid Tumor CNV Mix, +12 copies reference material, which represented DNA from tumour cells, and the Seraseq® TNA (DNA) WT Mix, which represented DNA from normal cells. The two reference materials were mixed together to mimic samples with neoplastic cell contents of 30%, 20%, 10% and 0%. The final volume of each DNA mixture was 20 µl and the total DNA concentration was 6 ng/µl, which is the standard input for the PanSolid NGS workflow. These DNA mixtures were made on worksheet WS144265 and run on the PanSolid version 2 NGS workflow on worksheet WS144291. This limit of detection experiment is different to the limit of detection experiment performed on the PanSolid version 1 workflow for the validation of ERBB2 amplifications (DOC6260).\
 
@@ -273,7 +281,7 @@ A limit of detection experiment was performed using the Seraseq® Solid Tumor CN
 
 DNA was extracted using the QIASymphony extraction method (DOC6251: QIAsymphony DNA FFPE Extraction Procedure) and tested on version 2 (CDHS-48608Z-11752) of the PanSolid QIAseq enrichment (DOC5925: QIAseq PanSolid DNA Panel NGS Library Preparation) with sequencing on an Illumina Novaseq. The NGS data described in this validation document comes from 32 worksheets performed between January 2024 and August 2024.\
 
-## Bioinformatic analysis
+## Bioinformatic analysis\
 
 The CLC pipeline, including details of the methodology and quality metrics, is described in the ERBB2 amplifications validation document (DOC6260). All amplification genes were analysed on the “coarse” setting, except for MYC. MYC has only 3 targets on the PanSolid enrichment, and preliminary work showed that the coarse setting could not identify MYC amplifications in positive controls. The “fine” setting was used specifically for MYC to account for the lower number of QIAseq targets. The version of the PanSolid CLC pipeline tested in this validation was PanSolid Workflow v2.2.
 
@@ -360,8 +368,11 @@ kable(ddpcr_summary)
 
 ```
 
+\
+
 ```{r}
 #| label: tbl-ddpcr-false-negatives
+#| tbl-cap: "False negative samples"
 #| echo: FALSE
 
 ddpcr_false_neg_table <- ddpcr_vs_pansolid |> 
@@ -378,6 +389,8 @@ ddpcr_false_neg_table <- ddpcr_vs_pansolid |>
 kable(ddpcr_false_neg_table)
 
 ```
+
+\
 
 ```{r}
 #| label: fig-ddpcr-vs-pansolid-ngs
@@ -410,21 +423,244 @@ combined_ddpcr_plot
 
 ```
 
+{{< pagebreak >}}
+
 ## Limit of detection\
 
 ### SeraCare reference materials\
 
 The Seraseq® TNA (DNA) WT Mix was tested on the PanSolid v2 enrichment on worksheet WS144291 and the +3 copies, +6 copies and +12 copies reference materials were tested on worksheet WS139890. The results for the 5 genes with defined copy number gains in the reference materials which are also on the list of targets for this validation are shown in  Table 1. The whole genome plot for each reference material is shown in Figure 3.\
 
-The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the EGFR and ERBB2 genes for the +3 copies, +6 copies and +12 copies reference materials. Conversely, the PanSolid results for MYC were consistently lower than the predicted fold chance and SeraCare results (Figure 5). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (Figure 6).
+The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the EGFR and ERBB2 genes for the +3 copies, +6 copies and +12 copies reference materials. Conversely, the PanSolid results for MYC were consistently lower than the predicted fold chance and SeraCare results (Figure 5). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (Figure 6).\
 
+```{r}
+#| label: seracare-ngs-comparison
+#| include: FALSE
+
+seracare_gene_copies <- read_csv(file = paste0(data_folder, 
+                                                 "seracare_reference_materials/",
+                                                 "seracare_gene_copies.csv")) |> 
+  mutate(total_copies_ddpcr_seracare = additional_copies_ddpcr + 2,
+         total_copies_ngs_seracare = additional_copies_ngs + 2,
+         reference_material_short = factor(x = reference_material_short,
+                                           levels = c("WT", "3 copies added",
+                                           "6 copies added", "12 copies added")))
+
+seracare_ids <- validation_all_amp_gene_results_collated |> 
+  filter(!duplicated(labno)) |>
+  select(labno, patient_name) |> 
+  inner_join(seracare_gene_copies |> 
+               filter(!duplicated(reference_material)) |> 
+               select(reference_material),
+             join_by("patient_name" == "reference_material"))
+
+
+seracare_ngs_comparison <- validation_all_amp_gene_results_collated |> 
+  # Remove limit of detection samples
+  filter(!(worksheet == "WS144291" & labno ==  "24039973")) |> 
+  # Remove samples run on PanSolid version 1
+  filter(!worksheet == "WS138156") |> 
+  inner_join(seracare_gene_copies, 
+             join_by("patient_name" == "reference_material",
+                     "gene" == "gene")) |> 
+  mutate(
+    total_copies_ngs_pansolid = max_region_fold_change * 2, 
+    patient_name = factor(x = patient_name,
+                               levels = c("CNVMix12CopiesSERASEQ",
+                                          "CNVMix6CopiesSERASEQ",
+                                          "CNVMix3copiesSERASEQ",
+                                          "DNAWTmixSERASEQ")),
+         
+         predicted_fold_change = (expected_additional_copies + 2) / 2)
+
+```
+
+```{r}
+#| label: tbl-seracare-pansolid-ngs
+#| tbl-cap: "SeraCare reference material results"
+#| echo: FALSE
+
+seracare_ngs_comparison_tbl <- seracare_ngs_comparison |>
+  mutate(`Pansolid fold change` = round(max_region_fold_change, 1),
+         `PanSolid total copies` = round(total_copies_ngs_pansolid, 1),
+         `SeraCare NGS total copies` = round(total_copies_ngs_seracare, 1)) |> 
+  rename(`Lab number` = labno,
+         `Reference material` = patient_name,
+         `Gene` = gene,
+         `Predicted fold change` = predicted_fold_change) |> 
+  select(`Lab number`, `Reference material`, `Gene`, `Predicted fold change`, 
+         `Pansolid fold change`,
+         `PanSolid total copies`, `SeraCare NGS total copies`)
+
+kable(seracare_ngs_comparison_tbl)
+
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: fig-seracare-ngs-pansolid
+#| fig-cap: "PanSolid vs SeraCare NGS"
+#| echo: FALSE
+
+seracare_colours <- c(
+  "#009E73",
+  "#F0E442",
+  "#E69F00", 
+  "#D55E00"
+)
+
+ngs_comparison_plot <- ggplot(seracare_ngs_comparison, 
+                              aes(x = total_copies_ngs_pansolid,
+                                    y = total_copies_ngs_seracare )) +
+  geom_abline(linetype = "dashed") +
+  geom_point(shape = 21, size = 3, alpha = 0.6, aes(fill = reference_material_short)) +
+  scale_fill_manual(values = seracare_colours) +
+  ggpubr::stat_cor(method = "pearson", label.x = 0, label.y = 30) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(limits = c(-5, 35), 
+                     breaks = c(0, 10, 20, 30)) +
+  scale_y_continuous(limits = c(-5, 35), 
+                    breaks = c(0, 10, 20, 30)) +
+  facet_wrap(~gene) +
+  labs(x = "Total copies NGS (Manchester)",
+       y = "Total copies NGS (SeraCare)",
+       fill = "")
+
+ngs_comparison_plot
+
+```
+
+```{r}
+#| label: seracare-ddpcr-comparison
+#| include: FALSE
+
+seracare_ddpcr_comparison <- validation_ddpcr_collated |> 
+  filter(target_type == "Ch1Unknown") |> 
+  inner_join(seracare_ids, join_by("sample" == "labno")) |> 
+  inner_join(seracare_gene_copies, join_by("patient_name" == "reference_material",
+                                            "gene" == "gene")) |> 
+  mutate(patient_name = factor(x = patient_name,
+                               levels = c("CNVMix12CopiesSERASEQ",
+                                          "CNVMix6CopiesSERASEQ",
+                                          "CNVMix3copiesSERASEQ",
+                                          "DNAWTmixSERASEQ")))
+
+```
+
+```{r}
+#| label: fig-seracare-ddpcr-pansolid
+#| fig-cap: "ddPCR vs SeraCare"
+#| echo: FALSE
+#| warning: FALSE
+
+ddpcr_comparison_plot <- ggplot(seracare_ddpcr_comparison, 
+                              aes(x = cnv,
+                                  y = total_copies_ddpcr_seracare )) +
+  geom_abline(linetype = "dashed") +
+  geom_point(shape = 21, size = 3, alpha = 0.6, aes(fill = reference_material_short)) +
+  scale_fill_manual(values = seracare_colours) +
+  facet_wrap(~gene) +
+  ggpubr::stat_cor(method = "pearson", label.x = 0, label.y = 20) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(limits = c(0, 25), 
+                     breaks = c(0, 10, 20)) +
+  scale_y_continuous(limits = c(0, 25), 
+                     breaks = c(0, 10, 20)) +
+  labs(x = "Total copies ddPCR (Manchester)",
+       y = "Total copies ddPCR (SeraCare)",
+       caption = "Pearson's coefficient not calculated for genes with only 2 data points",
+       fill = "")
+
+ddpcr_comparison_plot
+
+```
+
+{{< pagebreak >}}
 
 ### SeraCare dilution mixes\
 
+Dilution mixes were prepared to simulate a sample with neoplastic cell contents of 30%, 20%, 10 % and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291. The results for each gene are shown in Table 15, and the whole genome plots are shown in Figure 4. All gene amplifications were detected in the 30% NCC mix, except for MYC. \
+
+```{r}
+#| label: tbl-seracare-dilution-mix-results
+#| tbl-cap: "SeraCare dilution mix results"
+#| echo: FALSE
+
+lod_dilution_mix_results <- validation_all_amp_gene_results_collated |> 
+  filter(labno %in% c("24039973", "24039975") & worksheet == "WS144291") |> 
+  filter(gene %in% c("ERBB2", "EGFR", "BRAF", "MET", "MYC")) |> 
+  mutate(lod_percent = case_when(
+    suffix == "a" ~30,
+    suffix == "b" ~20,
+    suffix == "c" ~10,
+    suffix == "d" ~0
+  ),
+  lod_proportion = lod_percent/ 100,
+  max_region_fold_change = round(max_region_fold_change, 1),
+  predicted_fold_change = ((14 * lod_proportion) + (2 * (1 - lod_proportion))) / 2 ) |> 
+  arrange(lod_percent) |> 
+  rename(`Simulated NCC` = lod_percent,
+         `Gene` = gene,
+         `Predicted PanSolid fold change` = predicted_fold_change,
+         `PanSolid fold change` = max_region_fold_change) |> 
+  select(`Simulated NCC`, `Gene`, `Predicted PanSolid fold change`, `PanSolid fold change`)
+
+kable(lod_dilution_mix_results)
+
+```
+
+{{< pagebreak >}}
+
 ## Repeat testing\
 
-## Quality metrics\
+```{r}
+#| label: fig-repeatability
+#| fig-cap: "Repeatability results"
+#| echo: FALSE
 
+repeat_noise_data <- validation_stdev_results_collated |> 
+  filter(duplicated(labno, fromLast = TRUE) |
+           duplicated(labno, fromLast = FALSE)) |> 
+  # Excel file produced twice as sample is in 2 cohorts
+  filter(labno != "24030966") |> 
+  # This is the limit of detection sample
+  filter(labno != "24039973") |> 
+  filter(!grepl(pattern = "SERA", x = patient_name,
+               ignore.case = TRUE))
+
+repeat_all_amp_data <- validation_all_amp_gene_results_collated |> 
+  filter(labno %in% repeat_noise_data$labno)
+
+low_fold_change_repeat_plot <- ggplot(repeat_all_amp_data |> 
+         filter(labno != "24027774"), aes(x = gene, y = max_region_fold_change)) +
+  geom_jitter(shape = 21, size = 2, width = 0.2) +
+  theme_bw() +
+  geom_hline(yintercept = 2.8, linetype = "dashed") +
+  scale_y_continuous(limits = c(-2, 10),
+                     breaks = c(-2, 0, 2.8, 5, 7.5, 10)) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(~labno) +
+  labs(x = "", y = "Fold change")
+
+high_fold_change_repeat_plot <- ggplot(repeat_all_amp_data |> 
+         filter(labno == "24027774"), aes(x = gene, y = max_region_fold_change)) +
+  geom_jitter(shape = 21, size = 2, width = 0.2) +
+  theme_bw() +
+  geom_hline(yintercept = 2.8, linetype = "dashed") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(~labno) +
+  labs(x = "", y = "Fold change")
+
+repeatability_plots <- low_fold_change_repeat_plot +
+  high_fold_change_repeat_plot + plot_layout(nrow = 2,
+                                             heights = c(5,5))
+
+repeatability_plots
+
+```
 
 {{< pagebreak >}}
 
