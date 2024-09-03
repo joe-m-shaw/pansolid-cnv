@@ -51,17 +51,9 @@ The purpose of this document is to describe the validation of detection of somat
 
 # Introduction\
 
-At the North West GLH, somatic variant testing is performed using the QIAseq methodology (Qiagen) (1) and Illumina next generation sequencing (NGS) using a large panel of QIAseq primer targets named “PanSolid”. The current PanSolid enrichment, referred to as PanSolidv2 (CDHS-48608Z-11752) contains 11,752 unique QIAseq targets. Sequencing data from the PanSolid enrichment is analysed with a pipeline built in the Qiagen CLC Genomic Workbench. Detection of single nucleotide variants and indels on PanSolid has previously been validated (DOC6024 Validation of QIASeq PanSolid Enrichment). Currently, copy number variants (CNVs) are analysed using a separate QIAseq “core” panel with a bespoke pipeline written in Python, with copy number amplifications reported for 4 genes: EGFR, ERBB2, AR and MET. The long-term aim is to move all CNV detection to the PanSolid panel and the CLC pipeline.
+At the North West GLH, somatic variant testing is performed using the QIAseq methodology (Qiagen) (1) and Illumina next generation sequencing (NGS) using a large panel of QIAseq primer targets named “PanSolid”. The current PanSolid enrichment, referred to as PanSolidv2 (CDHS-48608Z-11752) contains 11,752 unique QIAseq targets. Sequencing data from the PanSolid enrichment is analysed with a pipeline built in the Qiagen CLC Genomic Workbench. Detection of single nucleotide variants and indels on PanSolid has previously been validated (DOC6024 Validation of QIASeq PanSolid Enrichment). Currently, copy number variants (CNVs) are analysed using a separate QIAseq “core” panel with a bespoke pipeline written in Python, with copy number amplifications reported for 4 genes: EGFR, ERBB2, AR and MET. The long-term aim is to move all CNV detection to the PanSolid panel and the CLC pipeline.\
 
 The detection of ERBB2 gene amplifications was validated on the PanSolid enrichment in April 2024 (DOC6260: Validation of Detecting Somatic ERBB2 Amplifications with the PanSolid CLC Pipeline). ERBB2 amplifications were prioritised for validation due to service needs, and were validated by comparison with results from droplet digital PCR testing. The aim of this validation document is to validate additional amplification genes on the PanSolid workflow; these genes are specified by the National Genomic Test Directory.\
-
-#	Somatic Gene Amplifications\
-
-Gene amplification is a common mechanism in the development of cancer (2).  Additional gene copies can be present on extra-chromosomal DNA rather than their initial chromosomal loci (3), for example EGFR amplifications can be present on extrachromosomal DNA fragments referred to as “double minutes” (4). “Double minute” refers to a very small (“minute”) bodies of chromatin material with two arms (“double) which were originally visualised by chromosome staining (5).
-
-The number of additional gene copies can vary between genes and tumour types, ranging as high as hundreds of gene copies. There is no consistent accepted threshold of copy number to classify a gene as “amplified”, although many clinical trials use a threshold of 10 copies as an entry requirement.
-
-Gene amplifications can have clinical relevance for choice of treatment and predicting resistance to treatment, particularly amplifications of genes encoding tyrosine kinase membrane receptors. It is predicted that increasing the gene copy number increases the levels of translated protein, which maintains aberrant cell signalling even in the presence of tyrosine kinase inhibitors (TKIs) (6). Historically, gene amplifications were detected with fluorescence in-situ hybridisation (FISH) and immunohistochemistry (IHC), but next generation sequencing (NGS) methods are being increasingly used. The PanSolid enrichment includes 212 genes relevant to cancer. Of these, there are 9 genes which were selected as having amplifications with clinical relevance (Table 1).\
 
 ```{r}
 #| label: packages-and-data
@@ -77,11 +69,129 @@ source(here("scripts/set_shared_drive_filepath.R"))
 
 source(here("scripts/load_processed_validation_data.R"))
 
+source(here("functions/gene_table_functions.R"))
+
+source(here("functions/pansolid_excel_functions.R"))
+
+source(here("functions/primer_functions.R"))
+
+```
+
+##	Somatic Gene Amplifications\
+
+Gene amplification is a common mechanism in the development of cancer (2).  Additional gene copies can be present on extra-chromosomal DNA rather than their initial chromosomal loci (3), for example EGFR amplifications can be present on extrachromosomal DNA fragments referred to as “double minutes” (4). “Double minute” refers to a very small (“minute”) bodies of chromatin material with two arms (“double) which were originally visualised by chromosome staining (5).\
+
+The number of additional gene copies can vary between genes and tumour types, ranging as high as hundreds of gene copies. There is no consistent accepted threshold of copy number to classify a gene as “amplified”, although many clinical trials use a threshold of 10 copies as an entry requirement.\
+
+Gene amplifications can have clinical relevance for choice of treatment and predicting resistance to treatment, particularly amplifications of genes encoding tyrosine kinase membrane receptors. It is predicted that increasing the gene copy number increases the levels of translated protein, which maintains aberrant cell signalling even in the presence of tyrosine kinase inhibitors (TKIs) (6). Historically, gene amplifications were detected with fluorescence in-situ hybridisation (FISH) and immunohistochemistry (IHC), but next generation sequencing (NGS) methods are being increasingly used. The PanSolid enrichment includes 212 genes relevant to cancer. Of these, there are 9 genes which were selected as having amplifications with clinical relevance (@tbl-amplification-coordinates).\
+
+```{r}
+#| label: tbl-amplification-coordinates
+#| tbl-cap: "Gene Coordinates"
+#| warning: FALSE
+#| echo: FALSE
+
+primer_df <- read_csv(paste0(data_folder, 
+                             "primers/QIAseq.CDHS-48608Z-11752.primers3 (Converted).csv")) |> 
+  clean_names()
+
+target_df <- read_csv(paste0(data_folder,
+                             "bed_files/PanSolidv2_GRCh38_noalt_BED.csv")) |> 
+  clean_names()
+
+amp_genes <- load_pansolid_gene_table("Amplifications")
+
+gene_tbl <- read_csv(file = paste0(data_folder, "gene_lists/gene_coordinates.csv"),
+                       col_types = "ccccdd")
+
+primer_df_mod <- extract_cnv_coordinates(df = primer_df, cnv_coord_col = region) |> 
+  mutate(region_length = abs(start-end)) |> 
+  rename(primer_start = start,
+         primer_end = end)
+
+gene_tbl_mod <- gene_tbl |> 
+  mutate(gene_size_kb = round(abs(gene_start - gene_end) / 1000, 1)) |> 
+  rowwise() |> 
+  mutate(primers_in_gene = count_primers_in_region(chrom = chromosome,
+                                                   coord1 = gene_start,
+                                                   coord2 = gene_end,
+                                                   df = primer_df_mod)) |> 
+  filter(gene %in% amp_genes$gene) |> 
+  arrange(gene)
+
+gene_target_counts <- target_df |> 
+  filter(name %in% amp_genes$gene) |> 
+  count(name)
+
+gene_coordinate_tbl <- gene_tbl_mod |> 
+  mutate(grch38_coordinates = str_c("chr", chromosome, ":", gene_start, "-", gene_end)) |> 
+  select(gene, grch38_coordinates, gene_size_kb, transcript_refseq,
+         primers_in_gene) |> 
+  left_join(gene_target_counts, 
+            join_by("gene" == "name")) |> 
+  rename(targets_in_gene = n)
+
+knitr::kable(gene_coordinate_tbl)
+
+```
+\
+```{r}
+#| label: amplification-clinical-relevance
+#| echo: FALSE
+
+
+```
+
+## Requirements
+
+The requirements for this new method are as follows:\
+
+- **Clinical utility:** the test should provide clear results for the 10 listed amplification markers.
+
+- **Clinical validity:** the test should have a defined sensitivity and specificity for these markers, calculated by comparison with an orthogonal test.
+
+- **Dosage accuracy:** it should be shown how accurate the test is at detecting amplifications of different copy number states, expressed as a correlation between the test and copy numbers from an orthogonal test.
+
+- **Quality control:** the test should have clear quality control thresholds for deciding when the test results should be reported and when the test has failed.
+
+- **Variability:** the test should have defined intra-run variation (repeatability) and inter-run variation (repeatability) for these amplifications.
+
+- **Visualisation:** the results should be presented in a clear and visual manner.
+
+- **Analysis:** there should be a clear procedure for analysis of copy number variants by laboratory staff.\
+
+# Methodology
+
+## Validation Structure
+
+## Samples
+
+Samples were received at the North West GLH between December 2019 and July 2024. Details of the normal control cohort used for the PanSolid CLC pipeline are given in the ERBB2 validation document (DOC6260). In total, 94 different samples were tested on the PanSolid version 2 enrichment during this validation.\
+
+```{r}
+#| label: tbl-tissue-types
+#| tbl-cap: "Sample tissue types"
+#| echo: FALSE
+
+tissue_type_summary <- validation_sample_patient_info |> 
+    filter(labno %in% validation_stdev_results_collated$labno) |> 
+    mutate("Tissue type" = case_when(
+      tissue_type == "Shavings" ~"FFPE shavings",
+      tissue_type %in% c("Slides", "Positively-charged slides") ~"FFPE slides",
+      TRUE ~tissue_type
+    )) |> 
+    count(`Tissue type`) |> 
+    rename("Samples" = n) |> 
+    arrange(desc(Samples)) |> 
+    adorn_totals()
+
+knitr::kable(tissue_type_summary)
+
 ```
 
 ```{r}
-#| label: load-pansolid-patient-info
-#| include: FALSE
+#| label: cancer-types-table
+#| echo: FALSE
 
 cancer_type_summary <- validation_sample_patient_info |> 
   filter(labno %in% validation_stdev_results_collated$labno) |> 
@@ -94,6 +204,12 @@ cancer_type_summary <- validation_sample_patient_info |>
 
 knitr::kable(cancer_type_summary)
 
+```
+
+```{r}
+#| label: extraction-types-table
+#| echo: FALSE
+
 extraction_type_summary <- validation_sample_patient_info |> 
   filter(labno %in% validation_stdev_results_collated$labno) |> 
   count(method_name) |> 
@@ -103,6 +219,12 @@ extraction_type_summary <- validation_sample_patient_info |>
   adorn_totals()
 
 knitr::kable(cancer_type_summary)
+
+```
+
+```{r}
+#| label: ncc-table
+#| echo: FALSE
 
 ncc_summary <- validation_sample_patient_info |> 
     filter(labno %in% validation_stdev_results_collated$labno) |> 
@@ -130,467 +252,55 @@ ncc_summary <- validation_sample_patient_info |>
 
 knitr::kable(ncc_summary)
 
-tissue_type_summary <- validation_sample_patient_info |> 
-    filter(labno %in% validation_stdev_results_collated$labno) |> 
-    mutate("Tissue type" = case_when(
-      tissue_type == "Shavings" ~"FFPE shavings",
-      tissue_type %in% c("Slides", "Positively-charged slides") ~"FFPE slides",
-      TRUE ~tissue_type
-    )) |> 
-    count(`Tissue type`) |> 
-    rename("Samples" = n) |> 
-    arrange(desc(Samples)) |> 
-    adorn_totals()
-
-knitr::kable(tissue_type_summary)
-
 ```
 
-# PanSolid overall results
+## Reference Materials\
 
-```{r}
-#| label: pansolid-overall-results
-#| include: FALSE
+### SeraCare reference materials\
 
-single_results <- validation_stdev_results_collated |> 
-  filter(!duplicated(labno))
+Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from an FFPE sample of a stable cell line, spiked with plasmid DNA for specific genes at different quantities. The amplified genes included in the SeraCare reference materials are shown in Table 7.\
 
-pansolid_gene_results_table <- validation_all_amp_gene_results_collated |> 
-  filter(filepath %in% single_results$filepath) |> 
-  count(gene, pansolid_call) |> 
-  pivot_wider(id_cols = gene,
-              names_from = pansolid_call,
-              values_from = n,
-              values_fill = 0) |> 
-  arrange(gene)
+The details of the SeraCare controls are shown in Table 8. Note that there were two tubes of both the Seraseq® TNA (DNA) WT Mix and the Seraseq® Solid Tumor CNV Mix, +12 copies mix.\
 
-knitr::kable(pansolid_gene_results_table)
+### Limit of detection DNA mixtures
 
-```
+A limit of detection experiment was performed using the Seraseq® Solid Tumor CNV Mix, +12 copies reference material, which represented DNA from tumour cells, and the Seraseq® TNA (DNA) WT Mix, which represented DNA from normal cells. The two reference materials were mixed together to mimic samples with neoplastic cell contents of 30%, 20%, 10% and 0%. The final volume of each DNA mixture was 20 µl and the total DNA concentration was 6 ng/µl, which is the standard input for the PanSolid NGS workflow. These DNA mixtures were made on worksheet WS144265 and run on the PanSolid version 2 NGS workflow on worksheet WS144291. This limit of detection experiment is different to the limit of detection experiment performed on the PanSolid version 1 workflow for the validation of ERBB2 amplifications (DOC6260).\
 
-# PanSolid results by tumour types
+## Next generation sequencing\
 
-```{r}
-#| label: pansolid-results-by-tumour-type
-#| eval: FALSE
-#| include: FALSE
+DNA was extracted using the QIASymphony extraction method (DOC6251: QIAsymphony DNA FFPE Extraction Procedure) and tested on version 2 (CDHS-48608Z-11752) of the PanSolid QIAseq enrichment (DOC5925: QIAseq PanSolid DNA Panel NGS Library Preparation) with sequencing on an Illumina Novaseq. The NGS data described in this validation document comes from 32 worksheets performed between January 2024 and August 2024.\
 
-validation_results_with_sample_info <- validation_all_amp_gene_results_collated |> 
-  left_join(validation_sample_patient_info, by = "labno")
+## Bioinformatic analysis
 
-ggplot(validation_results_with_sample_info, aes(x = gene,
-                                                y = max_region_fold_change)) +
-  geom_point(shape = 21, aes(fill = cancer_type_new))
+The CLC pipeline, including details of the methodology and quality metrics, is described in the ERBB2 amplifications validation document (DOC6260). All amplification genes were analysed on the “coarse” setting, except for MYC. MYC has only 3 targets on the PanSolid enrichment, and preliminary work showed that the coarse setting could not identify MYC amplifications in positive controls. The “fine” setting was used specifically for MYC to account for the lower number of QIAseq targets. The version of the PanSolid CLC pipeline tested in this validation was PanSolid Workflow v2.2.
 
-```
+## Orthogonal testing\
+### Droplet digital PCR for *ERBB2*, *MYC*, *MET*, *BRAF* and *EGFR*\
 
-# Comparison to whole genome sequencing
+Amplification results for the ERBB2, MYC, MET, BRAF and EGFR genes were confirmed using droplet digital PCR (ddPCR). ddPCR assays were designed using the workflow for confirming constitutional CNVs, which involves a universal forward primer and a reference assay for the AP3B1 gene on chromosome 5 (DOC4304 CNV Confirmation Using Droplet Digital PCR). ddPCR was performed using a BioRad QX200 system with 5ng DNA input per well. Each assay was validated for use and then used to test DNA from clinical FFPE samples and SeraCare controls (Table 9). The results for the ERBB2 ddPCR were previously reported in DOC6260. Details of the primer and probe sequences, reaction mix (Table 19) and thermocycling conditions (Table 21) are given in the Appendix.\
 
-```{r}
-#| label: load-wgs
-#| eval: FALSE
-#| include: FALSE
+### Whole genome sequencing\
 
-source(here("scripts/collate_wgs_htmls.R"))
-source(here("scripts/reformat_wgs_cnv_data.R"))
+Samples which had been tested using whole genome sequencing (WGS) were selected for this validation, which included samples from the Tessa Jowell BRAIN MATRIX Platform Study (NCT04274283) (13). WGS was performed on DNA extracted from fresh-frozen tissue by Illumina Laboratory Services at the Wellcome Trust Sanger Institute in Cambridge, as part of the NHS Genomics Medicine Service. Formalin-fixed paraffin-embedded (FFPE) tissue from the same tumour block as the fresh frozen tissue used for WGS was used as the sample source for PanSolid testing. Samples included in this validation were analysed by WGS between December 2022 to February 2024, using the “somatic variants and pertinent germline findings in cancer susceptibility genes” pipeline version 2.28 to version 3.6.2.\
 
-```
+## Validation analysis\
 
-```{r}
-#| label: select-wgs-samples
-#| eval: FALSE
-#| include: FALSE
+This validation document is written in Quarto using R (version 4.4.1) and is publicly available on [Github](https://github.com/joeshaw824/pansolid_cnv_validation).\
 
-# Check how many samples were tested on PanSolid and of which 
-# extraction type
-wgs_html_ids |> 
-  inner_join(validation_sample_patient_info,
-             join_by("nhs_no_clean" == "nhsno")) |> 
-  select(patient_name, method_name) |>  view()
+## Data locations\
 
-validation_sample_patient_info |> 
-  count(method_name) |>  view()
-
-
-
-pansolid_wgs_sample_selection <- validation_sample_patient_info |> 
-  filter(nhsno %in% wgs_reformatted_with_ids$nhs_no_clean) |> 
-  filter(method_name == "QIAsymphony_DNA_FFPE") |> 
-  # One patient has 2 QIAsymphony extractions with the same Pansolid results
-  # I've arbitrarily chosen one to include
-  filter(!labno %in% c("24030945", 
-                      # This sample pathology block does not match the WGS
-                      "24018922",
-                      # This sample has a signal-adjusted noise above 1
-                      "24030364")) |> 
-  left_join(wgs_html_ids |> 
-              select(patient_name, wgs_r_no, wgs_p_no, nhs_no_clean), 
-            join_by("nhsno" == "nhs_no_clean")) 
-
-
-
-amp_table <- load_pansolid_gene_table("Amplifications")
-
-del_table <- load_pansolid_gene_table("Deletions")
-
-## Amplifications
-
-wgs_cnv_amp_genes <- wgs_html_cnvs |> 
-    filter(cnv_class %in% c("DUP", "GAIN") 
-           # Classify copy numbers below 10 as not amplified
-           & cnv_copy_number > 10
-    ) |> 
-    filter(gene %in% amp_table$gene)
-
-```
-
-```{r}
-#| label: compare-wgs-and-pansolid
-#| eval: FALSE
-#| include: FALSE
-
-wgs_pansolid_comparison <- validation_all_amp_gene_results_collated |> 
-  filter(gene %in% amp_gene_table$gene) |> 
-  filter(labno %in% pansolid_wgs_sample_selection$labno) |> 
-  # One WGS sample was repeated for repeatability studies on worksheets
-  # WS144291 and WS144291
-  filter(!worksheet %in% c("WS144291", "WS144364")) |> 
-  left_join(validation_sample_patient_info |> 
-              select(labno, nhsno), by = "labno") |> 
-  left_join(wgs_reformatted_with_ids |> 
-              select(nhs_no_clean, gene, wgs_result, wgs_pathno), 
-            join_by(nhsno == nhs_no_clean, gene == gene)) |> 
-  mutate(outcome = case_when(
-      (wgs_result == "Gain detected" & pansolid_call == "amplification") ~"true_positive",
-    
-      (wgs_result == "No gain detected" & pansolid_call == "normal result") ~"true_negative",
-    
-      (wgs_result == "Gain detected" & pansolid_call == "normal result") ~"false_negative",
-    
-      (wgs_result == "No gain detected" & pansolid_call == "amplification") ~"false_positive"
-    
-  ))
-
-```
-
-```{r}
-#| label: wgs-gene-accuracy
-#| eval: FALSE
-#| include: FALSE
-
-wgs_gene_accuracy_summary <- wgs_pansolid_comparison |> 
-  group_by(gene, outcome) |> 
-  count() |> 
-  pivot_wider(id_cols = c(gene),
-              names_from = outcome,
-              values_from = n,
-              values_fill = 0) |> 
-  select(gene, true_negative, true_positive, false_negative)
-
-knitr::kable(wgs_gene_accuracy_summary)
-
-csv_timestamp(wgs_gene_accuracy_summary, paste0(outputs_folder, "tables"))
-
-```
-
-```{r}
-#| label: wgs-dosage-accuracy
-#| eval: FALSE
-#| include: FALSE
-
-cases_with_calls <- wgs_pansolid_comparison |> 
-  filter(wgs_result == "Gain detected") |>
-  select(labno, nhsno)
-
-wgs_egfr_calls <- wgs_html_cnvs |> 
-  filter(gene == "*EGFR") |> 
-  left_join(wgs_html_ids, by = "filepath") |> 
-  filter(nhs_no_clean %in% cases_with_calls$nhsno) |>  
-  filter(!duplicated(wgs_p_no)) 
-
-pansolid_egfr_calls <- validation_all_amp_gene_results_collated |> 
-              filter(gene == "EGFR") |> 
-  left_join(validation_sample_patient_info, by = "labno") |> 
-  filter(method_name == "QIAsymphony_DNA_FFPE") |> 
-  filter(labno != "24030945")
-
-egfr_wgs_pansolid_dosage_plot <- wgs_egfr_calls |> 
-  left_join(pansolid_egfr_calls, join_by("nhs_no_clean" == "nhsno")) |>  
-  ggplot(aes(x = cnv_copy_number, y = max_region_fold_change)) +
-  geom_point(shape = 21, size = 3) +
-  theme_bw() +
-  labs(x = "WGS copy number", y = "Pansolid fold change") +
-  ylim(0, 140) +
-  xlim(0, 70) +
-  ggpubr::stat_cor(method = "pearson", label.x = 10, label.y = 100)
-
-```
+All data analysed in this validation is saved here:\
 
 {{< pagebreak >}}
 
-# Comparison to droplet digital PCR
+# Results
 
-```{r}
-#| label: ddpcr-comparison
-#| eval: FALSE
-#| include: FALSE
 
-source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
 
-ddpcr_cnv_amp_threshold <- 5
 
-ddpcr_vs_pansolid <- ddpcr_validation_data |> 
-  mutate(sample_experiment = str_c(sample, "_", experiment)) |> 
-  filter(target == "ch1_target" & 
-           experiment %in% c("MYC Ex3_1",
-                              "BRAF Ex10_1",
-                              "MET Ex2_1",
-                              "EGFR Ex6_1")) |> 
-    filter(!duplicated(sample_experiment)) |>  
-  inner_join(validation_all_amp_gene_results_collated,
-             join_by(sample == labno, 
-                     gene)) |> 
-  mutate(labno_suffix_gene = str_c(labno_suffix, "_", gene)) |> 
-  # Some samples were run twice on PanSolid
-  filter(!duplicated(labno_suffix_gene)) |> 
-  mutate(ddpcr_result = case_when(
-    cnv >= ddpcr_cnv_amp_threshold ~"amplification",
-    cnv < ddpcr_cnv_amp_threshold ~"normal result"),
-    
-    outcome = case_when(
-      
-      ddpcr_result == "amplification" & pansolid_call == "amplification" 
-      ~"true_positive",
-      ddpcr_result == "normal result" & pansolid_call == "normal result" 
-      ~"true_negative",
-      ddpcr_result == "amplification" & pansolid_call == "normal result"
-      ~"false_negative",
-      ddpcr_result == "normal result" & pansolid_call == "amplification" 
-      ~"false_positive"
-    ))
 
-```
 
-ddPCR data is available for the MYC, BRAF, MET and EGFR genes.
 
-```{r}
-#| label: ddpcr-plots
-#| eval: FALSE
-#| include: FALSE
 
-egfr_met_myc_plot <- ggplot(ddpcr_vs_pansolid |> 
-         filter(gene != "MYC"), aes(x = cnv, y = max_region_fold_change)) +
-  geom_point(shape = 21) +
-  theme_bw() +
-  labs(x = "ddPCR copy number",
-       y = "PanSolid fold change",
-       title = "ddPCR vs PanSolid by gene") +
-  ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = 0)  +
-  facet_wrap(~gene)
 
-myc_plot <- ggplot(ddpcr_vs_pansolid |> 
-         filter(gene == "MYC"), aes(x = cnv, y = max_region_fold_change)) +
-  geom_point(shape = 21) +
-  theme_bw() +
-  labs(x = "ddPCR copy number",
-       y = "PanSolid fold change") +
-  ggpubr::stat_cor(method = "pearson", label.x = 75, label.y = 10)  +
-  facet_wrap(~gene)
 
-ggplot(ddpcr_vs_pansolid, aes(x = cnv, y = max_region_fold_change)) +
-  geom_point(shape = 21) +
-  theme_bw() +
-  labs(x = "ddPCR copy number",
-       y = "PanSolid fold change") +
-  ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = 0)
-
-combined_ddpcr_plot <- egfr_met_myc_plot + myc_plot + plot_layout(nrow = 2,
-                                           heights = c(7,7))
-
-combined_ddpcr_plot
-
-plot_timestamp(input_plot = combined_ddpcr_plot, 
-               folder = paste0(outputs_folder, "plots"),
-               input_height = 15)
-
-```
-
-{{< pagebreak >}}
-
-## ddPCR summary
-
-```{r}
-#| label: ddpcr-metrics
-#| eval: FALSE
-#| include: FALSE
-
-ddpcr_summary <- ddpcr_vs_pansolid |> 
-  count(gene, outcome) |> 
-  pivot_wider(id_cols = gene,
-              names_from = outcome,
-              values_from = n,
-              values_fill = 0)
-
-knitr::kable(ddpcr_summary)
-
-csv_timestamp(ddpcr_summary, paste0(outputs_folder, "tables"))
-
-```
-
-```{r}
-#| label: ddpcr-false-negatives
-#| eval: FALSE
-#| include: FALSE
-
-ddpcr_false_neg_table <- ddpcr_vs_pansolid |> 
-  filter(outcome == "false_negative") |> 
-  mutate(`PanSolid fold change` = round(max_region_fold_change, 1),
-         `ddPCR copy number` = round(cnv, 1)) |> 
-  rename(`ddPCR result` = ddpcr_result,
-         `Lab number` = sample,
-         `Gene` = gene,
-         `PanSolid result` = pansolid_call) |> 
-  select(`Lab number`,  `Gene`, `ddPCR copy number`, 
-         `PanSolid fold change`, `ddPCR result`, `PanSolid result`)
-
-knitr::kable(ddpcr_false_neg_table)
-
-csv_timestamp(ddpcr_false_neg_table, paste0(outputs_folder, "tables"))
-
-```
-
-{{< pagebreak >}}
-
-# Genomic Coordinates
-
-```{r}
-#| label: coordinates
-#| eval: FALSE
-#| include: FALSE
-
-pos_cnv_with_noise <- validation_pos_cnv_results_collated |> 
-  left_join(stdev_results_collated |> 
-              select(filepath, st_dev_signal_adjusted_log2_ratios), by = "filepath") |> 
-  filter(st_dev_signal_adjusted_log2_ratios < 1)
-
-egfr_labno_plot <- make_labno_plot(df = pos_cnv_with_noise, 
-                gene = "EGFR",
-                interval = 100000, 
-                buffer = 100000, 
-                yaxis = labno)
-
-egfr_triptych <- make_cnv_triptych(egfr_labno_plot)
-
-myc_labno_plot <- make_labno_plot(df = pos_cnv_with_noise |> 
-                                    filter(cnv_length < 100000), 
-                gene = "MYC",
-                interval = 100000, 
-                buffer = 100000, 
-                yaxis = labno)
-
-make_cnv_triptych(myc_labno_plot)
-
-```
-
-{{< pagebreak >}}
-
-# Repeatability
-
-```{r}
-#| label: repeatability
-#| eval: FALSE
-#| include: FALSE
-
-repeat_noise_data <- validation_stdev_results_collated |> 
-  filter(duplicated(labno, fromLast = TRUE) |
-           duplicated(labno, fromLast = FALSE)) |> 
-  # Excel file produced twice as sample is in 2 cohorts
-  filter(labno != "24030966") |> 
-  # This is the limit of detection sample
-  filter(labno != "24039973") |> 
-  filter(!grepl(pattern = "SERA", x = patient_name,
-               ignore.case = TRUE))
-
-repeat_all_amp_data <- validation_all_amp_gene_results_collated |> 
-  filter(labno %in% repeat_noise_data$labno)
-
-low_fold_change_repeat_plot <- ggplot(repeat_all_amp_data |> 
-         filter(labno != "24027774"), aes(x = gene, y = max_region_fold_change)) +
-  geom_jitter(shape = 21, size = 2, width = 0.2) +
-  theme_bw() +
-  geom_hline(yintercept = 2.8, linetype = "dashed") +
-  scale_y_continuous(limits = c(-2, 10),
-                     breaks = c(-2, 0, 2.8, 5, 7.5, 10)) +
-  theme(axis.text.x = element_text(angle = 90)) +
-  facet_wrap(~labno) +
-  labs(x = "", y = "Fold change")
-
-high_fold_change_repeat_plot <- ggplot(repeat_all_amp_data |> 
-         filter(labno == "24027774"), aes(x = gene, y = max_region_fold_change)) +
-  geom_jitter(shape = 21, size = 2, width = 0.2) +
-  theme_bw() +
-  geom_hline(yintercept = 2.8, linetype = "dashed") +
-  theme(axis.text.x = element_text(angle = 90)) +
-  facet_wrap(~labno) +
-  labs(x = "", y = "Fold change")
-
-repeatability_plots <- low_fold_change_repeat_plot +
-  high_fold_change_repeat_plot + plot_layout(nrow = 2,
-                                             heights = c(5,5))
-
-repeatability_plots
-
-plot_timestamp(input_plot = repeatability_plots, 
-               folder = paste0(outputs_folder, "plots"),
-               input_height = 15)
-
-```
-
-```{r}
-#| label: repeatability-noise
-#| eval: FALSE
-#| include: FALSE
-
-repeat_plot_facet_labno <- ggplot(repeat_noise_data, aes(x = worksheet,
-                              y = st_dev_signal_adjusted_log2_ratios)) +
-  geom_point(shape = 21) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  ylim(0, 1) +
-  labs(y = "Signal-adjusted noise", x = "", title = "Repeatability noise data") +
-  facet_wrap(~labno)
-
-repeat_plot_facet_labno
-
-repeat_plot_worksheet <- ggplot(repeat_noise_data, aes(x = worksheet,
-                              y = st_dev_signal_adjusted_log2_ratios)) +
-  geom_jitter(shape = 21, width = 0.2, size = 3,
-              aes(fill = labno), alpha = 0.6) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  ylim(0, 1) +
-  labs(y = "Signal-adjusted noise", x = "", title = "Repeatability noise data")
-
-repeat_plot_worksheet
-
-```
-
-# Quality control
-
-```{r}
-#| label: pansolid-overall-noise
-#| eval: FALSE
-#| include: FALSE
-
-combined_qc_data <- validation_percent_138_collated |> 
-  inner_join(validation_stdev_results_collated |> 
-               select(filepath, st_dev_signal_adjusted_log2_ratios), by = "filepath") |> 
-  left_join(validation_sample_patient_info, by = "labno",
-            relationship = "many-to-one")
-
-ggplot(combined_qc_data, aes(x = st_dev_signal_adjusted_log2_ratios,
-                             y = percent_whole_panel_covered_at_138x)) +
-  geom_point(shape = 21, aes(fill = method_name)) +
-  theme_bw()
-
-```
