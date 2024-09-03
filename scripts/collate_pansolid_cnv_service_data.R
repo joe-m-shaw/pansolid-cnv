@@ -80,7 +80,3 @@ write.csv(pos_cnv_collated, here::here("data/live_service_collated_data/live_ser
 
 write.csv(percent_138_collated, here::here("data/live_service_collated_data/live_service_percent_138_results_collated.csv"),
           row.names = FALSE)
-
-# Clear environment -----------------------------------------------------------------
-
-rm(list=ls())
