@@ -1,20 +1,67 @@
 ---
-title: "PanSolid Gene Amplifications Validation"
-author: "Joe Shaw, Clinical Scientist (CS20980)"
-date: today
-date-format: "DD/MM/YYYY"
-format: pdf
-editor: visual
+title: "Validation of Detecting Somatic Gene Amplifications with the PanSolid CLC Pipeline"
+format: 
+  docx:
+    reference-doc: DOC6283_template.docx
+toc: true
+toc-title: "Table of Contents"
 ---
 
-# Introduction
+# Authors\
 
-This Quarto document performs the analysis for the validation of somatic gene amplifications on the PanSolid QIAseq enrichment, which is detailed in DOC6283 ("Validation of Detecting Somatic Gene Amplifications with the PanSolid CLC pipeline.docx").
+Author: Joe Shaw
 
-The aim is to compare samples results from the PanSolid enrichment to results for the same samples tested by 2 other methods:
+Project Lead(s): Joe Shaw, Elizabeth Sollars, Eleanor Baker, Helene Schlecht, George Burghel
 
--   droplet digital PCR (ddPCR)
--   whole genome sequencing
+Date:	`r Sys.Date()`\
+
+Author contact: joseph.shaw2@mft.nhs.uk; joseph.shaw3@nhs.net\
+
+# Acronyms\
+
+ALK: 			Anaplastic lymphoma kinase
+
+CTNNB1:		Catenin beta 1
+
+CLC:			Acronym unknown. CLC Bio was acquired by Qiagen in 2013.	
+
+CNV:			Copy Number Variant
+
+EGFR:			Epidermal Growth Factor Receptor
+
+ERBB2:			ERythroBlastic oncogene B 2
+
+FFPE:			Formalin-Fixed Paraffin Embedded
+
+FISH:			Fluorescent In-Situ Hybridisation
+
+GLH:			Genomic Laboratory Hub
+
+NGS:			Next Generation Sequencing
+
+NICE:			National Institute for Health and Care Excellence
+
+UMI: 			Unique Molecular Identifier
+
+WGS:			Whole Genome Sequencing\
+
+# Purpose\
+
+The purpose of this document is to describe the validation of detection of somatic gene amplifications on the PanSolid v2 QIAseq panel using the PanSolid CLC pipeline at the North West Genomic Laboratory Hub (GLH).
+
+# Introduction\
+
+At the North West GLH, somatic variant testing is performed using the QIAseq methodology (Qiagen) (1) and Illumina next generation sequencing (NGS) using a large panel of QIAseq primer targets named “PanSolid”. The current PanSolid enrichment, referred to as PanSolidv2 (CDHS-48608Z-11752) contains 11,752 unique QIAseq targets. Sequencing data from the PanSolid enrichment is analysed with a pipeline built in the Qiagen CLC Genomic Workbench. Detection of single nucleotide variants and indels on PanSolid has previously been validated (DOC6024 Validation of QIASeq PanSolid Enrichment). Currently, copy number variants (CNVs) are analysed using a separate QIAseq “core” panel with a bespoke pipeline written in Python, with copy number amplifications reported for 4 genes: EGFR, ERBB2, AR and MET. The long-term aim is to move all CNV detection to the PanSolid panel and the CLC pipeline.
+
+The detection of ERBB2 gene amplifications was validated on the PanSolid enrichment in April 2024 (DOC6260: Validation of Detecting Somatic ERBB2 Amplifications with the PanSolid CLC Pipeline). ERBB2 amplifications were prioritised for validation due to service needs, and were validated by comparison with results from droplet digital PCR testing. The aim of this validation document is to validate additional amplification genes on the PanSolid workflow; these genes are specified by the National Genomic Test Directory.\
+
+#	Somatic Gene Amplifications\
+
+Gene amplification is a common mechanism in the development of cancer (2).  Additional gene copies can be present on extra-chromosomal DNA rather than their initial chromosomal loci (3), for example EGFR amplifications can be present on extrachromosomal DNA fragments referred to as “double minutes” (4). “Double minute” refers to a very small (“minute”) bodies of chromatin material with two arms (“double) which were originally visualised by chromosome staining (5).
+
+The number of additional gene copies can vary between genes and tumour types, ranging as high as hundreds of gene copies. There is no consistent accepted threshold of copy number to classify a gene as “amplified”, although many clinical trials use a threshold of 10 copies as an entry requirement.
+
+Gene amplifications can have clinical relevance for choice of treatment and predicting resistance to treatment, particularly amplifications of genes encoding tyrosine kinase membrane receptors. It is predicted that increasing the gene copy number increases the levels of translated protein, which maintains aberrant cell signalling even in the presence of tyrosine kinase inhibitors (TKIs) (6). Historically, gene amplifications were detected with fluorescence in-situ hybridisation (FISH) and immunohistochemistry (IHC), but next generation sequencing (NGS) methods are being increasingly used. The PanSolid enrichment includes 212 genes relevant to cancer. Of these, there are 9 genes which were selected as having amplifications with clinical relevance (Table 1).\
 
 ```{r}
 #| label: packages-and-data
@@ -27,82 +74,8 @@ library(patchwork)
 library(janitor)
 
 source(here("scripts/set_shared_drive_filepath.R"))
-source(here("functions/cnv_functions.R"))
 
-```
-
-```{r}
-#| label: load-pansolid-data
-#| include: FALSE
-
-# Data collation for PanSolid is performed in the 
-# collate_pansolid_excel_validation_data.R script
-
-# source(here("scripts/collate_pansolid_excel_validation_data.R"))
-
-validation_all_amp_gene_results_collated <- read_csv(paste0(data_folder, 
-                                "validation/collated/",
-                              "validation_all_amp_gene_results_collated.csv"),
-                                col_types = list(
-                                  "worksheet" = col_character(),
-                                  "labno" = col_character(),
-                                  "suffix" = col_character(),
-                                  "patient_name" = col_character(),
-                                  "labno_suffix" = col_character(),
-                                  "labno_suffix_worksheet" = col_character(),
-                                  "gene" = col_character(),
-                                  "max_region_fold_change" = col_double(),
-                                  "min_region_fold_change" = col_double(),
-                                  "pansolid_call" = col_character()
-                                ))
-
-validation_pos_cnv_results_collated <- read_csv(paste0(data_folder, 
-                                "validation/collated/",
-                              "validation_pos_cnv_results_collated.csv"),
-                                col_types = list(
-                                  "worksheet" = col_character(),
-                                  "labno" = col_character(),
-                                  "suffix" = col_character(),
-                                  "patient_name" = col_character(),
-                                  "labno_suffix" = col_character(),
-                                  "labno_suffix_worksheet" = col_character(),
-                                  "filepath" = col_character(),
-                                  "gene" = col_character(),
-                                  "cnv_co_ordinates" = col_character(),
-                                  "cnv_length" = col_double(),
-                                  "consequence" = col_character(),
-                                  "fold_change" = col_double(),
-                                  "p_value" = col_double(),
-                                  "no_targets" = col_double(),
-                                  "start" = col_double(),
-                                  "end" = col_double()
-                                ))
-
-validation_stdev_results_collated <- read_csv(paste0(data_folder, 
-                                "validation/collated/",
-                              "validation_stdev_results_collated.csv"),
-                                col_types = list(
-                                  "worksheet" = col_character(),
-                                  "labno" = col_character(),
-                                  "suffix" = col_character(),
-                                  "patient_name" = col_character(),
-                                  "labno_suffix" = col_character(),
-                                  "labno_suffix_worksheet" = col_character(),
-                                  "filepath" = col_character(),
-                                  "st_dev_signal_adjusted_log2_ratios" = col_double()))
-
-validation_percent_138_collated <- read_csv(paste0(data_folder, 
-                                "validation/collated/",
-                              "validation_percent_138_collated.csv"),
-                                col_types = list(
-                                  "worksheet" = col_character(),
-                                  "labno" = col_character(),
-                                  "suffix" = col_character(),
-                                  "patient_name" = col_character(),
-                                  "labno_suffix" = col_character(),
-                                  "labno_suffix_worksheet" = col_character(),
-                                  "filepath" = col_character(),
-                                  "percent_whole_panel_covered_at_138x" = col_double()))
+source(here("scripts/load_processed_validation_data.R"))
 
 ```
 
@@ -110,27 +83,8 @@ validation_percent_138_collated <- read_csv(paste0(data_folder,
 #| label: load-pansolid-patient-info
 #| include: FALSE
 
-# source(here("scripts/get_patient_information_from_dna_database.R"))
-
-validation_sample_patient_info <- read_csv(paste0(data_folder, 
-                                "validation/collated/",
-                              "validation_sample_patient_info.csv"),
-                               col_types = list(
-                               "labno" = col_character(),
-                               "firstname" = col_character(),
-                               "surname" = col_character(),
-                               "date_in" = col_datetime(format = "%Y-%m-%d %H:%M:%OS"),
-                               "nhsno" = col_character(),
-                               "pathno" = col_character(),
-                               "comments" = col_character(),
-                               "ncc" = col_character(),
-                               "tissue_type" = col_character(),
-                               "cancer_comment" = col_character(),
-                               "cancer_group" = col_character(),
-                               "method_name" = col_character()
-                               ))
-
 cancer_type_summary <- validation_sample_patient_info |> 
+  filter(labno %in% validation_stdev_results_collated$labno) |> 
   #filter(cancer_type_new != "Reference material") |> 
   count(cancer_type_new) |> 
   rename("Samples" = n,
@@ -138,66 +92,57 @@ cancer_type_summary <- validation_sample_patient_info |>
   arrange(desc(Samples)) |> 
   adorn_totals()
 
-csv_timestamp(cancer_type_summary, paste0(outputs_folder, "tables"))
+knitr::kable(cancer_type_summary)
 
 extraction_type_summary <- validation_sample_patient_info |> 
+  filter(labno %in% validation_stdev_results_collated$labno) |> 
   count(method_name) |> 
   rename("DNA extraction method" = method_name,
          "Samples" = n) |> 
   arrange(desc(Samples)) |> 
   adorn_totals()
 
-csv_timestamp(extraction_type_summary, paste0(outputs_folder, "tables"))
+knitr::kable(cancer_type_summary)
 
 ncc_summary <- validation_sample_patient_info |> 
-  filter(neoplastic_cell_content != "Reference material") |> 
-  mutate(ncc_class = case_when(
-    neoplastic_cell_content %in% c(">10", "10-20%") ~">10%",
-    neoplastic_cell_content %in% c("20-50", "20-30%",
-                                   ">20%", ">20", 
-                                   "20") ~">20%",
-    neoplastic_cell_content %in% c(">30%", ">30") ~">30%",
-    neoplastic_cell_content %in% c("50-75") ~">50%",
-    neoplastic_cell_content %in% c( ">75", "80") ~">75%",
-    TRUE ~neoplastic_cell_content
-  ),
-  ncc_class = factor(ncc_class, levels = c(">75%",
-                                           ">50%",
-                                           ">30%",
-                                           ">20%",
-                                           ">10%",
-                                           "No NCC provided"))) |> 
-  count(ncc_class) |> 
-  rename("Neoplastic cell content" = ncc_class,
-         "Samples" = n) |> 
-  adorn_totals()
+    filter(labno %in% validation_stdev_results_collated$labno) |> 
+    filter(neoplastic_cell_content != "Reference material") |> 
+    mutate(ncc_class = case_when(
+      neoplastic_cell_content %in% c(">10", "10-20%") ~">10%",
+      neoplastic_cell_content %in% c("20-50", "20-30%",
+                                     ">20%", ">20", 
+                                     "20") ~">20%",
+      neoplastic_cell_content %in% c(">30%", ">30") ~">30%",
+      neoplastic_cell_content %in% c("50-75") ~">50%",
+      neoplastic_cell_content %in% c( ">75", "80") ~">75%",
+      TRUE ~neoplastic_cell_content
+    ),
+    ncc_class = factor(ncc_class, levels = c(">75%",
+                                             ">50%",
+                                             ">30%",
+                                             ">20%",
+                                             ">10%",
+                                             "No NCC provided"))) |> 
+    count(ncc_class) |> 
+    rename("Neoplastic cell content" = ncc_class,
+           "Samples" = n) |> 
+    adorn_totals()
 
-csv_timestamp(ncc_summary, paste0(outputs_folder, "tables"))
+knitr::kable(ncc_summary)
 
 tissue_type_summary <- validation_sample_patient_info |> 
-  mutate("Tissue type" = case_when(
-    tissue_type == "Shavings" ~"FFPE shavings",
-    tissue_type %in% c("Slides", "Positively-charged slides") ~"FFPE slides",
-    TRUE ~tissue_type
-  )) |> 
-  count(`Tissue type`) |> 
-  rename("Samples" = n) |> 
-  arrange(desc(Samples)) |> 
-  adorn_totals()
-  
-csv_timestamp(tissue_type_summary, paste0(outputs_folder, "tables"))
+    filter(labno %in% validation_stdev_results_collated$labno) |> 
+    mutate("Tissue type" = case_when(
+      tissue_type == "Shavings" ~"FFPE shavings",
+      tissue_type %in% c("Slides", "Positively-charged slides") ~"FFPE slides",
+      TRUE ~tissue_type
+    )) |> 
+    count(`Tissue type`) |> 
+    rename("Samples" = n) |> 
+    arrange(desc(Samples)) |> 
+    adorn_totals()
 
-```
-
-```{r}
-#| label: gene-tables
-#| include: FALSE
-
-del_gene_table <- read_excel(path = paste0(data_folder, "gene_lists/",
-                                           "pansolid_deletion_gene_list.xlsx"))
-
-amp_gene_table <- read_excel(path = paste0(data_folder, "gene_lists/",
-                                           "pansolid_amplification_gene_list.xlsx"))
+knitr::kable(tissue_type_summary)
 
 ```
 
@@ -218,8 +163,8 @@ pansolid_gene_results_table <- validation_all_amp_gene_results_collated |>
               values_from = n,
               values_fill = 0) |> 
   arrange(gene)
-  
-csv_timestamp(pansolid_gene_results_table, paste0(outputs_folder, "tables"))
+
+knitr::kable(pansolid_gene_results_table)
 
 ```
 
@@ -227,6 +172,7 @@ csv_timestamp(pansolid_gene_results_table, paste0(outputs_folder, "tables"))
 
 ```{r}
 #| label: pansolid-results-by-tumour-type
+#| eval: FALSE
 #| include: FALSE
 
 validation_results_with_sample_info <- validation_all_amp_gene_results_collated |> 
@@ -236,19 +182,13 @@ ggplot(validation_results_with_sample_info, aes(x = gene,
                                                 y = max_region_fold_change)) +
   geom_point(shape = 21, aes(fill = cancer_type_new))
 
-validation_results_with_sample_info |> 
-  group_by(cancer_type_new, gene, pansolid_call) |> 
-  count() |>  view()
-
-
-unique(validation_results_with_sample_info$cancer_type_new)
-
 ```
 
 # Comparison to whole genome sequencing
 
 ```{r}
 #| label: load-wgs
+#| eval: FALSE
 #| include: FALSE
 
 source(here("scripts/collate_wgs_htmls.R"))
@@ -258,6 +198,7 @@ source(here("scripts/reformat_wgs_cnv_data.R"))
 
 ```{r}
 #| label: select-wgs-samples
+#| eval: FALSE
 #| include: FALSE
 
 # Check how many samples were tested on PanSolid and of which 
@@ -286,10 +227,26 @@ pansolid_wgs_sample_selection <- validation_sample_patient_info |>
               select(patient_name, wgs_r_no, wgs_p_no, nhs_no_clean), 
             join_by("nhsno" == "nhs_no_clean")) 
 
+
+
+amp_table <- load_pansolid_gene_table("Amplifications")
+
+del_table <- load_pansolid_gene_table("Deletions")
+
+## Amplifications
+
+wgs_cnv_amp_genes <- wgs_html_cnvs |> 
+    filter(cnv_class %in% c("DUP", "GAIN") 
+           # Classify copy numbers below 10 as not amplified
+           & cnv_copy_number > 10
+    ) |> 
+    filter(gene %in% amp_table$gene)
+
 ```
 
 ```{r}
 #| label: compare-wgs-and-pansolid
+#| eval: FALSE
 #| include: FALSE
 
 wgs_pansolid_comparison <- validation_all_amp_gene_results_collated |> 
@@ -318,7 +275,8 @@ wgs_pansolid_comparison <- validation_all_amp_gene_results_collated |>
 
 ```{r}
 #| label: wgs-gene-accuracy
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 wgs_gene_accuracy_summary <- wgs_pansolid_comparison |> 
   group_by(gene, outcome) |> 
@@ -337,7 +295,8 @@ csv_timestamp(wgs_gene_accuracy_summary, paste0(outputs_folder, "tables"))
 
 ```{r}
 #| label: wgs-dosage-accuracy
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 cases_with_calls <- wgs_pansolid_comparison |> 
   filter(wgs_result == "Gain detected") |>
@@ -373,6 +332,7 @@ egfr_wgs_pansolid_dosage_plot <- wgs_egfr_calls |>
 
 ```{r}
 #| label: ddpcr-comparison
+#| eval: FALSE
 #| include: FALSE
 
 source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
@@ -415,7 +375,8 @@ ddPCR data is available for the MYC, BRAF, MET and EGFR genes.
 
 ```{r}
 #| label: ddpcr-plots
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 egfr_met_myc_plot <- ggplot(ddpcr_vs_pansolid |> 
          filter(gene != "MYC"), aes(x = cnv, y = max_region_fold_change)) +
@@ -460,7 +421,8 @@ plot_timestamp(input_plot = combined_ddpcr_plot,
 
 ```{r}
 #| label: ddpcr-metrics
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 ddpcr_summary <- ddpcr_vs_pansolid |> 
   count(gene, outcome) |> 
@@ -477,7 +439,8 @@ csv_timestamp(ddpcr_summary, paste0(outputs_folder, "tables"))
 
 ```{r}
 #| label: ddpcr-false-negatives
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 ddpcr_false_neg_table <- ddpcr_vs_pansolid |> 
   filter(outcome == "false_negative") |> 
@@ -496,25 +459,14 @@ csv_timestamp(ddpcr_false_neg_table, paste0(outputs_folder, "tables"))
 
 ```
 
-The three false negative samples are:
-
--   24002064 - SeraSeq +3 copies control: MYC not detected on PanSolid (fold change 2.6) but borderline on ddPCR (copy number 5.6)
-
--   24037724 - MYC not detected on PanSolid (fold change 2.2) and copy number of 9 on ddPCR. The whole genome plot shows a deletion on 5q, which may be where the AP3B1 ddPCR reference gene is located, leading to an artificially high ddPCR copy number.
-
--   23033921 - EGFR has a fold change of 2.7 on PanSolid (borderline), and a ddPCR copy number of 5.3 (also borderline).
-
-So the 3 discrepant results are 2 borderline samples and a sample where the ddPCR reference gene is not at a copy number of 2.
-
-AP3B1 coordinates (GRCh38): Chromosome 5: 78,000,522-78,294,762 (5q14.1)
-
 {{< pagebreak >}}
 
 # Genomic Coordinates
 
 ```{r}
 #| label: coordinates
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 pos_cnv_with_noise <- validation_pos_cnv_results_collated |> 
   left_join(stdev_results_collated |> 
@@ -546,7 +498,8 @@ make_cnv_triptych(myc_labno_plot)
 
 ```{r}
 #| label: repeatability
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 repeat_noise_data <- validation_stdev_results_collated |> 
   filter(duplicated(labno, fromLast = TRUE) |
@@ -595,7 +548,8 @@ plot_timestamp(input_plot = repeatability_plots,
 
 ```{r}
 #| label: repeatability-noise
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 repeat_plot_facet_labno <- ggplot(repeat_noise_data, aes(x = worksheet,
                               y = st_dev_signal_adjusted_log2_ratios)) +
@@ -625,6 +579,7 @@ repeat_plot_worksheet
 
 ```{r}
 #| label: pansolid-overall-noise
+#| eval: FALSE
 #| include: FALSE
 
 combined_qc_data <- validation_percent_138_collated |> 
