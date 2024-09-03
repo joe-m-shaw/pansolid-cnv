@@ -1,4 +1,4 @@
-# Get Patient Information for PanSolid Gene Amplifications Cohort
+# Get Patient Information for Sample Cohort
 
 # Packages --------------------------------------------------------------------------
 
@@ -9,17 +9,32 @@ library(here)
 
 source(here("scripts/set_shared_drive_filepath.R"))
 
-source(here("functions/dna_database_connection.R"))
+source(here("scripts/connect_to_dna_db.R"))
 
-source(here("functions/dna_database_functions.R"))
+source(here("functions/dna_db_functions.R"))
 
 # Get patient information -----------------------------------------------------------
 
 validation_stdev_results_collated <- read_csv(paste0(data_folder, 
-                                                     "validation/collated/",
-                                                     "validation_stdev_results_collated.csv"))
+                                                     "validation/processed/",
+                                                     "validation_stdev_results_collated.csv"),
+                                              col_types = list(
+                                                "labno" = col_character()))
 
-sample_labnos <- unique(validation_stdev_results_collated$labno)
+validation_ddpcr_collated <- read_csv(paste0(data_folder,
+                                             "validation/processed/",
+                                             "validation_ddpcr_collated.csv")) |> 
+  filter(grepl(pattern = "\\d{8}", x = sample))
+
+wgs_html_ids <- read_csv(paste0(data_folder, 
+                                "validation/processed/",
+                                "wgs_html_ids.csv"),
+                         col_types = list(
+                           "labno" = col_character()
+                         ))
+
+sample_labnos <- unique(c(validation_stdev_results_collated$labno, validation_ddpcr_collated$sample, 
+  wgs_html_ids$labno))
 
 patient_info <- sample_tbl |> 
   filter(labno %in% sample_labnos) |> 
@@ -45,11 +60,11 @@ patient_ncc_manual <- patient_info_ncc |>
   mutate(ncc_manual = "")
 
 write.csv(x = patient_ncc_manual,
-          file = paste0(data_folder, "validation/collated/", 
+          file = paste0(data_folder, "validation/processed/", 
                         "patient_ncc_manual.csv"),
           row.names = FALSE)
 
-manual_ncc_values <- read_csv(file = paste0(data_folder, "validation/collated/",
+manual_ncc_values <- read_csv(file = paste0(data_folder, "validation/processed/",
                        "patient_ncc_manual_edit.csv"),
                        col_types = list(
                          "labno" = col_character(),
@@ -100,12 +115,11 @@ cancer_type_manual <- patient_info_cancer_type |>
   mutate(cancer_group_manual = "")
 
 write.csv(x = cancer_type_manual,
-          file = paste0(data_folder, "validation/collated/", 
+          file = paste0(data_folder, "validation/processed/", 
                         "cancer_type_manual.csv"),
           row.names = FALSE)
 
-
-manual_cancer_types <- read_csv(file = paste0(data_folder, "validation/collated/",
+manual_cancer_types <- read_csv(file = paste0(data_folder, "validation/processed/",
                                             "cancer_type_manual_edit.csv"),
                               col_types = list(
                                 "labno" = col_character(),
@@ -158,11 +172,11 @@ validation_sample_patient_info <- patient_info_extraction_method |>
   select(-c(tissue))
 
 write.csv(x = validation_sample_patient_info,
-          file = paste0(data_folder, "validation/collated/", 
+          file = paste0(data_folder, "validation/processed/", 
                         "validation_sample_patient_info.csv"),
           row.names = FALSE)
 
 write.csv(x = pansolid_worksheet_details,
-          file = paste0(data_folder, "validation/collated/", 
+          file = paste0(data_folder, "validation/processed/", 
                         "pansolid_worksheet_details.csv"),
           row.names = FALSE)
