@@ -35,3 +35,11 @@ ddpcr_validation_data <- ddpcr_validation_files |>
                             group = 1))
 
 stopifnot(ncol(ddpcr_validation_data) == 66)
+
+# Save collated results -------------------------------------------------------------
+
+write.csv(x = ddpcr_validation_data,
+          file = paste0(data_folder, 
+                        "validation/processed/",
+                        "validation_ddpcr_collated.csv"),
+          row.names = FALSE)
