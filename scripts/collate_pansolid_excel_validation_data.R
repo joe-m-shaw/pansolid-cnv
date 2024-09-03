@@ -80,25 +80,25 @@ if(
 
 # Save collated results -------------------------------------------------------------
 
-collated_validation_data_folder <- paste0(data_folder, 
-                                          "validation/collated/")
+processed_validation_data_folder <- paste0(data_folder, 
+                                          "validation/processed/")
 
 write.csv(x = pos_cnv_results_collated,
-          file = paste0(collated_validation_data_folder, 
+          file = paste0(processed_validation_data_folder, 
                         "validation_pos_cnv_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(x = all_amp_gene_results_collated,
-          file = paste0(collated_validation_data_folder, 
+          file = paste0(processed_validation_data_folder, 
                         "validation_all_amp_gene_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(x = stdev_results_collated,
-          file = paste0(collated_validation_data_folder, 
+          file = paste0(processed_validation_data_folder, 
                         "validation_stdev_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(x = percent_138_collated,
-          file = paste0(collated_validation_data_folder, 
+          file = paste0(processed_validation_data_folder, 
                         "validation_percent_138_collated.csv"),
           row.names = FALSE)
