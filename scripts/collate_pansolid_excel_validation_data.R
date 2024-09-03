@@ -30,7 +30,27 @@ pos_cnv_results_collated <- amp_cohort_filepaths |>
   map(\(amp_cohort_filepaths) read_pos_cnv_results(file = amp_cohort_filepaths,
                                                    sheet = get_amp_sheetname(
                                                      amp_cohort_filepaths))) |> 
-  list_rbind()
+  list_rbind() |> 
+  # The limit of detection normal control was listed as 24039973 (CNVMix12CopiesSERASEQ
+  # at 0%) but can be changed to 24039975 (DNAWTmixSERASEQ at 100%)
+  mutate(
+    labno = case_when(
+    
+      labno_suffix_worksheet == "24039973d_WS144291" ~"24039975",
+      TRUE ~labno),
+    
+    patient_name = case_when(
+      labno_suffix_worksheet == "24039973d_WS144291" ~"DNAWTmixSERASEQ",
+      TRUE ~patient_name),
+    
+    labno_suffix = case_when(
+      labno_suffix_worksheet == "24039973d_WS144291" ~"24039975d",
+      TRUE ~labno_suffix),
+    
+    labno_suffix_worksheet = case_when(
+      labno_suffix_worksheet == "24039973d_WS144291" ~"24039975d_WS144291",
+      TRUE ~labno_suffix_worksheet)
+    )
 
 fold_change_threshold <- 2.8
 
@@ -41,20 +61,72 @@ all_amp_gene_results_collated <- amp_cohort_filepaths |>
   list_rbind() |> 
   mutate(pansolid_call = case_when(
     max_region_fold_change >= fold_change_threshold ~"amplification",
-    max_region_fold_change < fold_change_threshold ~"normal result"))
+    max_region_fold_change < fold_change_threshold ~"normal result"),
+    labno = case_when(
+      
+      labno_suffix_worksheet == "24039973d_WS144291" ~"24039975",
+      TRUE ~labno),
+    
+    patient_name = case_when(
+      labno_suffix_worksheet == "24039973d_WS144291" ~"DNAWTmixSERASEQ",
+      TRUE ~patient_name),
+    
+    labno_suffix = case_when(
+      labno_suffix_worksheet == "24039973d_WS144291" ~"24039975d",
+      TRUE ~labno_suffix),
+    
+    labno_suffix_worksheet = case_when(
+      labno_suffix_worksheet == "24039973d_WS144291" ~"24039975d_WS144291",
+      TRUE ~labno_suffix_worksheet)
+  )
 
 stdev_results_collated <-  amp_cohort_filepaths |> 
   map(\(amp_cohort_filepaths) read_stdev_results(file = amp_cohort_filepaths,
                                                  sheet = get_amp_sheetname(
                                                    amp_cohort_filepaths))) |> 
-  list_rbind() 
+  list_rbind() |> 
+  mutate(
+    labno = case_when(
+      
+      labno_suffix_worksheet == "24039973d_WS144291" ~"24039975",
+      TRUE ~labno),
+    
+    patient_name = case_when(
+      labno_suffix_worksheet == "24039973d_WS144291" ~"DNAWTmixSERASEQ",
+      TRUE ~patient_name),
+    
+    labno_suffix = case_when(
+      labno_suffix_worksheet == "24039973d_WS144291" ~"24039975d",
+      TRUE ~labno_suffix),
+    
+    labno_suffix_worksheet = case_when(
+      labno_suffix_worksheet == "24039973d_WS144291" ~"24039975d_WS144291",
+      TRUE ~labno_suffix_worksheet)
+  )
 
 percent_138_collated <- amp_cohort_filepaths |> 
   map(\(amp_cohort_filepaths) 
       read_percent_138_results(file = amp_cohort_filepaths,
                                sheet = get_amp_sheetname(amp_cohort_filepaths))) |> 
-  list_rbind()
-
+  list_rbind() |> 
+  mutate(
+    labno = case_when(
+      
+      labno_suffix_worksheet == "24039973d_WS144291" ~"24039975",
+      TRUE ~labno),
+    
+    patient_name = case_when(
+      labno_suffix_worksheet == "24039973d_WS144291" ~"DNAWTmixSERASEQ",
+      TRUE ~patient_name),
+    
+    labno_suffix = case_when(
+      labno_suffix_worksheet == "24039973d_WS144291" ~"24039975d",
+      TRUE ~labno_suffix),
+    
+    labno_suffix_worksheet = case_when(
+      labno_suffix_worksheet == "24039973d_WS144291" ~"24039975d_WS144291",
+      TRUE ~labno_suffix_worksheet)
+  )
 
 # Check all results collated --------------------------------------------------------
 
