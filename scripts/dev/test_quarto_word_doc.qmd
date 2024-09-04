@@ -1,10 +1,11 @@
 ---
-title: "PanSolid Gene Amplifications Validation"
+title: "Validation of Detecting Somatic Gene Amplifications with the PanSolid CLC Pipeline"
 format: 
   docx:
-    reference-doc: DOC842.docx
-toc: TRUE
-toc-title: ""
+    reference-doc: DOC6283_template.docx
+toc: true
+toc-title: "Table of Contents"
+number-sections: true
 ---
 
 # Introduction
@@ -13,6 +14,7 @@ This is me attempting to write a validation document completely in R using Quart
 
 ```{r}
 #| label: packages
+#| eval: FALSE
 #| include: FALSE
 
 library(tidyverse)
@@ -46,8 +48,8 @@ Here's an example of some analysis I did on the primers in the PanSolid and Core
 
 ```{r}
 #| label: primer-panel-venn-diagram
-#| echo: FALSE
-#| message: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 # Design file sent by Qiagen
 pansolid_v2 <- read_table(here::here("data/primers/QIAseq.CDHS-48608z-11752.primers3.txt"),
@@ -79,8 +81,8 @@ Here's an example of printing a table using knitr::kable.
 
 ```{r}
 #| label: qiaseq-primers
-#| echo: FALSE
-#| message: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 pan_solid_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
                              sheet = "Primer Overlap",

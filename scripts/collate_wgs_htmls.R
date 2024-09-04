@@ -3,14 +3,17 @@
 # Libraries and functions -----------------------------------------------------------
 
 library(here)
+library(tidyverse)
+library(readxl)
 
 source(here("scripts/set_shared_drive_filepath.R"))
-source(here("functions/cnv_functions.R"))
-source(here("functions/dna_database_connection.R"))
+
+source(here("functions/wgs_html_functions.R"))
 
 # WGS HTML filepaths ----------------------------------------------------------------
 
-wgs_htmls <- list.files(path = paste0(data_folder, "wgs_result_htmls/"),
+wgs_htmls <- list.files(path = paste0(data_folder, 
+                                      "validation/raw/wgs/"),
                         full.names = TRUE,
                         pattern = "*.html")
 
@@ -46,13 +49,23 @@ wgs_html_cnvs <- rbind(wgs_domain1_cnvs  |>
                     select(-c(population_germline_allele_frequency,
                            gene_mode_of_action)), wgs_domain3_cnvs) |> 
   mutate(cnv_class = parse_wgs_cnv_class(col = variant_type),
+         
          cnv_copy_number = parse_wgs_cnv_copy_number(col = variant_type),
+         
          chromosome = parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
                                                         group = "chromosome"),
+         
          cnv_start = as.numeric(parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
                                                                   group = "first coordinate")),
+         
          cnv_end = as.numeric(parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
                                                                 group = "second coordinate")),
+         
+         # In the HTMLS,  clinical indication specific genes are annotated with "*".
+         # Remove this asterisk for easier filtering later on.
+         gene = str_replace_all(string = gene, pattern = "\\*",
+                              replacement = ""),
+         
          category = "WGS result")
 
 # Read HTML identifiers -------------------------------------------------------------
@@ -75,7 +88,7 @@ wgs_tumour_details <- wgs_htmls |>
 
 # Get lab numbers -------------------------------------------------------------------
 
-wgs_pathway_tracker <- read_excel(path = paste0(data_folder, 
+wgs_pathway_tracker <- read_excel(path = paste0(data_folder, "excel_spreadsheets/",
                                                 "WGS pathway tracker_copy_2024-07-01.xlsx"),
                                   sheet = "Cancer") |> 
   janitor::clean_names()
@@ -94,12 +107,12 @@ wgs_pathway_tracker_dna_no_df <- wgs_pathway_tracker |>
 wgs_html_ids <- inner_join(x = wgs_headers, y = wgs_pids, by = "filepath") |> 
   left_join(wgs_pathway_tracker_dna_no_df, join_by("wgs_r_no" == "ngis_referral_id"),
             relationship = "one-to-one") |> 
-  left_join(wgs_tumour_details, by = "filepath") 
+  left_join(wgs_tumour_details, by = "filepath")
 
 # Export collated information -------------------------------------------------------
 
 write_csv(x = wgs_html_ids,
-          file = paste0(data_folder, "collated_validation_data/wgs_html_ids.csv"))
+          file = paste0(data_folder, "validation/processed/wgs_html_ids.csv"))
 
 write_csv(x = wgs_html_cnvs,
-          file = paste0(data_folder, "collated_validation_data/wgs_html_cnvs.csv"))
+          file = paste0(data_folder, "validation/processed/wgs_html_cnvs.csv"))
