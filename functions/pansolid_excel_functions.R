@@ -1,3 +1,5 @@
+source(here("functions/extract_cnv_coordinates.R"))
+
 parse_filename <- function(input_file, input_group) {
   
   #' Parse an element from a PanSolid results Excel filename
@@ -18,7 +20,7 @@ parse_filename <- function(input_file, input_group) {
     (\d{5,8})                                   # Lab number
     (a|b|c|d|)                                  # Suffix
     _
-    ([:alnum:]{5,30})                           # Patient name - alphanumeric characters only
+    ([:alnum:]{3,30})                           # Patient name - alphanumeric characters only
     (.xlsx|_S.+.xlsx|_S.+|_CNV_processed.xlsx)  # Ending varies between patients and controls
     ]",
     comments = TRUE)
