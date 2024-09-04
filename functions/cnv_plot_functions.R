@@ -262,6 +262,20 @@ make_primer_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
 
 make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   
+  #' Make an plot showing exon data for inclusion in a CNV plot
+  #'
+  #' @param plot_xmin The desired X axis minimum value
+  #' @param plot_xmax The desired X axis maximum value
+  #' @param interval The desired interval for X axis breaks
+  #' @param chromosome The chromosome for the gene of interest
+  #'
+  #' @return A plot showing the exon locations for target genes within the specified
+  #' genomic region.
+  #' @export
+  #'
+  #' @examples erbb2-exons <- make_exon_plot(plot_xmin = 39700064, plot_xmax = 39728658,
+  #' interval = 10000, chromosome = "17")
+  
   all_transcripts <- readr::read_csv(paste0(data_folder,
                                      "transcripts/processed/",
                                      "collated_transcripts.csv"),
