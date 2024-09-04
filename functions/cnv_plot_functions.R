@@ -29,8 +29,20 @@ get_cnv_plot_x_breaks <- function(interval, plot_xmin, plot_xmax) {
   
 }
 
-get_data_for_plot <- function(df, 
-                              gene) {
+
+get_data_for_cnv_plot <- function(df, gene) {
+  
+  #' Get data for making a copy number variant plot
+  #'
+  #' @param df The dataframe containing CNV information to be plotted. This should be based
+  #' on the "Positive CN results" table from the PanSolid Excel files.
+  #' @param gene The gene of interest
+  #'
+  #' @return Returns the dataframe filtered to include CNVs in the gene of interest
+  #' @export
+  #'
+  #' @examples erbb2_cnvs <- get_data_for_cnv_plot(df = validation_pos_cnv_results_collated,
+  #' gene = "ERBB2")
   
   data_for_plot <- df |> 
     filter(gene == {{ gene }})
@@ -39,7 +51,27 @@ get_data_for_plot <- function(df,
   
 }
 
-get_plot_xmin <- function(df, buffer) {
+get_cnv_plot_xmin <- function(df, buffer) {
+  
+  #' Get the X axis minimum value for a CNV plot
+  #'
+  #' @param df A dataframe containing CNVs
+  #' @param buffer The desired buffer to add onto the width of the X axis. This can be
+  #' adjusted to preference based on how close or far from the X axis minimum the CNV
+  #' calls should be.
+  #'
+  #' @return The value for the X axis minimum.
+  #' @export
+  #'
+  #' @examples 
+  
+  if(typeof(buffer) != "double") {
+    stop("buffer must be a number")
+  }
+  
+  if(!"start" %in% colnames(df)) {
+    stop("Input dataframe must have a column named start")
+  }
   
   plot_xmin <- min(df$start) - buffer
   
@@ -78,10 +110,10 @@ make_fold_change_plot <- function(df,
   
   chromosome <- get_chromosome(gene = {{ gene }})
   
-  data_for_plot <- get_data_for_plot(df = {{ df }}, 
+  data_for_plot <- get_data_for_cnv_plot(df = {{ df }}, 
                                      gene = {{ gene }})
   
-  plot_xmin <- get_plot_xmin(df = data_for_plot,
+  plot_xmin <- get_cnv_plot_xmin(df = data_for_plot,
                              buffer = buffer)
   
   plot_xmax <- get_plot_xmax(df = data_for_plot,
@@ -125,14 +157,14 @@ make_labno_plot <- function(df,
   
   chromosome <- get_chromosome(gene = {{ gene }})
   
-  data_for_plot <- get_data_for_plot(df = {{ df }}, 
+  data_for_plot <- get_data_for_cnv_plot(df = {{ df }}, 
                                      gene = {{ gene }})
   
   max_fold_change <- max(data_for_plot$fold_change)
   
   min_fold_change <- min(data_for_plot$fold_change)
   
-  plot_xmin <- get_plot_xmin(df = data_for_plot,
+  plot_xmin <- get_cnv_plot_xmin(df = data_for_plot,
                              buffer = buffer)
   
   plot_xmax <- get_plot_xmax(df = data_for_plot,
