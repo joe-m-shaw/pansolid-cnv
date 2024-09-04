@@ -49,7 +49,7 @@ WGS:			Whole Genome Sequencing\
 
 # Purpose\
 
-The purpose of this document is to describe the validation of detection of somatic gene amplifications on the PanSolid v2 QIAseq panel using the PanSolid CLC pipeline at the North West Genomic Laboratory Hub (GLH).
+The purpose of this document is to describe the validation of detection of somatic gene amplifications on the PanSolid v2 QIAseq panel using the PanSolid CLC pipeline at the North West Genomic Laboratory Hub (GLH).\
 
 # Introduction\
 
@@ -150,7 +150,7 @@ kable(gene_coordinate_tbl)
 
 ```
 
-## Requirements
+## Requirements\
 
 The requirements for this new method are as follows:\
 
@@ -271,7 +271,39 @@ kable(ncc_summary)
 
 Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from an FFPE sample of a stable cell line, spiked with plasmid DNA for specific genes at different quantities. The amplified genes included in the SeraCare reference materials are shown in Table 7.\
 
-The details of the SeraCare controls are shown in Table 8. Note that there were two tubes of both the Seraseq® TNA (DNA) WT Mix and the Seraseq® Solid Tumor CNV Mix, +12 copies mix.\
+```{r}
+#| label: tbl-seracare-reference-material-genes
+#| tbl-cap: "SeraCare reference material genes"
+#| echo: FALSE
+#| warning: FALSE
+
+seracare_gene_overlap <- read_csv(file = paste0(data_folder, 
+                                                 "seracare_reference_materials/",
+                                                 "seracare_gene_copies.csv")) |> 
+  filter(reference_material_short == "WT") |> 
+  select(gene) |> 
+  mutate(`Targetted within this validation` = ifelse(gene %in% amp_genes$gene, "Yes", "No")) |> 
+  rename(`Gene` = gene)
+  
+kable(seracare_gene_overlap)
+
+```
+
+The details of the SeraCare controls are shown in @tbl-seracare-control-details. Note that there were two tubes of both the Seraseq® TNA (DNA) WT Mix and the Seraseq® Solid Tumor CNV Mix, +12 copies mix.\
+
+```{r}
+#| label: tbl-seracare-reference-material-details
+#| tbl-cap: "SeraCare reference material details"
+#| echo: FALSE
+#| warning: FALSE
+
+seracare_details <- read_csv(file = paste0(data_folder,
+                                           "seracare_reference_materials/",
+                                           "seracare_sample_details.csv")) 
+
+kable(seracare_details)
+
+```
 
 ### Limit of detection DNA mixtures\
 
@@ -680,21 +712,102 @@ repeatability_plots
 
 {{< pagebreak >}}
 
-# Appendix
+# Appendix\
 
+```{r}
+#| label: tbl-ddpcr-primers
+#| tbl-cap: "ddPCR primer sequences"
+#| echo: FALSE
+#| warning: FALSE
 
+ddpcr_primers_probes <- read_csv(file = paste0(data_folder,
+                                               "method_tables/",
+                                               "ddpcr_primers.csv"))
 
+ap3b1_primers <- c("Tailed_AP3B1_F", "AP3B1_R", "Universal F primer")
 
+ddpcr_primer_tbl <- ddpcr_primers_probes |> 
+  filter(category == "primer" & !name %in% ap3b1_primers) |> 
+  select(-c(category, `5_label`, `3_label`)) |> 
+  rename(`Primer name` = name,
+         `Sequence` = sequence)
 
+kable(ddpcr_primer_tbl)
 
+```
 
+```{r}
+#| label: tbl-ap3b1-ddpcr-primers
+#| tbl-cap: "AP3B1 universal reference primer sequences"
+#| echo: FALSE
+#| warning: FALSE
 
+ap3b1_primers <- ddpcr_primers_probes |> 
+  filter(category == "primer" & name %in% ap3b1_primers) |> 
+  select(-c(category, `5_label`, `3_label`)) |> 
+  rename(`Primer name` = name,
+         `Sequence` = sequence)
 
+kable(ap3b1_primers)
 
+```
 
+```{r}
+#| label: tbl-ddpcr-probes
+#| tbl-cap: "ddPCR probe sequences"
+#| echo: FALSE
+#| warning: FALSE
 
+ddpcr_probe_tbl <- ddpcr_primers_probes |> 
+  filter(category == "probe") |> 
+  select(-category) |> 
+  rename(`Primer name` = name,
+         `Sequence` = sequence,
+         `5 prime label` = `5_label`,
+         `3 primer label` = `3_label`)
 
+kable(ddpcr_probe_tbl)
 
+```
 
+```{r}
+#| label: tbl-ddpcr-mix
+#| tbl-cap: "ddPCR mix"
+#| echo: FALSE
+#| warning: FALSE
 
+ddpcr_mix <- read_csv(file = paste0(data_folder, 
+                                    "method_tables/",
+                                    "ddpcr_mix.csv"))
 
+kable(ddpcr_mix)
+
+```
+
+```{r}
+#| label: tbl-ddpcr-universal-primer-mix
+#| tbl-cap: "ddPCR universal primer mix"
+#| echo: FALSE
+#| warning: FALSE
+
+ddpcr_universal_primer_mix <- read_csv(file = paste0(data_folder,
+                                                     "method_tables/",
+                                                     "ddpcr_universal_primer_mix.csv"))
+
+kable(ddpcr_universal_primer_mix)
+
+```
+
+```{r}
+#| label: tbl-ddpcr-thermocycler-programme
+#| tbl-cap: "ddPCR thermocycler programme"
+#| echo: FALSE
+#| warning: FALSE
+
+ddpcr_thermocycler_programme <- read_csv(file = paste0(data_folder,
+                                                       "method_tables/",
+                                                       "ddpcr_thermocycler_programme.csv"))
+
+kable(ddpcr_thermocycler_programme)
+
+```
