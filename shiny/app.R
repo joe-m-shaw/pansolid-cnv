@@ -9,7 +9,8 @@ library(here)
 # Filepath --------------------------------------------------------------------------
 
 source(here("scripts/set_shared_drive_filepath.R"))
-source(here("functions/cnv_functions.R"))
+
+pansolidv2_excel_regex <- "^Annotated(_|_v2.+_)WS\\d{6}_.+.xlsx"
 
 # Load Data -------------------------------------------------------------------------
 
@@ -87,9 +88,6 @@ total_samples <- length(unique(std_dev_results$filepath))
 
 samples_per_week <- round(total_samples / weeks_live, 0)
 
-erbb2_qiaseq_core_results <- read_csv(file = paste0(data_folder, 
-                                                    "erbb2_qiaseq_core_results.csv"))
-
 # User Interface --------------------------------------------------------------------
 
 ui <- fluidPage(
@@ -114,10 +112,7 @@ ui <- fluidPage(
            tableOutput("summary_gene_table")),
     column(3,
            h2("QIAseq PanSolid Colorectal Results"),
-           tableOutput("crc_summary_table")),
-    column(3,
-           h2("QIAseq Core Colorectal Results"),
-           tableOutput("core_erbb2_summary_table"))
+           tableOutput("crc_summary_table"))
   ),
   
   fluidRow(
@@ -194,17 +189,6 @@ server <- function(input, output) {
       arrange(desc(n)) |> 
       rename("Panel" = panel,
              "Cases" = n)
-  })
-  
-  output$core_erbb2_summary_table <- renderTable({
-    
-    erbb2_qiaseq_core_results |> 
-      count(core_result) |> 
-      arrange(desc(n)) |> 
-      mutate(Percentage = round(n/sum(n) * 100, 1)) |> 
-      rename(Cases = n,
-             `Amplification Result` = core_result)
-    
   })
   
   output$crc_summary_table <- renderTable({
