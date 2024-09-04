@@ -232,6 +232,21 @@ make_labno_cnv_plot <- function(df,
 
 make_primer_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   
+  #' Make a plot showing PanSolid QIAseq primer location data for inclusion in a CNV plot
+  #'
+  #' @param plot_xmin The desired X axis minimum value
+  #' @param plot_xmax The desired X axis maximum value
+  #' @param interval The desired interval for X axis breaks
+  #' @param chromosome The chromosome for the gene of interest
+  #'
+  #' @return
+  #' @export A plot showing the locations of QIAseq primers within the specified
+  #' genomic region.
+  #'
+  #' @examples erbb2_primers <- make_primer_plot(plot_xmin = 39700064, 
+  #' plot_xmax = 39728658,
+  #' interval = 10000, chromosome = "17")
+  
   grch38_primers <- readr::read_csv(file = paste0(data_folder,
                                            "primers/CDHS-40079Z-11284.primer3_Converted.csv"),
                              show_col_types = FALSE) |> 
@@ -273,7 +288,7 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   #' genomic region.
   #' @export
   #'
-  #' @examples erbb2-exons <- make_exon_plot(plot_xmin = 39700064, plot_xmax = 39728658,
+  #' @examples erbb2_exons <- make_exon_plot(plot_xmin = 39700064, plot_xmax = 39728658,
   #' interval = 10000, chromosome = "17")
   
   all_transcripts <- readr::read_csv(paste0(data_folder,
