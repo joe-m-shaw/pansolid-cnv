@@ -28,7 +28,8 @@ variant_summary
 # Add worksheet and panel -----------------------------------------------------------
 
 worksheet_panel_info <- read_csv(paste0(data_folder, 
-                                        "live_service_collated_data/pansolidv2_sample_worksheet_panel_information.csv"),
+                                        "live_service/collated/",
+                                        "pansolidv2_sample_worksheet_panel_information.csv"),
                                  col_types = c("ccccc")) |> 
   filter(!duplicated(labno)) 
 
