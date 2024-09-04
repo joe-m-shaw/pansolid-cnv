@@ -9,7 +9,7 @@ library(here)
 # Functions and filepaths -----------------------------------------------------------
 
 source(here("scripts/set_shared_drive_filepath.R"))
-source(here("functions/cnv_functions.R"))
+source(here("functions/pansolid_excel_functions.R"))
 
 # S drive filepaths -----------------------------------------------------------------
 
@@ -25,6 +25,8 @@ s_drive_filepaths <- worksheet_list |>
 worksheet_labno_regex <- "(WS\\d{6})_(\\d{6,8})(|a|b|c|d)_"
 
 panel_regex <-".+WorksheetAnalysedData/WS\\d{6}/(\\w{1,30})/.+"
+
+pansolidv2_excel_regex <- "^Annotated(_|_v2.+_)WS\\d{6}_.+.xlsx"
 
 s_drive_file_df <- tibble(
   filepath = unlist(s_drive_filepaths)) |> 
