@@ -30,7 +30,6 @@ get_cnv_plot_x_breaks <- function(interval, plot_xmin, plot_xmax) {
   
 }
 
-
 get_data_for_cnv_plot <- function(df, gene) {
   
   #' Get data for making a copy number variant plot
@@ -46,7 +45,7 @@ get_data_for_cnv_plot <- function(df, gene) {
   #' gene = "ERBB2")
   
   data_for_plot <- df |> 
-    filter(gene == {{ gene }})
+    dplyr::filter(gene == {{ gene }})
   
   return(data_for_plot)
   
@@ -109,7 +108,7 @@ get_cnv_plot_xmax <- function(df, buffer) {
 
 get_gene_chromosome <- function(gene) {
   
-  gene_coordinates <- read_csv(file = paste0(data_folder,
+  gene_coordinates <- readr::read_csv(file = paste0(data_folder,
                                              "gene_lists/",
                                              "gene_coordinates.csv"),
                                col_types = list(
@@ -146,7 +145,7 @@ make_fold_change_plot <- function(df,
   plot_xmax <- get_cnv_plot_xmax(df = data_for_plot,
                              buffer = buffer)
   
-  fold_change_plot <- ggplot(data_for_plot, aes(x = start, y = fold_change)) +
+  fold_change_plot <- ggplot2::ggplot(data_for_plot, aes(x = start, y = fold_change)) +
     
     # Add theme
     theme_bw() +
@@ -197,7 +196,7 @@ make_labno_plot <- function(df,
   plot_xmax <- get_cnv_plot_xmax(df = data_for_plot,
                              buffer = buffer)
   
-  labno_plot <- ggplot(data_for_plot, aes(x = start, y = {{ yaxis }},
+  labno_plot <- ggplot2::ggplot(data_for_plot, aes(x = start, y = {{ yaxis }},
                                           colour = fold_change)) +
     
     # Add theme
@@ -233,7 +232,7 @@ make_labno_plot <- function(df,
 
 make_primer_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   
-  grch38_primers <- read_csv(file = paste0(data_folder,
+  grch38_primers <- readr::read_csv(file = paste0(data_folder,
                                            "primers/CDHS-40079Z-11284.primer3_Converted.csv"),
                              show_col_types = FALSE) |> 
     janitor::clean_names()
@@ -242,11 +241,11 @@ make_primer_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
                                                        cnv_coord_col = region)
   
   primers_filtered <- grch38_primer_coordinates |> 
-    mutate(y_value = "Primers") |> 
-    filter(chromosome == {{ chromosome }} ) |> 
-    filter(start >= {{ plot_xmin }} & end <= {{ plot_xmax }} )
+    dplyr::mutate(y_value = "Primers") |> 
+    dplyr::filter(chromosome == {{ chromosome }} ) |> 
+    dplyr::filter(start >= {{ plot_xmin }} & end <= {{ plot_xmax }} )
   
-  output <-  ggplot(primers_filtered, aes(x = start, y = y_value)) +
+  output <-  ggplot2::ggplot(primers_filtered, aes(x = start, y = y_value)) +
     geom_point(pch = 21) +
     theme_bw() +
     theme(axis.text.x = element_blank()) +
@@ -263,26 +262,26 @@ make_primer_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
 
 make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   
-  all_transcripts <- read_csv(paste0(data_folder,
+  all_transcripts <- readr::read_csv(paste0(data_folder,
                                      "transcripts/processed/",
                                      "collated_transcripts.csv"),
                               show_col_types = FALSE)
   
   exon_data_for_plot <- all_transcripts |> 
-    mutate(y_value = "Exons") |> 
-    filter(chromosome == {{ chromosome }}) |> 
-    filter(start >= {{ plot_xmin }} & end <= {{ plot_xmax }})
+    dplyr::mutate(y_value = "Exons") |> 
+    dplyr::filter(chromosome == {{ chromosome }}) |> 
+    dplyr::filter(start >= {{ plot_xmin }} & end <= {{ plot_xmax }})
   
-  gene_labels <- read_csv(file = paste0(data_folder, 
+  gene_labels <- readr::read_csv(file = paste0(data_folder, 
                                         "transcripts/processed/",
                                         "gene_labels.csv"),
                           show_col_types = FALSE)
   
   labels_for_plot <- gene_labels |> 
-    filter(chromosome == {{ chromosome }} ) |> 
-    filter(start >= {{ plot_xmin }} & start <= {{ plot_xmax }})
+    dplyr::filter(chromosome == {{ chromosome }} ) |> 
+    dplyr::filter(start >= {{ plot_xmin }} & start <= {{ plot_xmax }})
   
-  output <- ggplot(exon_data_for_plot, 
+  output <- ggplot2::ggplot(exon_data_for_plot, 
                    aes(x = start, y = y_value)) +
     
     geom_segment(aes(x = start, xend = end, 
@@ -301,7 +300,7 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
     
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
     
-    labs(y = "", x = str_c("Genome coordinate (GRCh38) Chr", 
+    labs(y = "", x = stringr::str_c("Genome coordinate (GRCh38) Chr", 
                            chromosome)) +
     
     geom_label(data = labels_for_plot, label = labels_for_plot$gene)
