@@ -79,7 +79,26 @@ get_cnv_plot_xmin <- function(df, buffer) {
   
 }
 
-get_plot_xmax <- function(df, buffer) {
+
+get_cnv_plot_xmax <- function(df, buffer) {
+  
+  #' Get the X axis maximum value for a CNV plot
+  #'
+  #' @param df 
+  #' @param buffer 
+  #'
+  #' @return
+  #' @export
+  #'
+  #' @examples
+  
+  if(typeof(buffer) != "double") {
+    stop("buffer must be a number")
+  }
+  
+  if(!"end" %in% colnames(df)) {
+    stop("Input dataframe must have a column named end")
+  }
   
   plot_xmax <- max(df$end) + buffer
   
@@ -87,11 +106,18 @@ get_plot_xmax <- function(df, buffer) {
   
 }
 
-get_chromosome <- function(gene) {
+get_gene_chromosome <- function(gene) {
   
   gene_coordinates <- read_csv(file = paste0(data_folder,
                                              "gene_lists/",
-                                             "gene_coordinates.csv"))
+                                             "gene_coordinates.csv"),
+                               col_types = list(
+                                 "gene" = col_character(),
+                                 "chromosome" = col_character(),
+                                 "transcript_ensembl" = col_character(),
+                                 "transcript_refseq"	= col_character(),
+                                 "gene_start" = col_double(),
+                                 "gene_end" = col_double()))
   
   chromosome <- as.character(gene_coordinates[gene_coordinates$gene == gene, 2])
   
@@ -108,7 +134,7 @@ make_fold_change_plot <- function(df,
                                   ymin = 0,
                                   ymax = 40) {
   
-  chromosome <- get_chromosome(gene = {{ gene }})
+  chromosome <- get_gene_chromosome(gene = {{ gene }})
   
   data_for_plot <- get_data_for_cnv_plot(df = {{ df }}, 
                                      gene = {{ gene }})
@@ -116,7 +142,7 @@ make_fold_change_plot <- function(df,
   plot_xmin <- get_cnv_plot_xmin(df = data_for_plot,
                              buffer = buffer)
   
-  plot_xmax <- get_plot_xmax(df = data_for_plot,
+  plot_xmax <- get_cnv_plot_xmax(df = data_for_plot,
                              buffer = buffer)
   
   fold_change_plot <- ggplot(data_for_plot, aes(x = start, y = fold_change)) +
@@ -129,7 +155,7 @@ make_fold_change_plot <- function(df,
     geom_segment(aes(x = start, xend = end, 
                      y = fold_change, yend = fold_change),
                  linewidth = 2,
-                 colour = safe_red) +
+                 colour = "#CC6677") +
     
     # Add x axes
     scale_x_continuous(breaks = get_cnv_plot_x_breaks(interval = {{ interval}},
@@ -155,7 +181,7 @@ make_labno_plot <- function(df,
                             buffer = 5000, 
                             yaxis = labno) {
   
-  chromosome <- get_chromosome(gene = {{ gene }})
+  chromosome <- get_gene_chromosome(gene = {{ gene }})
   
   data_for_plot <- get_data_for_cnv_plot(df = {{ df }}, 
                                      gene = {{ gene }})
@@ -167,7 +193,7 @@ make_labno_plot <- function(df,
   plot_xmin <- get_cnv_plot_xmin(df = data_for_plot,
                              buffer = buffer)
   
-  plot_xmax <- get_plot_xmax(df = data_for_plot,
+  plot_xmax <- get_cnv_plot_xmax(df = data_for_plot,
                              buffer = buffer)
   
   labno_plot <- ggplot(data_for_plot, aes(x = start, y = {{ yaxis }},
@@ -236,6 +262,11 @@ make_primer_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
 
 make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   
+  all_transcripts <- read_csv(paste0(data_folder,
+                                     "transcripts/processed/",
+                                     "collated_transcripts.csv"),
+                              show_col_types = FALSE)
+  
   exon_data_for_plot <- all_transcripts |> 
     mutate(y_value = "Exons") |> 
     filter(chromosome == {{ chromosome }}) |> 
@@ -243,7 +274,8 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   
   gene_labels <- read_csv(file = paste0(data_folder, 
                                         "transcripts/processed/",
-                                        "gene_labels.csv"))
+                                        "gene_labels.csv"),
+                          show_col_types = FALSE)
   
   labels_for_plot <- gene_labels |> 
     filter(chromosome == {{ chromosome }} ) |> 
@@ -271,7 +303,7 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
     labs(y = "", x = str_c("Genome coordinate (GRCh38) Chr", 
                            chromosome)) +
     
-    geom_label(data = labels_for_plot, label = labels_for_plot$label)
+    geom_label(data = labels_for_plot, label = labels_for_plot$gene)
   
   return(output)
   
