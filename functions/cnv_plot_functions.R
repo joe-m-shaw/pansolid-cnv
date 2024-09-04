@@ -84,13 +84,13 @@ get_cnv_plot_xmax <- function(df, buffer) {
   
   #' Get the X axis maximum value for a CNV plot
   #'
-  #' @param df 
-  #' @param buffer 
+  #' @param df A dataframe containing CNVs
+  #' @param buffer The desired buffer to add onto the width of the X axis.
   #'
-  #' @return
+  #' @return The value for the X axis maximum
   #' @export
   #'
-  #' @examples
+  #' @examples 
   
   if(typeof(buffer) != "double") {
     stop("buffer must be a number")
@@ -107,6 +107,15 @@ get_cnv_plot_xmax <- function(df, buffer) {
 }
 
 get_gene_chromosome <- function(gene) {
+  
+  #' Get the chromosome for a gene
+  #'
+  #' @param gene The gene of interest
+  #'
+  #' @return The chromosome which the gene is on, formatted as a string.
+  #' @export
+  #'
+  #' @examples chrom <- get_gene_chromosome("ERBB2")
   
   gene_coordinates <- readr::read_csv(file = paste0(data_folder,
                                              "gene_lists/",
@@ -133,6 +142,25 @@ make_fold_change_cnv_plot <- function(df,
                                   buffer = 5000, 
                                   ymin = 0,
                                   ymax = 40) {
+  
+  #' Make a CNV plot with fold change on the Y axis
+  #'
+  #' @param df The dataframe containing CNV information to be plotted. 
+  #' This should be based on the "Positive CN results" table from the PanSolid 
+  #' @param gene The gene of interest
+  #' @param interval The desired interval for X axis breaks
+  #' @param buffer The desired buffer to add onto the width of the X axis.
+  #' @param ymin The desired Y axis minimum value
+  #' @param ymax The desired Y axis maximum value
+  #'
+  #' @return A list of values for the creation of other plots, and the rendered CNV plot.
+  #' These additional values are supplied so that the output of this function can act 
+  #' an input to the make_cnv_triptych_plot function.
+  #' @export
+  #'
+  #' @examples erbb2_fold_change_plot <- make_fold_change_cnv_plot(
+  #' df = validation_pos_cnv_results_collated,
+  #' gene = "ERBB2")
   
   chromosome <- get_gene_chromosome(gene = {{ gene }})
   
@@ -175,11 +203,33 @@ make_fold_change_cnv_plot <- function(df,
   
 }
 
+
 make_labno_cnv_plot <- function(df, 
                             gene,
                             interval = 10000, 
                             buffer = 5000, 
                             yaxis = labno) {
+  
+  #' Make a CNV plot with sample lab number on the Y axis
+  #'
+  #' @param df The dataframe containing CNV information to be plotted. 
+  #' This should be based on the "Positive CN results" table from the PanSolid 
+  #' Excel files.
+  #' @param gene The gene of interest
+  #' @param interval The desired interval for X axis breaks
+  #' @param buffer The desired buffer to add onto the width of the X axis.
+  #' @param yaxis The variable to plot on the Y axis, which defaults to labno, but can be 
+  #' changed to other sample identifiers (such as NHS number) if desired.
+  #'
+  #' @return A list of values for the creation of other plots, and the rendered CNV plot.
+  #' These additional values are supplied so that the output of this function can act 
+  #' an input to the make_cnv_triptych_plot function.
+  #' @export
+  #'
+  #' @examples erbb2_labno_plot <- make_labno_cnv_plot(
+  #' df = validation_pos_cnv_results_collated,
+  #' gene = "ERBB2",
+  #' interval = 10000)
   
   chromosome <- get_gene_chromosome(gene = {{ gene }})
   
