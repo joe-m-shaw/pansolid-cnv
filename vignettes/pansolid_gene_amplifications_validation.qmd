@@ -76,6 +76,8 @@ source(here("functions/gene_table_functions.R"))
 
 source(here("functions/pansolid_excel_functions.R"))
 
+source(here("functions/cnv_plot_functions.R"))
+
 source(here("functions/primer_functions.R"))
 
 ```
@@ -269,7 +271,7 @@ kable(ncc_summary)
 
 ### SeraCare reference materials\
 
-Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from an FFPE sample of a stable cell line, spiked with plasmid DNA for specific genes at different quantities. The amplified genes included in the SeraCare reference materials are shown in Table 7.\
+Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from an FFPE sample of a stable cell line, spiked with plasmid DNA for specific genes at different quantities. The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes.\
 
 ```{r}
 #| label: tbl-seracare-reference-material-genes
@@ -289,7 +291,7 @@ kable(seracare_gene_overlap)
 
 ```
 
-The details of the SeraCare controls are shown in @tbl-seracare-control-details. Note that there were two tubes of both the Seraseq® TNA (DNA) WT Mix and the Seraseq® Solid Tumor CNV Mix, +12 copies mix.\
+The details of the SeraCare controls are shown in @tbl-seracare-reference-material-details. Note that there were two tubes of both the Seraseq® TNA (DNA) WT Mix and the Seraseq® Solid Tumor CNV Mix, +12 copies mix.\
 
 ```{r}
 #| label: tbl-seracare-reference-material-details
@@ -338,6 +340,73 @@ All data analysed in this validation is saved here:\
 
 # Results\
 ## Gene amplifications\
+
+```{r}
+#| label: gene-amplification-coordinates
+#| include: FALSE
+
+good_quality_samples <- validation_stdev_results_collated |> 
+  filter(st_dev_signal_adjusted_log2_ratios < 0.7)
+
+qiasymphony_samples <- validation_sample_patient_info |> 
+  filter(method_name == "QIAsymphony_DNA_FFPE")
+
+pos_results_for_plot <- validation_pos_cnv_results_collated |> 
+  filter(labno %in% good_quality_samples$labno)
+
+```
+
+```{r}
+#| label: gene-coordinate-plots
+#| echo: FALSE
+
+egfr_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "EGFR",
+  interval = 100000))
+
+met_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MET",
+  interval = 1000000,
+  buffer = 50000))
+
+braf_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "BRAF",
+  interval = 100000,
+  buffer = 50000))
+
+myc_plot_wide <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MYC",
+  interval = 1000000,
+  buffer = 500000))
+
+myc_plot_narrow <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot |> 
+    filter(cnv_length < 100000),
+  gene = "MYC",
+  interval = 100000,
+  buffer = 5000))
+
+```
+
+```{r}
+#| label: cnv-length-distribution
+#| echo: FALSE
+
+cnv_length_plot <- pos_results_for_plot |> 
+  filter(gene != "no positive calls") |> 
+  mutate(cnv_length_kb = cnv_length / 1000) |> 
+  ggplot(aes(x = cnv_length_kb, y = )) +
+  geom_histogram(bins = 100) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2)) +
+  facet_wrap(~gene)
+
+```
 
 ## Comparison to ddPCR\
 
