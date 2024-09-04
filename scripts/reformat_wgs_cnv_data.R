@@ -7,7 +7,7 @@ source(here("scripts/set_shared_drive_filepath.R"))
 
 # Load collated data ----------------------------------------------------------------
 
-wgs_data_collated <- read_csv(file = paste0(data_folder, "validation/processed/",
+wgs_html_cnvs <- read_csv(file = paste0(data_folder, "validation/processed/",
                                                  "wgs_html_cnvs.csv"))
 
 wgs_html_ids <- read_csv(file = paste0(data_folder, "validation/processed/",
@@ -35,7 +35,7 @@ wgs_htmls <- list.files(path = paste0(data_folder, "validation/raw/wgs/"),
 wgs_amp_data_reformatted <- wgs_htmls |> 
   map(\(wgs_htmls) reformat_wgs_cnv_result(filepath = wgs_htmls,
                                            cnv_type = "Amplifications",
-                                           wgs_tbl = wgs_data_collated)) |> 
+                                           wgs_tbl = wgs_html_cnvs)) |> 
   list_rbind()
 
 # Add identifiers -------------------------------------------------------------------

@@ -2,7 +2,7 @@
 source(here("functions/gene_table_functions.R"))
 
 reformat_wgs_cnv_result <- function(filepath, cnv_type, 
-                                    wgs_tbl = wgs_data_collated) {
+                                    wgs_tbl = wgs_html_cnvs) {
   
   #' Reformat whole genome sequencing copy number variant results for comparison
   #' with PanSolid results
