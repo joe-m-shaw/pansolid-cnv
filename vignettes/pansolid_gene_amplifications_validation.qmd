@@ -457,6 +457,81 @@ combined_ddpcr_plot
 
 {{< pagebreak >}}
 
+## Comparison to WGS\
+
+```{r}
+#| label: select-wgs-samples
+#| include: FALSE
+
+pansolid_wgs_sample_selection <- validation_sample_patient_info |> 
+  filter(nhsno %in% wgs_amp_data_reformatted_with_ids$nhs_no_clean) |> 
+  filter(method_name == "QIAsymphony_DNA_FFPE") |> 
+  # One patient has 2 QIAsymphony extractions with the same Pansolid results
+  # I've arbitrarily chosen one to include
+  filter(!labno %in% c("24030945", 
+                      # This sample pathology block does not match the WGS
+                      "24018922",
+                      # This sample has a signal-adjusted noise above 1
+                      "24030364")) |> 
+  left_join(wgs_html_ids |> 
+              select(patient_name, wgs_r_no, wgs_p_no, nhs_no_clean), 
+            join_by("nhsno" == "nhs_no_clean")) 
+
+```
+
+```{r}
+#| label: compare-wgs-and-pansolid
+#| include: FALSE
+
+wgs_pansolid_comparison <- validation_all_amp_gene_results_collated |> 
+  filter(gene %in% amp_genes$gene) |> 
+  filter(labno %in% pansolid_wgs_sample_selection$labno) |> 
+  # One WGS sample was repeated for repeatability studies on worksheets
+  # WS144291 and WS144291
+  filter(!worksheet %in% c("WS144291", "WS144364")) |> 
+  left_join(validation_sample_patient_info |> 
+              select(labno, nhsno), by = "labno") |> 
+  left_join(wgs_amp_data_reformatted_with_ids |> 
+              select(nhs_no_clean, gene, wgs_result, wgs_pathno), 
+            join_by(nhsno == nhs_no_clean, gene == gene)) |> 
+  mutate(outcome = case_when(
+      (wgs_result == "Gain detected" & pansolid_call == "amplification") ~"true_positive",
+    
+      (wgs_result == "No gain detected" & pansolid_call == "normal result") ~"true_negative",
+    
+      (wgs_result == "Gain detected" & pansolid_call == "normal result") ~"false_negative",
+    
+      (wgs_result == "No gain detected" & pansolid_call == "amplification") ~"false_positive"
+    
+  ))
+
+```
+
+```{r}
+#| label: tbl-wgs-comparison
+#| tbl-cap: "Comparison with WGS results"
+#| echo: FALSE
+
+wgs_comparison_tbl <- wgs_pansolid_comparison |> 
+  group_by(gene, outcome) |> 
+  count() |> 
+  pivot_wider(id_cols = c(gene),
+              names_from = outcome,
+              values_from = n,
+              values_fill = 0) |> 
+  select(gene, true_negative, true_positive, false_negative) |> 
+  mutate(`False positive` = 0) |> 
+  rename(`Gene` = gene,
+         `True negative` = true_negative,
+         `True positive` = true_positive,
+         `False negative` = false_negative)
+
+kable(wgs_comparison_tbl)
+
+```
+
+{{< pagebreak >}}
+
 ## Limit of detection\
 
 ### SeraCare reference materials\
