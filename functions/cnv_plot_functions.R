@@ -23,7 +23,8 @@ get_cnv_plot_x_breaks <- function(interval, plot_xmin, plot_xmax) {
     stop("plot_xmin must be smaller than plot_xmax")
   }
   
-  breaks <- seq(plot_xmin, plot_xmax, by = interval)
+  breaks <- plyr::round_any(seq(plot_xmin, plot_xmax, by = interval),
+                            accuracy = interval)
   
   return(breaks)
   
