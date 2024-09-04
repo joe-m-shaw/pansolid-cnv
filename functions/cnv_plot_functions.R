@@ -127,7 +127,7 @@ get_gene_chromosome <- function(gene) {
   
 }
 
-make_fold_change_plot <- function(df, 
+make_fold_change_cnv_plot <- function(df, 
                                   gene,
                                   interval = 10000, 
                                   buffer = 5000, 
@@ -175,7 +175,7 @@ make_fold_change_plot <- function(df,
   
 }
 
-make_labno_plot <- function(df, 
+make_labno_cnv_plot <- function(df, 
                             gene,
                             interval = 10000, 
                             buffer = 5000, 
@@ -309,11 +309,26 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   
 }
 
-make_cnv_triptych <- function(input_plot) {
+
+make_cnv_triptych_plot <- function(input_plot) {
   
-  # This function is a wrapper which takes the outputs of either the 
-  # make_fold_change_plot or make_labno_plot functions
-  
+  #' Create a triptych CNV plot with primer and exon tracks
+  #'
+  #' @param input_plot The input plot to format as a triptych. This can be combined 
+  #' with the make_labno_cnv_plot and make_fold_change_cnv_plot functions above 
+  #' (see example).
+  #'
+  #' @return A triptych plot with 3 panels: first the input plot displaying the copy number
+  #' variant calls, then a plot showing the locations of PanSolid QIAseq primers, then
+  #' a plot showing the locations of target genes and their individual exons. All plots
+  #' have a consistently formatted X axis,
+  #' @export
+  #'
+  #' @examples erbb2_plot <- make_cnv_triptych_plot(
+  #' make_labno_cnv_plot(df = validation_pos_cnv_results_collated,
+  #' gene = "ERBB2",
+  #' interval = 10000))
+
   plot_xmin <- input_plot[[1]]
   
   plot_xmax <- input_plot[[2]]
