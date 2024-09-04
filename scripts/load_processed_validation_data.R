@@ -92,3 +92,25 @@ validation_ddpcr_collated <- read_csv(paste0(data_folder,
                                       col_types = list(
                                         "sample" = col_character()
                                       ))
+
+
+wgs_html_cnvs <- read_csv(paste0(data_folder,
+                                 "validation/processed/",
+                                 "wgs_html_cnvs.csv"),
+                          show_col_types = FALSE)
+
+wgs_html_ids <- read_csv(paste0(data_folder,
+                                 "validation/processed/",
+                                 "wgs_html_ids.csv"),
+                         col_types = list(
+                           "nhs_no_clean" = col_character(),
+                           "labno" = col_character()
+                         ))
+
+wgs_amp_data_reformatted_with_ids <- read_csv(paste0(data_folder,
+                                                     "validation/processed/",
+                                                     "wgs_amp_data_reformatted_with_ids.csv"),
+                                              col_types = list(
+                                                "labno" = col_character(),
+                                                "nhs_no_clean" = col_character()
+                                              ))
