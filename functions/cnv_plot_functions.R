@@ -35,7 +35,7 @@ get_data_for_cnv_plot <- function(df, gene) {
   #' Get data for making a copy number variant plot
   #'
   #' @param df The dataframe containing CNV information to be plotted. This should be based
-  #' on the "Positive CN results" table from the PanSolid Excel files.
+  #' on the "Positive CNV results" table from the PanSolid Excel files.
   #' @param gene The gene of interest
   #'
   #' @return Returns the dataframe filtered to include CNVs in the gene of interest
