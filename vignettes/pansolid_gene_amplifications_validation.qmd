@@ -5,6 +5,8 @@ format:
     reference-doc: DOC6283_template.docx
 toc: true
 toc-title: "Table of Contents"
+bibliography: pansolid_cnv_references.bib
+csl: vancouver.csl
 ---
 
 # Authors\
@@ -53,7 +55,7 @@ The purpose of this document is to describe the validation of detection of somat
 
 # Introduction\
 
-At the North West GLH, somatic variant testing is performed using the QIAseq methodology (Qiagen) (1) and Illumina next generation sequencing (NGS) using a large panel of QIAseq primer targets named “PanSolid”. The current PanSolid enrichment, referred to as PanSolidv2 (CDHS-48608Z-11752) contains 11,752 unique QIAseq targets. Sequencing data from the PanSolid enrichment is analysed with a pipeline built in the Qiagen CLC Genomic Workbench. Detection of single nucleotide variants and indels on PanSolid has previously been validated (DOC6024 Validation of QIASeq PanSolid Enrichment). Currently, copy number variants (CNVs) are analysed using a separate QIAseq “core” panel with a bespoke pipeline written in Python, with copy number amplifications reported for 4 genes: EGFR, ERBB2, AR and MET. The long-term aim is to move all CNV detection to the PanSolid panel and the CLC pipeline.\
+At the North West GLH, somatic variant testing is performed using the QIAseq methodology (Qiagen) [@xu2017] and Illumina next generation sequencing (NGS) using a large panel of QIAseq primer targets named “PanSolid”. The current PanSolid enrichment, referred to as PanSolidv2 (CDHS-48608Z-11752) contains 11,752 unique QIAseq targets. Sequencing data from the PanSolid enrichment is analysed with a pipeline built in the Qiagen CLC Genomic Workbench. Detection of single nucleotide variants and indels on PanSolid has previously been validated (DOC6024 Validation of QIASeq PanSolid Enrichment). Currently, copy number variants (CNVs) are analysed using a separate QIAseq “core” panel with a bespoke pipeline written in Python, with copy number amplifications reported for 4 genes: EGFR, ERBB2, AR and MET. The long-term aim is to move all CNV detection to the PanSolid panel and the CLC pipeline.\
 
 The detection of ERBB2 gene amplifications was validated on the PanSolid enrichment in April 2024 (DOC6260: Validation of Detecting Somatic ERBB2 Amplifications with the PanSolid CLC Pipeline). ERBB2 amplifications were prioritised for validation due to service needs, and were validated by comparison with results from droplet digital PCR testing. The aim of this validation document is to validate additional amplification genes on the PanSolid workflow; these genes are specified by the National Genomic Test Directory.\
 
@@ -291,6 +293,8 @@ kable(seracare_gene_overlap)
 
 ```
 
+\
+
 The details of the SeraCare controls are shown in @tbl-seracare-reference-material-details. Note that there were two tubes of both the Seraseq® TNA (DNA) WT Mix and the Seraseq® Solid Tumor CNV Mix, +12 copies mix.\
 
 ```{r}
@@ -330,7 +334,7 @@ Samples which had been tested using whole genome sequencing (WGS) were selected 
 
 ## Validation analysis\
 
-This validation document is written in Quarto using R (version 4.4.1) and is publicly available on [Github](https://github.com/joeshaw824/pansolid_cnv_validation).\
+Validation analysis was performed using the R programming language (version 4.4.1) [@rcore2024] relying on packages from the tidyverse [@wickham2019]. This validation document is written in Quarto [@Allaire_Quarto_2024] and is publicly available on [Github](https://github.com/joeshaw824/pansolid_cnv_validation).\
 
 ## Data locations\
 
@@ -853,6 +857,8 @@ repeatability_plots
 
 # References\
 
+::: {#refs}
+:::
 
 {{< pagebreak >}}
 
