@@ -368,8 +368,8 @@ All data analysed in this validation is saved here:\
 
 {{< pagebreak >}}
 
-# Results\
-## Gene amplifications\
+# Results
+## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results\
 
 ```{r}
 #| label: gene-amplification-coordinates
@@ -407,6 +407,25 @@ braf_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   interval = 100000,
   buffer = 50000))
 
+```
+
+## Fine setting: *MYC* and *MYCN* results
+
+```{r}
+#| label: myc-amplifications
+#| echo: FALSE
+
+myc_samples <- pos_results_for_plot |> 
+  filter(gene == "MYC")
+
+```
+
+*MYC* amplifications were detected in `r length(unique(myc_samples$labno))` samples, with fold changes ranging from `r round(min(myc_samples$fold_change), 1)` to `r round(max(myc_samples$fold_change), 1)`. The full width of the *MYC* gene was covered in all calls except for sample 24031627, in which only the latter 2 exons of the gene had an amplification.
+
+```{r}
+#| label: myc-amplification-plots
+#| echo: FALSE
+
 myc_plot_wide <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = pos_results_for_plot,
   gene = "MYC",
@@ -417,8 +436,21 @@ myc_plot_narrow <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = pos_results_for_plot |> 
     filter(cnv_length < 100000),
   gene = "MYC",
-  interval = 100000,
+  interval = 1000,
   buffer = 5000))
+
+myc_labno_plot <- make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MYC",
+  interval = 1000,
+  buffer = 5000)
+
+myc_plot_wide_zoom <- myc_labno_plot[[4]] +
+  coord_cartesian(xlim = c(127732000, 127746000))
+
+myc_plot_wide
+
+myc_plot_narrow
 
 ```
 
@@ -637,7 +669,7 @@ kable(wgs_comparison_tbl)
 
 The Seraseq® TNA (DNA) WT Mix was tested on the PanSolid v2 enrichment on worksheet WS144291 and the +3 copies, +6 copies and +12 copies reference materials were tested on worksheet WS139890. The results for the 5 genes with defined copy number gains in the reference materials which are also on the list of targets for this validation are shown in  Table 1. The whole genome plot for each reference material is shown in Figure 3.\
 
-The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the EGFR and ERBB2 genes for the +3 copies, +6 copies and +12 copies reference materials. Conversely, the PanSolid results for MYC were consistently lower than the predicted fold chance and SeraCare results (Figure 5). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (Figure 6).\
+The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the EGFR and ERBB2 genes for the +3 copies, +6 copies and +12 copies reference materials (@tbl-seracare-pansolid-ngs). Conversely, the PanSolid results for MYC were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@seracare-ddpcr-comparison).\
 
 ```{r}
 #| label: seracare-ngs-comparison
@@ -788,7 +820,7 @@ ddpcr_comparison_plot
 
 ### SeraCare dilution mixes\
 
-Dilution mixes were prepared to simulate a sample with neoplastic cell contents of 30%, 20%, 10 % and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291. The results for each gene are shown in Table 15, and the whole genome plots are shown in Figure 4. All gene amplifications were detected in the 30% NCC mix, except for MYC. \
+Dilution mixes were prepared to simulate a sample with neoplastic cell contents of 30%, 20%, 10 % and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291. The results for each gene are shown in @tbl-seracare-dilution-mix-results, and the whole genome plots are shown in Figure 4. All gene amplifications were detected in the 30% NCC mix, except for MYC. \
 
 ```{r}
 #| label: tbl-seracare-dilution-mix-results
@@ -821,6 +853,24 @@ kable(lod_dilution_mix_results)
 {{< pagebreak >}}
 
 ## Repeat testing\
+
+Intra-run variation (repeatability) and inter-run variation (reproducibility) were investigated for 3 samples using the testing structure shown in 
+
+```{r}
+#| label: tbl-repeat-schedule
+#| fig-cap: "Repeat testing"
+#| echo: FALSE
+
+repeat_schedule <- data.frame(
+  `Worksheet` = c(1, 2, 2, 2, 3),
+  `Sample replicate` = c(1, 2, 3, 4, 5)
+)
+
+kable(repeat_schedule)
+
+```
+
+\
 
 ```{r}
 #| label: fig-repeatability
@@ -870,7 +920,15 @@ repeatability_plots
 
 {{< pagebreak >}}
 
-# Discussion\
+# Discussion
+
+## Comparison to WGS
+
+## Limit of detection
+
+## Limitations
+
+Positive control samples were not available for the *ALK* and *SMO* genes.
 
 # Review of test requirements\
 
