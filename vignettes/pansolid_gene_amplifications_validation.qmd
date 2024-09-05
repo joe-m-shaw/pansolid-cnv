@@ -9,6 +9,8 @@ bibliography: pansolid_cnv_references.bib
 csl: vancouver.csl
 ---
 
+{{< pagebreak >}}
+
 # Authors\
 
 Author: Joe Shaw
@@ -21,9 +23,9 @@ Author contact: joseph.shaw2@mft.nhs.uk; joseph.shaw3@nhs.net\
 
 # Acronyms\
 
-**ALK**: Anaplastic lymphoma kinase
+**ALK**: Anaplastic Lymphoma Kinase
 
-**BRAF**: 
+**BRAF**: B-Rapidly Accelerated Fibrosarcoma
 
 **CLC**: Acronym unknown. CLC Bio was acquired by Qiagen in 2013.
 
@@ -41,35 +43,35 @@ Author contact: joseph.shaw2@mft.nhs.uk; joseph.shaw3@nhs.net\
 
 **GLH**:  Genomic Laboratory Hub
 
-**IHC**:  Immuno-histochemistry
+**IHC**:  Immuno-HistoChemistry
 
-**MDM2**: 
+**MDM2**: Murine Double Minute 2 
 
-**MET**: 
+**MET**: Mesenchymal-Epithelial Transition factor
 
-**MYC**: 
+**MYC**: avian MYeloCytomatosis oncogene
 
-**MYCN**:
+**MYCN**: avian MYeloCytomatosis oncogene Neuroblastoma sub-type
 
 **NGS**: 	Next Generation Sequencing
 
-**NICE**:  National Institute for Health and Care Excellence
-
-**SMO**: 
+**SMO**: SMOothened, frizzled class receptor
 
 **UMI**: 	Unique Molecular Identifier
 
 **WGS**: 	Whole Genome Sequencing
 
-# Purpose\
+{{< pagebreak >}}
 
-The purpose of this document is to describe the validation of detection of somatic gene amplifications on the PanSolid v2 QIAseq panel using the PanSolid CLC pipeline at the North West Genomic Laboratory Hub (GLH).\
+# Purpose
 
-# Introduction\
+The purpose of this document is to describe the validation of detection of somatic gene amplifications on the PanSolid v2 QIAseq panel using the PanSolid CLC pipeline at the North West Genomic Laboratory Hub (GLH).
 
-At the North West GLH, somatic variant testing is performed using the QIAseq methodology (Qiagen) [@xu2017] and Illumina next generation sequencing (NGS) using a large panel of QIAseq primer targets named “PanSolid”. The current PanSolid enrichment, referred to as PanSolidv2 (CDHS-48608Z-11752) contains 11,752 unique QIAseq targets. Sequencing data from the PanSolid enrichment is analysed with a pipeline built in the Qiagen CLC Genomic Workbench. Detection of single nucleotide variants and indels on PanSolid has previously been validated ([DOC6024 Validation of QIASeq PanSolid Enrichment]{custom-style="Strong"}). Currently, copy number variants (CNVs) are analysed using a separate QIAseq “core” panel with a bespoke pipeline written in Python, with copy number amplifications reported for 4 genes: *EGFR*, *ERBB2*, *AR* and *MET*. The long-term aim is to move all CNV detection to the PanSolid panel and the CLC pipeline.\
+# Introduction
 
-The detection of *ERBB2* gene amplifications was validated on the PanSolid enrichment in April 2024 ([DOC6260: Validation of Detecting Somatic *ERBB2* Amplifications with the PanSolid CLC Pipeline]{custom-style="Strong"}). *ERBB2* amplifications were prioritised for validation due to service needs, and were validated by comparison with results from droplet digital PCR (ddPCR) testing. The aim of this validation document is to validate additional amplification genes on the PanSolid workflow; these genes are specified by the National Genomic Test Directory.\
+At the North West GLH, somatic variant testing is performed using the QIAseq methodology (Qiagen) [@xu2017] and Illumina next generation sequencing (NGS) using a large panel of QIAseq primer targets named “PanSolid”. The current PanSolid enrichment, referred to as PanSolidv2 (CDHS-48608Z-11752) contains 11,752 unique QIAseq targets. Sequencing data from the PanSolid enrichment is analysed with a pipeline built in the Qiagen CLC Genomic Workbench. Detection of single nucleotide variants and indels on PanSolid has previously been validated ([DOC6024 Validation of QIASeq PanSolid Enrichment]{custom-style="Strong"}). Currently, copy number variants (CNVs) are analysed using a separate QIAseq “core” panel with a bespoke pipeline written in Python, with copy number amplifications reported for 4 genes: *EGFR*, *ERBB2*, *AR* and *MET*. The long-term aim is to move all CNV detection to the PanSolid panel and the CLC pipeline.
+
+The detection of *ERBB2* gene amplifications was validated on the PanSolid enrichment in April 2024 ([DOC6260: Validation of Detecting Somatic *ERBB2* Amplifications with the PanSolid CLC Pipeline]{custom-style="Strong"}). *ERBB2* amplifications were prioritised for validation due to service needs, and were validated by comparison with results from droplet digital PCR (ddPCR) testing. The aim of this validation document is to validate additional amplification genes on the PanSolid workflow; these genes are specified by the National Genomic Test Directory.
 
 ```{r}
 #| label: packages-and-data
@@ -81,6 +83,7 @@ library(knitr)
 library(here)
 library(patchwork)
 library(janitor)
+library(flextable)
 
 source(here("scripts/set_shared_drive_filepath.R"))
 
@@ -96,13 +99,13 @@ source(here("functions/primer_functions.R"))
 
 ```
 
-##	Somatic Gene Amplifications\
+##	Somatic Gene Amplifications
 
-Gene amplification is a common mechanism in the development of cancer [@matsui2013]. Additional gene copies can be present on extra-chromosomal DNA rather than their initial chromosomal loci [@verhaak2019], for example *EGFR* amplifications can be present on extrachromosomal DNA fragments referred to as “double minutes” [french2019]. “Double minute” refers to a very small (“minute”) bodies of chromatin material with two arms (“double) which were originally visualised by chromosome staining [cox1965].\
+Gene amplification is a common mechanism in the development of cancer [@matsui2013]. Additional gene copies can be present on extra-chromosomal DNA rather than their initial chromosomal loci [@verhaak2019], for example *EGFR* amplifications can be present on extrachromosomal DNA fragments referred to as “double minutes” [french2019]. “Double minute” refers to a very small (“minute”) bodies of chromatin material with two arms (“double) which were originally visualised by chromosome staining [cox1965].
 
-The number of additional gene copies can vary between genes and tumour types, ranging as high as hundreds of gene copies. There is no consistent accepted threshold of copy number to classify a gene as “amplified”, although many clinical trials use a threshold of 10 copies as an entry requirement.\
+The number of additional gene copies can vary between genes and tumour types, ranging as high as hundreds of gene copies. There is no consistent accepted threshold of copy number to classify a gene as “amplified”, although many clinical trials use a threshold of 10 copies as an entry requirement.
 
-Gene amplifications can have clinical relevance for choice of treatment and predicting resistance to treatment, particularly amplifications of genes encoding tyrosine kinase membrane receptors. It is predicted that increasing the gene copy number increases the levels of translated protein, which maintains aberrant cell signalling even in the presence of tyrosine kinase inhibitors (TKIs) [tanaka2020]. Historically, gene amplifications were detected with fluorescence in-situ hybridisation (FISH) and immunohistochemistry (IHC), but next generation sequencing (NGS) methods are being increasingly used. The PanSolid enrichment includes 212 genes relevant to cancer. Of these, there are 9 genes which were selected as having amplifications with clinical relevance (@tbl-amplification-coordinates).\
+Gene amplifications can have clinical relevance for choice of treatment and predicting resistance to treatment, particularly amplifications of genes encoding tyrosine kinase membrane receptors. It is predicted that increasing the gene copy number increases the levels of translated protein, which maintains aberrant cell signalling even in the presence of tyrosine kinase inhibitors (TKIs) [tanaka2020]. Historically, gene amplifications were detected with fluorescence in-situ hybridisation (FISH) and immunohistochemistry (IHC), but next generation sequencing (NGS) methods are being increasingly used. The PanSolid enrichment includes 212 genes relevant to cancer. Of these, there are 9 genes which were selected as having amplifications with clinical relevance (@tbl-amplification-coordinates).
 
 ```{r}
 #| label: tbl-amplification-coordinates
@@ -160,7 +163,7 @@ kable(gene_coordinate_tbl)
 ```
 \
 
-The clinical impact of amplifications in these genes is summarised below:\
+The clinical impact of amplifications in these genes is summarised below:
 
 - ***ALK***: *ALK* amplifications are observed in many cancer types, and confer a poor prognosis in neuroblastoma [@shreenivas2023].
 
@@ -176,13 +179,13 @@ The clinical impact of amplifications in these genes is summarised below:\
 
 - ***MYC***: *MYC* amplification is a poor prognostic indicator in patients with medulloblastoma [@sursal2022].
 
-- ***MYCN***:
+- ***MYCN***: in neuroblastoma, MYCN amplification is associated with advanced disease and is used for risk stratification []
 
-- ***SMO***:\
+- ***SMO***:
 
-## Requirements\
+## Requirements
 
-The requirements for this new method are as follows:\
+The requirements for this new method are as follows:
 
 - **Clinical utility:** the test should provide clear results for the 10 listed amplification markers.
 
@@ -196,15 +199,15 @@ The requirements for this new method are as follows:\
 
 - **Visualisation:** the results should be presented in a clear and visual manner.
 
-- **Analysis:** there should be a clear procedure for analysis of copy number variants by laboratory staff.\
+- **Analysis:** there should be a clear procedure for analysis of copy number variants by laboratory staff.
 
-# Methodology\
+# Methodology
 
-## Validation Structure\
+## Validation Structure
 
-## Samples\
+## Samples
 
-Samples were received at the North West GLH between December 2019 and July 2024. Details of the normal control cohort used for the PanSolid CLC pipeline are given in the ERBB2 validation document ([DOC6260]{custom-style="Strong"}). In total, 94 different samples were tested on the PanSolid version 2 enrichment during this validation.\
+Samples were received at the North West GLH between December 2019 and July 2024. Details of the normal control cohort used for the PanSolid CLC pipeline are given in the ERBB2 validation document ([DOC6260]{custom-style="Strong"}). In total, 94 different samples were tested on the PanSolid version 2 enrichment during this validation.
 
 ```{r}
 #| label: tbl-tissue-types
@@ -295,11 +298,11 @@ kable(ncc_summary)
 
 ```
 
-## Reference Materials\
+## Reference Materials
 
-### SeraCare reference materials\
+### SeraCare reference materials
 
-Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from an FFPE sample of a stable cell line, spiked with plasmid DNA for specific genes at different quantities. The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes.\
+Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from an FFPE sample of a stable cell line, spiked with plasmid DNA for specific genes at different quantities. The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes.
 
 ```{r}
 #| label: tbl-seracare-reference-material-genes
@@ -319,9 +322,8 @@ kable(seracare_gene_overlap)
 
 ```
 
-\
 
-The details of the SeraCare controls are shown in @tbl-seracare-reference-material-details. Note that there were two tubes of both the Seraseq® TNA (DNA) WT Mix and the Seraseq® Solid Tumor CNV Mix, +12 copies mix.\
+The details of the SeraCare controls are shown in @tbl-seracare-reference-material-details. Note that there were two tubes of both the Seraseq® TNA (DNA) WT Mix and the Seraseq® Solid Tumor CNV Mix, +12 copies mix.
 
 ```{r}
 #| label: tbl-seracare-reference-material-details
@@ -337,39 +339,39 @@ kable(seracare_details)
 
 ```
 
-### Limit of detection DNA mixtures\
+### Limit of detection DNA mixtures
 
-A limit of detection experiment was performed using the Seraseq® Solid Tumor CNV Mix, +12 copies reference material, which represented DNA from tumour cells, and the Seraseq® TNA (DNA) WT Mix, which represented DNA from normal cells. The two reference materials were mixed together to mimic samples with neoplastic cell contents of 30%, 20%, 10% and 0%. The final volume of each DNA mixture was 20 µl and the total DNA concentration was 6 ng/µl, which is the standard input for the PanSolid NGS workflow. These DNA mixtures were made on worksheet WS144265 and run on the PanSolid version 2 NGS workflow on worksheet WS144291. This limit of detection experiment is different to the limit of detection experiment performed on the PanSolid version 1 workflow for the validation of ERBB2 amplifications ([DOC6260]{custom-style="Strong"}).\
+A limit of detection experiment was performed using the Seraseq® Solid Tumor CNV Mix, +12 copies reference material, which represented DNA from tumour cells, and the Seraseq® TNA (DNA) WT Mix, which represented DNA from normal cells. The two reference materials were mixed together to mimic samples with neoplastic cell contents of 30%, 20%, 10% and 0%. The final volume of each DNA mixture was 20 µl and the total DNA concentration was 6 ng/µl, which is the standard input for the PanSolid NGS workflow. These DNA mixtures were made on worksheet WS144265 and run on the PanSolid version 2 NGS workflow on worksheet WS144291. This limit of detection experiment is different to the limit of detection experiment performed on the PanSolid version 1 workflow for the validation of ERBB2 amplifications ([DOC6260]{custom-style="Strong"}).
 
-## Next generation sequencing\
+## Next generation sequencing
 
-DNA was extracted using the QIASymphony extraction method ([DOC6251: QIAsymphony DNA FFPE Extraction Procedure]{custom-style="Strong"}) and tested on version 2 (CDHS-48608Z-11752) of the PanSolid QIAseq enrichment ([DOC5925: QIAseq PanSolid DNA Panel NGS Library Preparation]{custom-style="Strong"}) with sequencing on an Illumina Novaseq. The NGS data described in this validation document comes from 32 worksheets performed between January 2024 and August 2024.\
+DNA was extracted using the QIASymphony extraction method ([DOC6251: QIAsymphony DNA FFPE Extraction Procedure]{custom-style="Strong"}) and tested on version 2 (CDHS-48608Z-11752) of the PanSolid QIAseq enrichment ([DOC5925: QIAseq PanSolid DNA Panel NGS Library Preparation]{custom-style="Strong"}) with sequencing on an Illumina Novaseq. The NGS data described in this validation document comes from 32 worksheets performed between January 2024 and August 2024.
 
-## Bioinformatic analysis\
+## Bioinformatic analysis
 
 The CLC pipeline, including details of the methodology and quality metrics, is described in the ERBB2 amplifications validation document ([DOC6260]{custom-style="Strong"}). All amplification genes were analysed on the “coarse” setting, except for MYC. MYC has only 3 targets on the PanSolid enrichment, and preliminary work showed that the coarse setting could not identify MYC amplifications in positive controls. The “fine” setting was used specifically for MYC to account for the lower number of QIAseq targets. The version of the PanSolid CLC pipeline tested in this validation was PanSolid Workflow v2.2.
 
-## Orthogonal testing\
-### Droplet digital PCR for *ERBB2*, *MYC*, *MET*, *BRAF* and *EGFR*\
+## Orthogonal testing
+### Droplet digital PCR for *ERBB2*, *MYC*, *MET*, *BRAF* and *EGFR*
 
-Amplification results for the *ERBB2*, *MYC*, *MET*, *BRAF* and *EGFR* genes were confirmed using ddPCR. ddPCR assays were designed using the workflow for confirming constitutional CNVs, which involves a universal forward primer and a reference assay for the *AP3B1* gene on chromosome 5 ([DOC4304 CNV Confirmation Using Droplet Digital PCR]{custom-style="Strong"}). ddPCR was performed using a BioRad QX200 system with 5ng DNA input per well. Each assay was validated for use and then used to test DNA from clinical FFPE samples and SeraCare controls (Table 9). The results for the ERBB2 ddPCR were previously reported in [DOC6260]{custom-style="Strong"}. Details of the primer and probe sequences, reaction mix  and thermocycling conditions (@tbl-ddpcr-thermocycler-programme) are given in the Appendix.\
+Amplification results for the *ERBB2*, *MYC*, *MET*, *BRAF* and *EGFR* genes were confirmed using ddPCR. ddPCR assays were designed using the workflow for confirming constitutional CNVs, which involves a universal forward primer and a reference assay for the *AP3B1* gene on chromosome 5 ([DOC4304 CNV Confirmation Using Droplet Digital PCR]{custom-style="Strong"}). ddPCR was performed using a BioRad QX200 system with 5ng DNA input per well. Each assay was validated for use and then used to test DNA from clinical FFPE samples and SeraCare controls (Table 9). The results for the ERBB2 ddPCR were previously reported in [DOC6260]{custom-style="Strong"}. Details of the primer and probe sequences, reaction mix  and thermocycling conditions (@tbl-ddpcr-thermocycler-programme) are given in the Appendix.
 
-### Whole genome sequencing\
+### Whole genome sequencing
 
-Samples which had been tested using whole genome sequencing (WGS) were selected for this validation, which included samples from the Tessa Jowell BRAIN MATRIX Platform Study (NCT04274283) [@watts2022]. WGS was performed on DNA extracted from fresh-frozen tissue by Illumina Laboratory Services at the Wellcome Trust Sanger Institute in Cambridge, as part of the NHS Genomics Medicine Service. Formalin-fixed paraffin-embedded (FFPE) tissue from the same tumour block as the fresh frozen tissue used for WGS was used as the sample source for PanSolid testing. Samples included in this validation were analysed by WGS between December 2022 to February 2024, using the “somatic variants and pertinent germline findings in cancer susceptibility genes” pipeline version 2.28 to version 3.6.2.\
+Samples which had been tested using whole genome sequencing (WGS) were selected for this validation, which included samples from the Tessa Jowell BRAIN MATRIX Platform Study (NCT04274283) [@watts2022]. WGS was performed on DNA extracted from fresh-frozen tissue by Illumina Laboratory Services at the Wellcome Trust Sanger Institute in Cambridge, as part of the NHS Genomics Medicine Service. Formalin-fixed paraffin-embedded (FFPE) tissue from the same tumour block as the fresh frozen tissue used for WGS was used as the sample source for PanSolid testing. Samples included in this validation were analysed by WGS between December 2022 to February 2024, using the “somatic variants and pertinent germline findings in cancer susceptibility genes” pipeline version 2.28 to version 3.6.2.
 
-## Validation analysis\
+## Validation analysis
 
-Validation analysis was performed using the R programming language (version 4.4.1) [@rcore2024] relying on packages from the tidyverse [@wickham2019]. This validation document is written in Quarto [@Allaire_Quarto_2024] and is publicly available on [Github](https://github.com/joeshaw824/pansolid_cnv_validation).\
+Validation analysis was performed using the R programming language (version 4.4.1) [@rcore2024] relying on packages from the tidyverse [@wickham2019]. This validation document is written in Quarto [@Allaire_Quarto_2024] and is publicly available on [Github](https://github.com/joeshaw824/pansolid_cnv_validation).
 
-## Data locations\
+## Data locations
 
-All data analysed in this validation is saved here:\
+All data analysed in this validation is saved here:
 
 {{< pagebreak >}}
 
 # Results
-## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results\
+## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results
 
 ```{r}
 #| label: gene-amplification-coordinates
@@ -470,7 +472,7 @@ cnv_length_plot <- pos_results_for_plot |>
 
 ```
 
-## Comparison to ddPCR\
+## Comparison to ddPCR
 
 ```{r}
 #| label: ddpcr-comparison
@@ -531,7 +533,6 @@ kable(ddpcr_summary)
 
 ```
 
-\
 
 ```{r}
 #| label: tbl-ddpcr-false-negatives
@@ -552,8 +553,6 @@ ddpcr_false_neg_table <- ddpcr_vs_pansolid |>
 kable(ddpcr_false_neg_table)
 
 ```
-
-\
 
 ```{r}
 #| label: fig-ddpcr-vs-pansolid-ngs
@@ -588,7 +587,7 @@ combined_ddpcr_plot
 
 {{< pagebreak >}}
 
-## Comparison to WGS\
+## Comparison to WGS
 
 ```{r}
 #| label: select-wgs-samples
@@ -663,13 +662,13 @@ kable(wgs_comparison_tbl)
 
 {{< pagebreak >}}
 
-## Limit of detection\
+## Limit of detection
 
-### SeraCare reference materials\
+### SeraCare reference materials
 
-The Seraseq® TNA (DNA) WT Mix was tested on the PanSolid v2 enrichment on worksheet WS144291 and the +3 copies, +6 copies and +12 copies reference materials were tested on worksheet WS139890. The results for the 5 genes with defined copy number gains in the reference materials which are also on the list of targets for this validation are shown in  Table 1. The whole genome plot for each reference material is shown in Figure 3.\
+The Seraseq® TNA (DNA) WT Mix was tested on the PanSolid v2 enrichment on worksheet WS144291 and the +3 copies, +6 copies and +12 copies reference materials were tested on worksheet WS139890. The results for the 5 genes with defined copy number gains in the reference materials which are also on the list of targets for this validation are shown in  Table 1. The whole genome plot for each reference material is shown in Figure 3.
 
-The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the EGFR and ERBB2 genes for the +3 copies, +6 copies and +12 copies reference materials (@tbl-seracare-pansolid-ngs). Conversely, the PanSolid results for MYC were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@seracare-ddpcr-comparison).\
+The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the EGFR and ERBB2 genes for the +3 copies, +6 copies and +12 copies reference materials (@tbl-seracare-pansolid-ngs). Conversely, the PanSolid results for MYC were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@seracare-ddpcr-comparison).
 
 ```{r}
 #| label: seracare-ngs-comparison
@@ -818,9 +817,9 @@ ddpcr_comparison_plot
 
 {{< pagebreak >}}
 
-### SeraCare dilution mixes\
+### SeraCare dilution mixes
 
-Dilution mixes were prepared to simulate a sample with neoplastic cell contents of 30%, 20%, 10 % and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291. The results for each gene are shown in @tbl-seracare-dilution-mix-results, and the whole genome plots are shown in Figure 4. All gene amplifications were detected in the 30% NCC mix, except for MYC. \
+Dilution mixes were prepared to simulate a sample with neoplastic cell contents of 30%, 20%, 10 % and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291. The results for each gene are shown in @tbl-seracare-dilution-mix-results, and the whole genome plots are shown in Figure 4. All gene amplifications were detected in the 30% NCC mix, except for MYC.
 
 ```{r}
 #| label: tbl-seracare-dilution-mix-results
@@ -852,13 +851,13 @@ kable(lod_dilution_mix_results)
 
 {{< pagebreak >}}
 
-## Repeat testing\
+## Repeat testing
 
 Intra-run variation (repeatability) and inter-run variation (reproducibility) were investigated for 3 samples using the testing structure shown in 
 
 ```{r}
 #| label: tbl-repeat-schedule
-#| fig-cap: "Repeat testing"
+#| tbl-cap: "Repeat testing"
 #| echo: FALSE
 
 repeat_schedule <- data.frame(
@@ -870,7 +869,6 @@ kable(repeat_schedule)
 
 ```
 
-\
 
 ```{r}
 #| label: fig-repeatability
@@ -946,7 +944,7 @@ Positive control samples were not available for the *ALK* and *SMO* genes.
 
 {{< pagebreak >}}
 
-# Appendix\
+# Appendix
 
 ```{r}
 #| label: tbl-ddpcr-primers
