@@ -569,6 +569,8 @@ cnv_length_plot <- pos_results_for_plot |>
 
 ## Comparison to ddPCR
 
+ddPCR was performed for a selection of samples for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes. The *ERBB2* ddPCR work was performed as part of the separate validation of *ERBB2* amplification detection ([DOC6260]{custom-style="Strong"}), which included DNA extracted on the Cobas and QIAsymphony methods. 11 *ERBB2* samples extracted with the QIAsymphony method are included in this analysis, as the QIAsymphony method was validated as the sole DNA extraction method for FFPE tissue at the Manchester GLH in April 2024.
+
 ```{r}
 #| label: ddpcr-comparison
 #| include: FALSE
@@ -642,6 +644,11 @@ kable(ddpcr_summary)
 
 ```
 
+
+Three samples had a discordant result from ddPCR when compared to the PanSolid NGS result.
+Two of these samples (24002064 and 23033921) had borderine results on both ddPCR and PanSolid NGS.
+The remaining sample (24037724) had a *MYC* copy number of 9 on ddPCR, with a fold change of only 2.2 detected on PanSolid NGS. 
+The whole genome plot for this sample showed a deletion at chromosome 5q, including the location of the *AP3B1* ddPCR reference gene, which probably caused an artificially high ddPCR copy number.
 
 ```{r}
 #| label: tbl-ddpcr-false-negatives
@@ -1204,12 +1211,6 @@ poor_quality_results <- validation_pos_cnv_results_collated |>
 kable(poor_quality_results)
 
 ```
-
-
-{{< pagebreak >}}
-
-## Overall sensitivity
-
 
 {{< pagebreak >}}
 
