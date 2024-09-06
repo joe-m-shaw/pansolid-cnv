@@ -3,6 +3,7 @@ title: "Validation of Detecting Somatic Gene Amplifications with the PanSolid CL
 format: 
   docx:
     reference-doc: sop_template.docx
+    link-citations: true
 toc: true
 toc-title: "Table of Contents"
 bibliography: pansolid_cnv_references.bib
@@ -55,6 +56,8 @@ Author contact: joseph.shaw2@mft.nhs.uk; joseph.shaw3@nhs.net\
 
 **NGS**: 	Next Generation Sequencing
 
+**NHS**: National Health Service
+
 **SMO**: SMOothened, frizzled class receptor
 
 **UMI**: 	Unique Molecular Identifier
@@ -99,13 +102,27 @@ source(here("functions/primer_functions.R"))
 
 ```
 
+```{r}
+#| label: flextable-defaults
+#| include: FALSE
+
+set_flextable_defaults(
+  font.size = 10, 
+  theme_fun = theme_box,
+  font.family = "Palatino Linotype",
+  table_align = "left",
+  text.align = "center",
+  table.layout = "autofit")
+
+```
+
 ##	Somatic Gene Amplifications
 
-Gene amplification is a common mechanism in the development of cancer [@matsui2013]. Additional gene copies can be present on extra-chromosomal DNA rather than their initial chromosomal loci [@verhaak2019], for example *EGFR* amplifications can be present on extrachromosomal DNA fragments referred to as “double minutes” [french2019]. “Double minute” refers to a very small (“minute”) bodies of chromatin material with two arms (“double) which were originally visualised by chromosome staining [cox1965].
+Gene amplification is a common mechanism in the development of cancer [@matsui2013]. Additional gene copies can be present on extra-chromosomal DNA rather than their initial chromosomal loci [@verhaak2019], for example *EGFR* amplifications can be present on extrachromosomal DNA fragments referred to as “double minutes” [@french2019]. “Double minute” refers to a very small (“minute”) bodies of chromatin material with two arms (“double) which were originally visualised by chromosome staining [@cox1965].
 
 The number of additional gene copies can vary between genes and tumour types, ranging as high as hundreds of gene copies. There is no consistent accepted threshold of copy number to classify a gene as “amplified”, although many clinical trials use a threshold of 10 copies as an entry requirement.
 
-Gene amplifications can have clinical relevance for choice of treatment and predicting resistance to treatment, particularly amplifications of genes encoding tyrosine kinase membrane receptors. It is predicted that increasing the gene copy number increases the levels of translated protein, which maintains aberrant cell signalling even in the presence of tyrosine kinase inhibitors (TKIs) [tanaka2020]. Historically, gene amplifications were detected with fluorescence in-situ hybridisation (FISH) and immunohistochemistry (IHC), but next generation sequencing (NGS) methods are being increasingly used. The PanSolid enrichment includes 212 genes relevant to cancer. Of these, there are 9 genes which were selected as having amplifications with clinical relevance (@tbl-amplification-coordinates).
+Gene amplifications can have clinical relevance for choice of treatment and predicting resistance to treatment, particularly amplifications of genes encoding tyrosine kinase membrane receptors. It is predicted that increasing the gene copy number increases the levels of translated protein, which maintains aberrant cell signalling even in the presence of tyrosine kinase inhibitors (TKIs) [@tanaka2020]. Historically, gene amplifications were detected with fluorescence in-situ hybridisation (FISH) and immunohistochemistry (IHC), but next generation sequencing (NGS) methods are being increasingly used. The PanSolid enrichment includes 212 genes relevant to cancer. Of these, there are 9 genes which were selected as having amplifications with clinical relevance (@tbl-amplification-coordinates).
 
 ```{r}
 #| label: tbl-amplification-coordinates
@@ -158,7 +175,7 @@ gene_coordinate_tbl <- gene_tbl_mod |>
          `Transcript (RefSeq)` = transcript_refseq,
          `Primers in gene` = primers_in_gene)
 
-kable(gene_coordinate_tbl)
+flextable(gene_coordinate_tbl)
 
 ```
 \
@@ -335,7 +352,7 @@ seracare_details <- read_csv(file = paste0(data_folder,
                                            "seracare_reference_materials/",
                                            "seracare_sample_details.csv")) 
 
-kable(seracare_details)
+flextable(seracare_details)
 
 ```
 
@@ -637,6 +654,8 @@ wgs_pansolid_comparison <- validation_all_amp_gene_results_collated |>
 
 ```
 
+The results from the PanSolid pipeline compared to the results from WGS are shown in @tbl-wgs-comparison. These results are only for comparisons where the WGS and PanSolid DNA samples were extracted from the same pathology block, and where the PanSolid sample was extracted via the QIAsymphony method. Gains detected on WGS with fewer than 10 gene copies are coded as normal results.
+
 ```{r}
 #| label: tbl-wgs-comparison
 #| tbl-cap: "Comparison with WGS results"
@@ -918,17 +937,50 @@ repeatability_plots
 
 {{< pagebreak >}}
 
+## Quality control
+
+{{< pagebreak >}}
+
+## Overall sensitivity
+
+
+{{< pagebreak >}}
+
 # Discussion
 
-## Comparison to WGS
+
+
+## Comparison to WGS and ddPCR
+
+The results from the CLC pipeline compared favourably with WGS. In the NHS Genomic Medicine Service, WGS is performed by Illumina Laboratory Solutions and analysed using a bioinformatics pipeline developed by Genomics England. The Genomics England cancer pipeline performs analysis for somatic CNVs and structural variants [@genomicsengland2023], using the Canvas [@roller2016] and Manta [@chen2016] algorithms, respectively. The Genomics England cancer pipeline has been validated to have a sensitivity of 79.3% for CNV detection and 88.8% for structural variant detection, when compared to results from Fluorescent In Situ Hybridisation (FISH) [@genomicsengland2019].
+
+One inconsistent result was due to a fresh frozen sample being tested by WGS, whilst FFPE material was tested via PanSolid NGS. By comparison, ddPCR did not have this limitation as it was performed on the same DNA as PanSolid NGS.
+
+## Quantification
+
+The technique is semi-quantitative.
 
 ## Limit of detection
 
+
+## Rationale
+
+It is not practical or cost-effective to fully validate the detection of variants for every copy number state, with every breakpoint combination in every gene on the PanSolid panel. Instead, the objective of this validation was to define the sensitivity and specificity with which the PanSolid CLC pipeline can detect CNVs in a variety of genes for an appropriately sized sample cohort compared to orthogonal methods. Given the assumption that amplification dynamics are not radically different between target genes and genomic regions, the sensitivity and specificity for gene amplification detection in the validation dataset could be extrapolated to additional genes in future. This is a standard approach that is used to validate somatic CNV detection for large gene panels [@chandramohan2022], whole exome sequencing [@saldivar2023] and whole genome sequencing [@roepman2021;@genomicsengland2019].
+
 ## Limitations
 
-Positive control samples were not available for the *ALK* and *SMO* genes.
+This validation has the following limitations:
+
+- FISH is considered the gold standard test for many amplifications, but FISH data were not available for comparison.
+
+- Positive control samples were not available for the *ALK* and *SMO* genes.
 
 # Review of test requirements\
+
+
+
+
+
 
 # Requirement for clinical implementation\
 
