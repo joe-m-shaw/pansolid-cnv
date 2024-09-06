@@ -393,22 +393,64 @@ All data analysed in this validation is saved here:
 {{< pagebreak >}}
 
 # Results
-## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results
 
 ```{r}
-#| label: gene-amplification-coordinates
+#| label: good-quality-results
 #| include: FALSE
 
 good_quality_samples <- validation_stdev_results_collated |> 
   filter(st_dev_signal_adjusted_log2_ratios < 0.7)
 
-qiasymphony_samples <- validation_sample_patient_info |> 
-  filter(method_name == "QIAsymphony_DNA_FFPE")
-
 pos_results_for_plot <- validation_pos_cnv_results_collated |> 
   filter(labno %in% good_quality_samples$labno)
 
 ```
+
+Overall there are PanSolid NGS results for `r nrow(validation_stdev_results_collated)` replicates representing `r length(unique(validation_stdev_results_collated$labno))` different samples.
+Of these, `r nrow(good_quality_samples)` had signal-adjusted noise metrics within the acceptable range of 0 - 0.7.
+There was a range of different amplifications detected across different cancer types.
+
+```{r}
+#| label: pansolid-results-by-cancer-type
+#| echo: FALSE
+
+amp_results_with_cancer_types <- validation_all_amp_gene_results_collated |> 
+  left_join(validation_sample_patient_info,
+            by = "labno", 
+            relationship = "many-to-one")
+
+results_by_cancer_type <- ggplot(amp_results_with_cancer_types |> 
+         filter(!cancer_type_new %in% c("Error", "Reference material",
+                                        NA)) |> 
+         mutate(cancer_type_new = case_when(
+           cancer_type_new == "central nervous system" ~"CNS",
+           cancer_type_new == "hepatocellular carcinoma" ~"liver",
+           TRUE ~cancer_type_new
+         ),
+         max_region_fold_change = case_when(
+           max_region_fold_change < 1 ~1,
+           TRUE ~max_region_fold_change
+         )), 
+       aes(x = gene,
+           y = max_region_fold_change)) +
+  geom_jitter(shape = 21, aes(fill = pansolid_call), width = 0.2,
+              alpha = 0.6) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom") +
+  scale_y_log10() +
+  geom_hline(yintercept = 2.8, linetype = "dashed") +
+  facet_wrap(~cancer_type_new, ncol = 4) +
+  labs(x = "", y = "Fold change",
+       title = "PanSolid results by cancer type",
+       caption = "Note: results below fold change of 1 are changed to 1 to allow log scale plotting",
+       fill = "")
+
+results_by_cancer_type
+
+```
+
+## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results
 
 ```{r}
 #| label: gene-coordinate-plots
@@ -549,7 +591,8 @@ ddpcr_summary <- ddpcr_vs_pansolid |>
   rename(`Gene` = gene,
          `True negatives` = true_negative,
          `True positives` = true_positive,
-         `False negatives` = false_negative)
+         `False negatives` = false_negative) |> 
+  adorn_totals()
 
 kable(ddpcr_summary)
 
@@ -678,7 +721,8 @@ wgs_comparison_tbl <- wgs_pansolid_comparison |>
   rename(`Gene` = gene,
          `True negative` = true_negative,
          `True positive` = true_positive,
-         `False negative` = false_negative)
+         `False negative` = false_negative) |> 
+  adorn_totals()
 
 kable(wgs_comparison_tbl)
 
