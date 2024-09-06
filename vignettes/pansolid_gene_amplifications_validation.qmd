@@ -68,7 +68,9 @@ Author contact: joseph.shaw2@mft.nhs.uk; joseph.shaw3@nhs.net
 
 # Purpose
 
-The purpose of this document is to describe the validation of detection of somatic gene amplifications on the PanSolid v2 QIAseq panel using the PanSolid CLC pipeline at the North West Genomic Laboratory Hub (GLH).
+The purpose of this document is to describe the validation of detection of somatic gene amplifications
+on the PanSolid v2 QIAseq panel using the PanSolid CLC pipeline at the North West Genomic Laboratory
+Hub (GLH).
 
 # Introduction
 
@@ -99,6 +101,8 @@ source(here("functions/pansolid_excel_functions.R"))
 source(here("functions/cnv_plot_functions.R"))
 
 source(here("functions/primer_functions.R"))
+
+source(here("functions/test_metric_functions.R"))
 
 ```
 
@@ -609,12 +613,25 @@ ddpcr_summary <- ddpcr_vs_pansolid |>
               names_from = outcome,
               values_from = n,
               values_fill = 0) |> 
-  mutate(`False positive` = 0) |> 
+  mutate(false_positive = 0) |> 
+  adorn_totals() |> 
+  mutate("Sensitivity (%)" = round(calc_sensitivity(tp = true_positive,
+                                          tn = true_negative,
+                                          fn = false_negative,
+                                          fp = false_positive), 1),
+         "Specificity (%)" = round(calc_specificity(tp = true_positive,
+                                          tn = true_negative,
+                                          fn = false_negative,
+                                          fp = false_positive), 1),
+         "Samples" = true_positive + true_negative + false_negative +
+                         false_positive) |> 
   rename(`Gene` = gene,
          `True negatives` = true_negative,
          `True positives` = true_positive,
-         `False negatives` = false_negative) |> 
-  adorn_totals()
+         `False negatives` = false_negative,
+         `False positives` = false_positive) |> 
+  select(`Gene`, "Samples", `True negatives`, `True positives`, `False negatives`,
+         `False positives`, "Sensitivity (%)", "Specificity (%)")
 
 kable(ddpcr_summary)
 
@@ -739,13 +756,26 @@ wgs_comparison_tbl <- wgs_pansolid_comparison |>
               values_from = n,
               values_fill = 0) |> 
   select(gene, true_negative, true_positive, false_negative) |> 
-  mutate(`False positive` = 0) |> 
+  mutate(false_positive = 0) |>
+  adorn_totals() |> 
+  mutate("Sensitivity (%)" = round(calc_sensitivity(tp = true_positive,
+                                          tn = true_negative,
+                                          fn = false_negative,
+                                          fp = false_positive), 1),
+         "Specificity (%)" = round(calc_specificity(tp = true_positive,
+                                          tn = true_negative,
+                                          fn = false_negative,
+                                          fp = false_positive), 1),
+         "Samples" = true_positive + true_negative + false_negative +
+                         false_positive) |> 
   rename(`Gene` = gene,
-         `True negative` = true_negative,
-         `True positive` = true_positive,
-         `False negative` = false_negative) |> 
-  adorn_totals()
-
+         `True negatives` = true_negative,
+         `True positives` = true_positive,
+         `False negatives` = false_negative,
+         `False positives` = false_positive) |> 
+  select(`Gene`, "Samples", `True negatives`, `True positives`, `False negatives`,
+         `False positives`, "Sensitivity (%)", "Specificity (%)")
+  
 kable(wgs_comparison_tbl)
 
 ```
@@ -863,6 +893,7 @@ kable(seracare_ngs_comparison_tbl)
 ```{r}
 #| label: fig-seracare-ngs-pansolid
 #| fig-cap: "PanSolid vs SeraCare NGS"
+#| fig-cap-location: top
 #| echo: FALSE
 
 seracare_colours <- c(
@@ -914,6 +945,7 @@ seracare_ddpcr_comparison <- validation_ddpcr_collated |>
 ```{r}
 #| label: fig-seracare-ddpcr-pansolid
 #| fig-cap: "ddPCR vs SeraCare"
+#| fig-cap-location: top
 #| echo: FALSE
 #| warning: FALSE
 
@@ -999,6 +1031,7 @@ The variation in the measured fold change between replicates was minimal, with n
 ```{r}
 #| label: fig-repeatability
 #| fig-cap: "Repeatability results"
+#| fig-cap-location: top
 #| echo: FALSE
 
 repeat_noise_data <- validation_stdev_results_collated |> 
@@ -1045,6 +1078,7 @@ repeatability_plots
 ```{r}
 #| label: fig-24020998-EGFR
 #| fig-cap: "Sample 24020998 EGFR amplifications"
+#| fig-cap-location: top
 #| echo: FALSE
 
 fig_24020998_EGFR <- make_cnv_triptych_plot(input_plot  = 
