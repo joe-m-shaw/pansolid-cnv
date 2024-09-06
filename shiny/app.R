@@ -88,6 +88,16 @@ total_samples <- length(unique(std_dev_results$filepath))
 
 samples_per_week <- round(total_samples / weeks_live, 0)
 
+worksheet_quality_outcomes <- std_dev_results |> 
+  mutate(quality_category = case_when(
+    noise >= 1 ~"poor",
+    noise < 1 & noise >= 0.7 ~"sub-optimal",
+    noise < 0.7 ~"good"
+  ),
+  quality_category = factor(quality_category, levels = c("poor", "sub-optimal", "good"))) |> 
+  group_by(quality_category, worksheet) |> 
+  summarise(total = n())
+  
 # User Interface --------------------------------------------------------------------
 
 ui <- fluidPage(
@@ -122,8 +132,11 @@ ui <- fluidPage(
            plotOutput("noise_by_ws_plot")),
     
     column(10,
-           plotOutput("percent_138_plot"))
+           plotOutput("percent_138_plot")),
     
+    column(10,
+           plotOutput("noise_category_by_ws_plot"))
+
   ),
   
   fluidRow(
@@ -286,6 +299,21 @@ server <- function(input, output) {
       theme_bw() +
       theme(axis.text.x = element_text(angle = 90)) +
       labs(x = "", y = "Percentage panel covered at 138x")
+    
+  })
+  
+  output$noise_category_by_ws_plot <- renderPlot({
+    
+    ggplot(worksheet_quality_outcomes, aes(x = worksheet, y = total)) +
+      geom_col(aes(fill = quality_category)) +
+      scale_fill_manual(values = c("#D55E00", "#E69F00","#009E73")) +
+      theme_bw() +
+      theme(axis.text.x = element_text(angle = 90),
+            legend.position = "bottom") +
+      labs(x = "Worksheet", y = "Number of samples",
+           title = "Quality categories of noise by worksheet",
+           subtitle = "Sub-optimal noise threshold: 0.7; poor noise threshold: 1",
+           fill = "")
     
   })
   
