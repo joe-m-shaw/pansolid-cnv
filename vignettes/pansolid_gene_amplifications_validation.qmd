@@ -181,7 +181,10 @@ gene_coordinate_tbl <- gene_tbl_mod |>
          `Coordinates (GRCh38)` = grch38_coordinates,
          `Size (kb)` = gene_size_kb,
          `Transcript (RefSeq)` = transcript_refseq,
-         `Primers in gene` = primers_in_gene)
+         `Primers in gene` = primers_in_gene) |> 
+  mutate(`CLC setting` = case_when(
+         `Targets in gene` < 5 ~"Fine",
+         `Targets in gene` > 5 ~"Coarse"))
 
 flextable(gene_coordinate_tbl)
 
@@ -392,7 +395,8 @@ Validation analysis was performed using the R programming language (version 4.4.
 
 ## Data locations
 
-All data analysed in this validation is saved here:
+All data analysed in this validation is saved at this file location:\
+S:/central shared/Genetics/Mol_Shared/Development.Team/Pan Solid CLC Somatic Amplifications Validation/pansolid_cnv_r_files/data
 
 {{< pagebreak >}}
 
@@ -441,6 +445,7 @@ results_by_cancer_type <- ggplot(amp_results_with_cancer_types |>
            y = max_region_fold_change)) +
   geom_jitter(shape = 21, aes(fill = pansolid_call), width = 0.2,
               alpha = 0.6) +
+  scale_fill_manual(values = c( "#FF3333", "#FFFFFF")) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90),
         legend.position = "bottom") +
@@ -697,9 +702,23 @@ combined_ddpcr_plot
 #| label: select-wgs-samples
 #| include: FALSE
 
-pansolid_wgs_sample_selection <- validation_sample_patient_info |> 
+pansolid_wgs_samples <- validation_sample_patient_info |> 
+  filter(nhsno %in% wgs_amp_data_reformatted_with_ids$nhs_no_clean) 
+
+pansolid_wgs_samples_cobas <- pansolid_wgs_samples |> 
+  filter(method_name == "COBAS")
+
+pansolid_wgs_samples_qs <- pansolid_wgs_samples |> 
+  filter(method_name == "QIAsymphony_DNA_FFPE")
+
+pansolid_wgs_samples_ff <- pansolid_wgs_samples |> 
+  filter(method_name == "Fresh tissue")
+
+validation_sample_patient_info |> 
   filter(nhsno %in% wgs_amp_data_reformatted_with_ids$nhs_no_clean) |> 
-  filter(method_name == "QIAsymphony_DNA_FFPE") |> 
+  filter(method_name == "QIAsymphony_DNA_FFPE")
+
+pansolid_wgs_sample_selection <- pansolid_wgs_samples_qs |> 
   # One patient has 2 QIAsymphony extractions with the same Pansolid results
   # I've arbitrarily chosen one to include
   filter(!labno %in% c("24030945", 
@@ -712,6 +731,20 @@ pansolid_wgs_sample_selection <- validation_sample_patient_info |>
             join_by("nhsno" == "nhs_no_clean")) 
 
 ```
+
+DNA from patient samples previously tested by WGS was also tested using PanSolid NGS. 
+In total, there were
+`r length(unique(pansolid_wgs_samples$labno))`
+samples tested from 
+`r length(unique(pansolid_wgs_samples$nhsno))`
+patients,
+using 3 different extraction methods:
+`r nrow(pansolid_wgs_samples_qs)`
+had DNA extracted from FFPE tissue via the QIAsymphony method, 
+`r nrow(pansolid_wgs_samples_cobas)`
+had DNA extracted from FFPE tissue via the Cobas method and
+`r nrow(pansolid_wgs_samples_ff)`
+had DNA extracted from fresh frozen tissue.
 
 ```{r}
 #| label: compare-wgs-and-pansolid
@@ -1141,9 +1174,8 @@ All these samples were extracted using the Cobas method.
 
 overall_noise_plot <- ggplot(validation_stdev_results_collated, aes(x = st_dev_signal_adjusted_log2_ratios,
                                               y = )) +
-  geom_histogram(binwidth = 0.05) +
-  scale_x_continuous(limits = c(0, 1.6), 
-                     breaks = seq(0, 1.6, by = 0.2)) +
+  geom_histogram(binwidth = 0.05) + 
+  scale_x_continuous(breaks = seq(0, 1.6, by = 0.2)) +
   theme_bw() +
   labs(x = "Signal-adjusted noise", 
        y = "Number of sample replicates")
