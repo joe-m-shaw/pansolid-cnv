@@ -12,7 +12,7 @@ csl: vancouver.csl
 
 {{< pagebreak >}}
 
-# Authors\
+# Authors
 
 Author: Joe Shaw
 
@@ -20,9 +20,9 @@ Project Lead(s): Joe Shaw, Elizabeth Sollars, Eleanor Baker, Helene Schlecht, Ge
 
 Date:	`r Sys.Date()`
 
-Author contact: joseph.shaw2@mft.nhs.uk; joseph.shaw3@nhs.net\
+Author contact: joseph.shaw2@mft.nhs.uk; joseph.shaw3@nhs.net
 
-# Acronyms\
+# Acronyms
 
 **ALK**: Anaplastic Lymphoma Kinase
 
@@ -122,7 +122,11 @@ Gene amplification is a common mechanism in the development of cancer [@matsui20
 
 The number of additional gene copies can vary between genes and tumour types, ranging as high as hundreds of gene copies. There is no consistent accepted threshold of copy number to classify a gene as “amplified”, although many clinical trials use a threshold of 10 copies as an entry requirement.
 
-Gene amplifications can have clinical relevance for choice of treatment and predicting resistance to treatment, particularly amplifications of genes encoding tyrosine kinase membrane receptors. It is predicted that increasing the gene copy number increases the levels of translated protein, which maintains aberrant cell signalling even in the presence of tyrosine kinase inhibitors (TKIs) [@tanaka2020]. Historically, gene amplifications were detected with fluorescence in-situ hybridisation (FISH) and immunohistochemistry (IHC), but next generation sequencing (NGS) methods are being increasingly used. The PanSolid enrichment includes 212 genes relevant to cancer. Of these, there are 9 genes which were selected as having amplifications with clinical relevance (@tbl-amplification-coordinates).
+Gene amplifications can have clinical relevance for choice of treatment and predicting resistance to treatment, particularly amplifications of genes encoding tyrosine kinase membrane receptors. It is predicted that increasing the gene copy number increases the levels of translated protein, which maintains aberrant cell signalling even in the presence of tyrosine kinase inhibitors (TKIs) [@tanaka2020]. Historically, gene amplifications were detected with fluorescence in-situ hybridisation (FISH) and immunohistochemistry (IHC), but next generation sequencing (NGS) methods are being increasingly used. 
+
+### Gene Coordinates
+
+The PanSolid enrichment includes 212 genes relevant to cancer. Of these, there are 9 genes which were selected as having amplifications with clinical relevance (@tbl-amplification-coordinates).
 
 ```{r}
 #| label: tbl-amplification-coordinates
@@ -178,7 +182,8 @@ gene_coordinate_tbl <- gene_tbl_mod |>
 flextable(gene_coordinate_tbl)
 
 ```
-\
+
+### Clinical Impact
 
 The clinical impact of amplifications in these genes is summarised below:
 
@@ -687,7 +692,7 @@ kable(wgs_comparison_tbl)
 
 The Seraseq® TNA (DNA) WT Mix was tested on the PanSolid v2 enrichment on worksheet WS144291 and the +3 copies, +6 copies and +12 copies reference materials were tested on worksheet WS139890. The results for the 5 genes with defined copy number gains in the reference materials which are also on the list of targets for this validation are shown in  Table 1. The whole genome plot for each reference material is shown in Figure 3.
 
-The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the EGFR and ERBB2 genes for the +3 copies, +6 copies and +12 copies reference materials (@tbl-seracare-pansolid-ngs). Conversely, the PanSolid results for MYC were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@seracare-ddpcr-comparison).
+The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the EGFR and ERBB2 genes for the +3 copies, +6 copies and +12 copies reference materials (@tbl-seracare-pansolid-ngs). Conversely, the PanSolid results for MYC were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@fig-seracare-ddpcr-pansolid).
 
 ```{r}
 #| label: seracare-ngs-comparison
@@ -888,6 +893,7 @@ kable(repeat_schedule)
 
 ```
 
+The variation in the measured fold change between replicates was minimal, with no variation across the fold change threshold of 2.8.
 
 ```{r}
 #| label: fig-repeatability
@@ -932,6 +938,40 @@ repeatability_plots <- low_fold_change_repeat_plot +
                                              heights = c(5,5))
 
 repeatability_plots
+
+```
+
+```{r}
+#| label: fig-24020998-EGFR
+#| fig-cap: "Sample 24020998 EGFR amplifications"
+#| echo: FALSE
+
+fig_24020998_EGFR <- make_cnv_triptych_plot(input_plot  = 
+  make_labno_cnv_plot(df = validation_pos_cnv_results_collated |> 
+    filter(labno == "24020998"),
+    gene = "EGFR",
+    yaxis = labno_suffix_worksheet,
+    interval = 500000,
+    buffer = 100000))
+
+fig_24020998_EGFR
+
+```
+
+```{r}
+#| label: fig-24027774-MYC
+#| fig-cap: "Sample 24027774 MYC amplifications"
+#| echo: FALSE
+
+fig_24027774_MYC <- make_cnv_triptych_plot(input_plot  = 
+  make_labno_cnv_plot(df = validation_pos_cnv_results_collated |> 
+    filter(labno == "24027774"),
+    gene = "MYC",
+    yaxis = labno_suffix_worksheet,
+    interval = 500000,
+    buffer = 50000))
+
+fig_24027774_MYC
 
 ```
 
