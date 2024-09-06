@@ -394,6 +394,8 @@ All data analysed in this validation is saved here:
 
 # Results
 
+## Overall results
+
 ```{r}
 #| label: good-quality-results
 #| include: FALSE
@@ -453,7 +455,7 @@ results_by_cancer_type
 ## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results
 
 ```{r}
-#| label: gene-coordinate-plots
+#| label: egfr-gene-coordinate-plots
 #| echo: FALSE
 
 egfr_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
@@ -461,17 +463,35 @@ egfr_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   gene = "EGFR",
   interval = 100000))
 
+egfr_plot
+
+```
+
+```{r}
+#| label: met-gene-coordinate-plots
+#| echo: FALSE
+
 met_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = pos_results_for_plot,
   gene = "MET",
   interval = 1000000,
   buffer = 50000))
 
+met_plot
+
+```
+
+```{r}
+#| label: braf-gene-coordinate-plots
+#| echo: FALSE
+
 braf_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = pos_results_for_plot,
   gene = "BRAF",
   interval = 100000,
   buffer = 50000))
+
+braf_plot
 
 ```
 
@@ -486,7 +506,9 @@ myc_samples <- pos_results_for_plot |>
 
 ```
 
-*MYC* amplifications were detected in `r length(unique(myc_samples$labno))` samples, with fold changes ranging from `r round(min(myc_samples$fold_change), 1)` to `r round(max(myc_samples$fold_change), 1)`. The full width of the *MYC* gene was covered in all calls except for sample 24031627, in which only the latter 2 exons of the gene had an amplification.
+*MYC* amplifications were detected in `r length(unique(myc_samples$labno))` samples, with fold changes ranging from `r round(min(myc_samples$fold_change), 1)` to `r round(max(myc_samples$fold_change), 1)`.
+The full width of the *MYC* gene was covered in all calls except for sample 24031627, in which only the latter 2 exons of the gene had an amplification.
+In one sample (24024116) a *MYC* amplification was detected on a background of increased fold change across all targets on 8q, indicating an 8q gain.
 
 ```{r}
 #| label: myc-amplification-plots
@@ -725,6 +747,41 @@ wgs_comparison_tbl <- wgs_pansolid_comparison |>
   adorn_totals()
 
 kable(wgs_comparison_tbl)
+
+```
+
+```{r}
+#| label: wgs-dosage-accuracy
+#| echo: FALSE
+#| include: FALSE
+
+cases_with_calls <- wgs_pansolid_comparison |> 
+  filter(wgs_result == "Gain detected") |>
+  select(labno, nhsno)
+
+wgs_egfr_calls <- wgs_html_cnvs |> 
+  filter(gene == "EGFR") |> 
+  left_join(wgs_html_ids, by = "filepath") |> 
+  filter(nhs_no_clean %in% cases_with_calls$nhsno) |>  
+  filter(!duplicated(wgs_p_no)) 
+
+pansolid_egfr_calls <- validation_all_amp_gene_results_collated |> 
+              filter(gene == "EGFR") |> 
+  left_join(validation_sample_patient_info, by = "labno") |> 
+  filter(method_name == "QIAsymphony_DNA_FFPE") |> 
+  filter(labno != "24030945") |> 
+  mutate(pansolid_copy_number = max_region_fold_change * 2)
+
+egfr_wgs_pansolid_dosage_plot <- wgs_egfr_calls |> 
+  left_join(pansolid_egfr_calls, join_by("nhs_no_clean" == "nhsno")) |>  
+  ggplot(aes(x = cnv_copy_number, y = pansolid_copy_number)) +
+  geom_point(shape = 21, size = 3) +
+  theme_bw() +
+  labs(x = "WGS copy number", y = "Pansolid fold change") +
+  geom_abline(linetype = "dashed") +
+  ylim(0, 240) +
+  xlim(0, 240) +
+  ggpubr::stat_cor(method = "pearson", label.x = 10, label.y = 100)
 
 ```
 
@@ -1023,6 +1080,66 @@ fig_24027774_MYC
 
 ## Quality control
 
+```{r}
+#| label: poor-quality-samples
+#| echo: FALSE
+
+poor_quality_samples <- validation_stdev_results_collated |> 
+  filter(st_dev_signal_adjusted_log2_ratios >= 0.7)
+
+```
+
+Overall, the amount of signal-adjusted noise within the cohort ranged from 
+`r round(min(validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)`
+-
+`r round(max(validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)`
+ with a median of 
+ `r round(median(validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)`
+ .
+There were 
+`r nrow(poor_quality_samples)` 
+ samples which had signal-adjusted noise values above 0.7 and were hence considered poor quality.
+All these samples were extracted using the Cobas method.
+
+```{r}
+#| label: quality-control
+#| echo: FALSE
+
+overall_noise_plot <- ggplot(validation_stdev_results_collated, aes(x = st_dev_signal_adjusted_log2_ratios,
+                                              y = )) +
+  geom_histogram(binwidth = 0.05) +
+  scale_x_continuous(limits = c(0, 1.6), 
+                     breaks = seq(0, 1.6, by = 0.2)) +
+  theme_bw() +
+  labs(x = "Signal-adjusted noise", 
+       y = "Number of sample replicates")
+
+overall_noise_plot
+
+```
+
+Within the poor-quality samples, there were 4 gene amplification calls in the *MET* and *BRAF* genes.
+These calls had low fold change values and when the whole genome plots were visually inspected, it was clear that these represented false positive calls, and the target targets were not significantly elevated above their surrounding targets.
+
+```{r}
+#| label: false-positives
+#| echo: FALSE
+
+poor_quality_results <- validation_pos_cnv_results_collated |> 
+  filter(labno %in% poor_quality_samples$labno & gene != "no positive calls") |> 
+  left_join(validation_sample_patient_info,
+            by = "labno", relationship = "many-to-one") |> 
+  select(labno, gene, fold_change, method_name) |> 
+  rename(`Lab number` = labno,
+         `Gene` = gene,
+         `Fold change` = fold_change,
+         `Extraction method` = method_name)
+
+kable(poor_quality_results)
+
+```
+
+
 {{< pagebreak >}}
 
 ## Overall sensitivity
@@ -1031,7 +1148,6 @@ fig_24027774_MYC
 {{< pagebreak >}}
 
 # Discussion
-
 
 
 ## Comparison to WGS and ddPCR
@@ -1051,6 +1167,11 @@ The technique is semi-quantitative.
 
 It is not practical or cost-effective to fully validate the detection of variants for every copy number state, with every breakpoint combination in every gene on the PanSolid panel. Instead, the objective of this validation was to define the sensitivity and specificity with which the PanSolid CLC pipeline can detect CNVs in a variety of genes for an appropriately sized sample cohort compared to orthogonal methods. Given the assumption that amplification dynamics are not radically different between target genes and genomic regions, the sensitivity and specificity for gene amplification detection in the validation dataset could be extrapolated to additional genes in future. This is a standard approach that is used to validate somatic CNV detection for large gene panels [@chandramohan2022], whole exome sequencing [@saldivar2023] and whole genome sequencing [@roepman2021;@genomicsengland2019].
 
+## Quality control
+
+False positive calls were observed for 2 samples extracted on the Cobas method with high signal-adjusted noise values.
+This demonstrates that visual inspection of the whole genome plots is required, and that amplification calls in samples with high signal-adjusted noise values should be treated with caution.
+
 ## Limitations
 
 This validation has the following limitations:
@@ -1059,21 +1180,21 @@ This validation has the following limitations:
 
 - Positive control samples were not available for the *ALK* and *SMO* genes.
 
-# Review of test requirements\
+# Review of test requirements
 
 
 
 
 
 
-# Requirement for clinical implementation\
+# Requirement for clinical implementation
 
 
-# Conclusion\
+# Conclusion
 
 {{< pagebreak >}}
 
-# References\
+# References
 
 ::: {#refs}
 :::
