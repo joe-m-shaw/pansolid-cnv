@@ -7,7 +7,8 @@ format:
 toc: true
 toc-title: "Table of Contents"
 bibliography: pansolid_cnv_references.bib
-csl: vancouver.csl
+csl: harvard-manchester-metropolitan-university.csl
+fig-align: "left"
 ---
 
 {{< pagebreak >}}
@@ -52,7 +53,9 @@ Author contact: joseph.shaw2@mft.nhs.uk; joseph.shaw3@nhs.net
 
 **MYC**: avian MYeloCytomatosis oncogene
 
-**MYCN**: avian MYeloCytomatosis oncogene Neuroblastoma sub-type
+**MYCN**: MYC Neuroblastoma
+
+**MYCL**: MYC Lung
 
 **NGS**: 	Next Generation Sequencing
 
@@ -202,15 +205,15 @@ The clinical impact of amplifications in these genes is summarised below:
 
 - ***ERBB2***: *ERBB2* amplifications are associated with resistance to EGFR-targeted therapies in colorectal cancer [@ross2018].
 
-- ***MDM2***: *MDM2* amplifications are linked to tyrosine-kinase inihibitor resistance in multiple cancers [@hou2019] and targeted anti-MDM2 treatments are in development [@sciot2021].
+- ***MDM2***: *MDM2* amplifications are linked to tyrosine-kinase inhibitor resistance in multiple cancers [@hou2019] and targeted anti-MDM2 treatments are in development [@sciot2021].
 
 - ***MET***: *MET* amplification is associated with resistance to EGFR-tyrosine kinase inhibitors (TKIs) [@wang2019;@qin2023].
 
 - ***MYC***: *MYC* amplification is a poor prognostic indicator in patients with medulloblastoma [@sursal2022].
 
-- ***MYCN***: in neuroblastoma, MYCN amplification is associated with advanced disease and is used for risk stratification []
+- ***MYCN***: *MYCN* amplifications are found in several cancer types, including medulloblastoma [@sursal2022], and is associated with high-risk prognosis in neuroblastoma [@cohn2009;@irwin2021].
 
-- ***SMO***:
+- ***SMO***: determination of *SMO* copy number by FISH is specified for medulloblastoma on the NHS National Genomic Test Directory (code M194)[@nhsengland2024]. The SMO protein is a target for several therapeutics [@rimkus2016].
 
 ## Requirements
 
@@ -236,7 +239,14 @@ The requirements for this new method are as follows:
 
 ## Samples
 
-Samples were received at the North West GLH between December 2019 and July 2024. Details of the normal control cohort used for the PanSolid CLC pipeline are given in the ERBB2 validation document ([DOC6260]{custom-style="Strong"}). In total, 94 different samples were tested on the PanSolid version 2 enrichment during this validation.
+Samples were received at the North West GLH between December 2019 and July 2024.
+Details of the normal control cohort used for the PanSolid CLC pipeline are given in the ERBB2 validation document ([DOC6260]{custom-style="Strong"}). 
+In total, 94 different samples were tested on the PanSolid version 2 enrichment during this validation. 
+Samples were tested from patients with a variety of different types of cancer, with patient age at sample receipt ranging from 
+`r round(min(validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)`
+ to 
+`r round(max(validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)`
+years (median: `r round(median(validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)` years).
 
 ```{r}
 #| label: tbl-tissue-types
@@ -395,7 +405,8 @@ Validation analysis was performed using the R programming language (version 4.4.
 
 ## Data locations
 
-All data analysed in this validation is saved at this file location:\
+All data analysed in this validation is saved at this file location:
+
 S:/central shared/Genetics/Mol_Shared/Development.Team/Pan Solid CLC Somatic Amplifications Validation/pansolid_cnv_r_files/data
 
 {{< pagebreak >}}
@@ -422,7 +433,7 @@ There was a range of different amplifications detected across different cancer t
 
 ```{r}
 #| label: pansolid-results-by-cancer-type
-#| echo: FALSE
+#| include: FALSE
 
 amp_results_with_cancer_types <- validation_all_amp_gene_results_collated |> 
   left_join(validation_sample_patient_info,
@@ -453,9 +464,17 @@ results_by_cancer_type <- ggplot(amp_results_with_cancer_types |>
   geom_hline(yintercept = 2.8, linetype = "dashed") +
   facet_wrap(~cancer_type_new, ncol = 4) +
   labs(x = "", y = "Fold change",
-       title = "PanSolid results by cancer type",
-       caption = "Note: results below fold change of 1 are changed to 1 to allow log scale plotting",
+       title = "PanSolid NGS results by cancer type",
        fill = "")
+
+```
+
+```{r}
+#| label: fig-pansolid-results-by-cancer-type-plot
+#| fig-subcap: "Gene amplification results from PanSolid NGS arranged by cancer type. Results below a fold change of 1 are changed to 1 to allow log scale plotting. CNS: central nervous system."
+#| fig-height: 6
+#| fig-width: 6
+#| echo: FALSE
 
 results_by_cancer_type
 
@@ -464,7 +483,7 @@ results_by_cancer_type
 ## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results
 
 ```{r}
-#| label: egfr-gene-coordinate-plots
+#| label: gene-coordinate-plots
 #| echo: FALSE
 
 egfr_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
@@ -472,33 +491,42 @@ egfr_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   gene = "EGFR",
   interval = 100000))
 
-egfr_plot
-
-```
-
-```{r}
-#| label: met-gene-coordinate-plots
-#| echo: FALSE
-
 met_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = pos_results_for_plot,
   gene = "MET",
   interval = 1000000,
   buffer = 50000))
 
-met_plot
-
-```
-
-```{r}
-#| label: braf-gene-coordinate-plots
-#| echo: FALSE
-
 braf_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = pos_results_for_plot,
   gene = "BRAF",
   interval = 100000,
   buffer = 50000))
+
+```
+
+```{r}
+#| label: fig-egfr-plot
+#| fig-cap: "Amplification calls within the EGFR gene."
+#| echo: FALSE
+
+egfr_plot
+
+```
+
+```{r}
+#| label: fig-met-plot
+#| fig-cap: "Amplification calls within the MET gene."
+#| echo: FALSE
+
+met_plot
+
+```
+
+```{r}
+#| label: fig-braf-plot
+#| fig-cap: "Amplification calls within the BRAF gene."
+#| echo: FALSE
 
 braf_plot
 
@@ -933,7 +961,7 @@ kable(seracare_ngs_comparison_tbl)
 ```{r}
 #| label: fig-seracare-ngs-pansolid
 #| fig-cap: "PanSolid vs SeraCare NGS"
-#| fig-cap-location: top
+#| fig-width: 6
 #| echo: FALSE
 
 seracare_colours <- c(
@@ -957,7 +985,8 @@ ngs_comparison_plot <- ggplot(seracare_ngs_comparison,
   scale_y_continuous(limits = c(-5, 35), 
                     breaks = c(0, 10, 20, 30)) +
   facet_wrap(~gene) +
-  labs(x = "Total copies NGS (Manchester)",
+  labs(title = "PanSolid vs SeraCare NGS",
+       x = "Total copies NGS (Manchester)",
        y = "Total copies NGS (SeraCare)",
        fill = "")
 
@@ -984,8 +1013,8 @@ seracare_ddpcr_comparison <- validation_ddpcr_collated |>
 
 ```{r}
 #| label: fig-seracare-ddpcr-pansolid
-#| fig-cap: "ddPCR vs SeraCare"
-#| fig-cap-location: top
+#| fig-cap: "Pearson's coefficient not calculated for genes with only 2 data points"
+#| fig-width: 6
 #| echo: FALSE
 #| warning: FALSE
 
@@ -1005,7 +1034,7 @@ ddpcr_comparison_plot <- ggplot(seracare_ddpcr_comparison,
                      breaks = c(0, 10, 20)) +
   labs(x = "Total copies ddPCR (Manchester)",
        y = "Total copies ddPCR (SeraCare)",
-       caption = "Pearson's coefficient not calculated for genes with only 2 data points",
+       title = "ddPCR vs SeraCare",
        fill = "")
 
 ddpcr_comparison_plot
@@ -1071,7 +1100,7 @@ The variation in the measured fold change between replicates was minimal, with n
 ```{r}
 #| label: fig-repeatability
 #| fig-cap: "Repeatability results"
-#| fig-cap-location: top
+#| fig-height: 6
 #| echo: FALSE
 
 repeat_noise_data <- validation_stdev_results_collated |> 
@@ -1215,6 +1244,10 @@ kable(poor_quality_results)
 {{< pagebreak >}}
 
 # Discussion
+
+
+
+*MYC* and *MYCN* have different genomic sequences, but share similarities in specific protein motifs. They are paralogous in their functions and structures, but not nucleotide sequences (@jha2023). Both genes are frequently mutated in cancer, with gene amplification being a major oncogenic mechanism [@meyer2008].
 
 
 ## Comparison to WGS and ddPCR
