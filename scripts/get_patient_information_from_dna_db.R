@@ -38,9 +38,15 @@ sample_labnos <- unique(c(validation_stdev_results_collated$labno, validation_dd
 
 patient_info <- sample_tbl |> 
   filter(labno %in% sample_labnos) |> 
-  select(labno, firstname, surname, date_in, tissue, nhsno, pathno,
+  select(labno, firstname, surname, dob, date_in, tissue, nhsno, pathno,
          comments) |> 
-  collect() 
+  collect() |> 
+  mutate(dob = as_date(substr(dob, start = 1, stop = 10),
+                       format = "%Y-%m-%d"),
+         date_sample_received = as_date(substr(date_in, start = 1, stop = 10),
+                                        format = "%Y-%m-%d"),
+         years_at_sample_receipt = round(interval(dob, date_sample_received) / years(1), 
+                                         2))
 
 # Add NCC and tissue type -----------------------------------------------------------
 
