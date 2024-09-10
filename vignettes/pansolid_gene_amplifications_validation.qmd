@@ -440,6 +440,7 @@ There was a range of different amplifications detected across different cancer t
 #| include: FALSE
 
 amp_results_with_cancer_types <- validation_all_amp_gene_results_collated |> 
+  filter(labno %in% good_quality_samples$labno) |> 
   left_join(validation_sample_patient_info,
             by = "labno", 
             relationship = "many-to-one")
@@ -462,11 +463,11 @@ results_by_cancer_type <- ggplot(amp_results_with_cancer_types |>
               alpha = 0.6) +
   scale_fill_manual(values = c( "#FF3333", "#FFFFFF")) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 90),
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5),
         legend.position = "bottom") +
   scale_y_log10() +
   geom_hline(yintercept = 2.8, linetype = "dashed") +
-  facet_wrap(~cancer_type_new, ncol = 4) +
+  facet_wrap(~cancer_type_new, nrow = 2, axes = "all_x") +
   labs(x = "", y = "Fold change",
        title = "PanSolid NGS results by cancer type",
        fill = "")
@@ -477,7 +478,7 @@ results_by_cancer_type <- ggplot(amp_results_with_cancer_types |>
 #| label: fig-pansolid-results-by-cancer-type-plot
 #| fig-subcap: "Gene amplification results from PanSolid NGS arranged by cancer type. Results below a fold change of 1 are changed to 1 to allow log scale plotting. CNS: central nervous system."
 #| fig-height: 6
-#| fig-width: 6
+#| fig-width: 6.3
 #| echo: FALSE
 
 results_by_cancer_type
