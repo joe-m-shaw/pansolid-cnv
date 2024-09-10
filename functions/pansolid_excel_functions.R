@@ -1,4 +1,4 @@
-source(here("functions/extract_cnv_coordinates.R"))
+source(here("functions/extract_pansolid_cnv_coordinates.R"))
 
 parse_filename <- function(input_file, input_group) {
   
@@ -145,7 +145,7 @@ read_pos_cnv_results <- function(file, sheet = "Amplifications") {
                                           "numeric","numeric")) |> 
     janitor::clean_names() 
   
-  pos_cnv_coord <- extract_cnv_coordinates(df = pos_cnv_tbl, 
+  pos_cnv_coord <- extract_pansolid_cnv_coordinates(df = pos_cnv_tbl, 
                                            cnv_coord_col = cnv_co_ordinates)
   
   if (nrow(pos_cnv_coord) == 0) {

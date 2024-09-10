@@ -1,4 +1,4 @@
-source(here("functions/extract_cnv_coordinates.R"))
+source(here("functions/extract_pansolid_cnv_coordinates.R"))
 source(here("scripts/set_shared_drive_filepath.R"))
 
 get_cnv_plot_x_breaks <- function(interval, plot_xmin, plot_xmax) {
@@ -302,7 +302,7 @@ make_primer_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
                              show_col_types = FALSE) |> 
     janitor::clean_names()
   
-  grch38_primer_coordinates <- extract_cnv_coordinates(df = grch38_primers,
+  grch38_primer_coordinates <- extract_pansolid_cnv_coordinates(df = grch38_primers,
                                                        cnv_coord_col = region)
   
   primers_filtered <- grch38_primer_coordinates |> 
