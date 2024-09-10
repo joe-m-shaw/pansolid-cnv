@@ -676,6 +676,7 @@ kable(ddpcr_summary)
 
 ```
 
+### Discordant results
 
 Three samples had a discordant result from ddPCR when compared to the PanSolid NGS result.
 Two of these samples (24002064 and 23033921) had borderine results on both ddPCR and PanSolid NGS.
@@ -796,6 +797,21 @@ pansolid_vs_wgs_amps <- all_amp_gene_results_with_ids |>
 
 ```
 
+WGS did detect copy number losses and regions of loss of heterozygous in some target genes, but these were excluded as the current aim of the PanSolid CLC pipeline is to detect gene amplifications.
+
+```{r}
+#| label: wgs-calls-not-dup-or-gain
+#| include: FALSE
+
+non_dup_gain_wgs_results <- wgs_cnvs_with_ids |> 
+              filter(!cnv_class %in% c("DUP", "GAIN") &
+                       gene %in% amp_genes$gene)
+
+non_dup_gain_wgs_results_summary <- non_dup_gain_wgs_results |> 
+  count(gene, cnv_class)
+
+```
+
 Results were compared for samples extracted using the QIAsymphony method, as this is now the validated DNA extraction method for FFPE samples at the North West GLH (Manchester site). One sample (PanSolid NGS lab number: 24018922; WGS lab number: 24015386) was excluded from the comparison as the FFPE shavings used for QIAsymphony extraction had a different pathology block identifier to the fresh frozen samples used for WGS. Another sample (PanSolid NGS lab number: 24030364) was excluded from the comparison as it had a signal adjusted noise value above 1.
 
 ```{r}
@@ -843,7 +859,7 @@ pansolid_vs_wgs_amps_selection_cnvs_above_ten <- pansolid_vs_wgs_amps_selection 
     cnv_copy_number >= 10 ~"Gain detected",
     cnv_copy_number < 10 | is.na(cnv_copy_number) ~"No gain detected"
   )) |> 
-  select(worksheet, labno.x, patient_name.x, nhsno, pathno, wgs_pathno, method_name, 
+  select(worksheet, labno.x, labno.y, patient_name.x, nhsno, pathno, wgs_pathno, method_name, 
          gene, max_region_fold_change, min_region_fold_change, pansolid_call,
          wgs_result, cnv_class, cnv_copy_number, confidence_support) |> 
   mutate(outcome = case_when(
@@ -934,10 +950,67 @@ ff_wgs_pansolid_summary <- ff_wgs_pansolid |>
               values_from = n,
               values_fill = 0)
 
+```
+
+### Discordant results
+
+There was a single false negative result: for sample 24030962, which was extracted using the QIAsymphony method, PanSolid NGS did not detect an amplification for *EGFR*, whilst DNA extracted from fresh frozen tissue form the sample pathology block (23033921) had an *EGFR* amplification of 14 copies detected on NGS. 
+The same DNA from fresh-frozen tissue showed a borderline *EGFR* fold change of 2.7 when tested using PanSolid NGS.
+
+To investigate this discrepancy, both DNA samples were tested by ddPCR for *EGFR*. 
+The ddPCR showed similar results to PanSolid NGS, with the QIAsymphony-extracted DNA having a normal *EGFR* result whilst the DNA from fresh-frozen tissue had a borderline *EGFR* amplification. 
+This indicates that the discrepancy between the PanSolid NGS result for QIAsymphony-extracted DNA and the WGS result is due to intra-tumour heterogeneity for *EGFR* copy number in the specimens used for DNA extraction. 
+
+```{r}
+#| label: wgs-false-negative
+#| include: FALSE
+
+false_neg_labnos <- c("24030962", "23033921")
+
+false_neg_extraction <- validation_sample_patient_info |> 
+  filter(labno %in% false_neg_labnos) |> 
+  select(labno, neoplastic_cell_content, method_name)
+
+false_neg_pansolid <- validation_all_amp_gene_results_collated |> 
+  filter(labno %in% false_neg_labnos & gene == "EGFR") |> 
+  mutate(pansolid_fold_change = round(max_region_fold_change, 1)) |> 
+  select(labno, pansolid_fold_change)
+
+false_neg_wgs <- wgs_cnvs_with_ids |> 
+  filter(labno %in% false_neg_labnos & gene == "EGFR") |> 
+  select(labno, cnv_copy_number) |> 
+  rename(wgs_copy_number = cnv_copy_number)
+
+false_neg_ddpcr <- validation_ddpcr_collated |> 
+  filter(target_type == "Ch1Unknown" & sample %in% false_neg_labnos &
+           experiment == "EGFR Ex6_1") |> 
+  mutate(ddpcr_copy_number = round(cnv, 1)) |> 
+  select(sample, ddpcr_copy_number) |> 
+  rename(labno = sample)
+
+false_neg_collated <- false_neg_extraction |> 
+  left_join(false_neg_pansolid, by = "labno") |> 
+  left_join(false_neg_wgs, by = "labno") |> 
+  left_join(false_neg_ddpcr, by = "labno") |> 
+  rename(`Lab number` = labno,
+         `NCC` = neoplastic_cell_content,
+         `DNA extraction` = method_name,
+         `PanSolid fold change` = pansolid_fold_change,
+         `WGS copy number` = wgs_copy_number,
+         `ddPCR copy number` = ddpcr_copy_number)
 
 ```
 
+```{r}
+#| label: tbl-wgs-false-negative
+#| tbl-cap: "EGFR results for discordant samples"
+#| echo: FALSE
 
+kable(false_neg_collated)
+
+```
+
+### WGS dosage correlation
 
 ```{r}
 #| label: wgs-dosage-accuracy
