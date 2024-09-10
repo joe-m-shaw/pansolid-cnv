@@ -17,6 +17,10 @@ wgs_htmls <- list.files(path = paste0(data_folder,
                         full.names = TRUE,
                         pattern = "*.html")
 
+if(length(wgs_htmls) == 0) {
+  stop("No files in location")
+}
+
 # Read HTML CNV data ----------------------------------------------------------------
 
 wgs_domain1_cnvs <- wgs_htmls |> 
@@ -48,18 +52,18 @@ wgs_html_cnvs <- rbind(wgs_domain1_cnvs  |>
                   wgs_domain2_cnvs |> 
                     select(-c(population_germline_allele_frequency,
                            gene_mode_of_action)), wgs_domain3_cnvs) |> 
-  mutate(cnv_class = parse_wgs_cnv_class(col = variant_type),
+  mutate(cnv_class = parse_wgs_cnv_class(x = variant_type),
          
-         cnv_copy_number = parse_wgs_cnv_copy_number(col = variant_type),
+         cnv_copy_number = parse_wgs_cnv_copy_number(x = variant_type),
          
-         chromosome = parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
-                                                        group = "chromosome"),
+         chromosome = parse_wgs_html_grch38_coordinates(x = variant_gr_ch38_coordinates,
+                                                        group = 1),
          
-         cnv_start = as.numeric(parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
-                                                                  group = "first coordinate")),
+         cnv_start = as.numeric(parse_wgs_html_grch38_coordinates(x = variant_gr_ch38_coordinates,
+                                                                  group = 2)),
          
-         cnv_end = as.numeric(parse_wgs_html_grch38_coordinates(col = variant_gr_ch38_coordinates,
-                                                                group = "second coordinate")),
+         cnv_end = as.numeric(parse_wgs_html_grch38_coordinates(x = variant_gr_ch38_coordinates,
+                                                                group = 4)),
          
          # In the HTMLS,  clinical indication specific genes are annotated with "*".
          # Remove this asterisk for easier filtering later on.
@@ -67,6 +71,14 @@ wgs_html_cnvs <- rbind(wgs_domain1_cnvs  |>
                               replacement = ""),
          
          category = "WGS result")
+
+if(anyNA(wgs_html_cnvs$cnv_class, recursive = TRUE)){
+  stop("NA values in CNV class column")
+}
+
+if(anyNA(wgs_html_cnvs$gene, recursive = TRUE)){
+  stop("NA values in gene column")
+}
 
 # Read HTML identifiers -------------------------------------------------------------
 
@@ -85,6 +97,14 @@ wgs_tumour_details <- wgs_htmls |>
   list_rbind() |> 
   rename(wgs_pathno = histopathology_or_sihmds_lab_id) |> 
   select(filepath, wgs_pathno)
+
+if(anyNA.data.frame(wgs_pids)) {
+  stop("NA values in WGS patient IDs")
+}
+
+if(anyNA.data.frame(wgs_headers)) {
+  stop("NA values in WGS headers")
+}
 
 # Get lab numbers -------------------------------------------------------------------
 
