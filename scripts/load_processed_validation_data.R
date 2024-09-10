@@ -106,11 +106,3 @@ wgs_html_ids <- read_csv(paste0(data_folder,
                            "nhs_no_clean" = col_character(),
                            "labno" = col_character()
                          ))
-
-wgs_amp_data_reformatted_with_ids <- read_csv(paste0(data_folder,
-                                                     "validation/processed/",
-                                                     "wgs_amp_data_reformatted_with_ids.csv"),
-                                              col_types = list(
-                                                "labno" = col_character(),
-                                                "nhs_no_clean" = col_character()
-                                              ))
