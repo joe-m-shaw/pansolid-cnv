@@ -51,7 +51,9 @@ In the previous limit of detection I used the Qubit values provided by SeraCare,
 #| message: FALSE
 #| warning: FALSE
 
+library(here)
 library(tidyverse)
+source(here("scripts/set_shared_drive_filepath.R"))
 
 tumour_stock_vol <- 20
 
@@ -174,7 +176,7 @@ knitr::kable(lod_table)
 #| label: export-results
 #| include: FALSE
 
-write.csv(lod_calculations, file = here::here("outputs/lod_calculations.csv"),
+write.csv(lod_calculations, file = paste0(outputs_folder, "lod_calculations.csv"),
           row.names = FALSE)
 
 ```
