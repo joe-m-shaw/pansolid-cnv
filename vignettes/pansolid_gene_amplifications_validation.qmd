@@ -677,6 +677,48 @@ kable(ddpcr_summary)
 
 ```
 
+```{r}
+#| label: fig-ddpcr-vs-pansolid-ngs
+#| fig-cap: "ddPCR vs PanSolid by gene"
+#| echo: FALSE
+
+egfr_met_myc_plot <- ggplot(ddpcr_vs_pansolid |> 
+         filter(gene != "MYC"), aes(x = cnv, y = max_region_fold_change)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  labs(x = "ddPCR copy number",
+       y = "PanSolid fold change",
+       title = "ddPCR vs PanSolid by gene") +
+  ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = 0)  +
+  facet_wrap(~gene)
+
+ggplot(ddpcr_vs_pansolid, aes(x = cnv, y = max_region_fold_change)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  labs(x = "ddPCR copy number",
+       y = "PanSolid fold change",
+       title = "ddPCR vs PanSolid by gene") +
+  ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = 0)  +
+  facet_wrap(~gene, scales = "free")
+
+
+
+myc_plot <- ggplot(ddpcr_vs_pansolid |> 
+         filter(gene == "MYC"), aes(x = cnv, y = max_region_fold_change)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  labs(x = "ddPCR copy number",
+       y = "PanSolid fold change") +
+  ggpubr::stat_cor(method = "pearson", label.x = 75, label.y = 10)  +
+  facet_wrap(~gene)
+
+combined_ddpcr_plot <- egfr_met_myc_plot + myc_plot + plot_layout(nrow = 2,
+                                           heights = c(7,7))
+
+combined_ddpcr_plot
+
+```
+
 ### Discordant results
 
 Three samples had a discordant result from ddPCR when compared to the PanSolid NGS result.
@@ -701,37 +743,6 @@ ddpcr_false_neg_table <- ddpcr_vs_pansolid |>
          `PanSolid fold change`, `ddPCR result`, `PanSolid result`)
 
 kable(ddpcr_false_neg_table)
-
-```
-
-```{r}
-#| label: fig-ddpcr-vs-pansolid-ngs
-#| fig-cap: "ddPCR vs PanSolid by gene"
-#| echo: FALSE
-
-egfr_met_myc_plot <- ggplot(ddpcr_vs_pansolid |> 
-         filter(gene != "MYC"), aes(x = cnv, y = max_region_fold_change)) +
-  geom_point(shape = 21) +
-  theme_bw() +
-  labs(x = "ddPCR copy number",
-       y = "PanSolid fold change",
-       title = "ddPCR vs PanSolid by gene") +
-  ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = 0)  +
-  facet_wrap(~gene)
-
-myc_plot <- ggplot(ddpcr_vs_pansolid |> 
-         filter(gene == "MYC"), aes(x = cnv, y = max_region_fold_change)) +
-  geom_point(shape = 21) +
-  theme_bw() +
-  labs(x = "ddPCR copy number",
-       y = "PanSolid fold change") +
-  ggpubr::stat_cor(method = "pearson", label.x = 75, label.y = 10)  +
-  facet_wrap(~gene)
-
-combined_ddpcr_plot <- egfr_met_myc_plot + myc_plot + plot_layout(nrow = 2,
-                                           heights = c(7,7))
-
-combined_ddpcr_plot
 
 ```
 
@@ -1265,7 +1276,6 @@ The variation in the measured fold change between replicates was minimal, with n
 ```{r}
 #| label: fig-repeatability
 #| fig-cap: "Repeatability results"
-#| fig-height: 6
 #| echo: FALSE
 
 repeat_noise_data <- validation_stdev_results_collated |> 
@@ -1279,33 +1289,23 @@ repeat_noise_data <- validation_stdev_results_collated |>
                ignore.case = TRUE))
 
 repeat_all_amp_data <- validation_all_amp_gene_results_collated |> 
-  filter(labno %in% repeat_noise_data$labno)
+  filter(labno %in% repeat_noise_data$labno) |> 
+  pivot_longer(cols = c("max_region_fold_change", "min_region_fold_change"),
+               names_to = "fold_change_type",
+               values_to = "fold_change")
 
-low_fold_change_repeat_plot <- ggplot(repeat_all_amp_data |> 
-         filter(labno != "24027774"), aes(x = gene, y = max_region_fold_change)) +
-  geom_jitter(shape = 21, size = 2, width = 0.2) +
+repeatability_plot <- ggplot(repeat_all_amp_data, aes(x = gene, y = fold_change)) +
+  geom_jitter(shape = 21, size = 2, width = 0.2, aes(fill = fold_change_type),
+              alpha = 0.5) +
+  #geom_boxplot() +
   theme_bw() +
   geom_hline(yintercept = 2.8, linetype = "dashed") +
-  scale_y_continuous(limits = c(-2, 10),
-                     breaks = c(-2, 0, 2.8, 5, 7.5, 10)) +
-  theme(axis.text.x = element_text(angle = 90)) +
-  facet_wrap(~labno) +
-  labs(x = "", y = "Fold change")
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom") +
+  facet_wrap(~labno, scales = "free_y") +
+  labs(x = "", y = "Fold change", fill = "")
 
-high_fold_change_repeat_plot <- ggplot(repeat_all_amp_data |> 
-         filter(labno == "24027774"), aes(x = gene, y = max_region_fold_change)) +
-  geom_jitter(shape = 21, size = 2, width = 0.2) +
-  theme_bw() +
-  geom_hline(yintercept = 2.8, linetype = "dashed") +
-  theme(axis.text.x = element_text(angle = 90)) +
-  facet_wrap(~labno) +
-  labs(x = "", y = "Fold change")
-
-repeatability_plots <- low_fold_change_repeat_plot +
-  high_fold_change_repeat_plot + plot_layout(nrow = 2,
-                                             heights = c(5,5))
-
-repeatability_plots
+repeatability_plot
 
 ```
 
