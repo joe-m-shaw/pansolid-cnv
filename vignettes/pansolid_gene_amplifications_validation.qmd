@@ -465,7 +465,7 @@ results_by_cancer_type <- ggplot(amp_results_with_cancer_types |>
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5),
         legend.position = "bottom") +
-  scale_y_log10() +
+  scale_y_log10(breaks = c(1, 2.8, 10, 100)) +
   geom_hline(yintercept = 2.8, linetype = "dashed") +
   facet_wrap(~cancer_type_new, nrow = 2, axes = "all_x") +
   labs(x = "", y = "Fold change",
@@ -478,64 +478,199 @@ results_by_cancer_type <- ggplot(amp_results_with_cancer_types |>
 #| label: fig-pansolid-results-by-cancer-type-plot
 #| fig-subcap: "Gene amplification results from PanSolid NGS arranged by cancer type. Results below a fold change of 1 are changed to 1 to allow log scale plotting. CNS: central nervous system."
 #| fig-height: 6
-#| fig-width: 6.3
+#| fig-width: 6.2
 #| echo: FALSE
 
 results_by_cancer_type
 
 ```
 
+{{< pagebreak >}}
+
 ## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results
 
 ```{r}
-#| label: gene-coordinate-plots
-#| echo: FALSE
+#| label: egfr-coordinate-plots
+#| include: FALSE
 
 egfr_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = pos_results_for_plot,
   gene = "EGFR",
-  interval = 100000))
+  interval = 500000,
+  title = "EGFR amplification calls"))
 
-met_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+egfr_labno_plot <- make_labno_cnv_plot(
   df = pos_results_for_plot,
-  gene = "MET",
-  interval = 1000000,
-  buffer = 50000))
+  gene = "EGFR",
+  interval = 10000,
+  buffer = 10000,
+  title = "EGFR results zoomed in")
 
-braf_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
-  gene = "BRAF",
-  interval = 100000,
-  buffer = 50000))
+egfr_plot_zoom <- egfr_labno_plot[[4]] +
+  coord_cartesian(xlim = c(55019017 - 10000, 55211628 + 10000))
+
+egfr_exon_plot <- make_exon_plot(plot_xmin = 55019017 - 10000, 
+                              plot_xmax = 55211628 + 10000,
+                              interval = 10000,
+                              chromosome = "7")
+
+egfr_primer_plot <- make_primer_plot(plot_xmin = 55019017 - 10000, 
+                              plot_xmax = 55211628 + 10000,
+                              interval = 10000,
+                              chromosome = "7")
+
+egfr_zoom_triptych <- (egfr_plot_zoom / egfr_primer_plot / egfr_exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
 
 ```
 
 ```{r}
-#| label: fig-egfr-plot
-#| fig-cap: "Amplification calls within the EGFR gene."
+#| label: fig-egfr-wide
 #| echo: FALSE
+#| fig-cap: "All calls in the EGFR gene"
+#| fig-height: 6.3
+#| fig-width: 6
 
 egfr_plot
 
 ```
 
 ```{r}
-#| label: fig-met-plot
-#| fig-cap: "Amplification calls within the MET gene."
+#| label: fig-egfr-zoom
 #| echo: FALSE
+#| fig-cap: "EGFR gene calls zoomed in"
+#| fig-height: 6.3
+#| fig-width: 6
+
+egfr_zoom_triptych
+
+```
+
+
+```{r}
+#| label: met-coordinate-plots
+#| include: FALSE
+
+met_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MET",
+  interval = 1000000,
+  buffer = 50000,
+  title = "MET amplification calls"))
+
+met_labno_plot <- make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MET",
+  interval = 10000,
+  buffer = 5000,
+  title = "MET results zoomed in"
+)
+
+met_plot_zoom <- met_labno_plot[[4]] +
+  coord_cartesian(xlim = c(116672196 - 10000, 116798377 + 10000))
+
+met_exon_plot <- make_exon_plot(plot_xmin = 116672196 - 10000, 
+                              plot_xmax = 116798377 + 10000,
+                              interval = 10000,
+                              chromosome = "7")
+
+met_primer_plot <- make_primer_plot(plot_xmin = 116672196 - 10000, 
+                              plot_xmax = 116798377 + 10000,
+                              interval = 10000,
+                              chromosome = "7")
+
+met_zoom_triptych <- (met_plot_zoom / met_primer_plot / met_exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
+
+```
+
+```{r}
+#| label: fig-met-wide
+#| echo: FALSE
+#| fig-cap: "MET gene calls"
+#| fig-height: 6.3
+#| fig-width: 6
 
 met_plot
 
 ```
 
 ```{r}
-#| label: fig-braf-plot
-#| fig-cap: "Amplification calls within the BRAF gene."
+#| label: fig-met-zoom
 #| echo: FALSE
+#| fig-cap: "MET gene calls zoomed in"
+#| fig-height: 6.3
+#| fig-width: 6
+
+met_zoom_triptych
+
+```
+
+```{r}
+#| label: braf-coordinate-plots
+#| include: FALSE
+
+braf_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "BRAF",
+  interval = 500000,
+  buffer = 50000,
+  title = "BRAF amplification calls"))
+
+braf_labno_plot <- make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "BRAF",
+  interval = 50000,
+  title = "BRAF results zoomed in"
+)
+
+braf_plot_zoom <- braf_labno_plot[[4]] +
+  coord_cartesian(xlim = c(140730665 - 20000, 140924929 + 20000))
+
+braf_exon_plot <- make_exon_plot(plot_xmin = 140730665 - 20000, 
+                              plot_xmax = 140924929 + 20000,
+                              interval = 50000,
+                              chromosome = "7")
+
+braf_primer_plot <- make_primer_plot(plot_xmin = 140730665 - 20000, 
+                              plot_xmax = 140924929 + 20000,
+                              interval = 50000,
+                              chromosome = "7")
+
+braf_zoom_triptych <- (braf_plot_zoom / braf_primer_plot / braf_exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
+
+```
+
+```{r}
+#| label: fig-braf-wide
+#| echo: FALSE
+#| fig-cap: "BRAF gene calls"
+#| fig-height: 6.3
+#| fig-width: 6
 
 braf_plot
 
 ```
+
+```{r}
+#| label: fig-braf-zoom
+#| echo: FALSE
+#| fig-cap: "BRAF gene calls zoomed in"
+#| fig-height: 6.3
+#| fig-width: 6
+
+braf_zoom_triptych
+
+```
+
+{{< pagebreak >}}
 
 ## Fine setting: *MYC* and *MYCN* results
 
@@ -560,27 +695,55 @@ myc_plot_wide <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = pos_results_for_plot,
   gene = "MYC",
   interval = 1000000,
-  buffer = 500000))
-
-myc_plot_narrow <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot |> 
-    filter(cnv_length < 100000),
-  gene = "MYC",
-  interval = 1000,
-  buffer = 5000))
+  buffer = 500000,
+  title = "MYC results"))
 
 myc_labno_plot <- make_labno_cnv_plot(
   df = pos_results_for_plot,
   gene = "MYC",
   interval = 1000,
-  buffer = 5000)
+  buffer = 5000,
+  title = "MYC results zoomed in")
 
-myc_plot_wide_zoom <- myc_labno_plot[[4]] +
+myc_plot_zoom <- myc_labno_plot[[4]] +
   coord_cartesian(xlim = c(127732000, 127746000))
+
+myc_exon_plot <- make_exon_plot(plot_xmin = 127732000, 
+                              plot_xmax = 127746000,
+                              interval = 1000,
+                              chromosome = "8")
+
+myc_primer_plot <- make_primer_plot(plot_xmin = 127732000, 
+                              plot_xmax = 127746000,
+                              interval = 1000,
+                              chromosome = "8")
+
+myc_zoom_triptych <- (myc_plot_zoom / myc_primer_plot / myc_exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
+
+```
+
+```{r}
+#| label: fig-myc-wide
+#| echo: FALSE
+#| fig-cap: "All calls in the MYC gene"
+#| fig-height: 6.3
+#| fig-width: 6
 
 myc_plot_wide
 
-myc_plot_narrow
+```
+
+```{r}
+#| label: fig-myc-zoom
+#| echo: FALSE
+#| fig-cap: "MYC gene calls zoomed in"
+#| fig-height: 6.3
+#| fig-width: 6
+
+myc_zoom_triptych
 
 ```
 
@@ -599,6 +762,8 @@ cnv_length_plot <- pos_results_for_plot |>
   facet_wrap(~gene)
 
 ```
+
+{{< pagebreak >}}
 
 ## Comparison to ddPCR
 
@@ -682,17 +847,7 @@ kable(ddpcr_summary)
 #| fig-cap: "ddPCR vs PanSolid by gene"
 #| echo: FALSE
 
-egfr_met_myc_plot <- ggplot(ddpcr_vs_pansolid |> 
-         filter(gene != "MYC"), aes(x = cnv, y = max_region_fold_change)) +
-  geom_point(shape = 21) +
-  theme_bw() +
-  labs(x = "ddPCR copy number",
-       y = "PanSolid fold change",
-       title = "ddPCR vs PanSolid by gene") +
-  ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = 0)  +
-  facet_wrap(~gene)
-
-ggplot(ddpcr_vs_pansolid, aes(x = cnv, y = max_region_fold_change)) +
+ddpcr_ngs_plot <- ggplot(ddpcr_vs_pansolid, aes(x = cnv, y = max_region_fold_change)) +
   geom_point(shape = 21) +
   theme_bw() +
   labs(x = "ddPCR copy number",
@@ -701,21 +856,7 @@ ggplot(ddpcr_vs_pansolid, aes(x = cnv, y = max_region_fold_change)) +
   ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = 0)  +
   facet_wrap(~gene, scales = "free")
 
-
-
-myc_plot <- ggplot(ddpcr_vs_pansolid |> 
-         filter(gene == "MYC"), aes(x = cnv, y = max_region_fold_change)) +
-  geom_point(shape = 21) +
-  theme_bw() +
-  labs(x = "ddPCR copy number",
-       y = "PanSolid fold change") +
-  ggpubr::stat_cor(method = "pearson", label.x = 75, label.y = 10)  +
-  facet_wrap(~gene)
-
-combined_ddpcr_plot <- egfr_met_myc_plot + myc_plot + plot_layout(nrow = 2,
-                                           heights = c(7,7))
-
-combined_ddpcr_plot
+ddpcr_ngs_plot
 
 ```
 
