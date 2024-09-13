@@ -168,7 +168,8 @@ server <- function(input, output) {
       count(gene, .drop = FALSE) |> 
       arrange(desc(n)) |> 
       rename(Cases = n,
-             `Amplification Result` = gene)
+             `Amplification Result` = gene) |> 
+      janitor::adorn_totals()
     
   })
 
@@ -177,7 +178,8 @@ server <- function(input, output) {
       count(panel) |> 
       arrange(desc(n)) |> 
       rename("Panel" = panel,
-             "Cases" = n)
+             "Cases" = n) |> 
+      janitor::adorn_totals()
   })
   
   output$crc_summary_table <- renderTable({
@@ -187,7 +189,8 @@ server <- function(input, output) {
       arrange(desc(n)) |> 
       mutate(Percentage = round(n/sum(n) * 100, 1)) |> 
       rename(Cases = n,
-             `Amplification Result` = result)
+             `Amplification Result` = result) |> 
+      janitor::adorn_totals()
     
   })
   
