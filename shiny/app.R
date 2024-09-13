@@ -118,10 +118,11 @@ ui <- fluidPage(
     h1("Summary"),
     
     column(3,
-           h2("All amplification results"),
+           h2("Amplification results"),
+           "Samples with noise < 0.5",
            tableOutput("summary_gene_table")),
     column(3,
-           h2("QIAseq PanSolid Colorectal Results"),
+           h2("Colorectal Cancer Results"),
            tableOutput("crc_summary_table"))
   ),
   
@@ -140,27 +141,6 @@ ui <- fluidPage(
   ),
   
   fluidRow(
-    h1("Interactive plots and tables"),
-    
-    column(5,
-           checkboxGroupInput(inputId = "gene_multiple", 
-                              label = "Genes to plot", 
-                              choices = gene_options,
-                              selected = gene_options, inline = TRUE),
-           sliderInput("y_axis_range", "Fold change range", min = -5, 
-                       max = 200,
-                       value = c(-5, 200)),
-           plotOutput("gene_amp_plot")),
-    
-    column(5,
-           selectInput(inputId = "ws_select", label = "Worksheet to highlight",
-                       choices = ws_options, selected = "WS140721"),
-           
-           plotOutput("ws_noise_plot"))
-    
-    
-  ),
-  fluidRow(
     
     column(5,
            h2("Sample details"),
@@ -169,15 +149,10 @@ ui <- fluidPage(
                        choices = gene_options, selected = "ERBB2"),
            
            numericInput("noise_qc", "Signal-adjusted noise must be less than", 
-                        value = 1, min = 0, max = 6),
+                        value = 0.5, min = 0, max = 6),
            
            tableOutput("amp_tbl")
     )
-  ),
-  fluidRow(
-    column(3,
-           h2("Panels"),
-           tableOutput("summary_panel_table")),
   )
 )
 
@@ -189,6 +164,7 @@ server <- function(input, output) {
     
     pos_cnv_results_with_qc |> 
       filter(gene != "no positive calls") |> 
+      filter(noise < 0.5) |> 
       count(gene, .drop = FALSE) |> 
       arrange(desc(n)) |> 
       rename(Cases = n,
