@@ -141,7 +141,8 @@ make_fold_change_cnv_plot <- function(df,
                                   interval = 10000, 
                                   buffer = 5000, 
                                   ymin = 0,
-                                  ymax = 40) {
+                                  ymax = 40,
+                                  title = "") {
   
   #' Make a CNV plot with fold change on the Y axis
   #'
@@ -197,7 +198,8 @@ make_fold_change_cnv_plot <- function(df,
     # Add labels
     labs(
       y = "Fold change",
-      x = "")
+      x = "",
+      title = title)
   
   return(list(plot_xmin, plot_xmax, interval, fold_change_plot, chromosome))
   
@@ -208,7 +210,8 @@ make_labno_cnv_plot <- function(df,
                             gene,
                             interval = 10000, 
                             buffer = 5000, 
-                            yaxis = labno) {
+                            yaxis = labno,
+                            title = "") {
   
   #' Make a CNV plot with sample lab number on the Y axis
   #'
@@ -274,7 +277,8 @@ make_labno_cnv_plot <- function(df,
     labs(
       y = "Sample number",
       x = "",
-      colour = "Fold change")
+      colour = "Fold change",
+      title = title)
   
   return(list(plot_xmin, plot_xmax, interval, labno_plot, chromosome))
   
