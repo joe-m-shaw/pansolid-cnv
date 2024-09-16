@@ -15,9 +15,9 @@ source(here("functions/dna_db_functions.R"))
 
 # Get patient information -----------------------------------------------------------
 
-validation_stdev_results_collated <- read_csv(paste0(data_folder, 
+amp_validation_stdev_results_collated <- read_csv(paste0(data_folder, 
                                                      "validation/processed/",
-                                                     "validation_stdev_results_collated.csv"),
+                                                     "amp_validation_stdev_results_collated.csv"),
                                               col_types = list(
                                                 "labno" = col_character()))
 
@@ -33,8 +33,9 @@ wgs_html_ids <- read_csv(paste0(data_folder,
                            "labno" = col_character()
                          ))
 
-sample_labnos <- unique(c(validation_stdev_results_collated$labno, validation_ddpcr_collated$sample, 
-  wgs_html_ids$labno))
+sample_labnos <- unique(c(amp_validation_stdev_results_collated$labno, 
+                          validation_ddpcr_collated$sample, 
+                          wgs_html_ids$labno))
 
 patient_info <- sample_tbl |> 
   filter(labno %in% sample_labnos) |> 
@@ -133,7 +134,7 @@ manual_cancer_types <- read_csv(file = paste0(data_folder, "validation/processed
 
 patient_info_cancer_type_edit <- patient_info_cancer_type |> 
   left_join(manual_cancer_types, by = "labno") |> 
-  mutate(cancer_type_new = case_when(
+  mutate(cancer_tissue_source = case_when(
     
     is.na(cancer_group) & !is.na(cancer_group_manual) ~cancer_group_manual,
     !is.na(cancer_group) & is.na(cancer_group_manual) ~cancer_group,
@@ -160,7 +161,7 @@ patient_info_extraction_method <- patient_info_cancer_type_edit |>
 # Get worksheet details -------------------------------------------------------------
 
 pansolid_worksheets <- data.frame(
-  "worksheet" = c(unique(validation_stdev_results_collated$worksheet))) |> 
+  "worksheet" = c(unique(amp_validation_stdev_results_collated$worksheet))) |> 
   mutate(pcrid = str_extract(string = worksheet, 
                       pattern = "WS(\\d{6})",
                       group = 1))
@@ -179,7 +180,7 @@ validation_sample_patient_info <- patient_info_extraction_method |>
 
 write.csv(x = validation_sample_patient_info,
           file = paste0(data_folder, "validation/processed/", 
-                        "validation_sample_patient_info.csv"),
+                        "amp_validation_sample_patient_info.csv"),
           row.names = FALSE)
 
 write.csv(x = pansolid_worksheet_details,
