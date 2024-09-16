@@ -13,9 +13,8 @@ source(here("scripts/set_shared_drive_filepath.R"))
 
 # Files -----------------------------------------------------------------------------
 
-amp_cohort_data_location <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Amplifications_final_with_MYC/"
-
-amp_cohort_filepaths <- list.files(path = amp_cohort_data_location, 
+amp_cohort_filepaths <- list.files(path = paste0(data_folder, "validation/raw/",
+                                                 "pansolid_ngs_amplifications/"), 
                                full.names = TRUE,
                                recursive = TRUE,
                                pattern = "Annotated_.+.xlsx")
@@ -157,20 +156,20 @@ processed_validation_data_folder <- paste0(data_folder,
 
 write.csv(x = pos_cnv_results_collated,
           file = paste0(processed_validation_data_folder, 
-                        "validation_pos_cnv_results_collated.csv"),
+                        "amp_validation_pos_cnv_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(x = all_amp_gene_results_collated,
           file = paste0(processed_validation_data_folder, 
-                        "validation_all_amp_gene_results_collated.csv"),
+                        "amp_validation_all_amp_gene_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(x = stdev_results_collated,
           file = paste0(processed_validation_data_folder, 
-                        "validation_stdev_results_collated.csv"),
+                        "amp_validation_stdev_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(x = percent_138_collated,
           file = paste0(processed_validation_data_folder, 
-                        "validation_percent_138_collated.csv"),
+                        "amp_validation_percent_138_collated.csv"),
           row.names = FALSE)
