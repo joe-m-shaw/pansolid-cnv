@@ -47,6 +47,10 @@ get_data_for_cnv_plot <- function(df, gene) {
   data_for_plot <- df |> 
     dplyr::filter(gene == {{ gene }})
   
+  if(nrow(data_for_plot) == 0){
+    stop("Data for plot has 0 rows")
+  }
+  
   return(data_for_plot)
   
 }
