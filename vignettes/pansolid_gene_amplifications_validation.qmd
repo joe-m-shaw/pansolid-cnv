@@ -233,6 +233,8 @@ The requirements for this new method are as follows:
 
 - **Analysis:** there should be a clear procedure for analysis of copy number variants by laboratory staff.
 
+{{< pagebreak >}}
+
 # Methodology
 
 ## Validation Structure
@@ -243,18 +245,18 @@ Samples were received at the North West GLH between December 2019 and July 2024.
 Details of the normal control cohort used for the PanSolid CLC pipeline are given in the ERBB2 validation document ([DOC6260]{custom-style="Strong"}). 
 In total, 94 different samples were tested on the PanSolid version 2 enrichment during this validation. 
 Samples were tested from patients with a variety of different types of cancer, with patient age at sample receipt ranging from 
-`r round(min(validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)`
+`r round(min(amp_validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)`
  to 
-`r round(max(validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)`
-years (median: `r round(median(validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)` years).
+`r round(max(amp_validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)`
+years (median: `r round(median(amp_validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)` years).
 
 ```{r}
 #| label: tbl-tissue-types
 #| tbl-cap: "Sample tissue types"
 #| echo: FALSE
 
-tissue_type_summary <- validation_sample_patient_info |> 
-    filter(labno %in% validation_stdev_results_collated$labno) |> 
+tissue_type_summary <- amp_validation_sample_patient_info |> 
+    filter(labno %in% amp_validation_stdev_results_collated$labno) |> 
     mutate("Tissue type" = case_when(
       tissue_type == "Shavings" ~"FFPE shavings",
       tissue_type %in% c("Slides", "Positively-charged slides") ~"FFPE slides",
@@ -270,16 +272,16 @@ kable(tissue_type_summary)
 ```
 
 ```{r}
-#| label: cancer-types-table
+#| label: tbl-cancer-types
 #| tbl-cap: "Sample cancer types"
 #| echo: FALSE
 
-cancer_type_summary <- validation_sample_patient_info |> 
-  filter(labno %in% validation_stdev_results_collated$labno) |> 
+cancer_type_summary <- amp_validation_sample_patient_info |> 
+  filter(labno %in% amp_validation_stdev_results_collated$labno) |> 
   #filter(cancer_type_new != "Reference material") |> 
-  count(cancer_type_new) |> 
+  count(cancer_tissue_source) |> 
   rename("Samples" = n,
-         "Cancer" = cancer_type_new) |> 
+         "Cancer" = cancer_tissue_source) |> 
   arrange(desc(Samples)) |> 
   adorn_totals()
 
@@ -292,8 +294,8 @@ kable(cancer_type_summary)
 #| tbl-cap: "DNA extraction methods"
 #| echo: FALSE
 
-extraction_type_summary <- validation_sample_patient_info |> 
-  filter(labno %in% validation_stdev_results_collated$labno) |> 
+extraction_type_summary <- amp_validation_sample_patient_info |> 
+  filter(labno %in% amp_validation_stdev_results_collated$labno) |> 
   count(method_name) |> 
   rename("DNA extraction method" = method_name,
          "Samples" = n) |> 
@@ -309,8 +311,8 @@ kable(extraction_type_summary)
 #| tbl-cap: "Sample neoplastic cell contents"
 #| echo: FALSE
 
-ncc_summary <- validation_sample_patient_info |> 
-    filter(labno %in% validation_stdev_results_collated$labno) |> 
+ncc_summary <- amp_validation_sample_patient_info |> 
+    filter(labno %in% amp_validation_stdev_results_collated$labno) |> 
     filter(neoplastic_cell_content != "Reference material") |> 
     mutate(ncc_class = case_when(
       neoplastic_cell_content %in% c(">10", "10-20%") ~">10%",
@@ -336,6 +338,8 @@ ncc_summary <- validation_sample_patient_info |>
 kable(ncc_summary)
 
 ```
+
+\
 
 ## Reference Materials
 
@@ -390,6 +394,8 @@ DNA was extracted using the QIASymphony extraction method ([DOC6251: QIAsymphony
 
 The CLC pipeline, including details of the methodology and quality metrics, is described in the ERBB2 amplifications validation document ([DOC6260]{custom-style="Strong"}). All amplification genes were analysed on the “coarse” setting, except for MYC. MYC has only 3 targets on the PanSolid enrichment, and preliminary work showed that the coarse setting could not identify MYC amplifications in positive controls. The “fine” setting was used specifically for MYC to account for the lower number of QIAseq targets. The version of the PanSolid CLC pipeline tested in this validation was PanSolid Workflow v2.2.
 
+Briefly describe control cohort.
+
 ## Orthogonal testing
 ### Droplet digital PCR for *ERBB2*, *MYC*, *MET*, *BRAF* and *EGFR*
 
@@ -423,15 +429,15 @@ S:/central shared/Genetics/Mol_Shared/Development.Team/Pan Solid CLC Somatic Amp
 #| label: good-quality-results
 #| include: FALSE
 
-good_quality_samples <- validation_stdev_results_collated |> 
+good_quality_samples <- amp_validation_stdev_results_collated |> 
   filter(st_dev_signal_adjusted_log2_ratios < 0.7)
 
-pos_results_for_plot <- validation_pos_cnv_results_collated |> 
+pos_results_for_plot <- amp_validation_pos_cnv_results_collated |> 
   filter(labno %in% good_quality_samples$labno)
 
 ```
 
-Overall there are PanSolid NGS results for `r nrow(validation_stdev_results_collated)` replicates representing `r length(unique(validation_stdev_results_collated$labno))` different samples.
+Overall there are PanSolid NGS results for `r nrow(amp_validation_stdev_results_collated)` replicates representing `r length(unique(amp_validation_stdev_results_collated$labno))` different samples.
 Of these, `r nrow(good_quality_samples)` had signal-adjusted noise metrics within the acceptable range of 0 - 0.7.
 There was a range of different amplifications detected across different cancer types.
 
@@ -439,19 +445,18 @@ There was a range of different amplifications detected across different cancer t
 #| label: pansolid-results-by-cancer-type
 #| include: FALSE
 
-amp_results_with_cancer_types <- validation_all_amp_gene_results_collated |> 
+amp_results_with_cancer_types <- amp_validation_all_amp_gene_results_collated |> 
   filter(labno %in% good_quality_samples$labno) |> 
-  left_join(validation_sample_patient_info,
+  left_join(amp_validation_sample_patient_info,
             by = "labno", 
             relationship = "many-to-one")
 
 results_by_cancer_type <- ggplot(amp_results_with_cancer_types |> 
-         filter(!cancer_type_new %in% c("Error", "Reference material",
-                                        NA)) |> 
-         mutate(cancer_type_new = case_when(
-           cancer_type_new == "central nervous system" ~"CNS",
-           cancer_type_new == "hepatocellular carcinoma" ~"liver",
-           TRUE ~cancer_type_new
+         filter(!cancer_tissue_source %in% c("reference material")) |> 
+         mutate(cancer_tissue_source = case_when(
+           cancer_tissue_source == "central nervous system" ~"CNS",
+           cancer_tissue_source == "hepatocellular carcinoma" ~"liver",
+           TRUE ~cancer_tissue_source
          ),
          max_region_fold_change = case_when(
            max_region_fold_change < 1 ~1,
@@ -467,7 +472,7 @@ results_by_cancer_type <- ggplot(amp_results_with_cancer_types |>
         legend.position = "bottom") +
   scale_y_log10(breaks = c(1, 2.8, 10, 100)) +
   geom_hline(yintercept = 2.8, linetype = "dashed") +
-  facet_wrap(~cancer_type_new, nrow = 2, axes = "all_x") +
+  facet_wrap(~cancer_tissue_source, nrow = 2, axes = "all_x") +
   labs(x = "", y = "Fold change",
        title = "PanSolid NGS results by cancer type",
        fill = "")
@@ -548,6 +553,20 @@ egfr_zoom_triptych
 
 ```
 
+```{r}
+#| label: fig-erbb2
+#| echo: FALSE
+#| fig-cap: "ERBB2 gene calls"
+
+erbb2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "ERBB2",
+  interval = 500000,
+  title = "ERBB2 amplification calls"))
+
+erbb2_plot
+
+```
 
 ```{r}
 #| label: met-coordinate-plots
@@ -670,6 +689,23 @@ braf_zoom_triptych
 
 ```
 
+```{r}
+#| label: fig-mdm2
+#| echo: FALSE
+#| fig-cap: "MDM2 gene calls"
+
+mdm2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MDM2",
+  interval = 500000,
+  title = "MDM2 amplification calls"))
+
+mdm2_plot
+
+```
+
+
+
 {{< pagebreak >}}
 
 ## Fine setting: *MYC* and *MYCN* results
@@ -748,18 +784,17 @@ myc_zoom_triptych
 ```
 
 ```{r}
-#| label: cnv-length-distribution
+#| label: fig-mycn
 #| echo: FALSE
+#| fig-cap: "MYCN gene calls"
 
-cnv_length_plot <- pos_results_for_plot |> 
-  filter(gene != "no positive calls") |> 
-  mutate(cnv_length_kb = cnv_length / 1000) |> 
-  ggplot(aes(x = cnv_length_kb, y = )) +
-  geom_histogram(bins = 100) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2)) +
-  facet_wrap(~gene)
+mycn_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MYCN",
+  interval = 500000,
+  title = "MYCN amplification calls"))
+
+mycn_plot
 
 ```
 
@@ -783,7 +818,7 @@ ddpcr_vs_pansolid <- validation_ddpcr_collated |>
                               "MET Ex2_1",
                               "EGFR Ex6_1")) |> 
     filter(!duplicated(sample_experiment)) |>  
-  inner_join(validation_all_amp_gene_results_collated,
+  inner_join(amp_validation_all_amp_gene_results_collated,
              join_by(sample == labno, 
                      gene)) |> 
   mutate(labno_suffix_gene = str_c(labno_suffix, "_", gene)) |> 
@@ -895,7 +930,7 @@ kable(ddpcr_false_neg_table)
 #| label: wgs-sample-extraction-types
 #| include: FALSE
 
-pansolid_wgs_samples <- validation_sample_patient_info |> 
+pansolid_wgs_samples <- amp_validation_sample_patient_info |> 
   filter(nhsno %in% wgs_html_ids$nhs_no_clean) 
 
 pansolid_wgs_samples_cobas <- pansolid_wgs_samples |> 
@@ -929,8 +964,8 @@ The PanSolid NGS amplification results for the `r length(amp_genes$gene)` target
 #| label: compare-pansolid-and-wgs
 #| include: FALSE
 
-all_amp_gene_results_with_ids <- validation_all_amp_gene_results_collated |> 
-  left_join(validation_sample_patient_info,
+all_amp_gene_results_with_ids <- amp_validation_all_amp_gene_results_collated |> 
+  left_join(amp_validation_sample_patient_info,
             by = "labno", relationship = "many-to-one") |> 
   select(worksheet, labno, suffix, patient_name, nhsno, pathno, tissue_type, method_name,
          filepath, gene, max_region_fold_change, min_region_fold_change, pansolid_call)
@@ -1120,11 +1155,11 @@ This indicates that the discrepancy between the PanSolid NGS result for QIAsymph
 
 false_neg_labnos <- c("24030962", "23033921")
 
-false_neg_extraction <- validation_sample_patient_info |> 
+false_neg_extraction <- amp_validation_sample_patient_info |> 
   filter(labno %in% false_neg_labnos) |> 
   select(labno, neoplastic_cell_content, method_name)
 
-false_neg_pansolid <- validation_all_amp_gene_results_collated |> 
+false_neg_pansolid <- amp_validation_all_amp_gene_results_collated |> 
   filter(labno %in% false_neg_labnos & gene == "EGFR") |> 
   mutate(pansolid_fold_change = round(max_region_fold_change, 1)) |> 
   select(labno, pansolid_fold_change)
@@ -1167,38 +1202,87 @@ kable(false_neg_collated)
 
 ```{r}
 #| label: wgs-dosage-accuracy
-#| eval: FALSE
+#| echo: FALSE
 #| include: FALSE
 
-cases_with_calls <- wgs_pansolid_comparison |> 
-  filter(wgs_result == "Gain detected") |>
-  select(labno, nhsno)
+pos_cnv_results_with_ids <- amp_validation_pos_cnv_results_collated |> 
+  left_join(amp_validation_sample_patient_info, by = "labno",
+            relationship = "many-to-one")
 
-wgs_egfr_calls <- wgs_html_cnvs |> 
-  filter(gene == "EGFR") |> 
-  left_join(wgs_html_ids, by = "filepath") |> 
-  filter(nhs_no_clean %in% cases_with_calls$nhsno) |>  
-  filter(!duplicated(wgs_p_no)) 
+pansolid_wgs_dosage <- pos_cnv_results_with_ids |> 
+  filter(gene %in% c("EGFR", "MDM2") &
+           # Remove EGFR vIII call
+           labno != "24030966") |> 
+  select(worksheet, labno, patient_name, nhsno, method_name, gene,
+         fold_change, start, end) |>
+   mutate(pansolid_copy_number = fold_change * 2) |> 
+  left_join(wgs_cnvs_with_ids, join_by("nhsno" == "nhs_no_clean",
+                                       "gene" == "gene")) |>  
+  filter(!is.na(variant_type))
 
-pansolid_egfr_calls <- validation_all_amp_gene_results_collated |> 
-              filter(gene == "EGFR") |> 
-  left_join(validation_sample_patient_info, by = "labno") |> 
-  filter(method_name == "QIAsymphony_DNA_FFPE") |> 
-  filter(labno != "24030945") |> 
-  mutate(pansolid_copy_number = max_region_fold_change * 2)
-
-egfr_wgs_pansolid_dosage_plot <- wgs_egfr_calls |> 
-  left_join(pansolid_egfr_calls, join_by("nhs_no_clean" == "nhsno")) |>  
-  ggplot(aes(x = cnv_copy_number, y = pansolid_copy_number)) +
-  geom_point(shape = 21, size = 3) +
+wgs_pansolid_dosage_plot <- ggplot(pansolid_wgs_dosage,
+                                   aes(x = cnv_copy_number, y = pansolid_copy_number)) +
+  geom_point(shape = 21, size = 3, alpha = 0.6,
+             aes(fill = method_name)) +
   theme_bw() +
   labs(x = "WGS copy number", y = "Pansolid fold change") +
   geom_abline(linetype = "dashed") +
-  ylim(0, 240) +
-  xlim(0, 240) +
-  ggpubr::stat_cor(method = "pearson", label.x = 10, label.y = 100)
+  ylim(0, 400) +
+  xlim(0, 400) +
+  facet_wrap(~gene) +
+  ggpubr::stat_cor(method = "pearson", label.x = 100, label.y = 25)
+
+wgs_pansolid_dosage_plot
 
 ```
+
+### WGS coordinate correlation
+
+```{r}
+#| label: wgs-coordinate-accuracy
+#| echo: FALSE
+#| include: FALSE
+
+x <- pos_cnv_results_with_ids |> 
+  mutate(test_extraction = paste0("pansolid_", method_name)) |> 
+  select(nhsno, labno, gene, start, end, test_extraction) |> 
+  rename(cnv_start = start,
+         cnv_end = end) |> 
+  filter(gene %in% c("EGFR", "MDM2") &
+           # Remove EGFR vIII call
+           labno != "24030966") |> 
+  filter(nhsno %in% pansolid_wgs_dosage$nhsno)
+
+y <- wgs_cnvs_with_ids |> 
+  select(nhs_no_clean, labno, gene, cnv_start, cnv_end) |> 
+  rename(nhsno = nhs_no_clean) |> 
+  filter(gene %in% c("EGFR", "MDM2") & nhsno %in% pansolid_wgs_dosage$nhsno) |> 
+  mutate(test_extraction = "wgs_fresh_frozen")
+
+z <- rbind(x, y)
+
+ggplot(z |> 
+          filter(gene == "EGFR"), aes(x = cnv_start, y = test_extraction)) +
+  geom_segment(aes(x = cnv_start, xend = cnv_end, 
+                     y = test_extraction, yend = test_extraction),
+                 linewidth = 2) +
+  facet_wrap(~nhsno) +
+  coord_cartesian(xlim = c(55019017 - 1000000,	55211628 + 100000))
+
+ggplot(z |> 
+          filter(gene == "MDM2"), aes(x = cnv_start, y = test_extraction)) +
+  geom_segment(aes(x = cnv_start, xend = cnv_end, 
+                     y = test_extraction, yend = test_extraction),
+                 linewidth = 2) +
+  facet_wrap(~nhsno) 
+
+
+  coord_cartesian(xlim = c(68808177,	68845544))
+
+
+
+```
+
 
 {{< pagebreak >}}
 
@@ -1223,7 +1307,7 @@ seracare_gene_copies <- read_csv(file = paste0(data_folder,
                                            levels = c("WT", "3 copies added",
                                            "6 copies added", "12 copies added")))
 
-seracare_ids <- validation_all_amp_gene_results_collated |> 
+seracare_ids <- amp_validation_all_amp_gene_results_collated |> 
   filter(!duplicated(labno)) |>
   select(labno, patient_name) |> 
   inner_join(seracare_gene_copies |> 
@@ -1232,7 +1316,7 @@ seracare_ids <- validation_all_amp_gene_results_collated |>
              join_by("patient_name" == "reference_material"))
 
 
-seracare_ngs_comparison <- validation_all_amp_gene_results_collated |> 
+seracare_ngs_comparison <- amp_validation_all_amp_gene_results_collated |> 
   # Remove limit of detection samples
   filter(!(worksheet == "WS144291" & labno ==  "24039973")) |> 
   # Remove samples run on PanSolid version 1
@@ -1369,7 +1453,7 @@ Dilution mixes were prepared to simulate a sample with neoplastic cell contents 
 #| tbl-cap: "SeraCare dilution mix results"
 #| echo: FALSE
 
-lod_dilution_mix_results <- validation_all_amp_gene_results_collated |> 
+lod_dilution_mix_results <- amp_validation_all_amp_gene_results_collated |> 
   filter(labno %in% c("24039973", "24039975") & worksheet == "WS144291") |> 
   filter(gene %in% c("ERBB2", "EGFR", "BRAF", "MET", "MYC")) |> 
   mutate(lod_percent = case_when(
@@ -1412,14 +1496,14 @@ kable(repeat_schedule)
 
 ```
 
-The variation in the measured fold change between replicates was minimal, with no variation across the fold change threshold of 2.8.
+The variation in the measured fold change between replicates was minimal, with no variation across the fold change threshold of 2.8. Horizontal variation in CNV call coordinates was also minimal, with a coefficient of variation of x. See supplementary infromation for graphs.
 
 ```{r}
 #| label: fig-repeatability
 #| fig-cap: "Repeatability results"
 #| echo: FALSE
 
-repeat_noise_data <- validation_stdev_results_collated |> 
+repeat_noise_data <- amp_validation_stdev_results_collated |> 
   filter(duplicated(labno, fromLast = TRUE) |
            duplicated(labno, fromLast = FALSE)) |> 
   # Excel file produced twice as sample is in 2 cohorts
@@ -1429,7 +1513,7 @@ repeat_noise_data <- validation_stdev_results_collated |>
   filter(!grepl(pattern = "SERA", x = patient_name,
                ignore.case = TRUE))
 
-repeat_all_amp_data <- validation_all_amp_gene_results_collated |> 
+repeat_all_amp_data <- amp_validation_all_amp_gene_results_collated |> 
   filter(labno %in% repeat_noise_data$labno) |> 
   pivot_longer(cols = c("max_region_fold_change", "min_region_fold_change"),
                names_to = "fold_change_type",
@@ -1457,7 +1541,7 @@ repeatability_plot
 #| echo: FALSE
 
 fig_24020998_EGFR <- make_cnv_triptych_plot(input_plot  = 
-  make_labno_cnv_plot(df = validation_pos_cnv_results_collated |> 
+  make_labno_cnv_plot(df = amp_validation_pos_cnv_results_collated |> 
     filter(labno == "24020998"),
     gene = "EGFR",
     yaxis = labno_suffix_worksheet,
@@ -1474,7 +1558,7 @@ fig_24020998_EGFR
 #| echo: FALSE
 
 fig_24027774_MYC <- make_cnv_triptych_plot(input_plot  = 
-  make_labno_cnv_plot(df = validation_pos_cnv_results_collated |> 
+  make_labno_cnv_plot(df = amp_validation_pos_cnv_results_collated |> 
     filter(labno == "24027774"),
     gene = "MYC",
     yaxis = labno_suffix_worksheet,
@@ -1493,17 +1577,17 @@ fig_24027774_MYC
 #| label: poor-quality-samples
 #| echo: FALSE
 
-poor_quality_samples <- validation_stdev_results_collated |> 
+poor_quality_samples <- amp_validation_stdev_results_collated |> 
   filter(st_dev_signal_adjusted_log2_ratios >= 0.7)
 
 ```
 
 Overall, the amount of signal-adjusted noise within the cohort ranged from 
-`r round(min(validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)`
+`r round(min(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)`
 -
-`r round(max(validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)`
+`r round(max(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)`
  with a median of 
- `r round(median(validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)`
+ `r round(median(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)`
  .
 There were 
 `r nrow(poor_quality_samples)` 
@@ -1514,7 +1598,7 @@ There were
 #| label: quality-control
 #| echo: FALSE
 
-overall_noise_plot <- ggplot(validation_stdev_results_collated, aes(x = st_dev_signal_adjusted_log2_ratios,
+overall_noise_plot <- ggplot(amp_validation_stdev_results_collated, aes(x = st_dev_signal_adjusted_log2_ratios,
                                               y = )) +
   geom_histogram(binwidth = 0.05) + 
   scale_x_continuous(breaks = seq(0, 1.6, by = 0.2)) +
@@ -1533,9 +1617,9 @@ These calls had low fold change values and when the whole genome plots were visu
 #| label: false-positives
 #| echo: FALSE
 
-poor_quality_results <- validation_pos_cnv_results_collated |> 
+poor_quality_results <- amp_validation_pos_cnv_results_collated |> 
   filter(labno %in% poor_quality_samples$labno & gene != "no positive calls") |> 
-  left_join(validation_sample_patient_info,
+  left_join(amp_validation_sample_patient_info,
             by = "labno", relationship = "many-to-one") |> 
   select(labno, gene, fold_change, method_name) |> 
   rename(`Lab number` = labno,
@@ -1656,7 +1740,7 @@ This validation has the following limitations:
 
 {{< pagebreak >}}
 
-# Appendix
+# Supplementary Information
 
 ```{r}
 #| label: tbl-ddpcr-primers
