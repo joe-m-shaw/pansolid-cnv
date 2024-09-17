@@ -4,6 +4,9 @@ library(tidyverse)
 library(here)
 
 source(here("scripts/set_shared_drive_filepath.R"))
+source(here("functions/gene_table_functions.R"))
+
+amp_genes <- load_pansolid_gene_table("Amplifications")
 
 amp_validation_all_amp_gene_results_collated <- read_csv(paste0(data_folder, 
                                                             "validation/processed/",
@@ -15,7 +18,7 @@ amp_validation_all_amp_gene_results_collated <- read_csv(paste0(data_folder,
                                                        "patient_name" = col_character(),
                                                        "labno_suffix" = col_character(),
                                                        "labno_suffix_worksheet" = col_character(),
-                                                       "gene" = col_character(),
+                                                       "gene" = col_factor(levels = amp_genes$gene),
                                                        "max_region_fold_change" = col_double(),
                                                        "min_region_fold_change" = col_double(),
                                                        "pansolid_call" = col_character()
@@ -32,7 +35,8 @@ amp_validation_pos_cnv_results_collated <- read_csv(paste0(data_folder,
                                                   "labno_suffix" = col_character(),
                                                   "labno_suffix_worksheet" = col_character(),
                                                   "filepath" = col_character(),
-                                                  "gene" = col_character(),
+                                                  "gene" = col_factor(levels = c(amp_genes$gene,
+                                                                                 "no positive calls")),
                                                   "cnv_co_ordinates" = col_character(),
                                                   "cnv_length" = col_double(),
                                                   "consequence" = col_character(),
