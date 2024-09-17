@@ -952,51 +952,17 @@ kable(false_neg_collated)
 
 ```
 
-### WGS dosage correlation {#sec-wgs-dosage-correlation}
+### WGS coordinate correlation {#sec-wgs-coordinate-correlation}
 
-There was limited correlation between the copy numbers detected by WGS and PanSolid.
+There were 5 amplifications in the *EGFR* and *MDMD2* genes detected by both WGS and PanSolid.
 
 ```{r}
-#| label: wgs-dosage-accuracy
+#| label: wgs-coordinate-accuracy
 #| echo: FALSE
 
 pos_cnv_results_with_ids <- amp_validation_pos_cnv_results_collated |> 
   left_join(amp_validation_sample_patient_info, by = "labno",
             relationship = "many-to-one")
-
-pansolid_wgs_dosage <- pos_cnv_results_with_ids |> 
-  filter(gene %in% c("EGFR", "MDM2") &
-           # Remove EGFR vIII call
-           labno != "24030966") |> 
-  select(worksheet, labno, patient_name, nhsno, method_name, gene,
-         fold_change, start, end) |>
-   mutate(pansolid_copy_number = fold_change * 2) |> 
-  left_join(wgs_cnvs_with_ids, join_by("nhsno" == "nhs_no_clean",
-                                       "gene" == "gene")) |>  
-  filter(!is.na(variant_type))
-
-wgs_pansolid_dosage_plot <- ggplot(pansolid_wgs_dosage,
-                                   aes(x = cnv_copy_number, y = pansolid_copy_number)) +
-  geom_point(shape = 21, size = 3, alpha = 0.6,
-             aes(fill = method_name)) +
-  theme_bw() +
-  theme(legend.position = "bottom") +
-  labs(x = "WGS copy number", y = "Pansolid fold change") +
-  geom_abline(linetype = "dashed") +
-  ylim(0, 400) +
-  xlim(0, 400) +
-  facet_wrap(~gene) +
-  ggpubr::stat_cor(method = "pearson", label.x = 100, label.y = 25)
-
-wgs_pansolid_dosage_plot
-
-```
-
-### WGS coordinate correlation {#sec-wgs-coordinate-correlation}
-
-```{r}
-#| label: wgs-coordinate-accuracy
-#| echo: FALSE
 
 true_pos_df <- pansolid_vs_wgs_amps_selection_cnvs_above_ten |> 
   filter(outcome == "true_positive")
@@ -1013,7 +979,7 @@ ps_egfr_mdmd2_calls <- pos_cnv_results_with_ids |>
     pathno == "N23/292 C1" ~"N.23.292",
     pathno == "N23/625 C1" ~"N.23.0625",
     pathno == "N23/607 A1" ~"N.23.0607"),
-  pathno_test_extraction = paste0(pathno_formatted, "_pansolid")) |> 
+  pathno_test_extraction = paste0(pathno_formatted, "_Pansolid")) |> 
   rename(cnv_start = start,
          cnv_end = end) |> 
   filter(gene %in% c("EGFR", "MDM2") & labno %in% true_pos_samples) |> 
@@ -1027,26 +993,119 @@ wgs_egfr_mdm2_calls <- wgs_cnvs_with_ids |>
     wgs_pathno == "N,23.0625" ~"N.23.0625",
     wgs_pathno == "N,23.436" ~"N.23.436",
     wgs_pathno == "N,23.0607" ~"N.23.0607"),
-  pathno_test_extraction = paste0(pathno_formatted, "_wgs")) |> 
+  pathno_test_extraction = paste0(pathno_formatted, "_WGS")) |> 
   select(nhsno, pathno_formatted, labno, gene,cnv_start, cnv_end, pathno_test_extraction)
 
 wgs_ps_egfr_mdmd2_calls <- rbind(ps_egfr_mdmd2_calls, wgs_egfr_mdm2_calls)
 
-ggplot(wgs_ps_egfr_mdmd2_calls |> filter(gene == "EGFR" & 
+```
+
+```{r}
+#| label: fig-egfr-wgs-pansolid
+#| fig-cap: "Comparison of coordinate calls for EGFR amplifications detected by WGS and PanSolid, organised by pathology block ID and test."
+#| echo: FALSE
+
+egfr_wgs_pansolid_plot <- ggplot(wgs_ps_egfr_mdmd2_calls |> filter(gene == "EGFR" & 
                                            pathno_formatted %in% c("N.23.436", 
                                                                    "N.23.0625")), 
        aes(x = cnv_start, y = pathno_test_extraction)) +
+  theme_bw() +
+  theme(axis.text.x = element_blank()) +
   geom_segment(aes(x = cnv_start, xend = cnv_end, 
                      y = pathno_test_extraction, yend = pathno_test_extraction),
-                 linewidth = 2)
+                 linewidth = 2)  +
+  labs(x = "", y = "", title = "EGFR results") +
+  coord_cartesian(xlim = c(54000000, 55600000))
 
-ggplot(wgs_ps_egfr_mdmd2_calls |> 
+
+egfr_wgs_exon_plot <- make_exon_plot(plot_xmin = 54000000, 
+                              plot_xmax = 55600000,
+                              interval = 500000,
+                              chromosome = "7")
+
+egfr_wgs_primer_plot <- make_primer_plot(plot_xmin = 54000000, 
+                              plot_xmax = 55600000,
+                              interval = 500000,
+                              chromosome = "7")
+
+egfr_wgs_triptych <- (egfr_wgs_pansolid_plot / egfr_wgs_primer_plot / egfr_wgs_exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
+
+egfr_wgs_triptych
+
+```
+
+```{r}
+#| label: fig-mdm2-wgs-pansolid
+#| fig-cap: "Comparison of coordinate calls for MDM2 amplifications detected by WGS and PanSolid, organised by pathology block ID and test."
+#| echo: FALSE
+
+mdm2_wgs_pansolid_plot <- ggplot(wgs_ps_egfr_mdmd2_calls |> 
           filter(gene == "MDM2" & pathno_formatted %in% c("N.23.292",
                                                           "N.23.0607")), 
        aes(x = cnv_start, y = pathno_test_extraction)) +
   geom_segment(aes(x = cnv_start, xend = cnv_end, 
                      y = pathno_test_extraction, yend = pathno_test_extraction),
-                 linewidth = 2)
+                 linewidth = 2) +
+  theme_bw() +
+  theme(axis.text.x = element_blank()) +
+  geom_segment(aes(x = cnv_start, xend = cnv_end, 
+                     y = pathno_test_extraction, yend = pathno_test_extraction),
+                 linewidth = 2)  +
+  labs(x = "", y = "", title = "MDM2 results") +
+  coord_cartesian(xlim = c(68720000, 68900000))
+
+mdm2_wgs_exon_plot <- make_exon_plot(plot_xmin = 68720000, 
+                              plot_xmax = 68900000,
+                              interval = 20000,
+                              chromosome = "12")
+
+mdm2_wgs_primer_plot <- make_primer_plot(plot_xmin = 68720000, 
+                              plot_xmax = 68900000,
+                              interval = 20000,
+                              chromosome = "12")
+
+mdm2_wgs_triptych <- (mdm2_wgs_pansolid_plot / mdm2_wgs_primer_plot / mdm2_wgs_exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
+
+mdm2_wgs_triptych
+
+```
+
+### WGS dosage correlation {#sec-wgs-dosage-correlation}
+
+There were only 5 samples with amplifications detected on PanSolid and WGS, so not enough to perform a robust correlation anlaysis on. However, there was a general agreement between the two methods on the dosage of the gene, see Supplementary Information (@fig-wgs-pansolid-dosage).
+
+```{r}
+#| label: wgs-dosage-accuracy
+#| echo: FALSE
+
+pansolid_wgs_dosage <- pos_cnv_results_with_ids |> 
+  filter(gene %in% c("EGFR", "MDM2") &
+           # Remove EGFR vIII call
+           labno != "24030966" &
+           method_name == "QIAsymphony_DNA_FFPE") |> 
+  select(worksheet, labno, patient_name, nhsno, method_name, gene,
+         fold_change, start, end) |>
+   mutate(pansolid_copy_number = fold_change * 2) |> 
+  left_join(wgs_cnvs_with_ids, join_by("nhsno" == "nhs_no_clean",
+                                       "gene" == "gene")) |>  
+  filter(!is.na(variant_type))
+
+wgs_pansolid_dosage_plot <- ggplot(pansolid_wgs_dosage,
+                                   aes(x = cnv_copy_number, y = pansolid_copy_number)) +
+  geom_point(shape = 21, size = 3, alpha = 0.6) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  labs(x = "WGS copy number", y = "Pansolid fold change") +
+  geom_abline(linetype = "dashed") +
+  ylim(0, 400) +
+  xlim(0, 400) +
+  facet_wrap(~gene)
 
 ```
 
@@ -1899,3 +1958,14 @@ mycn_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
 mycn_plot
 
 ```
+
+```{r}
+#| label: fig-wgs-pansolid-dosage
+#| echo: FALSE
+#| fig-cap: "Comparison of WGS and Pansolid copy number dosage"
+
+wgs_pansolid_dosage_plot
+
+```
+
+
