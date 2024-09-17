@@ -462,7 +462,7 @@ results_by_cancer_type <- ggplot(amp_results_with_cancer_types |>
         legend.position = "bottom") +
   scale_y_log10(breaks = c(1, 2.8, 10, 100)) +
   geom_hline(yintercept = 2.8, linetype = "dashed") +
-  facet_wrap(~cancer_tissue_source, nrow = 2, axes = "all_x") +
+  facet_wrap(~cancer_tissue_source, nrow = 3, axes = "all_x") +
   labs(x = "", y = "Fold change",
        title = "PanSolid NGS results by cancer type",
        fill = "")
@@ -472,7 +472,7 @@ results_by_cancer_type <- ggplot(amp_results_with_cancer_types |>
 ```{r}
 #| label: fig-pansolid-results-by-cancer-type-plot
 #| fig-subcap: "Gene amplification results from PanSolid NGS arranged by cancer type. Results below a fold change of 1 are changed to 1 to allow log scale plotting. This plot does not include the results from the SeraCare reference materials. CNS: central nervous system."
-#| fig-height: 6
+#| fig-height: 8.6
 #| fig-width: 6
 #| echo: FALSE
 
@@ -626,9 +626,8 @@ ddpcr_vs_pansolid <- validation_ddpcr_collated |>
 ```
 
 ```{r}
-#| label: tbl-ddpcr-vs-pansolid
-#| tbl-cap: "PanSolid comparison to ddPCR"
-#| echo: FALSE
+#| label: ddpcr-summary
+#| include: FALSE
 
 ddpcr_summary <- ddpcr_vs_pansolid |> 
   count(gene, outcome) |> 
@@ -656,9 +655,20 @@ ddpcr_summary <- ddpcr_vs_pansolid |>
   select(`Gene`, "Samples", `True negatives`, `True positives`, `False negatives`,
          `False positives`, "Sensitivity (%)", "Specificity (%)")
 
+```
+
+There was good agreement between ddPCR and PanSolid, with only 3 discrepant results out of `r ddpcr_summary[5, 2]` samples and an overall sensitivity of 93%.
+
+```{r}
+#| label: tbl-ddpcr-vs-pansolid
+#| tbl-cap: "PanSolid comparison to ddPCR"
+#| echo: FALSE
+
 kable(ddpcr_summary)
 
 ```
+
+There was a good correlation in the dosage quantification between the two techniques for each gene, as measured using Pearson's coefficient (@fig-ddpcr-vs-pansolid-ngs). For the *MYC* gene, this correlation was consistent to copy numbers over 150.
 
 ```{r}
 #| label: fig-ddpcr-vs-pansolid-ngs
