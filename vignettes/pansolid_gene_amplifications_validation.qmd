@@ -379,16 +379,64 @@ pos_results_for_plot <- amp_validation_pos_cnv_results_collated |>
 
 ```
 
-Overall there are PanSolid NGS results for `r nrow(amp_validation_stdev_results_collated)` replicates representing `r length(unique(amp_validation_stdev_results_collated$labno))` different samples.
-Of these, `r nrow(good_quality_samples)` had signal-adjusted noise metrics within the acceptable range of 0 - 0.7.
-There was a range of different amplifications detected across different cancer types.
+Overall 
+`r nrow(amp_validation_stdev_results_collated)`
+replicates from 
+`r length(unique(amp_validation_stdev_results_collated$labno))` 
+different samples were tested using the PanSolid NGS workflow.
+Of these, 
+`r nrow(good_quality_samples)`
+had signal-adjusted noise metrics within the acceptable range of 0-0.7. 
+
+```{r}
+#| label: amp-gene-count
+#| include: FALSE
+
+pos_cnv_results_normals_removed <- amp_validation_pos_cnv_results_collated |> 
+  filter(gene != "no positive calls")
+
+tbl_amp_gene_summary <- amp_validation_pos_cnv_results_collated |> 
+  count(gene, .drop = FALSE) |> 
+  filter(gene != "no positive calls") |> 
+  mutate(`CLC setting` = case_when(
+    gene %in% c("MYC", "MYCN") ~"Fine",
+    TRUE ~"Coarse")) |> 
+  rename(Amplifications = n,
+         Gene = gene) |> 
+  select(Gene, `CLC setting`, Amplifications)
+
+min_fold_change_detected <- round(min(pos_cnv_results_normals_removed$fold_change), 1)
+
+max_fold_change_detected <- round(max(pos_cnv_results_normals_removed$fold_change), 1)
+
+```
+
+`r sum(tbl_amp_gene_summary$Amplifications)`
+amplifications with fold changes above the threshold of 2.8 were detected in the 9 target genes (@tbl-amp-gene-summary).
+
+```{r}
+#| label: tbl-amp-gene-summary
+#| tbl-cap: "Amplifications detected by gene"
+#| echo: FALSE
+
+knitr::kable(tbl_amp_gene_summary |> 
+  janitor::adorn_totals())
+
+```
+
+Amplification fold changes ranged from just above the threshold at 
+`r min_fold_change_detected`,
+(predicted copy number: `r round(min_fold_change_detected * 2, 1)`)
+to
+`r max_fold_change_detected`
+(predicted copy number: `r round(max_fold_change_detected * 2, 1)`),
+and were detected across a range of different cancer types (@fig-pansolid-results-by-cancer-type-plot).
 
 ```{r}
 #| label: pansolid-results-by-cancer-type
 #| include: FALSE
 
 amp_results_with_cancer_types <- amp_validation_all_amp_gene_results_collated |> 
-  filter(labno %in% good_quality_samples$labno) |> 
   left_join(amp_validation_sample_patient_info,
             by = "labno", 
             relationship = "many-to-one")
@@ -423,9 +471,9 @@ results_by_cancer_type <- ggplot(amp_results_with_cancer_types |>
 
 ```{r}
 #| label: fig-pansolid-results-by-cancer-type-plot
-#| fig-subcap: "Gene amplification results from PanSolid NGS arranged by cancer type. Results below a fold change of 1 are changed to 1 to allow log scale plotting. CNS: central nervous system."
+#| fig-subcap: "Gene amplification results from PanSolid NGS arranged by cancer type. Results below a fold change of 1 are changed to 1 to allow log scale plotting. This plot does not include the results from the SeraCare reference materials. CNS: central nervous system."
 #| fig-height: 6
-#| fig-width: 6.2
+#| fig-width: 6
 #| echo: FALSE
 
 results_by_cancer_type
@@ -436,217 +484,7 @@ results_by_cancer_type
 
 ## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results
 
-```{r}
-#| label: egfr-coordinate-plots
-#| include: FALSE
-
-egfr_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
-  gene = "EGFR",
-  interval = 500000,
-  title = "EGFR amplification calls"))
-
-egfr_labno_plot <- make_labno_cnv_plot(
-  df = pos_results_for_plot,
-  gene = "EGFR",
-  interval = 10000,
-  buffer = 10000,
-  title = "EGFR results zoomed in")
-
-egfr_plot_zoom <- egfr_labno_plot[[4]] +
-  coord_cartesian(xlim = c(55019017 - 10000, 55211628 + 10000))
-
-egfr_exon_plot <- make_exon_plot(plot_xmin = 55019017 - 10000, 
-                              plot_xmax = 55211628 + 10000,
-                              interval = 10000,
-                              chromosome = "7")
-
-egfr_primer_plot <- make_primer_plot(plot_xmin = 55019017 - 10000, 
-                              plot_xmax = 55211628 + 10000,
-                              interval = 10000,
-                              chromosome = "7")
-
-egfr_zoom_triptych <- (egfr_plot_zoom / egfr_primer_plot / egfr_exon_plot) +
-    plot_layout(
-      heights = c(6, 1, 2)
-    )
-
-```
-
-```{r}
-#| label: fig-egfr-wide
-#| echo: FALSE
-#| fig-cap: "All calls in the EGFR gene"
-#| fig-height: 6.3
-#| fig-width: 6
-
-egfr_plot
-
-```
-
-```{r}
-#| label: fig-egfr-zoom
-#| echo: FALSE
-#| fig-cap: "EGFR gene calls zoomed in"
-#| fig-height: 6.3
-#| fig-width: 6
-
-egfr_zoom_triptych
-
-```
-
-```{r}
-#| label: fig-erbb2
-#| echo: FALSE
-#| fig-cap: "ERBB2 gene calls"
-
-erbb2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
-  gene = "ERBB2",
-  interval = 500000,
-  title = "ERBB2 amplification calls"))
-
-erbb2_plot
-
-```
-
-```{r}
-#| label: met-coordinate-plots
-#| include: FALSE
-
-met_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
-  gene = "MET",
-  interval = 1000000,
-  buffer = 50000,
-  title = "MET amplification calls"))
-
-met_labno_plot <- make_labno_cnv_plot(
-  df = pos_results_for_plot,
-  gene = "MET",
-  interval = 10000,
-  buffer = 5000,
-  title = "MET results zoomed in"
-)
-
-met_plot_zoom <- met_labno_plot[[4]] +
-  coord_cartesian(xlim = c(116672196 - 10000, 116798377 + 10000))
-
-met_exon_plot <- make_exon_plot(plot_xmin = 116672196 - 10000, 
-                              plot_xmax = 116798377 + 10000,
-                              interval = 10000,
-                              chromosome = "7")
-
-met_primer_plot <- make_primer_plot(plot_xmin = 116672196 - 10000, 
-                              plot_xmax = 116798377 + 10000,
-                              interval = 10000,
-                              chromosome = "7")
-
-met_zoom_triptych <- (met_plot_zoom / met_primer_plot / met_exon_plot) +
-    plot_layout(
-      heights = c(6, 1, 2)
-    )
-
-```
-
-```{r}
-#| label: fig-met-wide
-#| echo: FALSE
-#| fig-cap: "MET gene calls"
-#| fig-height: 6.3
-#| fig-width: 6
-
-met_plot
-
-```
-
-```{r}
-#| label: fig-met-zoom
-#| echo: FALSE
-#| fig-cap: "MET gene calls zoomed in"
-#| fig-height: 6.3
-#| fig-width: 6
-
-met_zoom_triptych
-
-```
-
-```{r}
-#| label: braf-coordinate-plots
-#| include: FALSE
-
-braf_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
-  gene = "BRAF",
-  interval = 500000,
-  buffer = 50000,
-  title = "BRAF amplification calls"))
-
-braf_labno_plot <- make_labno_cnv_plot(
-  df = pos_results_for_plot,
-  gene = "BRAF",
-  interval = 50000,
-  title = "BRAF results zoomed in"
-)
-
-braf_plot_zoom <- braf_labno_plot[[4]] +
-  coord_cartesian(xlim = c(140730665 - 20000, 140924929 + 20000))
-
-braf_exon_plot <- make_exon_plot(plot_xmin = 140730665 - 20000, 
-                              plot_xmax = 140924929 + 20000,
-                              interval = 50000,
-                              chromosome = "7")
-
-braf_primer_plot <- make_primer_plot(plot_xmin = 140730665 - 20000, 
-                              plot_xmax = 140924929 + 20000,
-                              interval = 50000,
-                              chromosome = "7")
-
-braf_zoom_triptych <- (braf_plot_zoom / braf_primer_plot / braf_exon_plot) +
-    plot_layout(
-      heights = c(6, 1, 2)
-    )
-
-```
-
-```{r}
-#| label: fig-braf-wide
-#| echo: FALSE
-#| fig-cap: "BRAF gene calls"
-#| fig-height: 6.3
-#| fig-width: 6
-
-braf_plot
-
-```
-
-```{r}
-#| label: fig-braf-zoom
-#| echo: FALSE
-#| fig-cap: "BRAF gene calls zoomed in"
-#| fig-height: 6.3
-#| fig-width: 6
-
-braf_zoom_triptych
-
-```
-
-```{r}
-#| label: fig-mdm2
-#| echo: FALSE
-#| fig-cap: "MDM2 gene calls"
-
-mdm2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
-  gene = "MDM2",
-  interval = 500000,
-  title = "MDM2 amplification calls"))
-
-mdm2_plot
-
-```
-
-
+The CLC coarse setting detected amplifications in all the target genes except the *ALK* gene (@tbl-amp-gene-summary). The 1 amplification detected in the *SMO* gene was a false positive in a sample with a signal-adjusted noise value of 0.89 (lab number: 23032153). For the remaining genes, a range of amplifications were detected. For each gene, there was variation in the amplified region, which in some cases only included the gene of interest and in others expanded to include additional genomic regions. In nearly all cases, every exon in the canonical RefSeq gene transcript was contained within the amplified region. There were 3 samples where 2 amplified regions were detected in the *EGFR* gene, whilst for other samples only a single region call was made. 
 
 {{< pagebreak >}}
 
@@ -656,13 +494,25 @@ mdm2_plot
 #| label: myc-amplifications
 #| echo: FALSE
 
-myc_samples <- pos_results_for_plot |> 
-  filter(gene == "MYC")
+myc_samples <- amp_validation_pos_cnv_results_collated |> 
+  filter(gene == "MYC" & !labno %in% seracare_details$`DNA number`)
+
+mycn_samples <- amp_validation_pos_cnv_results_collated |> 
+  filter(gene == "MYCN" & !labno %in% seracare_details$`DNA number`)
 
 ```
 
-*MYC* amplifications were detected in `r length(unique(myc_samples$labno))` samples, with fold changes ranging from `r round(min(myc_samples$fold_change), 1)` to `r round(max(myc_samples$fold_change), 1)`.
-The full width of the *MYC* gene was covered in all calls except for sample 24031627, in which only the latter 2 exons of the gene had an amplification.
+Amplifications for the *MYC* gene were detected in 
+`r length(unique(myc_samples$labno))` 
+samples, with fold changes ranging from 
+`r round(min(myc_samples$fold_change), 1)` 
+to 
+`r round(max(myc_samples$fold_change), 1)`,
+whilst a *MYCN* amplification was only detected in
+`r length(unique(mycn_samples$labno))` 
+sample with a fold change of
+`r round(mycn_samples$fold_change, 1)`
+The full width of the *MYC* gene was covered in all calls except for sample 24031627, in which only the latter 2 exons of the gene had an amplification (@fig-myc-zoom).
 In one sample (24024116) a *MYC* amplification was detected on a background of increased fold change across all targets on 8q, indicating an 8q gain.
 
 ```{r}
@@ -725,32 +575,23 @@ myc_zoom_triptych
 
 ```
 
-```{r}
-#| label: fig-mycn
-#| echo: FALSE
-#| fig-cap: "MYCN gene calls"
-
-mycn_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
-  gene = "MYCN",
-  interval = 500000,
-  title = "MYCN amplification calls"))
-
-mycn_plot
-
-```
-
 {{< pagebreak >}}
 
 ## Comparison to ddPCR
 
-ddPCR was performed for a selection of samples for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes. The *ERBB2* ddPCR work was performed as part of the separate validation of *ERBB2* amplification detection ([DOC6260]{custom-style="Strong"}), which included DNA extracted on the Cobas and QIAsymphony methods. 11 *ERBB2* samples extracted with the QIAsymphony method are included in this analysis, as the QIAsymphony method was validated as the sole DNA extraction method for FFPE tissue at the Manchester GLH in April 2024.
+ddPCR was performed for a selection of samples for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes. The *ERBB2* ddPCR work was performed as part of the separate validation of *ERBB2* amplification detection ([DOC6260]{custom-style="Strong"}), which included DNA extracted on the Cobas and QIAsymphony methods. 11 *ERBB2* samples extracted with the QIAsymphony method are included in this analysis, as the QIAsymphony method was validated as the sole DNA extraction method for FFPE tissue at the Manchester GLH in April 2024. A copy number threshold of 5 was used to classify ddPCR results as "amplified" and "non-amplified".
+
+```{r}
+#| label: ddpcr-copy-number-threshold
+#| include: FALSE
+
+ddpcr_cnv_amp_threshold <- 5
+
+```
 
 ```{r}
 #| label: ddpcr-comparison
 #| include: FALSE
-
-ddpcr_cnv_amp_threshold <- 5
 
 ddpcr_vs_pansolid <- validation_ddpcr_collated |> 
   mutate(sample_experiment = str_c(sample, "_", experiment)) |> 
@@ -1081,6 +922,11 @@ ff_wgs_pansolid_summary <- ff_wgs_pansolid |>
               values_fill = 0)
 
 ```
+
+### EGFR vIII result
+
+
+
 
 ### Discordant results
 
@@ -1891,11 +1737,230 @@ kable(ddpcr_thermocycler_programme)
 
 {{< pagebreak >}}
 
+## Supplementary Plots
+
 ```{r}
+#| label: egfr-coordinate-plots
+#| include: FALSE
+
+egfr_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "EGFR",
+  interval = 500000,
+  title = "EGFR amplification calls"))
+
+egfr_labno_plot <- make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "EGFR",
+  interval = 10000,
+  buffer = 10000,
+  title = "EGFR results zoomed in")
+
+egfr_plot_zoom <- egfr_labno_plot[[4]] +
+  coord_cartesian(xlim = c(55019017 - 10000, 55211628 + 10000))
+
+egfr_exon_plot <- make_exon_plot(plot_xmin = 55019017 - 10000, 
+                              plot_xmax = 55211628 + 10000,
+                              interval = 10000,
+                              chromosome = "7")
+
+egfr_primer_plot <- make_primer_plot(plot_xmin = 55019017 - 10000, 
+                              plot_xmax = 55211628 + 10000,
+                              interval = 10000,
+                              chromosome = "7")
+
+egfr_zoom_triptych <- (egfr_plot_zoom / egfr_primer_plot / egfr_exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
 
 ```
 
-{{< pagebreak >}}
+```{r}
+#| label: fig-egfr-wide
+#| echo: FALSE
+#| fig-cap: "All calls in the EGFR gene"
+#| fig-height: 6.3
+#| fig-width: 6
 
+egfr_plot
 
+```
+
+```{r}
+#| label: fig-egfr-zoom
+#| echo: FALSE
+#| fig-cap: "EGFR gene calls zoomed in"
+#| fig-height: 6.3
+#| fig-width: 6
+
+egfr_zoom_triptych
+
+```
+
+```{r}
+#| label: fig-erbb2
+#| echo: FALSE
+#| fig-cap: "ERBB2 gene calls"
+
+erbb2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "ERBB2",
+  interval = 500000,
+  title = "ERBB2 amplification calls"))
+
+erbb2_plot
+
+```
+
+```{r}
+#| label: met-coordinate-plots
+#| include: FALSE
+
+met_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MET",
+  interval = 1000000,
+  buffer = 50000,
+  title = "MET amplification calls"))
+
+met_labno_plot <- make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MET",
+  interval = 10000,
+  buffer = 5000,
+  title = "MET results zoomed in"
+)
+
+met_plot_zoom <- met_labno_plot[[4]] +
+  coord_cartesian(xlim = c(116672196 - 10000, 116798377 + 10000))
+
+met_exon_plot <- make_exon_plot(plot_xmin = 116672196 - 10000, 
+                              plot_xmax = 116798377 + 10000,
+                              interval = 10000,
+                              chromosome = "7")
+
+met_primer_plot <- make_primer_plot(plot_xmin = 116672196 - 10000, 
+                              plot_xmax = 116798377 + 10000,
+                              interval = 10000,
+                              chromosome = "7")
+
+met_zoom_triptych <- (met_plot_zoom / met_primer_plot / met_exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
+
+```
+
+```{r}
+#| label: fig-met-wide
+#| echo: FALSE
+#| fig-cap: "MET gene calls"
+#| fig-height: 6.3
+#| fig-width: 6
+
+met_plot
+
+```
+
+```{r}
+#| label: fig-met-zoom
+#| echo: FALSE
+#| fig-cap: "MET gene calls zoomed in"
+#| fig-height: 6.3
+#| fig-width: 6
+
+met_zoom_triptych
+
+```
+
+```{r}
+#| label: braf-coordinate-plots
+#| include: FALSE
+
+braf_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "BRAF",
+  interval = 500000,
+  buffer = 50000,
+  title = "BRAF amplification calls"))
+
+braf_labno_plot <- make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "BRAF",
+  interval = 50000,
+  title = "BRAF results zoomed in"
+)
+
+braf_plot_zoom <- braf_labno_plot[[4]] +
+  coord_cartesian(xlim = c(140730665 - 20000, 140924929 + 20000))
+
+braf_exon_plot <- make_exon_plot(plot_xmin = 140730665 - 20000, 
+                              plot_xmax = 140924929 + 20000,
+                              interval = 50000,
+                              chromosome = "7")
+
+braf_primer_plot <- make_primer_plot(plot_xmin = 140730665 - 20000, 
+                              plot_xmax = 140924929 + 20000,
+                              interval = 50000,
+                              chromosome = "7")
+
+braf_zoom_triptych <- (braf_plot_zoom / braf_primer_plot / braf_exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
+
+```
+
+```{r}
+#| label: fig-braf-wide
+#| echo: FALSE
+#| fig-cap: "BRAF gene calls"
+#| fig-height: 6.3
+#| fig-width: 6
+
+braf_plot
+
+```
+
+```{r}
+#| label: fig-braf-zoom
+#| echo: FALSE
+#| fig-cap: "BRAF gene calls zoomed in"
+#| fig-height: 6.3
+#| fig-width: 6
+
+braf_zoom_triptych
+
+```
+
+```{r}
+#| label: fig-mdm2
+#| echo: FALSE
+#| fig-cap: "MDM2 gene calls"
+
+mdm2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MDM2",
+  interval = 500000,
+  title = "MDM2 amplification calls"))
+
+mdm2_plot
+
+```
+
+```{r}
+#| label: fig-mycn
+#| echo: FALSE
+#| fig-cap: "MYCN gene calls"
+
+mycn_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MYCN",
+  interval = 500000,
+  title = "MYCN amplification calls"))
+
+mycn_plot
+
+```
 
