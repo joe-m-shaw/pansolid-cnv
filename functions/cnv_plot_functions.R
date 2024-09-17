@@ -366,17 +366,24 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   
   labels_for_plot <- gene_labels |> 
     dplyr::filter(chromosome == {{ chromosome }} ) |> 
-    dplyr::filter(start >= {{ plot_xmin }} & start <= {{ plot_xmax }})
+    dplyr::filter(start >= {{ plot_xmin }} & start <= {{ plot_xmax }}) 
+  
+  horizontal_gene_lines <- gene_labels |> 
+    dplyr::filter(chromosome == {{ chromosome }} ) |> 
+    dplyr::filter(start >= {{ plot_xmin }} & start <= {{ plot_xmax }}) |> 
+    dplyr::mutate(y_value = "Exons")
   
   output <- ggplot2::ggplot(exon_data_for_plot, 
                    aes(x = start, y = y_value)) +
-    
+    # Add exons
     geom_segment(aes(x = start, xend = end, 
                      y = y_value, yend = y_value),
                  linewidth = 5) +
-    
+    # Add horizontal line for gene length
+    geom_segment(data = horizontal_gene_lines, aes(x = gene_start, xend = gene_end, 
+                                             y = y_value, yend = y_value),
+                 linewidth = 1) +
     theme_bw() +
-    
     scale_x_continuous(breaks = get_cnv_plot_x_breaks(interval = {{ interval}},
                                            plot_xmin = {{ plot_xmin }},
                                            plot_xmax = {{ plot_xmax }}),
