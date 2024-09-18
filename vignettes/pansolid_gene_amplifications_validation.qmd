@@ -353,8 +353,6 @@ pos_results_for_plot <- amp_validation_pos_cnv_results_collated |>
 
 ```
 
-Overall `r nrow(amp_validation_stdev_results_collated)` replicates from `r length(unique(amp_validation_stdev_results_collated$labno))` different samples were tested using the PanSolid NGS workflow. Of these, `r nrow(good_quality_samples)` had signal-adjusted noise metrics within the acceptable range of 0-0.7.
-
 ```{r}
 #| label: amp-gene-count
 #| include: FALSE
@@ -363,6 +361,9 @@ pos_cnv_results_normals_removed <- amp_validation_pos_cnv_results_collated |>
   filter(gene != "no positive calls")
 
 tbl_amp_gene_summary <- amp_validation_pos_cnv_results_collated |> 
+  filter(!duplicated(labno)) |> 
+  mutate(labno_gene = str_c(labno, "_", gene)) |> 
+  filter(!duplicated(labno_gene)) |> 
   count(gene, .drop = FALSE) |> 
   filter(gene != "no positive calls") |> 
   mutate(`CLC setting` = case_when(
@@ -378,7 +379,9 @@ max_fold_change_detected <- round(max(pos_cnv_results_normals_removed$fold_chang
 
 ```
 
-`r sum(tbl_amp_gene_summary$Amplifications)` amplifications with fold changes above the threshold of 2.8 were detected in the 9 target genes (@tbl-amp-gene-summary).
+Overall `r nrow(amp_validation_stdev_results_collated)` replicates from `r length(unique(amp_validation_stdev_results_collated$labno))` different samples were tested using the PanSolid NGS workflow. Of these, `r nrow(good_quality_samples)` had signal-adjusted noise metrics within the acceptable range of 0-0.7.
+`r sum(tbl_amp_gene_summary$Amplifications)` amplifications with fold changes above the threshold of 2.8 were detected in the 9 target genes (@tbl-amp-gene-summary). 
+Amplification fold changes ranged from just above the threshold at `r min_fold_change_detected`, (predicted copy number: `r round(min_fold_change_detected * 2, 1)`) to `r max_fold_change_detected` (predicted copy number: `r round(max_fold_change_detected * 2, 1)`), and were detected across a range of different cancer types (@fig-pansolid-results-by-cancer-type-plot).
 
 ```{r}
 #| label: tbl-amp-gene-summary
@@ -389,8 +392,6 @@ knitr::kable(tbl_amp_gene_summary |>
   janitor::adorn_totals())
 
 ```
-
-Amplification fold changes ranged from just above the threshold at `r min_fold_change_detected`, (predicted copy number: `r round(min_fold_change_detected * 2, 1)`) to `r max_fold_change_detected` (predicted copy number: `r round(max_fold_change_detected * 2, 1)`), and were detected across a range of different cancer types (@fig-pansolid-results-by-cancer-type-plot).
 
 ```{r}
 #| label: pansolid-results-by-cancer-type
@@ -442,7 +443,7 @@ results_by_cancer_type
 
 ## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results {#sec-results-coarse-setting}
 
-The CLC coarse setting detected amplifications in all the target genes except the *ALK* gene (@tbl-amp-gene-summary). The 1 amplification detected in the *SMO* gene was a false positive in a sample with a signal-adjusted noise value of 0.89 (lab number: 23032153). For the remaining genes, a range of amplifications were detected. For each gene, there was variation in the amplified region, which in some cases only included the gene of interest and in others expanded to include additional genomic regions. In nearly all cases, every exon in the canonical RefSeq gene transcript was contained within the amplified region. There were 3 samples where 2 amplified regions were detected in the *EGFR* gene, whilst for other samples only a single region call was made.
+The CLC coarse setting detected amplifications in all the target genes except the *ALK* gene (@tbl-amp-gene-summary). The 1 amplification detected in the *SMO* gene was a false positive in a sample with a signal-adjusted noise value of 0.89 (lab number: 23032153). For the remaining genes, a range of amplifications were detected. For each gene, there was variation in the amplified region, which in some cases only included the gene of interest and in others expanded to include additional genomic regions. In nearly all cases, every exon in the canonical RefSeq gene transcript was contained within the amplified region. There were 3 samples where 2 amplified regions were detected in the *EGFR* gene, whilst for other samples only a single region call was made. Plots showing the range of amplification coordinates for each gene are included in the supplementary information (@fig-egfr-wide to @fig-mdm2-zoom).
 
 ## Fine setting: *MYC* and *MYCN* results {#sec-results-fine-setting}
 
@@ -1385,7 +1386,7 @@ repeatability_plot_1 <- ggplot(repeat_all_amp_data |>
         legend.position = "bottom") +
   ylim(-2, 6) +
   facet_wrap(~labno) +
-  labs(x = "", y = "PanSolid fold change")
+  labs(x = "", y = "PanSolid fold change", title = "Repeat results")
 
 repeatability_plot_2 <- ggplot(repeat_all_amp_data |> 
                                  filter(labno %in% c("24027774")), aes(x = gene, y = fold_change)) +
@@ -1406,6 +1407,7 @@ repeatability_plot <- repeatability_plot_1 + repeatability_plot_2 +
 ```{r}
 #| label: fig-repeatability
 #| fig-cap: "Repeatability results: both maximum and minimum fold changes for each gene region are shown. The dashed line shows the PanSolid fold change threshold of 2.8. Fold changes cannot have a value between 1 and -1, hence the absence of results in this region for sample 24017319. Sample 24027774 is plotted on a separate axis due to the high fold change of the *MET* and *MYC* amplifications in this sample."
+#| fig-width: 6.1
 #| echo: FALSE
 
 repeatability_plot
@@ -1761,13 +1763,13 @@ kable(ddpcr_thermocycler_programme)
 #| include: FALSE
 
 egfr_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "EGFR",
   interval = 500000,
   title = "EGFR amplification calls"))
 
 egfr_labno_plot <- make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "EGFR",
   interval = 10000,
   buffer = 10000,
@@ -1796,7 +1798,7 @@ egfr_zoom_triptych <- (egfr_plot_zoom / egfr_primer_plot / egfr_exon_plot) +
 ```{r}
 #| label: fig-egfr-wide
 #| echo: FALSE
-#| fig-cap: "All calls in the EGFR gene"
+#| fig-cap: "All amplification calls in the *EGFR* gene from PanSolid NGS."
 #| fig-height: 6.3
 #| fig-width: 6
 
@@ -1807,7 +1809,7 @@ egfr_plot
 ```{r}
 #| label: fig-egfr-zoom
 #| echo: FALSE
-#| fig-cap: "EGFR gene calls zoomed in"
+#| fig-cap: "A zoomed in view of the *EGFR* amplification calls, showing that all calls cover the full length of the gene."
 #| fig-height: 6.3
 #| fig-width: 6
 
@@ -1818,7 +1820,7 @@ egfr_zoom_triptych
 ```{r}
 #| label: fig-erbb2
 #| echo: FALSE
-#| fig-cap: "ERBB2 gene calls"
+#| fig-cap: "PanSolid NGS amplification calls in the *ERBB2* gene."
 
 erbb2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = pos_results_for_plot,
@@ -1872,7 +1874,7 @@ met_zoom_triptych <- (met_plot_zoom / met_primer_plot / met_exon_plot) +
 ```{r}
 #| label: fig-met-wide
 #| echo: FALSE
-#| fig-cap: "MET gene calls"
+#| fig-cap: "PanSolid NGS amplification calls in the *MET* gene."
 #| fig-height: 6.3
 #| fig-width: 6
 
@@ -1883,13 +1885,15 @@ met_plot
 ```{r}
 #| label: fig-met-zoom
 #| echo: FALSE
-#| fig-cap: "MET gene calls zoomed in"
+#| fig-cap: "Zoomed-in view of PanSolid NGS calls in the *MET* gene showing that all calls cover the full width of the gene, except for sample 24023312 which does not include the first exon."
 #| fig-height: 6.3
 #| fig-width: 6
 
 met_zoom_triptych
 
 ```
+
+{{< pagebreak >}}
 
 ```{r}
 #| label: braf-coordinate-plots
@@ -1932,9 +1936,7 @@ braf_zoom_triptych <- (braf_plot_zoom / braf_primer_plot / braf_exon_plot) +
 ```{r}
 #| label: fig-braf-wide
 #| echo: FALSE
-#| fig-cap: "BRAF gene calls"
-#| fig-height: 6.3
-#| fig-width: 6
+#| fig-cap: "PanSolid NGS amplification calls in the *BRAF* gene."
 
 braf_plot
 
@@ -1943,18 +1945,15 @@ braf_plot
 ```{r}
 #| label: fig-braf-zoom
 #| echo: FALSE
-#| fig-cap: "BRAF gene calls zoomed in"
-#| fig-height: 6.3
-#| fig-width: 6
+#| fig-cap: "Zoomed-in view of PanSolid NGS amplification calls in the *BRAF* gene, showing that all calls cover the full width of the gene."
 
 braf_zoom_triptych
 
 ```
 
 ```{r}
-#| label: fig-mdm2
-#| echo: FALSE
-#| fig-cap: "MDM2 gene calls"
+#| label: mdm2-coordinate-plots
+#| include: FALSE
 
 mdm2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = pos_results_for_plot,
@@ -1962,14 +1961,54 @@ mdm2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   interval = 500000,
   title = "MDM2 amplification calls"))
 
+mdm2_labno_plot <- make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MDM2",
+  interval = 10000,
+  title = "MDM2 results zoomed in"
+)
+
+mdm2_plot_zoom <- mdm2_labno_plot[[4]] +
+  coord_cartesian(xlim = c(68808177 - 20000, 68845544 + 20000))
+
+mdm2_exon_plot <- make_exon_plot(plot_xmin = 68808177 - 20000, 
+                              plot_xmax = 68845544 + 20000,
+                              interval = 10000,
+                              chromosome = "12")
+
+mdm2_primer_plot <- make_primer_plot(plot_xmin = 68808177 - 20000, 
+                              plot_xmax = 68845544 + 20000,
+                              interval = 10000,
+                              chromosome = "12")
+
+mdm2_zoom_triptych <- (mdm2_plot_zoom / mdm2_primer_plot / mdm2_exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
+
+```
+
+```{r}
+#| label: fig-mdm2-wide
+#| fig-cap: "PanSolid NGS amplifications in the *MDM2* gene."
+#| echo: FALSE
+
 mdm2_plot
 
 ```
 
 ```{r}
-#| label: fig-mycn
+#| label: fig-mdm2-zoom
+#| fig-cap: "Zoomed-in view of PanSolid NGS amplifications in the *MDM2* gene, showing that all calls cover the full width of the gene."
 #| echo: FALSE
-#| fig-cap: "MYCN gene calls"
+
+mdm2_zoom_triptych
+
+```
+
+```{r}
+#| label: mycn-coordinate-plots
+#| include: FALSE
 
 mycn_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = pos_results_for_plot,
@@ -1977,9 +2016,52 @@ mycn_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   interval = 500000,
   title = "MYCN amplification calls"))
 
+mycn_labno_plot <- make_labno_cnv_plot(
+  df = pos_results_for_plot,
+  gene = "MYCN",
+  interval = 10000,
+  title = "MYCN results zoomed in"
+)
+
+mycn_plot_zoom <- mycn_labno_plot[[4]] +
+  coord_cartesian(xlim = c(15940550 - 60000, 15947007 + 20000))
+
+mycn_exon_plot <- make_exon_plot(plot_xmin = 15940550 - 60000, 
+                              plot_xmax = 15947007 + 20000,
+                              interval = 10000,
+                              chromosome = "2")
+
+mycn_primer_plot <- make_primer_plot(plot_xmin = 15940550 - 60000, 
+                              plot_xmax = 15947007 + 20000,
+                              interval = 10000,
+                              chromosome = "2")
+
+mycn_zoom_triptych <- (mycn_plot_zoom / mycn_primer_plot / mycn_exon_plot) +
+    plot_layout(
+      heights = c(6, 1, 2)
+    )
+
+```
+
+```{r}
+#| label: fig-mycn-wide
+#| fig-cap: "PanSolid NGS amplifications in the *MYCN* gene."
+#| echo: FALSE
+
 mycn_plot
 
 ```
+
+```{r}
+#| label: fig-mycn-zoom
+#| fig-cap: "Zoomed-in view of PanSolid NGS amplifications in the *MYCN* gene, showing that all calls cover the full width of the gene."
+#| echo: FALSE
+
+mycn_zoom_triptych
+
+```
+
+{{< pagebreak >}}
 
 ```{r}
 #| label: fig-wgs-pansolid-dosage
