@@ -47,9 +47,11 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
 **CNV**: Copy Number Variant
 
-**ddPC**R: droplet digital Polymerase Chain Reaction
+**ddPCR**: droplet digital Polymerase Chain Reaction
 
 **EGFR**: Epidermal Growth Factor Receptor
+
+**EGFR vIII**: EGFR version 3
 
 **ERBB2**: ERythroBlastic oncogene B 2
 
@@ -1116,7 +1118,9 @@ mdm2_wgs_triptych
 
 ### *EGFR* version 3 {#sec-results-egfr-v3}
 
-In a sample from pathology block N23.0626 (PanSolid NGS lab number: 24030966; WGS lab number: 23034780), PanSolid NGS showed 2 amplified regions in the *EGFR* gene, with a boundary at the end of *EGFR* exon 7. Inspection of the interactive HTML showed that this was caused by a loss of log2 ratios in the region between exons 2 to 7, indicating the presence of the *EGFR* version 3 transcript. This result was confirmed by WGS.
+In a sample from pathology block N23.0626 (PanSolid NGS lab number: 24030966; WGS lab number: 23034780), PanSolid NGS showed 2 amplified regions in the *EGFR* gene, with a boundary at the end of *EGFR* exon 7. Inspection of the interactive HTML showed that this was caused by a loss of log2 ratios in the region between exons 2 to 7 (@fig-egfr-viii-html), indicating the presence of the *EGFR* version 3 transcript. This result was confirmed by WGS.
+
+![EGFR vIII visible in the interactive HTML whole genome plot generated for sample 24030966](egfr_viii_html.png){#fig-egfr-viii-html}
 
 ### WGS dosage correlation {#sec-wgs-dosage-correlation}
 
@@ -1837,6 +1841,14 @@ ddpcr_thermocycler_programme <- read_csv(file = paste0(data_folder,
 kable(ddpcr_thermocycler_programme)
 
 ```
+
+![*MYC* exon 3 ddPCR results viewed on Quantasoft. Data source: wells G08, A07, E09, C10 and H01 from WS143747.](myc_exon3_ddpcr.png){#fig-myc-ddpcr-quantasoft}
+
+![*EGFR* exon 6 ddPCR results viewed on Quantasoft. Data source: wells C01, E01, F01, G01 and H01 from worksheet WS144202.](egfr_exon6_dppcr.png){#fig-egfr-ddpcr-quantasoft}
+
+![*MET* exon 2 ddPCR results viewed on Quantasoft. Data source: wells B02, D02, F02, G02 and H02 from worksheet WS144202](met_exon2_ddpcr.png){#fig-met-ddpcr-quantasoft}
+
+![*BRAF* exon 10 ddPCR results viewed on Quantasoft. Data source: wells A03, C03, F03, G03 and H03 from worksheet WS144202.](braf_exon10_ddpcr.png){#fig-braf-ddpcr-quantasoft}
 
 {{< pagebreak >}}
 
