@@ -20,7 +20,7 @@ join_pansolid_submission_sheets <- function() {
   #' 
   #' sample_info <- pansolid_sheets |> filter(labno == "12345678")
   
-  pansolid_submission_2023 <- read_excel(path = paste0(data_folder, 
+  pansolid_submission_2023 <- readxl::read_excel(path = paste0(data_folder, 
                                                        "excel_spreadsheets/",
                                                        "DNA PanSolid QIAseq Submission Sheet 2023.xlsx")) |> 
     janitor::clean_names() |> 
@@ -30,7 +30,7 @@ join_pansolid_submission_sheets <- function() {
     select(date_submitted, labno, sample_name,
            panel, enrichment, stock_qubit, submission_sheet)
   
-  pansolid_submission_2024 <- read_excel(path = paste0(data_folder, 
+  pansolid_submission_2024 <- readxl::read_excel(path = paste0(data_folder, 
                                                        "excel_spreadsheets/",
                                                        "PanSolid Submission sheet 2024.xlsx"),
                                          sheet = "PanSolid samples") |> 
@@ -42,7 +42,7 @@ join_pansolid_submission_sheets <- function() {
            panel, enrichment, stock_qubit, submission_sheet)
   
   # Pansolid began in 2022 so the initial runs were recorded on the Qiaseq spreadsheet
-  pansolid_submission_2022 <- read_excel(path = paste0(data_folder, 
+  pansolid_submission_2022 <- readxl::read_excel(path = paste0(data_folder, 
                                                        "excel_spreadsheets/",
                                                        "QIAseq DNA PanSolid Sample Submission 2022.xlsx")) |> 
     janitor::clean_names() |> 
