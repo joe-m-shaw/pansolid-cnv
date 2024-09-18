@@ -1084,7 +1084,7 @@ mdm2_wgs_triptych
 
 ```
 
-## *EGFR* version 3 {#sec-results-egfr-v3}
+### *EGFR* version 3 {#sec-results-egfr-v3}
 
 In a sample from pathology block N23.0626 (PanSolid NGS lab number: 24030966; WGS lab number: 23034780), PanSolid NGS showed 2 amplified regions in the *EGFR* gene, with a boundary at the end of *EGFR* exon 7. Inspection of the interactive HTML showed that this was caused by a loss of log2 ratios in the region between exons 2 to 7, indicating the presence of the *EGFR* version 3 transcript. This result was confirmed by WGS.
 
@@ -1484,13 +1484,13 @@ kable(poor_quality_results)
 
 # Discussion {#sec-discussion}
 
-*MYC* and *MYCN* have different genomic sequences, but share similarities in specific protein motifs. They are paralogous in their functions and structures, but not nucleotide sequences [@jha2023]. Both genes are frequently mutated in cancer, with gene amplification being a major oncogenic mechanism [@meyer2008].
+## Comparison to WGS {#sec-discussion-wgs}
 
-## Comparison to WGS and ddPCR {#sec-discussion-ddpcr-wgs}
+In the NHS Genomic Medicine Service, WGS is performed by Illumina Laboratory Solutions and analysed using a bioinformatics pipeline developed by Genomics England. The Genomics England cancer pipeline performs analysis for somatic CNVs and structural variants [@genomicsengland2023], using the Canvas [@roller2016] and Manta [@chen2016] algorithms, respectively. The Genomics England cancer pipeline has been validated to have a sensitivity of 79.3% for CNV detection and 88.8% for structural variant detection, when compared to results from Fluorescent In Situ Hybridisation (FISH) [@genomicsengland2019]. The results from the PanSolid CLC pipeline compared favourably with WGS, with only a single inconsistent result for a gene with a copy number above 10. Additional ddPCR testing showed that this inconsistent result likely reflects intra-tumour heterogeneity between the fresh frozen sample being tested by WGS and the FFPE material used for PanSolid NGS. This is a limitation of using WGS as an orthogonal test, as only DNA from fresh frozen tissue is accepted for WGS for somatic cancer testing.
 
-The results from the CLC pipeline compared favourably with WGS. In the NHS Genomic Medicine Service, WGS is performed by Illumina Laboratory Solutions and analysed using a bioinformatics pipeline developed by Genomics England. The Genomics England cancer pipeline performs analysis for somatic CNVs and structural variants [@genomicsengland2023], using the Canvas [@roller2016] and Manta [@chen2016] algorithms, respectively. The Genomics England cancer pipeline has been validated to have a sensitivity of 79.3% for CNV detection and 88.8% for structural variant detection, when compared to results from Fluorescent In Situ Hybridisation (FISH) [@genomicsengland2019].
+## Comparison to ddPCR {#sec-discussion-ddpcr}
 
-One inconsistent result was due to a fresh frozen sample being tested by WGS, whilst FFPE material was tested via PanSolid NGS. By comparison, ddPCR did not have this limitation as it was performed on the same DNA as PanSolid NGS.
+By comparison, ddPCR did not have this limitation as it was performed on the same DNA as PanSolid NGS. Out of 100 samples tested across 5 genes there were only 3 discordant results, 2 of which were borderline by both methods, and the other was likely due to a copy number change at the locus of the ddPCR reference gene, *AP3B1*.
 
 ## Quantification {#sec-discussion-quantification}
 
@@ -1502,9 +1502,31 @@ All genes were detected in the +6 copies SeraCare control.
 
 All genes except MYC were detected at 30% simulated NCC, except for *MYC*.
 
-## Rationale {#sec-discussion-rationale}
+The limit of detection of the technique will depend on multiple factors
 
-It is not practical or cost-effective to fully validate the detection of variants for every copy number state, with every breakpoint combination in every gene on the PanSolid panel. Instead, the objective of this validation was to define the sensitivity and specificity with which the PanSolid CLC pipeline can detect CNVs in a variety of genes for an appropriately sized sample cohort compared to orthogonal methods. Given the assumption that amplification dynamics are not radically different between target genes and genomic regions, the sensitivity and specificity for gene amplification detection in the validation dataset could be extrapolated to additional genes in future. This is a standard approach that is used to validate somatic CNV detection for large gene panels [@chandramohan2022], whole exome sequencing [@saldivar2023] and whole genome sequencing [@roepman2021; @genomicsengland2019].
+The neoplastic cell content of the sample
+
+The coverage across the locus of interest
+
+The number of amplified gene copies in the tumour
+
+Intra-tumoral heterogeneity in gene copy number
+
+## Extrapolation to other genes {#sec-extrapolation-to-other-genes}
+
+### "Coarse" setting {#sec-discussion-coarse-setting}
+
+The CLC "coarse" setting was able to detect amplifications in 5 different genes, all containing over 10 target regions. Whilst no confirmed amplifications were detected in either the *ALK* or *SMO* genes, amplifications were detected in smaller genes with fewer targets. For example, amplifications were detected in the *MDM2* gene, which is smaller, has fewer primers and has fewer targets than both the *ALK* and *SMO* genes (@tbl-amplification-coordinates). This indicates that amplifications in *ALK* and *SMO* would be detected by the "coarse" setting.
+
+Given the assumption that amplification dynamics are not radically different between target genes and genomic regions, the sensitivity and specificity for gene amplification detection on the CLC "coarse" setting in this validation dataset could be extrapolated to additional genes of similar sizes in future. This is a standard approach that is used to validate somatic CNV detection for large gene panels [@chandramohan2022], whole exome sequencing [@saldivar2023] and whole genome sequencing [@roepman2021; @genomicsengland2019].
+
+### "Fine" setting {#sec-discussion-fine-setting}
+
+By contrast, due to the low number of targets involved when the "fine" setting is used
+
+## EGFR version 3 {#sec-discussion-egfr-v3}
+
+Add EGFR version 3 references.
 
 ## Quality control {#sec-discussion-quality-control}
 
@@ -1530,23 +1552,41 @@ The test requirements specified in @sec-requirements have been met:
 
 **1. Clinical utility: the test should provide clear results for the 9 listed amplification markers.**
 
+The PanSolid Excel output provides a clear result of the amplification status for all 9 genes.
+
 **2. Clinical validity: the test should have a defined sensitivity and specificity for these markers, calculated by comparison with an orthogonal test.**
 
 The sensitivities and specificities for amplification detection have been shown in comparison to ddPCR (@sec-results-ddpcr-comparison) and WGS (@sec-results-wgs-comparison).
 
 **3. Dosage accuracy: it should be shown how accurate the test is at detecting amplifications of different copy number states, expressed as a correlation between the test and copy numbers from an orthogonal test.**
 
+There is a strong correlation between the dosages determined by PanSolid NGS and ddPCR for the genes investigated, with R values ranging from 0.78 to 1.0 (@sec-ddpcr-dosage-correlation).
+
 **4. Quality control: the test should have clear quality control thresholds for deciding when the test results should be reported and when the test has failed.**
+
+Low-level false positive calls were seen when the signal-adjusted noise value exceeded 0.7, although confirmed amplifications were also detected above this threshold (@sec-results-quality-control). Samples with signal-adjusted noise values above 0.7 with no amplifications identified should be failed.
 
 **5. Variability: the test should have defined intra-run variation (repeatability) and inter-run variation (repeatability) for these amplifications.**
 
+Intra-run and inter-run variation were minimal (@sec-results-repeat-testing).
+
 **6. Visualisation: the results should be presented in a clear and visual manner.**
+
+The results are displayed in graphical format in the output Excels with gene, CNV and whole genome views. There is also an interactive HTML whole-genome view which can assist genotyping complex cases.
 
 **7. Analysis: there should be a clear procedure for analysis of copy number variants by laboratory staff.**
 
+[DOC6261 (Somatic Copy Number Variant Analysis on the PanSolid Cancer Panel)]{custom-style="Strong"} will be updated with new screenshots and instructions for how to analyse the PanSolid CLC output for these additional genes.
+
 # Requirements for clinical implementation {#sec-requirements-for-clinical-implementation}
 
-Visual inspection of the whole genome plots is required to avoid false positive calls, see @sec-results-quality-control.
+This validation has identified the following requirements for the clinical implementation of this test:
+
+- Samples with signal-adjusted noise values aboive 0.7 should be analysed carefully. Confirmed amplifications have been detected in samples with high levels of noise, but low-level gene gains may in fact be false positives.
+
+- Visual inspection of the whole genome plots is required to avoid false positive calls, see @sec-results-quality-control.
+
+- Visual inspection of the interactive HTML plots should be performed when there are multiple CNV regions called within the same gene, as this may indicate intra-genic CNVs.
 
 # Conclusion {#ref-conclusion}
 
