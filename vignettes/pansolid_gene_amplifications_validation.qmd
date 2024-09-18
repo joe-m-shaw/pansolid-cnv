@@ -218,7 +218,7 @@ The clinical impact of amplifications in these genes is summarised below:
 
 -   ***EGFR***: *EGFR* amplifications can be targeted by EGFR inhibitor medications [@french2019].
 
--   ***ERBB2***: *ERBB2* amplifications are associated with resistance to EGFR-targeted therapies in colorectal cancer [@ross2018].
+-   ***ERBB2***: *ERBB2* amplifications are associated with resistance to EGFR-targeted therapies in colorectal cancer [@ross2018] and can be targeted with the drug Herceptin in breast cancer [@swain2023; @slamon2001].
 
 -   ***MDM2***: *MDM2* amplifications are linked to tyrosine-kinase inhibitor resistance in multiple cancers [@hou2019] and targeted anti-MDM2 treatments are in development [@sciot2021].
 
@@ -309,11 +309,41 @@ Samples were tested on version 2 (CDHS-48608Z-11752) of the PanSolid QIAseq enri
 
 ## Bioinformatic analysis {#sec-methods-bioinformatics}
 
-The CLC pipeline, including details of the methodology and quality metrics, is described in the ERBB2 amplifications validation document ([DOC6260]{custom-style="Strong"}). All amplification genes were analysed on the "coarse" setting, except for MYC. MYC has only 3 targets on the PanSolid enrichment, and preliminary work showed that the coarse setting could not identify MYC amplifications in positive controls. The "fine" setting was used specifically for MYC to account for the lower number of QIAseq targets. The version of the PanSolid CLC pipeline tested in this validation was PanSolid Workflow v2.2.
+The CLC pipeline, including details of the methodology and quality metrics, is described in detail in the *ERBB2* amplifications validation document ([DOC6260]{custom-style="Strong"}). The method by which CLC detects CNVs is also described in the  Qiagen Copy Number Variant Detection White Paper. Brief details are provided below.
 
-MYC and MYCN were placed on the fine setting after preliminary testing showed that coarse could not pick it up.
+### Control cohort
 
-Briefly describe control cohort.
+A cohort of 25 normal FFPE samples from various tissue sources was used a control cohort for CNV calling with the pipeline. 
+
+### Graining level
+
+The CLC Genomics Workbench has 3 "graining levels" for CNV analysis:
+
+**Coarse:** for CNVs spanning over 10 targets
+
+**Intermediate:** for CNVs spanning over 5 targets
+
+**Fine:** most sensitive to CNVs spanning 3 or more targets. (reference manual)
+
+All amplification genes were initially analysed on the "coarse" setting. Preliminary work showed that the coarse setting could not identify *MYC* amplifications in positive controls, as *MYC* has only 3 targets on the PanSolid enrichment. The "fine" setting was then used specifically for *MYC* and *MYCN* to account for the lower number of QIAseq targets in these genes. 
+
+### Fold change
+
+The CLC pipeline identifies CNVs according to the fold change of target regions, as defined in the following equation:
+
+Fold change (gain) = locus coverage / baseline control coverage
+
+### Signal-adjusted noise
+
+The “signal-adjusted noise” metric is a quality control metric developed during the *ERBB2* amplifications validation. It is defined as the standard deviation of target log2ratios when regional fold-changes are excluded.
+
+### Visualisation
+
+Results were visualised using an Excel output as before, and using a new interactive HTML output.
+
+### Pipeline version
+
+The version of the PanSolid CLC pipeline tested in this validation was PanSolid Workflow v2.2.
 
 ## Orthogonal testing {#sec-orthogonal-testing}
 
@@ -1522,7 +1552,7 @@ Given the assumption that amplification dynamics are not radically different bet
 
 ## *EGFR* version 3 and intra-genic CNVs {#sec-discussion-egfr-v3}
 
-In a single sample, an exonic *EGFR* deletion was detected by PanSolid NGS, consistent with the result from WGS. This is a recurrent in-frame deletion of 801 EGFR coding base pairs, representing exons 2 to 7, which is referred to as *EGFR* version 3, Δ801EGFR, EGFR vIII or de2-7 EGFR (@sugawa1990, @pedersen2001). EGFR version 3 is found in roughly 11% of glioblastoma cases (@brennan2013), but its prognostic significance is controversial (@rutkowska2019).
+In a single sample, an exonic *EGFR* deletion was detected by PanSolid NGS, consistent with the result from WGS. This is a recurrent in-frame deletion of 801 EGFR coding base pairs, representing exons 2 to 7, which is referred to as *EGFR* version 3, Δ801EGFR, EGFR vIII or de2-7 EGFR [@sugawa1990; @pedersen2001]. EGFR version 3 is found in roughly 11% of glioblastoma cases [@brennan2013], but its prognostic significance is controversial [@rutkowska2019].
 
 In this validation, the exonic deletion was visible when the individual QIAseq targets were inspected in the interactive HTML view. The CLC "coarse" setting identified two regions within *EGFR* with different fold changes, but did not identify the deleted region. This indicates that intra-genic CNVs within target genes can cause the CLC pipeline to return multiple intra-genic fold-changes, although these may not match the coordinates of the underlying CNV. 
 
