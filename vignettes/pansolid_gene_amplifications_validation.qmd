@@ -459,7 +459,7 @@ mycn_samples <- amp_validation_pos_cnv_results_collated |>
 
 ```
 
-Amplifications for the *MYC* gene were detected in `r length(unique(myc_samples$labno))` samples, with fold changes ranging from `r round(min(myc_samples$fold_change), 1)` to `r round(max(myc_samples$fold_change), 1)`, whilst a *MYCN* amplification was only detected in `r length(unique(mycn_samples$labno))` sample with a fold change of `r round(mycn_samples$fold_change, 1)` The full width of the *MYC* gene was covered in all calls except for sample 24031627, in which only the latter 2 exons of the gene had an amplification (@fig-myc-zoom). In one sample (24024116) a *MYC* amplification was detected on a background of increased fold change across all targets on 8q, indicating an 8q gain.
+Due to their reduced size, the *MYC* and *MYCN* genes were analysed on a separate "fine" setting for CNV calling. Amplifications for the *MYC* gene were detected in `r length(unique(myc_samples$labno))` samples (excluding the SeraCare reference materials), with fold changes ranging from `r round(min(myc_samples$fold_change), 1)` to `r round(max(myc_samples$fold_change), 1)`, whilst a *MYCN* amplification was only detected in `r length(unique(mycn_samples$labno))` sample (excluding the SeraCare reference materials) with a fold change of `r round(mycn_samples$fold_change, 1)`. The full width of the *MYC* gene was covered in all calls except for sample 24031627, in which only the latter 2 exons of the gene had an amplification (@fig-myc-zoom). In one sample (24024116) a *MYC* amplification was detected on a background of increased fold change across all targets on 8q, indicating an 8q gain. Coordinate plots for the *MYCN* gene are shown in the supplementary information (@fig-mycn-wide and @fig-mycn-zoom).
 
 ```{r}
 #| label: myc-amplification-plots
@@ -525,7 +525,8 @@ myc_zoom_triptych
 
 ## Comparison to ddPCR {#sec-results-ddpcr-comparison}
 
-ddPCR was performed for a selection of samples for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes. The *ERBB2* ddPCR work was performed as part of the separate validation of *ERBB2* amplification detection ([DOC6260]{custom-style="Strong"}), which included DNA extracted on the Cobas and QIAsymphony methods. 11 *ERBB2* samples extracted with the QIAsymphony method and tested on PanSolid version 2 are included in this validation analysis, and compared to the ddPCR results for their corresponding Cobas extractions.
+ddPCR was performed for a selection of samples for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes. The *ERBB2* ddPCR work was performed as part of the separate validation of *ERBB2* amplification detection ([DOC6260]{custom-style="Strong"}), which included DNA extracted on the Cobas and QIAsymphony methods. 11 *ERBB2* samples extracted with the QIAsymphony method and tested on PanSolid version 2 are included in this validation analysis, and compared to the ddPCR results for their corresponding Cobas extractions.The QIAsymphony method was validated as the sole DNA extraction method for FFPE tissue at the Manchester GLH in April 2024. A copy number threshold of 5 was used to classify ddPCR results as "amplified" and "non-amplified".
+
 ```{r}
 #| label: getting-erbb2-labnos
 #| include: FALSE
@@ -544,7 +545,7 @@ validation_ddpcr_collated_erbb2_fixed <- validation_ddpcr_collated |>
     TRUE ~sample))
 
 ```
-The QIAsymphony method was validated as the sole DNA extraction method for FFPE tissue at the Manchester GLH in April 2024. A copy number threshold of 5 was used to classify ddPCR results as "amplified" and "non-amplified".
+
 ```{r}
 #| label: ddpcr-copy-number-threshold
 #| include: FALSE
@@ -623,7 +624,7 @@ ddpcr_summary <- ddpcr_vs_pansolid |>
 
 ```
 
-There was good agreement between ddPCR and PanSolid, with only 3 discrepant results out of x samples and an overall sensitivity of 93%.
+There was good agreement between ddPCR and PanSolid, with only 3 discrepant results out of 100 samples and an overall sensitivity of 93%.
 
 ```{r}
 #| label: tbl-ddpcr-vs-pansolid
@@ -636,7 +637,7 @@ kable(ddpcr_summary)
 
 ### ddPCR dosage correlation {#sec-ddpcr-dosage-correlation}
 
-There was a good correlation in the dosage quantification between the two techniques for each gene, as measured using Pearson's coefficient (@fig-ddpcr-vs-pansolid-ngs). For the *MYC* gene, this correlation was consistent to copy numbers over 150.
+There was a good correlation in the dosage quantification between the two techniques for each gene, as measured using Pearson's coefficient (@fig-ddpcr-vs-pansolid-ngs). For the *MYC* gene, this correlation was consistent to copy numbers above 150.
 
 ```{r}
 #| label: fig-ddpcr-vs-pansolid-ngs
@@ -674,7 +675,7 @@ ddpcr_ngs_plot
 
 ### ddPCR discordant results {#sec-ddpcr-discordant-results}
 
-Three samples had a discordant result from ddPCR when compared to the PanSolid NGS result. Two of these samples (24002064 and 23033921) had borderine results on both ddPCR and PanSolid NGS. The remaining sample (24037724) had a *MYC* copy number of 9 on ddPCR, with a fold change of only 2.2 detected on PanSolid NGS. The whole genome plot for this sample showed a deletion at chromosome 5q, including the location of the *AP3B1* ddPCR reference gene, which probably caused an artificially high ddPCR copy number.
+Three samples had a discordant result from ddPCR when compared to the PanSolid NGS result. Two of these samples (24002064 and 23033921) had borderline results on both ddPCR and PanSolid NGS. The remaining sample (24037724) had a *MYC* copy number of 9 on ddPCR, with a fold change of only 2.2 detected on PanSolid NGS. The whole genome plot for this sample showed a deletion at chromosome 5q, including the location of the *AP3B1* ddPCR reference gene, which probably caused an artificially high ddPCR copy number.
 
 ```{r}
 #| label: tbl-ddpcr-false-negatives
@@ -828,10 +829,10 @@ wgs_pansolid_summary_table <- pansolid_vs_wgs_amps_selection_cnvs_above_ten |>
               values_fill = 0,
             names_expand = TRUE) |> 
   adorn_totals() |> 
-  mutate("Sensitivity (%)" = round(calc_sensitivity(tp = true_positive,
+  mutate("Sensitivity (%)" = as.character(round(calc_sensitivity(tp = true_positive,
                                           tn = true_negative,
                                           fn = false_negative,
-                                          fp = false_positive), 1),
+                                          fp = false_positive), 1)),
          "Specificity (%)" = round(calc_specificity(tp = true_positive,
                                           tn = true_negative,
                                           fn = false_negative,
@@ -845,6 +846,8 @@ wgs_pansolid_summary_table <- pansolid_vs_wgs_amps_selection_cnvs_above_ten |>
          `False positives` = false_positive) |> 
   select(`Gene`, "Sample loci", `True negatives`, `True positives`, `False negatives`,
          `False positives`, "Sensitivity (%)", "Specificity (%)")
+
+wgs_pansolid_summary_table[wgs_pansolid_summary_table == "NaN"] <- "-"
 
 ```
 
@@ -959,7 +962,7 @@ kable(false_neg_collated)
 
 ### WGS coordinate correlation {#sec-wgs-coordinate-correlation}
 
-There were 5 amplifications in the *EGFR* and *MDMD2* genes detected by both WGS and PanSolid.
+There were 5 amplifications in the *EGFR* and *MDMD2* genes detected by both WGS and PanSolid. fig-egfr-wgs-pansolid and fig-mdm2-wgs-pansolid show that the PanSolid pipeline identified shorter amplified regions than WGS, which correspond to the regions targetted by PanSolid QIAseq primers.
 
 ```{r}
 #| label: wgs-coordinate-accuracy
@@ -1007,7 +1010,7 @@ wgs_ps_egfr_mdmd2_calls <- rbind(ps_egfr_mdmd2_calls, wgs_egfr_mdm2_calls)
 
 ```{r}
 #| label: fig-egfr-wgs-pansolid
-#| fig-cap: "Comparison of coordinate calls for EGFR amplifications detected by WGS and PanSolid, organised by pathology block ID and test."
+#| fig-cap: "Comparison of coordinate calls for EGFR amplifications detected by WGS and PanSolid, organised by pathology block ID and test. This plot does not include the sample in which an EGFR version III amplification was detected."
 #| echo: FALSE
 
 egfr_wgs_pansolid_plot <- ggplot(wgs_ps_egfr_mdmd2_calls |> filter(gene == "EGFR" & 
@@ -1081,9 +1084,13 @@ mdm2_wgs_triptych
 
 ```
 
+## *EGFR* version 3 {#sec-results-egfr-v3}
+
+In a sample from pathology block N23.0626 (PanSolid NGS lab number: 24030966; WGS lab number: 23034780), PanSolid NGS showed 2 amplified regions in the *EGFR* gene, with a boundary at the end of *EGFR* exon 7. Inspection of the interactive HTML showed that this was caused by a loss of log2 ratios in the region between exons 2 to 7, indicating the presence of the *EGFR* version 3 transcript. This result was confirmed by WGS.
+
 ### WGS dosage correlation {#sec-wgs-dosage-correlation}
 
-There were only 5 samples with amplifications detected on PanSolid and WGS, so not enough to perform a robust correlation anlaysis on. However, there was a general agreement between the two methods on the dosage of the gene, see Supplementary Information (@fig-wgs-pansolid-dosage).
+There were only 5 samples with amplifications detected on PanSolid and WGS, so not enough to perform a robust correlation analysis on. However, there was a general agreement between the two methods on the dosage of the gene, see Supplementary Information (@fig-wgs-pansolid-dosage).
 
 ```{r}
 #| label: wgs-dosage-accuracy
@@ -1427,7 +1434,7 @@ poor_quality_samples <- amp_validation_stdev_results_collated |>
 
 ```
 
-Overall, the amount of signal-adjusted noise within the cohort ranged from `r round(min(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)` - `r round(max(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)` with a median of `r round(median(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)` . There were `r nrow(poor_quality_samples)` samples which had signal-adjusted noise values above 0.7 and were hence considered poor quality. 2 samples were extracted using the Cobas method and 2 were extracted with the QIAsymphony method.
+Overall, the amount of signal-adjusted noise within the cohort ranged from `r round(min(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)` - `r round(max(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)` with a median of `r round(median(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)` . There were `r nrow(poor_quality_samples)` samples which had signal-adjusted noise values above 0.7 and were hence considered poor quality.
 
 ```{r}
 #| label: fig-noise-results
@@ -1446,19 +1453,26 @@ overall_noise_plot
 
 ```
 
-Within the poor-quality samples, there were 4 gene amplification calls in the *MET* and *BRAF* genes. These calls had low fold change values and when the whole genome plots were visually inspected, it was clear that these represented false positive calls, and the target targets were not significantly elevated above their surrounding targets.
+Within the poor-quality samples, there were 7 gene amplification calls (@tbl-noisy-amplification-calls). The calls in the *ERBB2* and *MDM2* genes had very high fold changes, and result was confirmed on ddPCR and WGS, respectively. In contrast, the remaining calls had low fold change values; inspection of the whole genome plots showed that gene targets were not significantly elevated above their surrounding targets. This indicated that these were false positive calls, caused by the high noise in the samples.
 
 ```{r}
-#| label: false-positives
+#| label: tbl-noisy-amplification-calls
+#| tbl-cap: "Amplification calls in low quality samples."
 #| echo: FALSE
 
 poor_quality_results <- amp_validation_pos_cnv_results_collated |> 
-  filter(labno %in% poor_quality_samples$labno & gene != "no positive calls") |> 
+  left_join(amp_validation_stdev_results_collated |> 
+              mutate(st_dev_signal_adjusted_log2_ratios = round(st_dev_signal_adjusted_log2_ratios, 1)) |> 
+              select(filepath, st_dev_signal_adjusted_log2_ratios), by = "filepath",
+            relationship = "many-to-one") |> 
+  filter(st_dev_signal_adjusted_log2_ratios > 0.7 &
+           gene != "no positive calls") |> 
   left_join(amp_validation_sample_patient_info,
             by = "labno", relationship = "many-to-one") |> 
-  select(labno, gene, fold_change, method_name) |> 
+  select(labno, gene, st_dev_signal_adjusted_log2_ratios, fold_change, method_name) |> 
   rename(`Lab number` = labno,
          `Gene` = gene,
+         `Signal-adjusted noise` = st_dev_signal_adjusted_log2_ratios,
          `Fold change` = fold_change,
          `Extraction method` = method_name)
 
