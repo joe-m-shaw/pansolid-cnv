@@ -1498,19 +1498,15 @@ The technique is semi-quantitative. Comment on correlation with SeraCare, ddPCR 
 
 ## Limit of detection {#sec-discussion-lod}
 
-All genes were detected in the +6 copies SeraCare control.
+The limit of detection is impacted by multiple factors, such as the the NCC of the sample, the number of amplified gene copies in the tumour, the coverage across the locus of interest, the quantity of DNA available for the QIAseq enrichment, the size of the gene, the settings used in the pipeline, and the presence of intra-tumoral heterogeneity in gene copy number. Consequently, establishing a limit of detection for the PanSolid NGS workflow involves many caveats. 
 
-All genes except MYC were detected at 30% simulated NCC, except for *MYC*.
+Two approaches were used to determine the limit of detection: undiluted SeraCare reference materials with known quantities of target genes added, and mixtures of these controls to simulate clinical samples with different NCC values.All genes were detected in the +6 copies SeraCare control, and all genes except *MYC* were detected at 30% simulated NCC.
 
-The limit of detection of the technique will depend on multiple factors
+The limit of detection for the PanSolid NGS workflow is therefore:
 
-The neoplastic cell content of the sample
+- 6 additional copies with an NCC of 100%
 
-The coverage across the locus of interest
-
-The number of amplified gene copies in the tumour
-
-Intra-tumoral heterogeneity in gene copy number
+- 12 additional copies with an NCC of 30% for *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2*  *MYCN* and *SMO*, but not for *MYC*.
 
 ## Extrapolation to other genes {#sec-extrapolation-to-other-genes}
 
@@ -1522,11 +1518,13 @@ Given the assumption that amplification dynamics are not radically different bet
 
 ### "Fine" setting {#sec-discussion-fine-setting}
 
-By contrast, due to the low number of targets involved when the "fine" setting is used
+*MYC* and *MYCN* are paralogous in their protein motifs and structures, but not nucleotide sequences [@jha2023] and are located on different chromosomes. Both genes are frequently mutated in cancer, with gene amplification being a major oncogenic mechanism [@meyer2008]. Both *MYC* and *MYCN* are shorter than 7 kilobases in length, and, due to their small size, amplifications were not initially detected in these genes on the "coarse" setting. The "fine" setting was then used, and was able to detect amplifications in both genes in the SeraCare reference materials, and *MYC* amplifications which were confirmed by ddPCR. Due to the small size of each gene, we do not advise extrapolating the sensitivity and specificity of the "fine" setting to other genes of similar sizes without testing controls with confirmed amplifications.
 
-## EGFR version 3 {#sec-discussion-egfr-v3}
+## *EGFR* version 3 and intra-genic CNVs {#sec-discussion-egfr-v3}
 
-Add EGFR version 3 references.
+In a single sample, an exonic *EGFR* deletion was detected by PanSolid NGS, consistent with the result from WGS. This is a recurrent in-frame deletion of 801 EGFR coding base pairs, representing exons 2 to 7, which is referred to as *EGFR* version 3, Δ801EGFR, EGFR vIII or de2-7 EGFR (@sugawa1990, @pedersen2001). EGFR version 3 is found in roughly 11% of glioblastoma cases (@brennan2013), but its prognostic significance is controversial (@rutkowska2019).
+
+In this validation, the exonic deletion was visible when the individual QIAseq targets were inspected in the interactive HTML view. The CLC "coarse" setting identified two regions within *EGFR* with different fold changes, but did not identify the deleted region. This indicates that intra-genic CNVs within target genes can cause the CLC pipeline to return multiple intra-genic fold-changes, although these may not match the coordinates of the underlying CNV. 
 
 ## Quality control {#sec-discussion-quality-control}
 
@@ -1545,6 +1543,8 @@ This validation has the following limitations:
 -   Short-read NGS is not able to distinguish the different cellular contexts of gene amplifications, which may be present on chromosomes or extra-chromosomal DNA.
 
 - ddPCR was not performed for *MYCN* or *MDM2* as these genes were added later in the validation.
+
+- Limit of detection studies were performed using SeraCare controls, which include artificial gene construct spike-ins and may not perfectly mimic the behaviour of clinical FFPE samples.
 
 # Review of test requirements {#sec-discussion-test-requirements-review}
 
