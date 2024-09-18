@@ -271,7 +271,7 @@ Reference materials were ordered from the company SeraCare to act as positive co
 seracare_gene_overlap <- read_csv(file = paste0(data_folder, 
                                                  "seracare_reference_materials/",
                                                  "seracare_gene_copies.csv")) |> 
-  filter(reference_material_short == "WT") |> 
+  filter(reference_material_short == "0 copies added") |> 
   select(gene) |> 
   mutate(`Targetted within this validation` = ifelse(gene %in% amp_genes$gene, "Yes", "No")) |> 
   rename(`Gene` = gene)
@@ -443,8 +443,6 @@ results_by_cancer_type
 ## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results {#sec-results-coarse-setting}
 
 The CLC coarse setting detected amplifications in all the target genes except the *ALK* gene (@tbl-amp-gene-summary). The 1 amplification detected in the *SMO* gene was a false positive in a sample with a signal-adjusted noise value of 0.89 (lab number: 23032153). For the remaining genes, a range of amplifications were detected. For each gene, there was variation in the amplified region, which in some cases only included the gene of interest and in others expanded to include additional genomic regions. In nearly all cases, every exon in the canonical RefSeq gene transcript was contained within the amplified region. There were 3 samples where 2 amplified regions were detected in the *EGFR* gene, whilst for other samples only a single region call was made.
-
-{{< pagebreak >}}
 
 ## Fine setting: *MYC* and *MYCN* results {#sec-results-fine-setting}
 
@@ -911,7 +909,12 @@ false_neg_labnos <- c("24030962", "23033921")
 
 false_neg_extraction <- amp_validation_sample_patient_info |> 
   filter(labno %in% false_neg_labnos) |> 
-  select(labno, neoplastic_cell_content, method_name)
+  select(pathno, tissue_type, labno, method_name) |> 
+  mutate(method_name = ifelse(
+    method_name == "QIAsymphony_DNA_FFPE", 
+    "QIAsymphony",
+    method_name
+  ))
 
 false_neg_pansolid <- amp_validation_all_amp_gene_results_collated |> 
   filter(labno %in% false_neg_labnos & gene == "EGFR") |> 
@@ -935,7 +938,8 @@ false_neg_collated <- false_neg_extraction |>
   left_join(false_neg_wgs, by = "labno") |> 
   left_join(false_neg_ddpcr, by = "labno") |> 
   rename(`Lab number` = labno,
-         `NCC` = neoplastic_cell_content,
+         `Pathology block` = pathno,
+         `Tissue` = tissue_type,
          `DNA extraction` = method_name,
          `PanSolid fold change` = pansolid_fold_change,
          `WGS copy number` = wgs_copy_number,
@@ -1115,9 +1119,7 @@ wgs_pansolid_dosage_plot <- ggplot(pansolid_wgs_dosage,
 
 ### SeraCare reference materials {#sec-results-lod-seracare-neat}
 
-The Seraseq® TNA (DNA) WT Mix was tested on the PanSolid v2 enrichment on worksheet WS144291 and the +3 copies, +6 copies and +12 copies reference materials were tested on worksheet WS139890. The results for the 5 genes with defined copy number gains in the reference materials which are also on the list of targets for this validation are shown in Table 1. The whole genome plot for each reference material is shown in Figure 3.
-
-The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the EGFR and ERBB2 genes for the +3 copies, +6 copies and +12 copies reference materials (@tbl-seracare-pansolid-ngs). Conversely, the PanSolid results for MYC were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@fig-seracare-ddpcr-pansolid).
+The Seraseq® TNA (DNA) WT Mix was tested on the PanSolid v2 enrichment on worksheet WS144291 and the +3 copies, +6 copies and +12 copies reference materials were tested on worksheet WS139890. There were six genes of interest, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MYC* and *MYCN*, which had artificial gene constructs spiked into the SeraCare reference materials. In the +12 copies and +6 copies materials, all 6 genes of interest were detected by the PanSolid pipeline, with the amplification regions covering the full width of each gene. In the +3 copies reference material, *BRAF* and *MYC* were not detected, although they had fold changes close to the threshold and were visibly amplified on the generated whole genome plot.
 
 ```{r}
 #| label: seracare-ngs-comparison
@@ -1129,7 +1131,7 @@ seracare_gene_copies <- read_csv(file = paste0(data_folder,
   mutate(total_copies_ddpcr_seracare = additional_copies_ddpcr + 2,
          total_copies_ngs_seracare = additional_copies_ngs + 2,
          reference_material_short = factor(x = reference_material_short,
-                                           levels = c("WT", "3 copies added",
+                                           levels = c("0 copies added", "3 copies added",
                                            "6 copies added", "12 copies added")))
 
 seracare_ids <- amp_validation_all_amp_gene_results_collated |> 
@@ -1162,9 +1164,41 @@ seracare_ngs_comparison <- amp_validation_all_amp_gene_results_collated |>
 ```
 
 ```{r}
+#| label: fig-seracare-pansolid-results
+#| fig-cap: "SeraCare reference material detection. Dashed line shows the PanSolid fold change threshold of 2.8."
+#| fig-height: 6.3
+#| fig-width: 6
+#| echo: FALSE
+
+seracare_colours <- c(
+  "#009E73",
+  "#F0E442",
+  "#E69F00", 
+  "#D55E00"
+)
+
+seracare_pansolid_results_plot <- ggplot(seracare_ngs_comparison, 
+                                         aes(x = reference_material_short,
+                                    y = max_region_fold_change)) +
+  geom_point(size = 3, shape = 21, aes(fill = reference_material_short)) +
+  scale_fill_manual(values = seracare_colours) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "none") +
+  scale_y_continuous(limits = c(-5, 15), breaks = c(0, 5, 10, 15)) +
+  facet_wrap(~gene, ncol = 2) +
+  labs(x = "", y = "PanSolid fold change", title = "SeraCare results by target gene") +
+  geom_hline(yintercept = 2.8, linetype = "dashed")
+
+seracare_pansolid_results_plot
+
+```
+
+```{r}
 #| label: tbl-seracare-pansolid-ngs
 #| tbl-cap: "SeraCare reference material results"
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 seracare_ngs_comparison_tbl <- seracare_ngs_comparison |>
   mutate(`Pansolid fold change` = round(max_region_fold_change, 1),
@@ -1182,20 +1216,13 @@ kable(seracare_ngs_comparison_tbl)
 
 ```
 
-{{< pagebreak >}}
+The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the EGFR and ERBB2 genes for the +3 copies, +6 copies and +12 copies reference materials. Conversely, the PanSolid results for MYC were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@fig-seracare-ddpcr-pansolid).
 
 ```{r}
 #| label: fig-seracare-ngs-pansolid
 #| fig-cap: "PanSolid vs SeraCare NGS"
 #| fig-width: 6
 #| echo: FALSE
-
-seracare_colours <- c(
-  "#009E73",
-  "#F0E442",
-  "#E69F00", 
-  "#D55E00"
-)
 
 ngs_comparison_plot <- ggplot(seracare_ngs_comparison, 
                               aes(x = total_copies_ngs_pansolid,
@@ -1271,11 +1298,11 @@ ddpcr_comparison_plot
 
 ### SeraCare dilution mixes {#sec-results-lod-seracare-mixes}
 
-Dilution mixes were prepared to simulate a sample with neoplastic cell contents of 30%, 20%, 10 % and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291. The results for each gene are shown in @tbl-seracare-dilution-mix-results, and the whole genome plots are shown in Figure 4. All gene amplifications were detected in the 30% NCC mix, except for MYC.
+Dilution mixes were prepared to simulate a sample with neoplastic cell contents of 30%, 20%, 10 % and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291. All genes except *MYC* were detected at a simulated NCC of 30%, whilst below this level no genes exceeded the fold change threshold of 2.8.
 
 ```{r}
-#| label: tbl-seracare-dilution-mix-results
-#| tbl-cap: "SeraCare dilution mix results"
+#| label: fig-seracare-dilution-mix-results
+#| fig-cap: "SeraCare dilution mix results. Dashed line shows the PanSolid fold change detection threshold of 2.8."
 #| echo: FALSE
 
 lod_dilution_mix_results <- amp_validation_all_amp_gene_results_collated |> 
@@ -1288,16 +1315,21 @@ lod_dilution_mix_results <- amp_validation_all_amp_gene_results_collated |>
     suffix == "d" ~0
   ),
   lod_proportion = lod_percent/ 100,
+  lod_percent_char = str_c(lod_percent, "%"),
   max_region_fold_change = round(max_region_fold_change, 1),
-  predicted_fold_change = ((14 * lod_proportion) + (2 * (1 - lod_proportion))) / 2 ) |> 
-  arrange(lod_percent) |> 
-  rename(`Simulated NCC` = lod_percent,
-         `Gene` = gene,
-         `Predicted PanSolid fold change` = predicted_fold_change,
-         `PanSolid fold change` = max_region_fold_change) |> 
-  select(`Simulated NCC`, `Gene`, `Predicted PanSolid fold change`, `PanSolid fold change`)
+  predicted_fold_change = ((14 * lod_proportion) + (2 * (1 - lod_proportion))) / 2 ) 
 
-kable(lod_dilution_mix_results)
+seracare_dilution_mix_plot <- ggplot(lod_dilution_mix_results, aes(x = lod_percent_char,
+                                    y = max_region_fold_change)) +
+  geom_point(size = 3, shape = 21) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  facet_wrap(~gene, ncol = 2) +
+  geom_hline(yintercept = 2.8, linetype = "dashed") +
+  labs(x = "Simulated NCC", y = "PanSolid fold change",
+       title = "SeraCare dilution mix results")
+  
+seracare_dilution_mix_plot
 
 ```
 
@@ -1321,12 +1353,11 @@ kable(repeat_schedule)
 
 ```
 
-The variation in the measured fold change between replicates was minimal, with no variation across the fold change threshold of 2.8. Horizontal variation in CNV call coordinates was also minimal, with a coefficient of variation of x. See supplementary infromation for graphs.
+The variation in the measured fold change between replicates was minimal, with no variation across the fold change threshold of 2.8. For the 3 amplifications detected, there was no change in the region defined as amplified in any of the repeat replicates - see supplementary information for graphs.
 
 ```{r}
-#| label: fig-repeatability
-#| fig-cap: "Repeatability results"
-#| echo: FALSE
+#| label: repeatability-plots
+#| include: FALSE
 
 repeat_noise_data <- amp_validation_stdev_results_collated |> 
   filter(duplicated(labno, fromLast = TRUE) |
@@ -1344,53 +1375,40 @@ repeat_all_amp_data <- amp_validation_all_amp_gene_results_collated |>
                names_to = "fold_change_type",
                values_to = "fold_change")
 
-repeatability_plot <- ggplot(repeat_all_amp_data, aes(x = gene, y = fold_change)) +
-  geom_jitter(shape = 21, size = 2, width = 0.2, aes(fill = fold_change_type),
-              alpha = 0.5) +
-  #geom_boxplot() +
+repeatability_plot_1 <- ggplot(repeat_all_amp_data |> 
+                                 filter(labno %in% c("24017319",
+                                                     "24020998")), aes(x = gene, y = fold_change)) +
+  geom_jitter(shape = 21, width = 0.2) +
   theme_bw() +
   geom_hline(yintercept = 2.8, linetype = "dashed") +
   theme(axis.text.x = element_text(angle = 90),
         legend.position = "bottom") +
-  facet_wrap(~labno, scales = "free_y") +
-  labs(x = "", y = "Fold change", fill = "")
+  ylim(-2, 6) +
+  facet_wrap(~labno) +
+  labs(x = "", y = "PanSolid fold change")
+
+repeatability_plot_2 <- ggplot(repeat_all_amp_data |> 
+                                 filter(labno %in% c("24027774")), aes(x = gene, y = fold_change)) +
+  geom_jitter(shape = 21, width = 0.2) +
+  theme_bw() +
+  geom_hline(yintercept = 2.8, linetype = "dashed") +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom") +
+  ylim(-2, 100) +
+  facet_wrap(~labno) +
+  labs(x = "", y = "PanSolid fold change")
+
+repeatability_plot <- repeatability_plot_1 + repeatability_plot_2 +
+  plot_layout(nrow = 1, widths = c(4, 2))
+
+```
+
+```{r}
+#| label: fig-repeatability
+#| fig-cap: "Repeatability results: both maximum and minimum fold changes for each gene region are shown. The dashed line shows the PanSolid fold change threshold of 2.8. Fold changes cannot have a value between 1 and -1, hence the absence of results in this region for sample 24017319. Sample 24027774 is plotted on a separate axis due to the high fold change of the *MET* and *MYC* amplifications in this sample."
+#| echo: FALSE
 
 repeatability_plot
-
-```
-
-```{r}
-#| label: fig-24020998-EGFR
-#| fig-cap: "Sample 24020998 EGFR amplifications"
-#| fig-cap-location: top
-#| echo: FALSE
-
-fig_24020998_EGFR <- make_cnv_triptych_plot(input_plot  = 
-  make_labno_cnv_plot(df = amp_validation_pos_cnv_results_collated |> 
-    filter(labno == "24020998"),
-    gene = "EGFR",
-    yaxis = labno_suffix_worksheet,
-    interval = 500000,
-    buffer = 100000))
-
-fig_24020998_EGFR
-
-```
-
-```{r}
-#| label: fig-24027774-MYC
-#| fig-cap: "Sample 24027774 MYC amplifications"
-#| echo: FALSE
-
-fig_24027774_MYC <- make_cnv_triptych_plot(input_plot  = 
-  make_labno_cnv_plot(df = amp_validation_pos_cnv_results_collated |> 
-    filter(labno == "24027774"),
-    gene = "MYC",
-    yaxis = labno_suffix_worksheet,
-    interval = 500000,
-    buffer = 50000))
-
-fig_24027774_MYC
 
 ```
 
@@ -1488,6 +1506,8 @@ This validation has the following limitations:
 
 -   Short-read NGS is not able to distinguish the different cellular contexts of gene amplifications, which may be present on chromosomes or extra-chromosomal DNA.
 
+- ddPCR was not performed for *MYCN* or *MDM2* as these genes were added later in the validation.
+
 # Review of test requirements {#sec-discussion-test-requirements-review}
 
 The test requirements specified in @sec-requirements have been met:
@@ -1509,6 +1529,8 @@ The sensitivities and specificities for amplification detection have been shown 
 **7. Analysis: there should be a clear procedure for analysis of copy number variants by laboratory staff.**
 
 # Requirements for clinical implementation {#sec-requirements-for-clinical-implementation}
+
+Visual inspection of the whole genome plots is required to avoid false positive calls, see @sec-results-quality-control.
 
 # Conclusion {#ref-conclusion}
 
@@ -1968,4 +1990,54 @@ wgs_pansolid_dosage_plot
 
 ```
 
+```{r}
+#| label: fig-24020998-EGFR
+#| fig-cap: "Sample 24020998 EGFR amplifications"
+#| fig-cap-location: top
+#| echo: FALSE
 
+fig_24020998_EGFR <- make_cnv_triptych_plot(input_plot  = 
+  make_labno_cnv_plot(df = amp_validation_pos_cnv_results_collated |> 
+    filter(labno == "24020998"),
+    gene = "EGFR",
+    yaxis = labno_suffix_worksheet,
+    interval = 500000,
+    buffer = 100000))
+
+fig_24020998_EGFR
+
+```
+
+```{r}
+#| label: fig-24027774-MYC
+#| fig-cap: "Sample 24027774 MYC amplifications"
+#| echo: FALSE
+
+fig_24027774_MYC <- make_cnv_triptych_plot(input_plot  = 
+  make_labno_cnv_plot(df = amp_validation_pos_cnv_results_collated |> 
+    filter(labno == "24027774"),
+    gene = "MYC",
+    yaxis = labno_suffix_worksheet,
+    interval = 500000,
+    buffer = 50000))
+
+fig_24027774_MYC
+
+```
+
+```{r}
+#| label: fig-24027774-MET
+#| fig-cap: "Sample 24027774 MET amplifications"
+#| echo: FALSE
+
+fig_24027774_MET <- make_cnv_triptych_plot(input_plot  = 
+  make_labno_cnv_plot(df = amp_validation_pos_cnv_results_collated |> 
+    filter(labno == "24027774"),
+    gene = "MET",
+    yaxis = labno_suffix_worksheet,
+    interval = 500000,
+    buffer = 50000))
+
+fig_24027774_MET
+
+```
