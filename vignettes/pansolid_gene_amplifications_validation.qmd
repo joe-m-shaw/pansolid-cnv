@@ -254,6 +254,27 @@ The requirements for this new method are as follows:
 
 # Methodology {#sec-methodology}
 
+```{r}
+#| label: remove-pansolidv1-data
+#| include: FALSE
+
+# WS138156 was the PanSolidv1 enrichment, so I am removing it to keep the validation
+# focussed on PanSolidv2.
+
+amp_validation_all_amp_gene_results_collated <- amp_validation_all_amp_gene_results_collated |> 
+  filter(worksheet != "WS138156")
+
+amp_validation_pos_cnv_results_collated <- amp_validation_pos_cnv_results_collated |> 
+  filter(worksheet != "WS138156")
+
+amp_validation_stdev_results_collated <- amp_validation_stdev_results_collated |> 
+  filter(worksheet != "WS138156")
+
+amp_validation_percent_138_collated <- amp_validation_percent_138_collated |> 
+  filter(worksheet != "WS138156")
+
+```
+
 ## Samples {#sec-methods-samples}
 
 Samples were received at the North West GLH between December 2019 and July 2024. Details of the normal control cohort used for the PanSolid CLC pipeline are given in the ERBB2 validation document ([DOC6260]{custom-style="Strong"}). In total, `r length(unique(amp_validation_stdev_results_collated$labno))` different DNA samples were tested on the PanSolid version 2 enrichment during this validation. Samples were tested from patients with a variety of different types of cancer, with patient age at sample receipt ranging from `r round(min(amp_validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)` to `r round(max(amp_validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)` years (median: `r round(median(amp_validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)` years). Samples from many different types of cancer were tested, which are summarised in the supplementary information (@tbl-cancer-types). The details of the sample types (@tbl-tissue-types) and neoplastic cell contents (NCC) (@tbl-ncc) are also provided in the supplementary information.
@@ -288,7 +309,7 @@ kable(seracare_gene_overlap)
 
 ### Limit of detection DNA mixtures {#sec-methods-lod-mixtures}
 
-A limit of detection experiment was performed using the Seraseq® Solid Tumor CNV Mix, +12 copies reference material, which represented DNA from tumour cells, and the Seraseq® TNA (DNA) WT Mix, which represented DNA from normal cells. The two reference materials were mixed together to mimic samples with neoplastic cell contents of 30%, 20%, 10% and 0%. The final volume of each DNA mixture was 20 µl and the total DNA concentration was 6 ng/µl, which is the standard input for the PanSolid NGS workflow. These DNA mixtures were made on worksheet WS144265 and run on the PanSolid version 2 NGS workflow on worksheet WS144291. This limit of detection experiment is different to the limit of detection experiment performed on the PanSolid version 1 workflow for the validation of *ERBB2* amplifications ([DOC6260]{custom-style="Strong"}).
+A limit of detection experiment was performed using the Seraseq® Solid Tumor CNV Mix, +12 copies reference material (24039973), which represented DNA from tumour cells, and the Seraseq® TNA (DNA) WT Mix (24039975), which represented DNA from normal cells. The two reference materials were mixed together to mimic samples with neoplastic cell contents of 30%, 20%, 10% and 0%. The final volume of each DNA mixture was 20 µl and the total DNA concentration was 6 ng/µl, which is the standard input for the PanSolid NGS workflow. These DNA mixtures were made on worksheet WS144265 and run on the PanSolid version 2 NGS workflow on worksheet WS144291. This limit of detection experiment is different to the limit of detection experiment performed on the PanSolid version 1 workflow for the validation of *ERBB2* amplifications ([DOC6260]{custom-style="Strong"}).
 
 ## DNA extraction {#sec-methods-dna-extraction}
 
@@ -343,6 +364,8 @@ The “signal-adjusted noise” metric is a quality control metric developed dur
 
 Results were visualised using an Excel output as before, and using a new interactive HTML output.
 
+![Visualisation of gene amplifications on PanSolid. The upper panel shows the Excel output for sample 24026871 which has a *MYC* amplification. The bottom panel shows the HTML output for the same sample, with tracks for CNV calls, log2 ratios and B-allele frequency.](pansolid_visualisation_output.png){#fig-pansolid-visualisation-png}
+
 ### Pipeline version
 
 The version of the PanSolid CLC pipeline tested in this validation was PanSolid Workflow v2.2.
@@ -380,9 +403,6 @@ S:/central shared/Genetics/Mol_Shared/Development.Team/Pan Solid CLC Somatic Amp
 good_quality_samples <- amp_validation_stdev_results_collated |> 
   filter(st_dev_signal_adjusted_log2_ratios < 0.7)
 
-pos_results_for_plot <- amp_validation_pos_cnv_results_collated |> 
-  filter(labno %in% good_quality_samples$labno)
-
 ```
 
 ```{r}
@@ -393,7 +413,7 @@ pos_cnv_results_normals_removed <- amp_validation_pos_cnv_results_collated |>
   filter(gene != "no positive calls")
 
 tbl_amp_gene_summary <- amp_validation_pos_cnv_results_collated |> 
-  filter(!duplicated(labno)) |> 
+  #filter(!duplicated(labno)) |> 
   mutate(labno_gene = str_c(labno, "_", gene)) |> 
   filter(!duplicated(labno_gene)) |> 
   count(gene, .drop = FALSE) |> 
@@ -498,14 +518,14 @@ Due to their reduced size, the *MYC* and *MYCN* genes were analysed on a separat
 #| echo: FALSE
 
 myc_plot_wide <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "MYC",
   interval = 1000000,
   buffer = 500000,
   title = "MYC results"))
 
 myc_labno_plot <- make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "MYC",
   interval = 1000,
   buffer = 5000,
@@ -1258,6 +1278,8 @@ kable(seracare_ngs_comparison_tbl)
 
 ```
 
+![Results for the SeraCare reference materials. The +12, +6 and +3 copies samples were run on worksheet WS139890 and the wild type sample (+0 copies) was run on worksheet WS144291. The +0 copies result is the same sample as the 0% spike-in dilution for the limit of detection dilution experiment.](lod_seracare_controls.png){#fig-seracare-control-results-png}
+
 The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the EGFR and ERBB2 genes for the +3 copies, +6 copies and +12 copies reference materials. Conversely, the PanSolid results for MYC were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@fig-seracare-ddpcr-pansolid).
 
 ```{r}
@@ -1375,30 +1397,38 @@ seracare_dilution_mix_plot
 
 ```
 
+![Results for limit of detection dilution mixes: SeraCare +12 copies (24039973) spiked into SeraCare WT () at decreasing percentages on worksheet WS144291.](lod_dilution_mixes.png){#fig-seracare-dilution-mixes-png}
+
 {{< pagebreak >}}
 
 ## Repeat testing {#sec-results-repeat-testing}
 
-Intra-run variation (repeatability) and inter-run variation (reproducibility) were investigated for 3 samples using the testing structure shown in @tbl-repeat-schedule.
+```{r}
+#| label: repeat-schedule
+#| include: FALSE
+
+repeat_schedule <- tibble(
+  "Worksheet" = c(1, 2, 2, 2, 3),
+  "Sample replicate" = c(1, 2, 3, 4, 5),
+  "Repeat category" = c("Inter-run", "Inter-run and intra-run", 
+                        "Intra-run", "Intra-run", "Inter-run")
+  )
+
+```
+
+Intra-run variation (repeatability) and inter-run variation (reproducibility) were investigated for 3 samples using the testing structure shown in @tbl-repeat-schedule. Sample 24017319 had no amplifications detected, whilst sample 24020998 had amplifications in *EGFR* and *MDM2*, and sample 24027774 had amplifications in *MYC* and *MET*. 
 
 ```{r}
 #| label: tbl-repeat-schedule
 #| tbl-cap: "Repeat testing"
 #| echo: FALSE
 
-repeat_schedule <- data.frame(
-  `Worksheet` = c(1, 2, 2, 2, 3),
-  `Sample replicate` = c(1, 2, 3, 4, 5)
-)
-
 kable(repeat_schedule)
 
 ```
 
-The variation in the measured fold change between replicates was minimal, with no variation across the fold change threshold of 2.8. For the 3 amplifications detected, there was no change in the region defined as amplified in any of the repeat replicates - see supplementary information for graphs.
-
 ```{r}
-#| label: repeatability-plots
+#| label: repeatability-filtering
 #| include: FALSE
 
 repeat_noise_data <- amp_validation_stdev_results_collated |> 
@@ -1411,43 +1441,105 @@ repeat_noise_data <- amp_validation_stdev_results_collated |>
   filter(!grepl(pattern = "SERA", x = patient_name,
                ignore.case = TRUE))
 
+inter_run_replicates <- c(
+  # 24017319
+  "24017319_WS141734", "24017319a_WS144291", "24017319_WS144364",
+  # 24027774
+  "24027774_WS142076", "24027774a_WS144291", "24027774_WS144364",
+  # 24020998
+  "24020998_WS141045", "24020998a_WS144291", "24020998_WS144364")
+
+intra_run_replicates <- c(
+  # 24017319
+  "24017319a_WS144291", "24017319b_WS144291", 
+  # 24027774
+  "24027774a_WS144291", "24027774b_WS144291", "24027774c_WS144291",
+  # 24020998
+  "24020998a_WS144291", "24020998b_WS144291", "24020998c_WS144291"
+)
+
 repeat_all_amp_data <- amp_validation_all_amp_gene_results_collated |> 
   filter(labno %in% repeat_noise_data$labno) |> 
   pivot_longer(cols = c("max_region_fold_change", "min_region_fold_change"),
                names_to = "fold_change_type",
-               values_to = "fold_change")
+               values_to = "fold_change") |> 
+  mutate(intra_run = ifelse(labno_suffix_worksheet %in% intra_run_replicates, "Yes", "No"),
+         inter_run = ifelse(labno_suffix_worksheet %in% inter_run_replicates, "Yes", "No"))
 
-repeatability_plot_1 <- ggplot(repeat_all_amp_data |> 
-                                 filter(labno %in% c("24017319",
-                                                     "24020998")), aes(x = gene, y = fold_change)) +
+```
+
+```{r}
+#| label: repeatability-standard-deviation
+#| include: FALSE
+
+repeat_data_fold_change_range <- repeat_all_amp_data |> 
+  filter(fold_change < 10)
+
+intra_run_summary <- repeat_data_fold_change_range |> 
+  filter(labno_suffix_worksheet %in% intra_run_replicates) |> 
+    group_by(labno, gene) |> 
+    summarise(sd = sd( fold_change ),
+              max = max( fold_change ),
+              min = min( fold_change ),
+              range = max - min,
+              n = n(),
+              z = (n-1)*sd^2)
+  
+intra_pooled_sd <- round(sqrt(sum(intra_run_summary$z) / 
+                            (sum(intra_run_summary$n))), 2)
+
+inter_run_summary <- repeat_data_fold_change_range |> 
+  filter(labno_suffix_worksheet %in% inter_run_replicates) |> 
+    group_by(labno, gene) |> 
+    summarise(sd = sd( fold_change ),
+              max = max( fold_change ),
+              min = min( fold_change ),
+              range = max - min,
+              n = n(),
+              z = (n-1)*sd^2)
+  
+inter_pooled_sd <- round(sqrt(sum(inter_run_summary$z) / 
+                            (sum(inter_run_summary$n))), 2)
+
+```
+
+There were `r nrow(repeat_noise_data)` replicates for inclusion in the repeat testing study. Sample replicate 24017319c on worksheet WS144291 failed due to poor coverage.
+The pooled standard deviation was calculated using the maximum and minimum fold changes for each gene in each sample replicate, excluding the *MYC* results for sample 24027774 (`r nrow(repeat_data_fold_change_range)` data points). The *MYC* results for sample 24027774 were excluded because the fold changes were all over 75 and there was greater variability (@fig-repeatability).
+The intra-run pooled standard deviation in the fold change range of -2 to 10 was `r intra_pooled_sd`, and the inter-run pooled standard deviation for the same fold change range was `r inter_pooled_sd`. For the 3 amplifications detected, there was no change in the region defined as amplified in any of the repeat replicates - see supplementary information for graphs.
+
+```{r}
+#| label: repeatability-plots
+#| include: FALSE
+
+repeat_plot_all_genes <- ggplot(repeat_all_amp_data, aes(x = gene, y = fold_change)) +
   geom_jitter(shape = 21, width = 0.2) +
   theme_bw() +
+  coord_cartesian(ylim = c(-2, 8)) +
+  scale_y_continuous(breaks = c(seq(-2,8, by = 2))) +
   geom_hline(yintercept = 2.8, linetype = "dashed") +
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = "bottom") +
-  ylim(-2, 6) +
-  facet_wrap(~labno) +
-  labs(x = "", y = "PanSolid fold change", title = "Repeat results")
-
-repeatability_plot_2 <- ggplot(repeat_all_amp_data |> 
-                                 filter(labno %in% c("24027774")), aes(x = gene, y = fold_change)) +
-  geom_jitter(shape = 21, width = 0.2) +
-  theme_bw() +
-  geom_hline(yintercept = 2.8, linetype = "dashed") +
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = "bottom") +
-  ylim(-2, 100) +
-  facet_wrap(~labno) +
+  facet_wrap(~labno, ncol = 1) +
   labs(x = "", y = "PanSolid fold change")
 
-repeatability_plot <- repeatability_plot_1 + repeatability_plot_2 +
-  plot_layout(nrow = 1, widths = c(4, 2))
+repeat_plot_24027774_myc <- ggplot(repeat_all_amp_data |> 
+                                 filter(labno %in% c("24027774") &
+                                          gene %in% c("MYC")), aes(x = gene, y = fold_change)) +
+  geom_jitter(shape = 21, width = 0.2) +
+  theme_bw() +
+  geom_hline(yintercept = 2.8, linetype = "dashed") +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom") +
+  scale_y_continuous(limits = c(0, 100),
+                     breaks = seq(0, 100, by = 10)) +
+  facet_wrap(~labno) +
+  labs(x = "", y = "")
+
+repeatability_plot <- repeat_plot_all_genes + repeat_plot_24027774_myc + plot_layout(widths = c(8, 2))
 
 ```
 
 ```{r}
 #| label: fig-repeatability
-#| fig-cap: "Repeatability results: both maximum and minimum fold changes for each gene region are shown. The dashed line shows the PanSolid fold change threshold of 2.8. Fold changes cannot have a value between 1 and -1, hence the absence of results in this region for sample 24017319. Sample 24027774 is plotted on a separate axis due to the high fold change of the *MET* and *MYC* amplifications in this sample."
+#| fig-cap: "Repeatability results: both maximum and minimum fold changes for each gene region are shown. The dashed line shows the PanSolid fold change threshold of 2.8. Fold changes cannot have a value between 1 and -1, hence the absence of results in this region for sample 24017319. The *MYC* results for sample 24027774 is plotted on a facet with a separate axis due to the high fold changes."
 #| fig-width: 6.1
 #| echo: FALSE
 
@@ -1919,7 +2011,7 @@ egfr_zoom_triptych
 #| fig-cap: "PanSolid NGS amplification calls in the *ERBB2* gene."
 
 erbb2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "ERBB2",
   interval = 500000,
   title = "ERBB2 amplification calls"))
@@ -1933,14 +2025,14 @@ erbb2_plot
 #| include: FALSE
 
 met_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "MET",
   interval = 1000000,
   buffer = 50000,
   title = "MET amplification calls"))
 
 met_labno_plot <- make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "MET",
   interval = 10000,
   buffer = 5000,
@@ -1996,14 +2088,14 @@ met_zoom_triptych
 #| include: FALSE
 
 braf_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "BRAF",
   interval = 500000,
   buffer = 50000,
   title = "BRAF amplification calls"))
 
 braf_labno_plot <- make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "BRAF",
   interval = 50000,
   title = "BRAF results zoomed in"
@@ -2052,13 +2144,13 @@ braf_zoom_triptych
 #| include: FALSE
 
 mdm2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "MDM2",
   interval = 500000,
   title = "MDM2 amplification calls"))
 
 mdm2_labno_plot <- make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "MDM2",
   interval = 10000,
   title = "MDM2 results zoomed in"
@@ -2107,13 +2199,13 @@ mdm2_zoom_triptych
 #| include: FALSE
 
 mycn_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "MYCN",
   interval = 500000,
   title = "MYCN amplification calls"))
 
 mycn_labno_plot <- make_labno_cnv_plot(
-  df = pos_results_for_plot,
+  df = amp_validation_pos_cnv_results_collated,
   gene = "MYCN",
   interval = 10000,
   title = "MYCN results zoomed in"
@@ -2189,7 +2281,6 @@ fig_24020998_EGFR
 ```{r}
 #| label: fig-24027774-MYC
 #| fig-cap: "Sample 24027774 MYC amplifications"
-#| echo: FALSE
 
 fig_24027774_MYC <- make_cnv_triptych_plot(input_plot  = 
   make_labno_cnv_plot(df = amp_validation_pos_cnv_results_collated |> 
