@@ -581,7 +581,7 @@ myc_zoom_triptych
 
 ## Comparison to ddPCR {#sec-results-ddpcr-comparison}
 
-ddPCR was performed for a selection of samples for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes. The *ERBB2* ddPCR work was performed as part of the separate validation of *ERBB2* amplification detection ([DOC6260]{custom-style="Strong"}), which included DNA extracted on the Cobas and QIAsymphony methods. 11 *ERBB2* samples extracted with the QIAsymphony method and tested on PanSolid version 2 are included in this validation analysis, and compared to the ddPCR results for their corresponding Cobas extractions. The QIAsymphony method was validated as the sole DNA extraction method for FFPE tissue at the Manchester GLH in April 2024. A copy number threshold of 5 was used to classify ddPCR results as "amplified" and "non-amplified". There was good agreement between ddPCR and PanSolid, with only 3 discrepant results out of 100 samples and an overall sensitivity of 93%.
+ddPCR was performed for a selection of samples for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes. The *ERBB2* ddPCR work was performed as part of the separate validation of *ERBB2* amplification detection ([DOC6260]{custom-style="Strong"}), which included DNA extracted on the Cobas and QIAsymphony methods. 11 *ERBB2* samples extracted with the QIAsymphony method and tested on PanSolid version 2 are included in this validation analysis, and compared to the ddPCR results for their corresponding Cobas extractions. The QIAsymphony method was validated as the sole DNA extraction method for FFPE tissue at the Manchester GLH in April 2024. A copy number threshold of 5 was used to classify ddPCR results as "amplified" and "non-amplified". There was good agreement between ddPCR and PanSolid, with only 5 discrepant results out of 97 samples (@tbl-ddpcr-vs-pansolid) and an overall sensitivity of 93% (@tbl-ddpcr-vs-pansolid-metrics).
 
 ```{r}
 #| label: getting-erbb2-labnos
@@ -658,17 +658,7 @@ ddpcr_summary <- ddpcr_vs_pansolid |>
               names_from = outcome,
               values_from = n,
               values_fill = 0) |> 
-  mutate(false_positive = 0) |> 
-  adorn_totals() |> 
-  mutate("Sensitivity (%)" = round(calc_sensitivity(tp = true_positive,
-                                          tn = true_negative,
-                                          fn = false_negative,
-                                          fp = false_positive), 1),
-         "Specificity (%)" = round(calc_specificity(tp = true_positive,
-                                          tn = true_negative,
-                                          fn = false_negative,
-                                          fp = false_positive), 1),
-         "Samples" = true_positive + true_negative + false_negative +
+  mutate("Samples" = true_positive + true_negative + false_negative +
                          false_positive) |> 
   rename(`Gene` = gene,
          `True negatives` = true_negative,
@@ -676,7 +666,7 @@ ddpcr_summary <- ddpcr_vs_pansolid |>
          `False negatives` = false_negative,
          `False positives` = false_positive) |> 
   select(`Gene`, "Samples", `True negatives`, `True positives`, `False negatives`,
-         `False positives`, "Sensitivity (%)", "Specificity (%)")
+         `False positives`)
 
 ```
 
@@ -685,7 +675,24 @@ ddpcr_summary <- ddpcr_vs_pansolid |>
 #| tbl-cap: "PanSolid comparison to ddPCR"
 #| echo: FALSE
 
-kable(ddpcr_summary)
+kable(ddpcr_summary |> 
+        adorn_totals())
+
+```
+
+```{r}
+#| label: tbl-ddpcr-vs-pansolid-metrics
+#| tbl-cap: "Test metrics"
+#| echo: FALSE
+
+ddpcr_pansolid_metrics <- get_epir_metrics(outcome_vector = c(
+  sum(ddpcr_summary$`True positives`),
+  sum(ddpcr_summary$`False positives`),
+  sum(ddpcr_summary$`False negatives`),
+  sum(ddpcr_summary$`True negatives`)
+))
+
+kable(ddpcr_pansolid_metrics)
 
 ```
 
@@ -846,7 +853,7 @@ wgs_cnvs_below_ten <- wgs_html_cnvs |>
 
 ```
 
-In the WGS results there were `r nrow(wgs_cnvs_below_ten)` copy number gains in the targeted genes which had total copy numbers below 10, ranging from `r min(wgs_cnvs_below_ten$cnv_copy_number)` - `r max(wgs_cnvs_below_ten$cnv_copy_number)` (`r min(wgs_cnvs_below_ten$cnv_copy_number) - 2` - `r max(wgs_cnvs_below_ten$cnv_copy_number) - 2` additional copies). The PanSolid pipeline fold-change threshold is set to detect a minimum of 10 target copies (8 additional copies) at 50% neoplastic cell content. Consequently, the amplification statuses for genes with WGS copy numbers below 10 were classified as "not amplified" for comparison against the PanSolid NGS results. The results from the PanSolid pipeline compared to the results from WGS are shown in @tbl-wgs-comparison.
+In the WGS results there were `r nrow(wgs_cnvs_below_ten)` copy number gains in the targeted genes which had total copy numbers below 10, ranging from `r min(wgs_cnvs_below_ten$cnv_copy_number)` - `r max(wgs_cnvs_below_ten$cnv_copy_number)` (`r min(wgs_cnvs_below_ten$cnv_copy_number) - 2` - `r max(wgs_cnvs_below_ten$cnv_copy_number) - 2` additional copies). The PanSolid pipeline fold-change threshold is set to detect a minimum of 10 target copies (8 additional copies) at 50% neoplastic cell content. Consequently, the amplification statuses for genes with WGS copy numbers below 10 were classified as "not amplified" for comparison against the PanSolid NGS results. The results from the PanSolid pipeline compared to the results from WGS are shown in @tbl-wgs-comparison, and the sensitivity and specificity are shown in @tbl-wgs-comparison-metrics.
 
 ```{r}
 #| label: wgs-comparison-for-qs-samples
@@ -882,16 +889,7 @@ wgs_pansolid_summary_table <- pansolid_vs_wgs_amps_selection_cnvs_above_ten |>
               values_from = n,
               values_fill = 0,
             names_expand = TRUE) |> 
-  adorn_totals() |> 
-  mutate("Sensitivity (%)" = as.character(round(calc_sensitivity(tp = true_positive,
-                                          tn = true_negative,
-                                          fn = false_negative,
-                                          fp = false_positive), 1)),
-         "Specificity (%)" = round(calc_specificity(tp = true_positive,
-                                          tn = true_negative,
-                                          fn = false_negative,
-                                          fp = false_positive), 1),
-         "Sample loci" = true_positive + true_negative + false_negative +
+  mutate("Sample loci" = true_positive + true_negative + false_negative +
                          false_positive) |> 
   rename(`Gene` = gene,
          `True negatives` = true_negative,
@@ -899,9 +897,7 @@ wgs_pansolid_summary_table <- pansolid_vs_wgs_amps_selection_cnvs_above_ten |>
          `False negatives` = false_negative,
          `False positives` = false_positive) |> 
   select(`Gene`, "Sample loci", `True negatives`, `True positives`, `False negatives`,
-         `False positives`, "Sensitivity (%)", "Specificity (%)")
-
-wgs_pansolid_summary_table[wgs_pansolid_summary_table == "NaN"] <- "-"
+         `False positives`)
 
 ```
 
@@ -910,7 +906,24 @@ wgs_pansolid_summary_table[wgs_pansolid_summary_table == "NaN"] <- "-"
 #| tbl-cap: "Comparison with WGS results"
 #| echo: FALSE
 
-kable(wgs_pansolid_summary_table)
+kable(wgs_pansolid_summary_table |> 
+        adorn_totals())
+
+```
+
+```{r}
+#| label: tbl-wgs-comparison-metrics
+#| tbl-cap: "WGS vs PanSolid Test metrics"
+#| echo: FALSE
+
+wgs_pansolid_metrics <-get_epir_metrics(outcome_vector = c(
+  sum(wgs_pansolid_summary_table$`True positives`),
+  sum(wgs_pansolid_summary_table$`False positives`),
+  sum(wgs_pansolid_summary_table$`False negatives`),
+  sum(wgs_pansolid_summary_table$`True negatives`)
+))
+
+kable(wgs_pansolid_metrics)
 
 ```
 
