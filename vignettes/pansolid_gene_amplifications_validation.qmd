@@ -447,7 +447,6 @@ pos_cnv_results_normals_removed <- amp_validation_pos_cnv_results_collated |>
   filter(gene != "no positive calls")
 
 tbl_amp_gene_summary <- amp_validation_pos_cnv_results_collated |> 
-  #filter(!duplicated(labno)) |> 
   mutate(labno_gene = str_c(labno, "_", gene)) |> 
   filter(!duplicated(labno_gene)) |> 
   count(gene, .drop = FALSE) |> 
@@ -529,7 +528,7 @@ results_by_cancer_type
 
 ## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results {#sec-results-coarse-setting}
 
-The CLC coarse setting detected amplifications in all the target genes except the *ALK* gene (@tbl-amp-gene-summary). The 1 amplification detected in the *SMO* gene was a false positive in a sample with a signal-adjusted noise value of 0.89 (lab number: 23032153). For the remaining genes, a range of amplifications were detected. For each gene, there was variation in the amplified region, which in some cases only included the gene of interest and in others expanded to include additional genomic regions. In nearly all cases, every exon in the canonical RefSeq gene transcript was contained within the amplified region. There were 3 samples where 2 amplified regions were detected in the *EGFR* gene, whilst for other samples only a single region call was made. Plots showing the range of amplification coordinates for each gene are included in the Supplementary Information (@fig-egfr-wide to @fig-mdm2-zoom).
+The CLC coarse setting detected amplifications in all the target genes except the *ALK* gene (@tbl-amp-gene-summary). The 1 amplification detected in the *SMO* gene was a false positive in a sample with a signal-adjusted noise value of 0.89 (DNA number 23032153). For the remaining genes, a range of amplifications were detected. For each gene, there was variation in the amplified region, which in some cases only included the gene of interest and in others expanded to include additional genomic regions. In nearly all cases, every exon in the canonical RefSeq gene transcript was contained within the amplified region. There were 3 samples where 2 separate amplified regions were detected in the *EGFR* gene, whilst for other samples only a single region call was made. Plots showing the range of amplification coordinates for each gene are included in the Supplementary Information (@fig-egfr-wide to @fig-mdm2-zoom).
 
 ## Fine setting: *MYC* and *MYCN* results {#sec-results-fine-setting}
 
@@ -556,15 +555,17 @@ myc_plot_wide <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   gene = "MYC",
   interval = 1000000,
   buffer = 500000,
-  title = "MYC results"))
+  title = expression(paste("Amplifications detected including the ", italic("MYC"),
+                  " gene"))))
 
 myc_labno_plot <- make_labno_cnv_plot(
   df = amp_validation_pos_cnv_results_collated,
   gene = "MYC",
   interval = 1000,
   buffer = 5000,
-  title = "MYC results zoomed in")
-
+  title = expression(paste("Zoomed in view of amplifications involving ",
+                           italic("MYC"))))
+    
 myc_plot_zoom <- myc_labno_plot[[4]] +
   coord_cartesian(xlim = c(127732000, 127746000))
 
@@ -801,7 +802,7 @@ kable(ddpcr_false_neg_table)
 #| include: FALSE
 
 pansolid_wgs_samples <- validation_sample_patient_info |> 
-  filter(nhsno %in% wgs_html_ids$nhs_no_clean) 
+  filter(nhsno %in% wgs_html_ids$nhsno) 
 
 pansolid_wgs_samples_cobas <- pansolid_wgs_samples |> 
   filter(method_name == "COBAS")
@@ -836,12 +837,12 @@ pansolid_vs_wgs_amps <- all_amp_gene_results_with_ids |>
   # One WGS sample was repeated for repeatability studies on worksheets
   # WS144291 and WS144291, so I have removed these repeats for clarity
   filter(!worksheet %in% c("WS144291", "WS144364")) |> 
-  filter(nhsno %in% wgs_html_ids$nhs_no_clean) |> 
+  filter(nhsno %in% wgs_html_ids$nhsno) |> 
   left_join(wgs_cnvs_with_ids |> 
               filter(cnv_class %in% c("DUP", "GAIN")) |> 
               # Remove additional calls for the EGFR vIII case
               filter(!duplicated(labno_gene)), 
-            join_by(nhsno == nhs_no_clean, gene == gene),
+            join_by(nhsno == nhsno, gene == gene),
             relationship = "many-to-many")
 
 ```
@@ -1093,7 +1094,6 @@ ps_egfr_mdmd2_calls <- pos_cnv_results_with_ids |>
   select(nhsno, pathno_formatted, labno, gene,cnv_start, cnv_end, pathno_test_extraction)
 
 wgs_egfr_mdm2_calls <- wgs_cnvs_with_ids |> 
-  rename(nhsno = nhs_no_clean) |> 
   filter(gene %in% c("EGFR", "MDM2") & nhsno %in% ps_egfr_mdmd2_calls$nhsno) |> 
   mutate(pathno_formatted = case_when(
     wgs_pathno == "N23.000292" ~"N.23.292",
@@ -1205,7 +1205,7 @@ pansolid_wgs_dosage <- pos_cnv_results_with_ids |>
   select(worksheet, labno, patient_name, nhsno, method_name, gene,
          fold_change, start, end) |>
    mutate(pansolid_copy_number = fold_change * 2) |> 
-  left_join(wgs_cnvs_with_ids, join_by("nhsno" == "nhs_no_clean",
+  left_join(wgs_cnvs_with_ids, join_by("nhsno" == "nhsno",
                                        "gene" == "gene")) |>  
   filter(!is.na(variant_type))
 
