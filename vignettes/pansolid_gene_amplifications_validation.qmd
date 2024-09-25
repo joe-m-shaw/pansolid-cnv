@@ -283,7 +283,7 @@ The requirements for this new method are as follows:
 # WS138156 was the PanSolidv1 enrichment, so I am removing it to keep the validation
 # focussed on PanSolidv2.
 
-amp_validation_all_amp_gene_results_collated <- amp_validation_all_amp_gene_results_collated |> 
+amp_validation_all_amp_gene_results_collated <- amp_validation_all_amp_gene_results_collated |>
   filter(worksheet != "WS138156")
 
 amp_validation_pos_cnv_results_collated <- amp_validation_pos_cnv_results_collated |> 
@@ -297,15 +297,27 @@ amp_validation_percent_138_collated <- amp_validation_percent_138_collated |>
 
 ```
 
+```{r}
+#| label: validation-sample-information
+#| include: FALSE
+
+pansolid_sample_info <- validation_sample_patient_info |> 
+  filter(labno %in% amp_validation_stdev_results_collated$labno)
+
+```
+
 ## Samples {#sec-methods-samples}
 
-Samples were received at the North West GLH between December 2019 and July 2024. Details of the normal control cohort used for the PanSolid CLC pipeline are given in the ERBB2 validation document ([DOC6260]{custom-style="Strong"}). In total, `r length(unique(amp_validation_stdev_results_collated$labno))` different DNA samples were tested on the PanSolid version 2 enrichment during this validation. Samples were tested from patients with age at sample receipt ranging from `r round(min(amp_validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)` to `r round(max(amp_validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)` years (median: `r round(median(amp_validation_sample_patient_info$years_at_sample_receipt, na.rm = TRUE), 0)` years), and from reference materials provided by the company SeraCare (@sec-methods-reference-materials). Samples from many different types of cancer were tested, which are summarised in the supplementary information (@tbl-cancer-types). The details of the sample types (@tbl-tissue-types) and neoplastic cell contents (NCC) (@tbl-ncc) are also provided in the Supplementary Information.
+Samples were received at the North West GLH between 
+`r format.Date(x = min(pansolid_sample_info$date_sample_received), format = "%B %Y")`
+and
+`r format.Date(x = max(pansolid_sample_info$date_sample_received), format = "%B %Y")`. Details of the normal control cohort used for the PanSolid CLC pipeline are given in the *ERBB2* validation document ([DOC6260]{custom-style="Strong"}). In total, `r length(unique(amp_validation_stdev_results_collated$labno))` different DNA samples were tested on the PanSolid version 2 enrichment during this validation. Samples were tested from patients with age at sample receipt ranging from `r round(min(pansolid_sample_info$years_at_sample_receipt, na.rm = TRUE), 0)` to `r round(max(pansolid_sample_info$years_at_sample_receipt, na.rm = TRUE), 0)` years (median: `r round(median(pansolid_sample_info$years_at_sample_receipt, na.rm = TRUE), 0)` years), and from reference materials provided by the company SeraCare ([https://www.seracare.com/]()) (@sec-methods-reference-materials). Samples from many different types of cancer were tested, which are summarised in the Supplementary Information (@tbl-cancer-types). The details of the sample types (@tbl-tissue-types) and neoplastic cell contents (NCC) (@tbl-ncc) are also provided in the Supplementary Information.
 
 ## Reference Materials {#sec-methods-reference-materials}
 
 ### SeraCare reference materials {#sec-seracare-reference-materials}
 
-Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from a formalin-fixed paraffin embedded (FFPE) sample of a stable cell line, spiked with plasmid DNA for specific genes at different quantities. The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes. The details of the SeraCare reference materials, including DNA numbers and batch numbers, are shown in the Supplementary Information (@tbl-seracare-reference-material-details).
+Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from a formalin-fixed paraffin embedded (FFPE) sample of a stable cell line (GM24385), spiked with plasmid DNA for specific genes at different quantities. The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes. The details of the SeraCare reference materials, including DNA numbers and batch numbers, are shown in the Supplementary Information (@tbl-seracare-reference-material-details).
 
 ```{r}
 #| label: tbl-seracare-reference-material-genes
@@ -331,11 +343,11 @@ kable(seracare_gene_overlap)
 
 ### Limit of detection DNA mixtures {#sec-methods-lod-mixtures}
 
-A limit of detection experiment was performed using the Seraseq® Solid Tumor CNV Mix, +12 copies reference material (24039973), which represented DNA from tumour cells, and the Seraseq® TNA (DNA) WT Mix (24039975), which represented DNA from normal cells. The two reference materials were mixed together to mimic samples with NCCs of 30%, 20%, 10% and 0%. The final volume of each DNA mixture was 20 µl and the total DNA concentration was 6 ng/µl, which is the standard input for the PanSolid NGS workflow. These DNA mixtures were made on worksheet WS144265 and run on the PanSolid version 2 NGS workflow on worksheet WS144291. This limit of detection experiment is different to the limit of detection experiment performed on the PanSolid version 1 workflow for the validation of *ERBB2* amplifications ([DOC6260]{custom-style="Strong"}).
+A limit of detection experiment was performed using the Seraseq® Solid Tumor CNV Mix, +12 copies reference material (DNA number 24039973), which represented DNA from tumour cells, and the Seraseq® TNA (DNA) WT Mix (DNA number 24039975), which represented DNA from normal cells. The two reference materials were mixed together to mimic samples with NCCs of 30%, 20%, 10% and 0%. The final volume of each DNA mixture was 20 µl and the total DNA concentration was 6 ng/µl, which is the standard input for the PanSolid NGS workflow. These DNA mixtures were made on worksheet WS144265 and run on the PanSolid version 2 NGS workflow on worksheet WS144291. This limit of detection experiment is different to the limit of detection experiment performed on the PanSolid version 1 workflow for the validation of *ERBB2* amplifications ([DOC6260]{custom-style="Strong"}).
 
 ## DNA extraction {#sec-methods-dna-extraction}
 
-For the majority of samples, DNA was extracted using the QIASymphony extraction method ([DOC6251: QIAsymphony DNA FFPE Extraction Procedure]{custom-style="Strong"}). The summary of DNA extraction methods is shown in the supplementary information (@tbl-extraction-types).
+For the majority of samples, DNA was extracted using the QIASymphony extraction method (QIAsymphony DSP DNA Mini Kit, Qiagen) ([DOC6251: QIAsymphony DNA FFPE Extraction Procedure]{custom-style="Strong"}). The summary of DNA extraction methods is shown in the supplementary information (@tbl-extraction-types).
 
 ## Next generation sequencing
 
@@ -350,7 +362,7 @@ pansolid_ws <- read_csv(file = paste0(data_folder,
 
 ```
 
-Samples were tested on version 2 (CDHS-48608Z-11752) of the PanSolid QIAseq enrichment ([DOC5925: QIAseq PanSolid DNA Panel NGS Library Preparation]{custom-style="Strong"}) with sequencing on an Illumina Novaseq. The NGS data described in this validation document comes from `r length(unique(pansolid_ws$pcrid))` worksheets performed between `r format.Date(x = min(pansolid_ws$date), format = "%B %Y")` and `r format.Date(x = max(pansolid_ws$date), format = "%B %Y")` .
+Samples were tested on version 2 (CDHS-48608Z-11752) of the PanSolid QIAseq enrichment ([DOC5925: QIAseq PanSolid DNA Panel NGS Library Preparation]{custom-style="Strong"}) with 2 × 150 bp paired-end sequencing on an Illumina Novaseq. The NGS data described in this validation document comes from `r length(unique(pansolid_ws$pcrid))` worksheets performed between `r format.Date(x = min(pansolid_ws$date), format = "%B %Y")` and `r format.Date(x = max(pansolid_ws$date), format = "%B %Y")` .
 
 ## Bioinformatic analysis {#sec-methods-bioinformatics}
 
@@ -370,21 +382,21 @@ The CLC Genomics Workbench has 3 "graining levels" which determine the resolutio
 
 **Fine:** most sensitive to CNVs spanning 3 or more targets.
 
-All amplification genes were initially analysed on the "coarse" setting. Preliminary work showed that the coarse setting could not identify *MYC* amplifications in positive controls, as *MYC* has only 3 targets on the PanSolid enrichment. The "fine" setting was then used specifically for *MYC* to account for the lower number of QIAseq targets in this gene. *MYCN* was added to the project later, and was also analysed on the "fine" setting.
+All amplification genes were initially analysed on the "coarse" setting. Preliminary work showed that the coarse setting could not identify *MYC* amplifications in positive controls, as *MYC* has only 3 targets on the PanSolid enrichment (@tbl-amplification-coordinates). The "fine" setting was then used specifically for *MYC* to account for the lower number of QIAseq targets in this gene. *MYCN* was added to the project later, and was also analysed on the "fine" setting.
 
 ### Fold change
 
-The CLC pipeline identifies CNVs according to the fold change of target regions, as defined in the following equation:
+The CLC pipeline identifies CNVs according to the fold change of target regions. Fold change is defined in the following equation:
 
 Fold change (gain) = locus coverage / baseline control coverage
 
 ### Signal-adjusted noise
 
-The “signal-adjusted noise” metric is a quality control metric developed during the *ERBB2* amplifications validation. It is defined as the standard deviation of target log2ratios when regional fold-changes are excluded.
+The “signal-adjusted noise” metric is a quality control metric developed during the *ERBB2* amplifications validation. It is defined as the standard deviation of target log2ratios when regional fold-changes are excluded. This quality metric was adapted from work performed at the Royal Marsden NHS Foundation Trust (North Thames GLH).
 
 ### Visualisation
 
-Results were visualised using an Excel output as before, and also using a new interactive HTML output.
+Results were visualised using an Excel output as before, and also using a new interactive HTML output (@fig-pansolid-visualisation-png).
 
 ![Visualisation of gene amplifications on PanSolid. The upper panel shows the Excel output for sample 24026871 which has a *MYC* amplification. The bottom panel shows the HTML output for the same sample, with tracks for CNV calls, log2 ratios and B-allele frequency.](pansolid_visualisation_output.png){#fig-pansolid-visualisation-png}
 
@@ -396,15 +408,15 @@ The version of the PanSolid CLC pipeline tested in this validation was PanSolid 
 
 ### Droplet digital PCR for *ERBB2*, *MYC*, *MET*, *BRAF* and *EGFR* {#sec-methods-ddpcr}
 
-Amplification results for the *ERBB2*, *MYC*, *MET*, *BRAF* and *EGFR* genes were confirmed using ddPCR. ddPCR assays were designed using the workflow for confirming constitutional CNVs, which involves a universal forward primer and a reference assay for the *AP3B1* gene on chromosome 5 ([DOC4304 CNV Confirmation Using Droplet Digital PCR]{custom-style="Strong"}). ddPCR was performed using a BioRad QX200 system with 5ng DNA input per well. Each assay was validated for use and then used to test DNA from clinical FFPE samples and SeraCare controls. The results for the ERBB2 ddPCR were previously reported in [DOC6260]{custom-style="Strong"}. Details of the primer and probe sequences (tbl-ddpcr-primers, @tbl-ap3b1-ddpcr-primers and @tbl-ddpcr-probes), reaction mix (@tbl-ddpcr-mix) and thermocycling conditions (@tbl-ddpcr-thermocycler-programme) are given in the Supplementary Information.
+Amplification results for the *ERBB2*, *MYC*, *MET*, *BRAF* and *EGFR* genes were confirmed using ddPCR. ddPCR assays were designed using the workflow for confirming constitutional CNVs, which involves a universal forward primer and a reference assay for the *AP3B1* gene on chromosome 5 ([DOC4304 CNV Confirmation Using Droplet Digital PCR]{custom-style="Strong"}). ddPCR was performed using a BioRad QX200 system with 5ng DNA input per well. Each assay was validated for use and then used to test DNA from clinical FFPE samples and SeraCare controls. The results for the *ERBB2* ddPCR were previously reported in [DOC6260]{custom-style="Strong"}. Details of the primer and probe sequences (tbl-ddpcr-primers, @tbl-ap3b1-ddpcr-primers and @tbl-ddpcr-probes), reaction mix (@tbl-ddpcr-mix) and thermocycling conditions (@tbl-ddpcr-thermocycler-programme) are given in the Supplementary Information.
 
 ### Whole genome sequencing {#sec-methods-wgs}
 
-Samples which had been tested using whole genome sequencing (WGS) were selected for this validation, which included samples from the Tessa Jowell BRAIN MATRIX Platform Study (NCT04274283) [@watts2022]. WGS was performed on DNA extracted from fresh-frozen tissue by Illumina Laboratory Services at the Wellcome Trust Sanger Institute in Cambridge, as part of the NHS Genomics Medicine Service. FFPE tissue from the same tumour block as the fresh frozen tissue used for WGS was used as the sample source for PanSolid testing. Samples included in this validation were analysed by WGS between December 2022 to February 2024, using the "somatic variants and pertinent germline findings in cancer susceptibility genes" pipeline version 2.28 to version 3.6.2. WGS results were taken directly from the HTML reports generated by the Genomics England pipeline for domains 1, 2 and 3.
+Samples which had been tested using whole genome sequencing (WGS) were selected for this validation, which included samples from the Tessa Jowell BRAIN MATRIX Platform Study (clinical trial identifier NCT04274283) [@watts2022]. WGS was performed on DNA extracted from fresh-frozen tissue by Illumina Laboratory Services at the Wellcome Trust Sanger Institute in Cambridge, as part of the NHS Genomics Medicine Service. FFPE tissue from the same tumour block as the fresh frozen tissue used for WGS was used as the sample source for PanSolid testing. Samples included in this validation were analysed by WGS between December 2022 to February 2024, using the "somatic variants and pertinent germline findings in cancer susceptibility genes" pipeline version 2.28 to version 3.6.2. WGS results were taken directly from the HTML reports generated by the Genomics England pipeline for domains 1, 2 and 3.
 
 ## Validation analysis {#sec-methods-validation-analysis}
 
-The validation analysis was performed using the R programming language (version 4.4.1) [@rcore2024] relying mainly on packages from the tidyverse [@wickham2019]. This validation document is written in Quarto [@Allaire_Quarto_2024] and is publicly available on [Github](https://github.com/joeshaw824/pansolid_cnv_validation).
+The validation analysis was performed using the R programming language (version 4.4.1) [@rcore2024] relying mainly on packages from the tidyverse [@wickham2019]. This validation document is written and rendered using Quarto [@Allaire_Quarto_2024] and is publicly available on [Github](https://github.com/joeshaw824/pansolid_cnv_validation).
 
 ## Data locations {#sec-data-locations}
 
@@ -472,7 +484,7 @@ knitr::kable(tbl_amp_gene_summary |>
 #| include: FALSE
 
 amp_results_with_cancer_types <- amp_validation_all_amp_gene_results_collated |> 
-  left_join(amp_validation_sample_patient_info,
+  left_join(validation_sample_patient_info,
             by = "labno", 
             relationship = "many-to-one")
 
@@ -788,7 +800,7 @@ kable(ddpcr_false_neg_table)
 #| label: wgs-sample-extraction-types
 #| include: FALSE
 
-pansolid_wgs_samples <- amp_validation_sample_patient_info |> 
+pansolid_wgs_samples <- validation_sample_patient_info |> 
   filter(nhsno %in% wgs_html_ids$nhs_no_clean) 
 
 pansolid_wgs_samples_cobas <- pansolid_wgs_samples |> 
@@ -811,7 +823,7 @@ The PanSolid NGS amplification results for the `r length(amp_genes$gene)` target
 #| include: FALSE
 
 all_amp_gene_results_with_ids <- amp_validation_all_amp_gene_results_collated |> 
-  left_join(amp_validation_sample_patient_info,
+  left_join(validation_sample_patient_info,
             by = "labno", relationship = "many-to-one") |> 
   select(worksheet, labno, suffix, patient_name, nhsno, pathno, tissue_type, method_name,
          filepath, gene, max_region_fold_change, min_region_fold_change, pansolid_call)
@@ -996,7 +1008,7 @@ To investigate this discrepancy, both DNA samples were tested by ddPCR for *EGFR
 
 false_neg_labnos <- c("24030962", "23033921")
 
-false_neg_extraction <- amp_validation_sample_patient_info |> 
+false_neg_extraction <- validation_sample_patient_info |> 
   filter(labno %in% false_neg_labnos) |> 
   select(pathno, tissue_type, labno, method_name) |> 
   mutate(method_name = ifelse(
@@ -1056,7 +1068,7 @@ There were 5 amplifications in the *EGFR* and *MDMD2* genes detected by both WGS
 #| echo: FALSE
 
 pos_cnv_results_with_ids <- amp_validation_pos_cnv_results_collated |> 
-  left_join(amp_validation_sample_patient_info, by = "labno",
+  left_join(validation_sample_patient_info, by = "labno",
             relationship = "many-to-one")
 
 true_pos_df <- pansolid_vs_wgs_amps_selection_cnvs_above_ten |> 
@@ -1634,7 +1646,7 @@ poor_quality_results <- amp_validation_pos_cnv_results_collated |>
             relationship = "many-to-one") |> 
   filter(st_dev_signal_adjusted_log2_ratios > 0.7 &
            gene != "no positive calls") |> 
-  left_join(amp_validation_sample_patient_info,
+  left_join(validation_sample_patient_info,
             by = "labno", relationship = "many-to-one") |> 
   select(labno, gene, st_dev_signal_adjusted_log2_ratios, fold_change, method_name) |> 
   rename(`Lab number` = labno,
@@ -1776,10 +1788,10 @@ The PanSolid NGS workflow and CLC pipeline has been validated for the detected o
 
 ```{r}
 #| label: tbl-tissue-types
-#| tbl-cap: "Sample tissue types"
+#| tbl-cap: "Tissue types for samples tested on the PanSolid v2 enrichment"
 #| echo: FALSE
 
-tissue_type_summary <- amp_validation_sample_patient_info |> 
+tissue_type_summary <- validation_sample_patient_info |> 
     filter(labno %in% amp_validation_stdev_results_collated$labno) |> 
     mutate("Tissue type" = case_when(
       tissue_type == "Shavings" ~"FFPE shavings",
@@ -1797,12 +1809,11 @@ kable(tissue_type_summary)
 
 ```{r}
 #| label: tbl-cancer-types
-#| tbl-cap: "Sample cancer types"
+#| tbl-cap: "Cancer types for samples tested on the PanSolid v2 enrichment"
 #| echo: FALSE
 
-cancer_type_summary <- amp_validation_sample_patient_info |> 
+cancer_type_summary <- validation_sample_patient_info |> 
   filter(labno %in% amp_validation_stdev_results_collated$labno) |> 
-  #filter(cancer_type_new != "Reference material") |> 
   count(cancer_tissue_source) |> 
   rename("Samples" = n,
          "Cancer" = cancer_tissue_source) |> 
@@ -1815,10 +1826,10 @@ kable(cancer_type_summary)
 
 ```{r}
 #| label: tbl-extraction-types
-#| tbl-cap: "DNA extraction methods"
+#| tbl-cap: "DNA extraction methods for samples tested on the PanSolid v2 enrichment"
 #| echo: FALSE
 
-extraction_type_summary <- amp_validation_sample_patient_info |> 
+extraction_type_summary <- validation_sample_patient_info |> 
   filter(labno %in% amp_validation_stdev_results_collated$labno) |> 
   count(method_name) |> 
   rename("DNA extraction method" = method_name,
@@ -1830,19 +1841,19 @@ kable(extraction_type_summary)
 
 ```
 
+@tbl-extraction-types: No DNA extraction was performed for the 5 SeraCare controls.
+
 ```{r}
 #| label: tbl-ncc
-#| tbl-cap: "Sample neoplastic cell contents"
+#| tbl-cap: "Neoplastic cell contents for samples tested on the PanSolid v2 enrichment"
 #| echo: FALSE
 
-ncc_summary <- amp_validation_sample_patient_info |> 
+ncc_summary <- validation_sample_patient_info |> 
     filter(labno %in% amp_validation_stdev_results_collated$labno) |> 
     filter(neoplastic_cell_content != "Reference material") |> 
     mutate(ncc_class = case_when(
       neoplastic_cell_content %in% c(">10", "10-20%") ~">10%",
-      neoplastic_cell_content %in% c("20-50", "20-30%",
-                                     ">20%", ">20", 
-                                     "20") ~">20%",
+      neoplastic_cell_content %in% c("20-50", "20-30%", ">20%", ">20", "20") ~">20%",
       neoplastic_cell_content %in% c(">30%", ">30") ~">30%",
       neoplastic_cell_content %in% c("50-75") ~">50%",
       neoplastic_cell_content %in% c( ">75", "80") ~">75%",
@@ -1863,6 +1874,8 @@ kable(ncc_summary)
 
 ```
 
+@tbl-ncc: this table does not include the SeraCare reference materials.
+
 ## Control details
 
 ```{r}
@@ -1871,7 +1884,8 @@ kable(ncc_summary)
 #| echo: FALSE
 #| warning: FALSE
 
-kable(seracare_details)
+kable(seracare_details |> 
+        filter(dna_number != "24002060"))
 
 ```
 
