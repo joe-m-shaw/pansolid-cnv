@@ -1,10 +1,17 @@
 # Load PanSolid Processed Data
 
+# Packages ---------------------------------------------------------------------------------------
+
 library(tidyverse)
 library(here)
 
+# Scripts and functions --------------------------------------------------------------------------
+
 source(here("scripts/set_shared_drive_filepath.R"))
 source(here("functions/gene_table_functions.R"))
+
+
+# Load data --------------------------------------------------------------------------------------
 
 amp_genes <- load_pansolid_gene_table("Amplifications")
 
@@ -111,3 +118,23 @@ wgs_html_ids <- read_csv(paste0(data_folder,
                            "nhs_no_clean" = col_character(),
                            "labno" = col_character()
                          ))
+
+# Checks -----------------------------------------------------------------------------------------
+
+if(length(dplyr::setdiff(amp_genes$gene, 
+                  amp_validation_all_amp_gene_results_collated$gene)) != 0){
+  
+  stop("Gene names present which are not expected")
+  
+} else{
+    
+  message("All amps table contains expected genes")
+  
+  }
+  
+if(nrow(amp_validation_all_amp_gene_results_collated) != 
+   (nrow(amp_validation_stdev_results_collated) * 9)) {
+  
+  stop("Different number of rows than expected in stdev and all_amp genes tables.")
+  
+}
