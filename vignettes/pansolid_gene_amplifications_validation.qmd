@@ -398,7 +398,7 @@ The “signal-adjusted noise” metric is a quality control metric developed dur
 
 Results were visualised using an Excel output as before, and also using a new interactive HTML output (@fig-pansolid-visualisation-png).
 
-![Visualisation of gene amplifications on PanSolid. The upper panel shows the Excel output for sample 24026871 which has a *MYC* amplification. The bottom panel shows the HTML output for the same sample, with tracks for CNV calls, log2 ratios and B-allele frequency.](pansolid_visualisation_output.png){#fig-pansolid-visualisation-png}
+![Visualisation of gene amplifications on PanSolid. The upper panel shows the Excel output for sample 24026871 which has a *MYC* amplification. The bottom panel shows the HTML output for the same sample, with tracks for CNV calls, log2 ratios and B-allele frequency.](`r paste0(data_folder, "images/", "pansolid_visualisation_output.png")`){#fig-pansolid-visualisation-png}
 
 ### Pipeline version
 
@@ -608,7 +608,7 @@ myc_zoom_triptych
 
 ```
 
-![*MYC* amplification with a chromosome 8q gain in sample 24024116. This demonstrates the pipeline's ability to detect focal amplifications against a background of raised copy number. ](sample_24024116_whole_genome.png){#fig-sample-24024116-whole-genome}
+![*MYC* amplification with a chromosome 8q gain in sample 24024116. This demonstrates the pipeline's ability to detect focal amplifications against a background of raised copy number. ](`r paste0(data_folder, "images/", "sample_24024116_whole_genome.png")`){#fig-sample-24024116-whole-genome}
 
 {{< pagebreak >}}
 
@@ -810,7 +810,8 @@ kable(ddpcr_false_discordant_table)
 
 ```
 
-![Whole genome plot for sample 24037724. The black arrow indicates a large copy number loss on chromosome 5, where the *AP3B1* ddPCR reference gene is located. ](sample_24037724_whole_genome.png){#fig-sample-24037724-whole-genome}
+![Whole genome plot for sample 24037724. The black arrow indicates a large copy number loss on chromosome 5, where the *AP3B1* ddPCR reference gene is located. ](
+`r paste0(data_folder, "images/", "sample_24037724_whole_genome.png")`){#fig-sample-24037724-whole-genome}
 
 {{< pagebreak >}}
 
@@ -1088,7 +1089,7 @@ kable(false_neg_collated)
 
 ```
 
-![Chromosome 7 for discordant sample viewed on HTML plot. The *EGFR* locus is circled in black, and is visibly different between the FFPE and the fresh tissue extraction.](egfr_discrepant_result_chr7_view.png){#fig-egfr-discrepant-result}
+![Chromosome 7 for discordant sample viewed on HTML plot. The *EGFR* locus is circled in black, and is visibly different between the FFPE and the fresh tissue extraction.](`r paste0(data_folder, "images/", "egfr_discrepant_result_chr7_view.png")`){#fig-egfr-discrepant-result}
 
 ### WGS coordinate correlation {#sec-wgs-coordinate-correlation}
 
@@ -1217,7 +1218,7 @@ mdm2_wgs_triptych
 
 In a sample from pathology block N23.0626 (PanSolid NGS lab number: 24030966; WGS lab number: 23034780), PanSolid NGS showed 2 amplified regions in the *EGFR* gene, with a boundary at the end of *EGFR* exon 7. Inspection of the interactive HTML showed that this was caused by a loss of log2 ratios in the region between exons 2 to 7 (@fig-egfr-viii-html), indicating the presence of the *EGFR* version 3 transcript. This result was confirmed by WGS.
 
-![EGFR vIII visible in the interactive HTML whole genome plot generated for sample 24030966](egfr_viii_html.png){#fig-egfr-viii-html}
+![EGFR vIII visible in the interactive HTML whole genome plot generated for sample 24030966](`r paste0(data_folder, "images/", "egfr_viii_html.png")`){#fig-egfr-viii-html}
 
 ### WGS dosage correlation {#sec-wgs-dosage-correlation}
 
@@ -1355,7 +1356,8 @@ kable(seracare_ngs_comparison_tbl)
 
 ```
 
-![Results in the whole genome view for the SeraCare reference materials. The +12, +6 and +3 copies samples were run on worksheet WS139890 and the wild type sample (+0 copies) was run on worksheet WS144291. The +0 copies result is the same sample as the 0% spike-in dilution for the limit of detection dilution experiment.](lod_seracare_controls.png){#fig-seracare-control-results-png}
+![Results in the whole genome view for the SeraCare reference materials. The +12, +6 and +3 copies samples were run on worksheet WS139890 and the wild type sample (+0 copies) was run on worksheet WS144291. The +0 copies result is the same sample as the 0% spike-in dilution for the limit of detection dilution experiment.](
+`r paste0(data_folder, "images/", "lod_seracare_controls.png")`){#fig-seracare-control-results-png}
 
 The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the *EGFR* and *ERBB2* genes for the +3 copies, +6 copies and +12 copies reference materials. Conversely, the PanSolid results for *MYC* were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@fig-seracare-ddpcr-pansolid).
 
@@ -1480,7 +1482,7 @@ seracare_dilution_mix_plot
 
 ```
 
-![Results for limit of detection dilution mixes: SeraCare +12 copies (24039973) spiked into SeraCare WT (24039975) at decreasing percentages on worksheet WS144291.](lod_dilution_mixes.png){#fig-seracare-dilution-mixes-png}
+![Results for limit of detection dilution mixes: SeraCare +12 copies (24039973) spiked into SeraCare WT (24039975) at decreasing percentages on worksheet WS144291.](`r paste0(data_folder, "images/", "lod_dilution_mixes.png")`){#fig-seracare-dilution-mixes-png}
 
 {{< pagebreak >}}
 
@@ -1689,7 +1691,7 @@ kable(poor_quality_results)
 
 ```
 
-![Whole genome view of sample 23032153, including a true positive call for *MDM2* which was confirmed on WGS, and 3 false positive calls for *MET*, *SMO* and *BRAF* which are all due to increased noise and a slightly elevated copy number of chromosome 7.](sample_23032153_whole_genome.png){#fig-sample-23032153-whole-genome}
+![Whole genome view of sample 23032153, including a true positive call for *MDM2* which was confirmed on WGS, and 3 false positive calls for *MET*, *SMO* and *BRAF* which are all due to increased noise and a slightly elevated copy number of chromosome 7.](`r paste0(data_folder, "images/", "sample_23032153_whole_genome.png")`){#fig-sample-23032153-whole-genome}
 
 {{< pagebreak >}}
 
@@ -2029,13 +2031,13 @@ kable(ddpcr_thermocycler_programme)
 
 ```
 
-![*MYC* exon 3 ddPCR results viewed on Quantasoft. Data source: wells G08, A07, E09, C10 and H01 from WS143747.](myc_exon3_ddpcr.png){#fig-myc-ddpcr-quantasoft}
+![*MYC* exon 3 ddPCR results viewed on Quantasoft. Data source: wells G08, A07, E09, C10 and H01 from WS143747.](`r paste0(data_folder, "images/", "myc_exon3_ddpcr.png")`){#fig-myc-ddpcr-quantasoft}
 
-![*EGFR* exon 6 ddPCR results viewed on Quantasoft. Data source: wells C01, E01, F01, G01 and H01 from worksheet WS144202.](egfr_exon6_dppcr.png){#fig-egfr-ddpcr-quantasoft}
+![*EGFR* exon 6 ddPCR results viewed on Quantasoft. Data source: wells C01, E01, F01, G01 and H01 from worksheet WS144202.](`r paste0(data_folder, "images/", "egfr_exon6_dppcr.png")`){#fig-egfr-ddpcr-quantasoft}
 
-![*MET* exon 2 ddPCR results viewed on Quantasoft. Data source: wells B02, D02, F02, G02 and H02 from worksheet WS144202](met_exon2_ddpcr.png){#fig-met-ddpcr-quantasoft}
+![*MET* exon 2 ddPCR results viewed on Quantasoft. Data source: wells B02, D02, F02, G02 and H02 from worksheet WS144202](`r paste0(data_folder, "images/", "met_exon2_ddpcr.png")`){#fig-met-ddpcr-quantasoft}
 
-![*BRAF* exon 10 ddPCR results viewed on Quantasoft. Data source: wells A03, C03, F03, G03 and H03 from worksheet WS144202.](braf_exon10_ddpcr.png){#fig-braf-ddpcr-quantasoft}
+![*BRAF* exon 10 ddPCR results viewed on Quantasoft. Data source: wells A03, C03, F03, G03 and H03 from worksheet WS144202.](`r paste0(data_folder, "images/", "braf_exon10_ddpcr.png")`){#fig-braf-ddpcr-quantasoft}
 
 {{< pagebreak >}}
 
