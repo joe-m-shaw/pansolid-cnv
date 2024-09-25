@@ -180,7 +180,7 @@ pansolid_target_loci <- target_df |>
 
 ```
 
-The PanSolid enrichment includes primer targeting `r length(unique(pansolid_target_loci$single_locus))` different gene loci. Of these, there are 9 genes which were selected as having amplifications with clinical relevance (@tbl-amplification-coordinates).
+The PanSolid enrichment includes primers targeting `r length(unique(pansolid_target_loci$single_locus))` different gene loci. Of these, there are 9 genes which were selected as having amplifications with clinical relevance (@tbl-amplification-coordinates).
 
 ```{r}
 #| label: tbl-amplification-coordinates
@@ -1191,7 +1191,7 @@ egfr_wgs_triptych
 
 ```{r}
 #| label: fig-mdm2-wgs-pansolid
-#| fig-cap: "Comparison of coordinate calls for *MDM2* amplifications detected by WGS and PanSolid, organised by pathology block ID and test."
+#| fig-cap: "Comparison of coordinate calls for *MDM2* amplifications detected by WGS and PanSolid, organised by pathology block identifier and test."
 #| echo: FALSE
 
 mdm2_wgs_pansolid_plot <- ggplot(wgs_ps_egfr_mdmd2_calls |> 
@@ -1607,7 +1607,9 @@ inter_pooled_sd <- round(sqrt(sum(inter_run_summary$z) /
 
 There were `r nrow(repeat_noise_data)` replicates for inclusion in the repeat testing study. Sample replicate 24017319c on worksheet WS144291 failed due to poor coverage.
 The pooled standard deviation was calculated using `r nrow(repeat_data_fold_change_range)` data points from the maximum and minimum fold changes for each gene in each sample replicate, excluding the *MYC* results for sample 24027774 . The *MYC* results for sample 24027774 were excluded because the fold changes were all over 75 and there was greater variability (@fig-repeatability).
-The intra-run pooled standard deviation in the fold change range of -2 to 10 was `r intra_pooled_sd`, and the inter-run pooled standard deviation for the same fold change range was `r inter_pooled_sd`. For the *MET* and *MYC* amplifications detected, there was no change in the region defined as amplified in any of the repeat replicates (Supplementary Information @fig-24027774-MYC and @fig-24027774-MET). However the region for the *EGFR* amplification in sample 24020998 was reduced on worksheet WS141045 in comparison to other replicates, and two different fold change regions were identified in a pattern similar to *EGFR* vIII (@fig-24020998-EGFR). This sample replicate had the lowest signal-adjusted noise value of the replicates for this patient, and over 99% of the target regions had a coverage exceeding 138X, which could explain why two CNV regions were detected in comparison to the other replicates.
+The intra-run pooled standard deviation in the fold change range of -2 to 10 was `r intra_pooled_sd`, and the inter-run pooled standard deviation for the same fold change range was `r inter_pooled_sd`. 
+
+For the *MET* and *MYC* amplifications detected, there was no change in the region defined as amplified in any of the repeat replicates (Supplementary Information @fig-24027774-MYC and @fig-24027774-MET). However the region for the *EGFR* amplification in sample 24020998 was reduced on worksheet WS141045 in comparison to other replicates, and two different fold change regions were identified in a pattern similar to *EGFR* vIII (@fig-24020998-EGFR). This sample replicate had the lowest signal-adjusted noise value of the replicates for this patient, and over 99% of the target regions had a coverage exceeding 138X, which could explain why two CNV regions were detected in comparison to the other replicates.
 
 ```{r}
 #| label: repeatability-plots
