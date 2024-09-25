@@ -88,10 +88,10 @@ parse_wgs_html_pid_text <- function(html_filepath) {
   dob <- stringr::str_extract(string = pid_text, pattern = pid_regex,
                      group = 2)
   
-  nhs_no <- stringr::str_extract(string = pid_text, pattern = pid_regex,
+  nhsno_raw <- stringr::str_extract(string = pid_text, pattern = pid_regex,
                         group = 3)
   
-  nhs_no_clean <- stringr::str_replace_all(string = nhs_no,
+  nhsno <- stringr::str_replace_all(string = nhsno_raw,
                                   pattern = " ",
                                   replacement = "")
   
@@ -99,8 +99,8 @@ parse_wgs_html_pid_text <- function(html_filepath) {
     "filepath" = html_filepath,
     "patient_name" = name,
     "patient_dob" = dob,
-    "nhs_no" = nhs_no,
-    "nhs_no_clean" = nhs_no_clean)
+    "nhsno_raw" = nhsno_raw,
+    "nhsno" = nhsno)
   
   return(output)
   
