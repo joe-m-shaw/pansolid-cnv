@@ -2,7 +2,7 @@
 title: "Validation of Detecting Somatic Gene Amplifications with the PanSolid CLC Pipeline"
 format: 
   docx:
-    reference-doc: sop_template.docx
+    reference-doc: north_west_glh_document_template.docx
     link-citations: true
 toc: true
 toc-title: "Table of Contents"
