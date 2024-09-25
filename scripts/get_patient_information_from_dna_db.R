@@ -180,7 +180,7 @@ validation_sample_patient_info <- patient_info_extraction_method |>
 
 write.csv(x = validation_sample_patient_info,
           file = paste0(data_folder, "validation/processed/", 
-                        "amp_validation_sample_patient_info.csv"),
+                        "validation_sample_patient_info.csv"),
           row.names = FALSE)
 
 write.csv(x = pansolid_worksheet_details,

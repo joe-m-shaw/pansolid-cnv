@@ -80,9 +80,9 @@ amp_validation_percent_138_collated <- read_csv(paste0(data_folder,
                                               "filepath" = col_character(),
                                               "percent_whole_panel_covered_at_138x" = col_double()))
 
-amp_validation_sample_patient_info <- read_csv(paste0(data_folder, 
+validation_sample_patient_info <- read_csv(paste0(data_folder, 
                                                   "validation/processed/",
-                                                  "amp_validation_sample_patient_info.csv"),
+                                                  "validation_sample_patient_info.csv"),
                                            col_types = list(
                                              "labno" = col_character(),
                                              "firstname" = col_character(),
