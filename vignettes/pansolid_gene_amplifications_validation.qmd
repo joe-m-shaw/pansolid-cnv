@@ -1639,7 +1639,7 @@ repeatability_plot
 
 ```{r}
 #| label: fig-24020998-EGFR
-#| fig-cap: "*EGFR* amplifications in repeated sample 24020998, showing no change in amplification coordinates."
+#| fig-cap: "*EGFR* amplifications in repeated sample 24020998. Results were consistent except for the results from worksheet WS141045 in which two CNV regions of slightly different fold changes were identified with breakpoints within *EGFR*."
 #| fig-cap-location: top
 #| echo: FALSE
 
@@ -1649,7 +1649,9 @@ fig_24020998_EGFR <- make_cnv_triptych_plot(input_plot  =
     gene = "EGFR",
     yaxis = labno_suffix_worksheet,
     interval = 500000,
-    buffer = 100000))
+    buffer = 100000,
+    title = expression(paste("Repeated sample 24020998: ",
+                             italic("EGFR")))))
 
 fig_24020998_EGFR
 
@@ -1744,17 +1746,11 @@ discordant results, 4 of which were borderline by both methods; the remaining re
 `r ddpcr_pansolid_correct_proportion`%
 of amplification statuses, which is equivalent to reports in the literature. For example, @yang2020 reported a concordance of 94% between ddPCR and targeted NGS for detection of *ERBB2* amplifications in FFPE samples.
 
-## Quantification {#sec-discussion-quantification}
+## Reference material quantification {#sec-discussion-quantification}
 
-Over-estimation of both *EGFR* and *ERBB2* for NGS and ddPCR, which was previously noted for the ERBB2 validation. However there was close agreement despite this bias. This was for pure 100% FFPE mixed samples, so NCC wasn't an issue.
-However for normal samples, NCC is a problem.
-The sample is sequenced in bulk, without single-cell resolution.
-To derive the number of gene copies per tumour cell requires you to calculate this value based on the fold change value and the NCC value.
-This also assumes that:
-1 - the NCC value is entirely accurate to the area of sample from which DNA was extracted
-2 - the cancer cells all have the same number of gene copies, whereas in reality this can vary.
+The ability of the PanSolid pipeline to quantify gene dosage was assessed using reference materials from the company SeraCare, which were provided along with the gene dosages quantified by SeraCare using the TruSight Oncology 500 assay (Illumina) and ddPCR with a BioRad QX200 system. There was close agreement between the quantification of gene dosage for both PanSolid NGS and ddPCR compared to the results provided by SeraCare, although a consistent overestimation of dosage for *EGFR* and *ERBB2* was observed (@fig-seracare-ngs-pansolid and @fig-seracare-ddpcr-pansolid). 
 
-The biggest variable to quantification will be the NCC value provided.
+As samples are sequenced in bulk, PanSolid NGS provides a single "fold change" value of sequencing coverage relative to a control cohort at a gene locus, rather than quantifying the exact number of gene copies present within individual cells. The number of gene copies per tumour cell can be estimated based on the fold change value and the NCC value provided for the sample. However this calculation assumes that the NCC value is entirely accurate to the area of sample from which DNA was extracted, and that each cancer cell has the same number of gene copies. These difficulties are avoided when analysing synthetic reference materials, where additional genetic material has been added and hence the "NCC" can be considered 100%.
 
 ## Limit of detection {#sec-discussion-lod}
 
@@ -2098,14 +2094,17 @@ egfr_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = amp_validation_pos_cnv_results_collated,
   gene = "EGFR",
   interval = 500000,
-  title = "EGFR amplification calls"))
+  title = expression(paste("Amplifications involving the ",
+                           italic("EGFR"),
+                           " gene"))))
 
 egfr_labno_plot <- make_labno_cnv_plot(
   df = amp_validation_pos_cnv_results_collated,
   gene = "EGFR",
   interval = 10000,
   buffer = 10000,
-  title = "EGFR results zoomed in")
+  title = expression(paste("Zoomed in view: ",
+                           italic("EGFR"))))
 
 egfr_plot_zoom <- egfr_labno_plot[[4]] +
   coord_cartesian(xlim = c(55019017 - 10000, 55211628 + 10000))
@@ -2141,7 +2140,7 @@ egfr_plot
 ```{r}
 #| label: fig-egfr-zoom
 #| echo: FALSE
-#| fig-cap: "A zoomed in view of the *EGFR* amplification calls, showing that all calls cover the full length of the gene."
+#| fig-cap: "A zoomed in view of the *EGFR* amplification calls, showing that all calls cover the full length of the gene, except for 24030966 and 24030946, which do not include the 5' untranslated region."
 #| fig-height: 6.3
 #| fig-width: 6
 
@@ -2158,7 +2157,9 @@ erbb2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = amp_validation_pos_cnv_results_collated,
   gene = "ERBB2",
   interval = 500000,
-  title = "ERBB2 amplification calls"))
+  title = expression(paste("Amplifications involving the ",
+                           italic("ERBB2"),
+                           " gene"))))
 
 erbb2_plot
 
@@ -2173,15 +2174,17 @@ met_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   gene = "MET",
   interval = 1000000,
   buffer = 50000,
-  title = "MET amplification calls"))
+  title = expression(paste("Amplifications involving the ",
+                           italic("MET"),
+                           " gene"))))
 
 met_labno_plot <- make_labno_cnv_plot(
   df = amp_validation_pos_cnv_results_collated,
   gene = "MET",
   interval = 10000,
   buffer = 5000,
-  title = "MET results zoomed in"
-)
+  title = expression(paste("Zoomed in view: ",
+                           italic("MET"))))
 
 met_plot_zoom <- met_labno_plot[[4]] +
   coord_cartesian(xlim = c(116672196 - 10000, 116798377 + 10000))
@@ -2236,13 +2239,16 @@ braf_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   gene = "BRAF",
   interval = 1000000,
   buffer = 50000,
-  title = "BRAF amplification calls"))
+  title = expression(paste("Amplifications involving the ",
+                           italic("BRAF"),
+                           " gene"))))
 
 braf_labno_plot <- make_labno_cnv_plot(
   df = amp_validation_pos_cnv_results_collated,
   gene = "BRAF",
   interval = 50000,
-  title = "BRAF results zoomed in"
+  title = expression(paste("Zoomed in view: ",
+                           italic("BRAF")))
 )
 
 braf_plot_zoom <- braf_labno_plot[[4]] +
@@ -2278,7 +2284,7 @@ braf_plot
 ```{r}
 #| label: fig-braf-zoom
 #| echo: FALSE
-#| fig-cap: "Zoomed-in view of PanSolid NGS amplification calls in the *BRAF* gene, showing that all calls cover the full width of the gene."
+#| fig-cap: "Zoomed-in view of PanSolid NGS amplification calls in the *BRAF* gene, showing that all calls cover the full width of the gene, except for sample 23011114 which oes not include the final exon."
 #| fig-width: 6
 
 braf_zoom_triptych
@@ -2293,13 +2299,16 @@ mdm2_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = amp_validation_pos_cnv_results_collated,
   gene = "MDM2",
   interval = 500000,
-  title = "MDM2 amplification calls"))
+  title = expression(paste("Amplifications involving the ",
+                           italic("MDM2"),
+                           " gene"))))
 
 mdm2_labno_plot <- make_labno_cnv_plot(
   df = amp_validation_pos_cnv_results_collated,
   gene = "MDM2",
   interval = 10000,
-  title = "MDM2 results zoomed in"
+  title = expression(paste("Zoomed in view: ",
+                           italic("MDM2")))
 )
 
 mdm2_plot_zoom <- mdm2_labno_plot[[4]] +
@@ -2348,13 +2357,16 @@ mycn_plot <- make_cnv_triptych_plot(input_plot = make_labno_cnv_plot(
   df = amp_validation_pos_cnv_results_collated,
   gene = "MYCN",
   interval = 500000,
-  title = "MYCN amplification calls"))
+  title = expression(paste("Amplifications involving the ",
+                           italic("MYCN"),
+                           " gene"))))
 
 mycn_labno_plot <- make_labno_cnv_plot(
   df = amp_validation_pos_cnv_results_collated,
   gene = "MYCN",
   interval = 10000,
-  title = "MYCN results zoomed in"
+  title = expression(paste("Zoomed in view: ",
+                           italic("MYCN")))
 )
 
 mycn_plot_zoom <- mycn_labno_plot[[4]] +
@@ -2417,7 +2429,9 @@ fig_24027774_MYC <- make_cnv_triptych_plot(input_plot  =
     gene = "MYC",
     yaxis = labno_suffix_worksheet,
     interval = 500000,
-    buffer = 50000))
+    buffer = 50000,
+    title = expression(paste("Repeated sample 24027774: ",
+                             italic("MYC")))))
 
 fig_24027774_MYC
 
@@ -2434,7 +2448,9 @@ fig_24027774_MET <- make_cnv_triptych_plot(input_plot  =
     gene = "MET",
     yaxis = labno_suffix_worksheet,
     interval = 500000,
-    buffer = 50000))
+    buffer = 50000,
+    title = expression(paste("Repeated sample 24027774: ",
+                             italic("MET")))))
 
 fig_24027774_MET
 
