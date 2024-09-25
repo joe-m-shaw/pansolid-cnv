@@ -1524,7 +1524,10 @@ repeat_noise_data <- amp_validation_stdev_results_collated |>
   # This is the limit of detection sample
   filter(labno != "24039973") |> 
   filter(!grepl(pattern = "SERA", x = patient_name,
-               ignore.case = TRUE))
+               ignore.case = TRUE)) |> 
+  left_join(amp_validation_percent_138_collated |> 
+    select(filepath, percent_whole_panel_covered_at_138x),
+      by = "filepath")
 
 inter_run_replicates <- c(
   # 24017319
@@ -1590,7 +1593,7 @@ inter_pooled_sd <- round(sqrt(sum(inter_run_summary$z) /
 
 There were `r nrow(repeat_noise_data)` replicates for inclusion in the repeat testing study. Sample replicate 24017319c on worksheet WS144291 failed due to poor coverage.
 The pooled standard deviation was calculated using `r nrow(repeat_data_fold_change_range)` data points from the maximum and minimum fold changes for each gene in each sample replicate, excluding the *MYC* results for sample 24027774 . The *MYC* results for sample 24027774 were excluded because the fold changes were all over 75 and there was greater variability (@fig-repeatability).
-The intra-run pooled standard deviation in the fold change range of -2 to 10 was `r intra_pooled_sd`, and the inter-run pooled standard deviation for the same fold change range was `r inter_pooled_sd`. For the 3 amplifications detected, there was no change in the region defined as amplified in any of the repeat replicates (Supplementary Information @fig-24020998-EGFR, @fig-24027774-MYC and @fig-24027774-MET).
+The intra-run pooled standard deviation in the fold change range of -2 to 10 was `r intra_pooled_sd`, and the inter-run pooled standard deviation for the same fold change range was `r inter_pooled_sd`. For the *MET* and *MYC* amplifications detected, there was no change in the region defined as amplified in any of the repeat replicates (Supplementary Information @fig-24027774-MYC and @fig-24027774-MET). However the region for the *EGFR* amplification in sample 24020998 was reduced on worksheet WS141045 in comparison to other replicates, and two different fold change regions were identified in a pattern similar to *EGFR* vIII (@fig-24020998-EGFR). This sample replicate had the lowest signal-adjusted noise value of the replicates for this patient, and over 99% of the target regions had a coverage exceeding 138X, which could explain why two CNV regions were detected in comparison to the other replicates.
 
 ```{r}
 #| label: repeatability-plots
@@ -1632,6 +1635,24 @@ repeatability_plot
 
 ```
 
+```{r}
+#| label: fig-24020998-EGFR
+#| fig-cap: "*EGFR* amplifications in repeated sample 24020998, showing no change in amplification coordinates."
+#| fig-cap-location: top
+#| echo: FALSE
+
+fig_24020998_EGFR <- make_cnv_triptych_plot(input_plot  = 
+  make_labno_cnv_plot(df = amp_validation_pos_cnv_results_collated |> 
+    filter(labno == "24020998"),
+    gene = "EGFR",
+    yaxis = labno_suffix_worksheet,
+    interval = 500000,
+    buffer = 100000))
+
+fig_24020998_EGFR
+
+```
+
 {{< pagebreak >}}
 
 ## Quality control {#sec-results-quality-control}
@@ -1664,12 +1685,9 @@ overall_noise_plot
 
 ```
 
-Within the poor-quality samples, there were 7 gene amplification calls (@tbl-noisy-amplification-calls). The calls in the *ERBB2* and *MDM2* genes had very high fold changes, and result was confirmed on ddPCR and WGS, respectively. In contrast, the remaining calls had low fold change values; inspection of the whole genome plots showed that gene targets were not significantly elevated above their surrounding targets (@fig-sample-23032153-whole-genome). This indicated that these were false positive calls, caused by the high noise in the samples.
-
 ```{r}
-#| label: tbl-noisy-amplification-calls
-#| tbl-cap: "Amplification calls in low quality samples."
-#| echo: FALSE
+#| label: noisy-amplification-calls
+#| include: FALSE
 
 poor_quality_results <- amp_validation_pos_cnv_results_collated |> 
   left_join(amp_validation_stdev_results_collated |> 
@@ -1686,6 +1704,17 @@ poor_quality_results <- amp_validation_pos_cnv_results_collated |>
          `Signal-adjusted noise` = st_dev_signal_adjusted_log2_ratios,
          `Fold change` = fold_change,
          `Extraction method` = method_name)
+
+```
+
+Within the poor-quality samples, there were 
+`r nrow(poor_quality_results)`
+gene amplification calls (@tbl-noisy-amplification-calls). The calls in the *ERBB2* and *MDM2* genes had very high fold changes, and result was confirmed on ddPCR and WGS, respectively. In contrast, the remaining calls had low fold change values; inspection of the whole genome plots showed that gene targets were not significantly elevated above their surrounding targets (@fig-sample-23032153-whole-genome). This indicated that these were false positive calls, caused by the high noise in the samples.
+
+```{r}
+#| label: tbl-noisy-amplification-calls
+#| tbl-cap: "Amplification calls in low quality samples."
+#| echo: FALSE
 
 kable(poor_quality_results)
 
@@ -1737,7 +1766,7 @@ Given the assumption that amplification dynamics are not radically different bet
 
 In a single sample, an exonic *EGFR* deletion was detected by PanSolid NGS, consistent with the result from WGS. This is a recurrent in-frame deletion of 801 EGFR coding base pairs, representing exons 2 to 7, which is referred to as *EGFR* version 3, Δ801EGFR, EGFR vIII or de2-7 EGFR [@sugawa1990; @pedersen2001]. EGFR version 3 is found in roughly 11% of glioblastoma cases [@brennan2013], but its prognostic significance is controversial [@rutkowska2019].
 
-In this validation, the exonic deletion was visible when the individual QIAseq targets were inspected in the interactive HTML view. The CLC "coarse" setting identified two regions within *EGFR* with different fold changes, but did not identify the deleted region. This indicates that intra-genic CNVs within target genes can cause the CLC pipeline to return multiple intra-genic fold-changes, although these may not match the coordinates of the underlying CNV. 
+In this validation, the exonic deletion was visible when the individual QIAseq targets were inspected in the interactive HTML view. The CLC "coarse" setting identified two regions within *EGFR* with different fold changes, but did not identify the deleted region. This indicates that intra-genic CNVs within target genes can cause the CLC pipeline to return multiple intra-genic fold-changes, although these may not match the coordinates of the underlying CNV. However, this pattern was also observed in the repeatability study (@sec-results-repeat-testing) for a single replicate of sample 24020998, indicating that the detection of multiple CNV regions per gene is influenced by quality metrics such as signal-adjusted noise which vary between replicates.
 
 ## Quality control {#sec-discussion-quality-control}
 
@@ -2356,24 +2385,6 @@ mycn_zoom_triptych
 #| fig-cap: "Comparison of copy numbers of *EGFR* and *MDM2* amplifications detected in pathology blocks N.23.292 and N.23.0607 by PanSolid NGS and WGS."
 
 wgs_pansolid_dosage_plot
-
-```
-
-```{r}
-#| label: fig-24020998-EGFR
-#| fig-cap: "*EGFR* amplifications in repeated sample 24020998, showing no change in amplification coordinates."
-#| fig-cap-location: top
-#| echo: FALSE
-
-fig_24020998_EGFR <- make_cnv_triptych_plot(input_plot  = 
-  make_labno_cnv_plot(df = amp_validation_pos_cnv_results_collated |> 
-    filter(labno == "24020998"),
-    gene = "EGFR",
-    yaxis = labno_suffix_worksheet,
-    interval = 500000,
-    buffer = 100000))
-
-fig_24020998_EGFR
 
 ```
 
