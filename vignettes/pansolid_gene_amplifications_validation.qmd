@@ -933,7 +933,7 @@ pansolid_vs_wgs_amps_selection_cnvs_above_ten <- pansolid_vs_wgs_amps_selection 
                                          "false_negative",
                                          "false_positive")))
 
-wgs_pansolid_summary_table <- pansolid_vs_wgs_amps_selection_cnvs_above_ten |> 
+pansolid_vs_wgs_summary <- pansolid_vs_wgs_amps_selection_cnvs_above_ten |> 
   group_by(gene, outcome) |> 
   count() |> 
   pivot_wider(id_cols = c(gene),
@@ -958,8 +958,26 @@ wgs_pansolid_summary_table <- pansolid_vs_wgs_amps_selection_cnvs_above_ten |>
 #| tbl-cap: "Comparison with WGS results"
 #| echo: FALSE
 
-kable(wgs_pansolid_summary_table |> 
+kable(pansolid_vs_wgs_summary |> 
         adorn_totals())
+
+```
+
+```{r}
+#| label: wgs-comparison-metrics
+#| tbl-cap: "WGS vs PanSolid Test metrics"
+#| echo: FALSE
+
+wgs_pansolid_metrics <-get_epir_metrics(outcome_vector = c(
+  sum(pansolid_vs_wgs_summary$`True positives`),
+  sum(pansolid_vs_wgs_summary$`False positives`),
+  sum(pansolid_vs_wgs_summary$`False negatives`),
+  sum(pansolid_vs_wgs_summary$`True negatives`)
+))
+
+wgs_pansolid_sensitivity <- filter(wgs_pansolid_metrics, Metric == "Sensitivity")$`Percentage (%)`
+
+wgs_pansolid_specificity <- filter(wgs_pansolid_metrics, Metric == "Specificity")$`Percentage (%)`
 
 ```
 
@@ -967,13 +985,6 @@ kable(wgs_pansolid_summary_table |>
 #| label: tbl-wgs-comparison-metrics
 #| tbl-cap: "WGS vs PanSolid Test metrics"
 #| echo: FALSE
-
-wgs_pansolid_metrics <-get_epir_metrics(outcome_vector = c(
-  sum(wgs_pansolid_summary_table$`True positives`),
-  sum(wgs_pansolid_summary_table$`False positives`),
-  sum(wgs_pansolid_summary_table$`False negatives`),
-  sum(wgs_pansolid_summary_table$`True negatives`)
-))
 
 kable(wgs_pansolid_metrics)
 
@@ -1760,7 +1771,11 @@ The amplification detection has a sensitivity and specificity of
 `r ddpcr_pansolid_sensitivity`% 
 and 
 `r ddpcr_pansolid_specificity`% 
-when compared to ddPCR (@sec-results-ddpcr-comparison),and a sensitivity and specificity of 83.3% and 100% when compared to WGS (@sec-results-wgs-comparison).
+when compared to ddPCR (@sec-results-ddpcr-comparison), and a sensitivity and specificity of 
+`r wgs_pansolid_sensitivity`%
+and
+`r wgs_pansolid_specificity`%
+when compared to WGS (@sec-results-wgs-comparison).
 
 **3. Dosage accuracy: it should be shown how accurate the test is at detecting amplifications of different copy number states, expressed as a correlation between the test and copy numbers from an orthogonal test.**
 
