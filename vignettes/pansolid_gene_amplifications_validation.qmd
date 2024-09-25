@@ -784,15 +784,19 @@ ddpcr_ngs_plot
 
 ### ddPCR discordant results {#sec-ddpcr-discordant-results}
 
-Three samples had a discordant result from ddPCR when compared to the PanSolid NGS result. Two of these samples (24002064 and 23033921) had borderline results on both ddPCR and PanSolid NGS. The remaining sample (24037724) had a *MYC* copy number of 9 on ddPCR, with a fold change of only 2.2 detected on PanSolid NGS (@tbl-ddpcr-false-negatives). The whole genome plot for this sample showed a deletion at chromosome 5q, including the location of the *AP3B1* ddPCR reference gene (5q14.1), which probably caused an artificially high ddPCR copy number.
+`r sum(pansolid_vs_ddpcr_summary$"False negatives") + sum(pansolid_vs_ddpcr_summary$"False positives")`
+samples had a discordant result from ddPCR when compared to the PanSolid NGS result. 
+`r sum(pansolid_vs_ddpcr_summary$"False positives")` samples were false positives for *ERBB2* amplifications, which were already detected in the *ERBB2* validation ([DOC6260]{custom-style="Strong"}), and the remaining
+`r sum(pansolid_vs_ddpcr_summary$"False negatives")`
+samples were false negatives. Two of these samples (24002064 and 23033921) had borderline results on both ddPCR and PanSolid NGS. The remaining sample (24037724) had a *MYC* copy number of 9 on ddPCR, with a fold change of only 2.2 detected on PanSolid NGS (@tbl-ddpcr-discordant-results). The whole genome plot for this sample showed a deletion at chromosome 5q, including the location of the *AP3B1* ddPCR reference gene (5q14.1), which probably caused an artificially high ddPCR copy number.
 
 ```{r}
-#| label: tbl-ddpcr-false-negatives
+#| label: tbl-ddpcr-discordant-results
 #| tbl-cap: "False negative samples"
 #| echo: FALSE
 
-ddpcr_false_neg_table <- pansolid_vs_ddpcr |> 
-  filter(outcome == "false_negative") |> 
+ddpcr_false_discordant_table <- pansolid_vs_ddpcr |> 
+  filter(outcome %in% c("false_negative", "false_positive")) |> 
   mutate(`PanSolid fold change` = round(max_region_fold_change, 1),
          `ddPCR copy number` = round(cnv, 1)) |> 
   rename(`ddPCR result` = ddpcr_result,
@@ -802,7 +806,7 @@ ddpcr_false_neg_table <- pansolid_vs_ddpcr |>
   select(`Lab number`,  `Gene`, `ddPCR copy number`, 
          `PanSolid fold change`, `ddPCR result`, `PanSolid result`)
 
-kable(ddpcr_false_neg_table)
+kable(ddpcr_false_discordant_table)
 
 ```
 
