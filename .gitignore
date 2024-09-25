@@ -72,9 +72,6 @@ outputs/
 # HTML files
 *.html
 
-# Word files
-*.docx
-
 # PNG files
 *.png
 
