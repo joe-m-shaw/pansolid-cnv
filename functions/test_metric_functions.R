@@ -56,7 +56,8 @@ get_epir_metrics <- function(outcome_vector) {
                    digits = 2, conf.level = 0.95, method = "exact")
 
   epi_test_df <- tibble::tibble(epi_test$detail) |> 
-    dplyr::filter(statistic %in% c("se", "sp", "pv.pos", "pv.neg")) |> 
+    dplyr::filter(statistic %in% c("se", "sp", "pv.pos", "pv.neg",
+                                   "diag.ac")) |> 
     dplyr::mutate(
       `Percentage (%)` = round(est*100, 1),
       `Confidence interval (95%)` = str_c(round(lower*100, 1), "-", round(upper*100, 1)),
@@ -64,7 +65,8 @@ get_epir_metrics <- function(outcome_vector) {
         statistic == "se" ~"Sensitivity",
         statistic == "sp" ~"Specificity",
         statistic == "pv.pos" ~"Positive predictive value",
-        statistic == "pv.neg" ~"Negative predictive value"
+        statistic == "pv.neg" ~"Negative predictive value",
+        statistic == "diag.ac" ~"Correctly classified proportion"
       )) |> 
     dplyr::select(Metric, `Percentage (%)`, `Confidence interval (95%)`)
   
