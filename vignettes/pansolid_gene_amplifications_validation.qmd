@@ -716,6 +716,8 @@ ddpcr_pansolid_sensitivity <- filter(ddpcr_pansolid_metrics, Metric == "Sensitiv
 
 ddpcr_pansolid_specificity <- filter(ddpcr_pansolid_metrics, Metric == "Specificity")$`Percentage (%)`
 
+ddpcr_pansolid_correct_proportion <- filter(ddpcr_pansolid_metrics, Metric == "Correctly classified proportion")$`Percentage (%)`
+
 ```
 
 ddPCR was performed for a selection of samples for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes. The *ERBB2* ddPCR work was performed as part of the separate validation of *ERBB2* amplification detection ([DOC6260]{custom-style="Strong"}), which included DNA extracted on the Cobas and QIAsymphony methods. 11 *ERBB2* samples extracted with the QIAsymphony method and tested on PanSolid version 2 are included in this validation analysis, and compared to the ddPCR results for their corresponding Cobas extractions. The QIAsymphony method was validated as the sole DNA extraction method for FFPE tissue at the Manchester GLH in April 2024. A copy number threshold of 5 was used to classify ddPCR results as "amplified" and "non-amplified". There was good agreement between ddPCR and PanSolid, with only 
@@ -1732,11 +1734,27 @@ In the NHS Genomic Medicine Service, WGS is performed by Illumina Laboratory Sol
 
 ## Comparison to ddPCR {#sec-discussion-ddpcr}
 
-By comparison, ddPCR did not have this limitation as it was performed on the same DNA as PanSolid NGS. Out of 100 samples tested across 5 genes there were only 3 discordant results, 2 of which were borderline by both methods, and the other was likely due to a copy number change at the locus of the ddPCR reference gene, *AP3B1*.
+By comparison, ddPCR did not have this limitation as it was performed on the same DNA as PanSolid NGS. Out of 
+`r sum(pansolid_vs_ddpcr_summary$Samples)`
+samples tested across
+`r nrow(pansolid_vs_ddpcr_summary)`
+genes there were only 
+`r sum(pansolid_vs_ddpcr_summary$"False positives") + sum(pansolid_vs_ddpcr_summary$"False negatives")`
+discordant results, 4 of which were borderline by both methods; the remaining result was likely due to a copy number change at the locus of the ddPCR reference gene, *AP3B1*. Overall, PanSolid NGS and ddPCR agreed on 
+`r ddpcr_pansolid_correct_proportion`%
+of amplification statuses, which is equivalent to reports in the literature. For example, @yang2020 reported a concordance of 94% between ddPCR and targeted NGS for detection of *ERBB2* amplifications in FFPE samples.
 
 ## Quantification {#sec-discussion-quantification}
 
-Section text to be added.
+Over-estimation of both *EGFR* and *ERBB2* for NGS and ddPCR, which was previously noted for the ERBB2 validation. However there was close agreement despite this bias. This was for pure 100% FFPE mixed samples, so NCC wasn't an issue.
+However for normal samples, NCC is a problem.
+The sample is sequenced in bulk, without single-cell resolution.
+To derive the number of gene copies per tumour cell requires you to calculate this value based on the fold change value and the NCC value.
+This also assumes that:
+1 - the NCC value is entirely accurate to the area of sample from which DNA was extracted
+2 - the cancer cells all have the same number of gene copies, whereas in reality this can vary.
+
+The biggest variable to quantification will be the NCC value provided.
 
 ## Limit of detection {#sec-discussion-lod}
 
@@ -1764,7 +1782,7 @@ Given the assumption that amplification dynamics are not radically different bet
 
 ## *EGFR* version 3 and intra-genic CNVs {#sec-discussion-egfr-v3}
 
-In a single sample, an exonic *EGFR* deletion was detected by PanSolid NGS, consistent with the result from WGS. This is a recurrent in-frame deletion of 801 EGFR coding base pairs, representing exons 2 to 7, which is referred to as *EGFR* version 3, Δ801EGFR, EGFR vIII or de2-7 EGFR [@sugawa1990; @pedersen2001]. EGFR version 3 is found in roughly 11% of glioblastoma cases [@brennan2013], but its prognostic significance is controversial [@rutkowska2019].
+In a single sample, an exonic *EGFR* deletion was detected by PanSolid NGS, consistent with the result from WGS. This is a recurrent in-frame deletion of 801 *EGFR* coding base pairs, representing exons 2 to 7, which is referred to as *EGFR* version 3, Δ801EGFR, *EGFR* vIII or de2-7 *EGFR* [@sugawa1990; @pedersen2001]. *EGFR* version 3 is found in roughly 11% of glioblastoma cases [@brennan2013], but its prognostic significance is controversial [@rutkowska2019].
 
 In this validation, the exonic deletion was visible when the individual QIAseq targets were inspected in the interactive HTML view. The CLC "coarse" setting identified two regions within *EGFR* with different fold changes, but did not identify the deleted region. This indicates that intra-genic CNVs within target genes can cause the CLC pipeline to return multiple intra-genic fold-changes, although these may not match the coordinates of the underlying CNV. However, this pattern was also observed in the repeatability study (@sec-results-repeat-testing) for a single replicate of sample 24020998, indicating that the detection of multiple CNV regions per gene is influenced by quality metrics such as signal-adjusted noise which vary between replicates.
 
