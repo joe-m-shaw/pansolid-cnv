@@ -614,8 +614,6 @@ myc_zoom_triptych
 
 ## Comparison to ddPCR {#sec-results-ddpcr-comparison}
 
-ddPCR was performed for a selection of samples for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes. The *ERBB2* ddPCR work was performed as part of the separate validation of *ERBB2* amplification detection ([DOC6260]{custom-style="Strong"}), which included DNA extracted on the Cobas and QIAsymphony methods. 11 *ERBB2* samples extracted with the QIAsymphony method and tested on PanSolid version 2 are included in this validation analysis, and compared to the ddPCR results for their corresponding Cobas extractions. The QIAsymphony method was validated as the sole DNA extraction method for FFPE tissue at the Manchester GLH in April 2024. A copy number threshold of 5 was used to classify ddPCR results as "amplified" and "non-amplified". There was good agreement between ddPCR and PanSolid, with only 5 discrepant results out of 97 samples (@tbl-ddpcr-vs-pansolid) and an overall sensitivity of 93% (@tbl-ddpcr-vs-pansolid-metrics).
-
 ```{r}
 #| label: getting-erbb2-labnos
 #| include: FALSE
@@ -644,10 +642,10 @@ ddpcr_cnv_amp_threshold <- 5
 ```
 
 ```{r}
-#| label: ddpcr-comparison
+#| label: pansolid-vs-ddpcr
 #| include: FALSE
 
-ddpcr_vs_pansolid <- validation_ddpcr_collated_erbb2_fixed |> 
+pansolid_vs_ddpcr <- validation_ddpcr_collated_erbb2_fixed |> 
   mutate(sample_experiment = str_c(sample, "_", experiment)) |> 
   filter(target == "ch1_target" & 
            experiment %in% c("MYC Ex3_1",
@@ -682,10 +680,10 @@ ddpcr_vs_pansolid <- validation_ddpcr_collated_erbb2_fixed |>
 ```
 
 ```{r}
-#| label: ddpcr-summary
+#| label: pansolid-vs-ddpcr-summary
 #| include: FALSE
 
-ddpcr_summary <- ddpcr_vs_pansolid |> 
+pansolid_vs_ddpcr_summary <- pansolid_vs_ddpcr |> 
   count(gene, outcome) |> 
   pivot_wider(id_cols = gene,
               names_from = outcome,
@@ -704,11 +702,35 @@ ddpcr_summary <- ddpcr_vs_pansolid |>
 ```
 
 ```{r}
+#| label: ddpcr-vs-pansolid-metrics
+#| include: FALSE
+
+ddpcr_pansolid_metrics <- get_epir_metrics(outcome_vector = c(
+  sum(pansolid_vs_ddpcr_summary$`True positives`),
+  sum(pansolid_vs_ddpcr_summary$`False positives`),
+  sum(pansolid_vs_ddpcr_summary$`False negatives`),
+  sum(pansolid_vs_ddpcr_summary$`True negatives`)
+))
+
+ddpcr_pansolid_sensitivity <- filter(ddpcr_pansolid_metrics, Metric == "Sensitivity")$`Percentage (%)`
+
+ddpcr_pansolid_specificity <- filter(ddpcr_pansolid_metrics, Metric == "Specificity")$`Percentage (%)`
+
+```
+
+ddPCR was performed for a selection of samples for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes. The *ERBB2* ddPCR work was performed as part of the separate validation of *ERBB2* amplification detection ([DOC6260]{custom-style="Strong"}), which included DNA extracted on the Cobas and QIAsymphony methods. 11 *ERBB2* samples extracted with the QIAsymphony method and tested on PanSolid version 2 are included in this validation analysis, and compared to the ddPCR results for their corresponding Cobas extractions. The QIAsymphony method was validated as the sole DNA extraction method for FFPE tissue at the Manchester GLH in April 2024. A copy number threshold of 5 was used to classify ddPCR results as "amplified" and "non-amplified". There was good agreement between ddPCR and PanSolid, with only 
+`r sum(pansolid_vs_ddpcr_summary$"False negatives") + sum(pansolid_vs_ddpcr_summary$"False positives")`
+discrepant results out of 
+`r sum(pansolid_vs_ddpcr_summary$Samples)`
+samples (@tbl-ddpcr-vs-pansolid) and an overall sensitivity of
+`r ddpcr_pansolid_sensitivity`% (@tbl-ddpcr-vs-pansolid-metrics).
+
+```{r}
 #| label: tbl-ddpcr-vs-pansolid
 #| tbl-cap: "PanSolid comparison to ddPCR"
 #| echo: FALSE
 
-kable(ddpcr_summary |> 
+kable(pansolid_vs_ddpcr_summary |> 
         adorn_totals())
 
 ```
@@ -717,13 +739,6 @@ kable(ddpcr_summary |>
 #| label: tbl-ddpcr-vs-pansolid-metrics
 #| tbl-cap: "Test metrics"
 #| echo: FALSE
-
-ddpcr_pansolid_metrics <- get_epir_metrics(outcome_vector = c(
-  sum(ddpcr_summary$`True positives`),
-  sum(ddpcr_summary$`False positives`),
-  sum(ddpcr_summary$`False negatives`),
-  sum(ddpcr_summary$`True negatives`)
-))
 
 kable(ddpcr_pansolid_metrics)
 
@@ -740,7 +755,7 @@ There was a good correlation in the dosage quantification between the two techni
 #| fig-height: 6.3
 #| fig-width: 6
 
-ddpcr_ngs_plot_1 <- ggplot(ddpcr_vs_pansolid |> 
+ddpcr_ngs_plot_1 <- ggplot(pansolid_vs_ddpcr |> 
                            filter(gene %in% c("BRAF", "EGFR", "MET")), aes(x = cnv, y = pansolid_copy_number)) +
   geom_point(shape = 21) +
   theme_bw() +
@@ -749,7 +764,7 @@ ddpcr_ngs_plot_1 <- ggplot(ddpcr_vs_pansolid |>
   ggpubr::stat_cor(method = "pearson", label.x = 10, label.y = 0)  +
   facet_wrap(~gene, ncol = 2)
 
-ddpcr_ngs_plot_2 <- ggplot(ddpcr_vs_pansolid |> 
+ddpcr_ngs_plot_2 <- ggplot(pansolid_vs_ddpcr |> 
                            filter(gene %in% c("ERBB2", "MYC")), 
                            aes(x = cnv, y = pansolid_copy_number)) +
   geom_point(shape = 21) +
@@ -776,7 +791,7 @@ Three samples had a discordant result from ddPCR when compared to the PanSolid N
 #| tbl-cap: "False negative samples"
 #| echo: FALSE
 
-ddpcr_false_neg_table <- ddpcr_vs_pansolid |> 
+ddpcr_false_neg_table <- pansolid_vs_ddpcr |> 
   filter(outcome == "false_negative") |> 
   mutate(`PanSolid fold change` = round(max_region_fold_change, 1),
          `ddPCR copy number` = round(cnv, 1)) |> 
@@ -1737,7 +1752,11 @@ The PanSolid Excel output provides a clear result of the amplification status fo
 
 **2. Clinical validity: the test should have a defined sensitivity and specificity for these markers, calculated by comparison with an orthogonal test.**
 
-The amplification detection has a sensitivity and specificity of 93.8% and 100% when compared to ddPCR (@sec-results-ddpcr-comparison),and a sensitivity and specificity of 83.3% and 100% when compared to WGS (@sec-results-wgs-comparison).
+The amplification detection has a sensitivity and specificity of 
+`r ddpcr_pansolid_sensitivity`% 
+and 
+`r ddpcr_pansolid_specificity`% 
+when compared to ddPCR (@sec-results-ddpcr-comparison),and a sensitivity and specificity of 83.3% and 100% when compared to WGS (@sec-results-wgs-comparison).
 
 **3. Dosage accuracy: it should be shown how accurate the test is at detecting amplifications of different copy number states, expressed as a correlation between the test and copy numbers from an orthogonal test.**
 
