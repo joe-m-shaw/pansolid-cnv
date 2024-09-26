@@ -1,0 +1,104 @@
+---
+title: "Validation of Detecting Deletions and Loss of Heterozygosity with the PanSolid CLC pipeline"
+format: 
+  docx:
+    reference-doc: north_west_glh_document_template.docx
+    link-citations: true
+toc: true
+toc-title: "Table of Contents"
+bibliography: pansolid_cnv_references.bib
+csl: harvard-manchester-metropolitan-university.csl
+fig-align: "left"
+---
+
+{{< pagebreak >}}
+
+# Authors
+
+Author: Joe Shaw
+
+Project Lead(s): Joe Shaw, Elizabeth Sollars, Eleanor Baker, Helene Schlecht, George Burghel
+
+Date: `r Sys.Date()`
+
+Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
+
+# Acronyms
+
+**CDKN2A**: Cyclin Dependent Kinase iNhibitor 2A
+
+**CDKN2B**: Cyclin Dependent Kinase iNhibitor 2B
+
+**CLC**: Acronym unknown. CLC Bio was acquired by Qiagen in 2013.
+
+**CNV**: Copy Number Variant
+
+**ddPCR**: droplet digital Polymerase Chain Reaction
+
+**DNA**: DeoxyriboNucleic Acid
+
+**FFPE**: Formalin-Fixed Paraffin Embedded
+
+**FISH**: Fluorescent In-Situ Hybridisation
+
+**GLH**: Genomic Laboratory Hub
+
+**IHC**: Immuno-HistoChemistry
+
+**LOH**: Loss Of Heterozygosity
+
+**MMR**: MisMatch Repair
+
+**NCC**: Neoplastic Cell Content
+
+**NGS**: Next Generation Sequencing
+
+**NHS**: National Health Service
+
+**WGS**: Whole Genome Sequencing
+
+# Purpose
+
+# Introduction
+
+## Gene deletions
+
+### *CDKN2A* deletions
+
+*CDKN2A* and *CDKN2B* are adjacent to each other on chromosome 9, separated by roughly 20kb.
+
+The p14ARF protein product of *CDKN2A* plays an important role in cell growth regulation, and deletion of *CDKN2A* can contribute to tumour proliferation (@appay2019).
+
+## Loss of heterozygosity
+
+Loss of heterozygosity (LOH) at mismatch repair (MMR) gene loci has been identified as a pathogenic mechanism in colorectal cancer (@melcher2007). This LOH is frequently copy-neutral, with the allele containing a pathogenic sequence variant being copied in the repair of the damaged wild-type allele. LOH in colorectal cancer may be identified using SNP arrays (@melcher2007, @melcher2011), PCR fragment analysis (@guerts-giele2014) and next generation sequencing.
+
+## Requirements
+
+{{< pagebreak >}}
+
+# Methodology
+
+## Loss of heterozgosity
+
+4 microsatellite repeat markers (22S275, D22S929, NF2CAV and D22S268) on chromosome 22 are used to assess loss of heterozygosity (LOH) for the *NF2* gene with fluorescence-PCR analysed on an ABI-3130 analyser ([LP000069: Neurofibromatosis type 2 (NF2): Standard Operating Procedure]{custom-style="Strong"}).
+We used these samples as proof-of-concept that the PanSolid pipeline can identify regions of LOH.
+
+{{< pagebreak >}}
+
+# Results
+
+{{< pagebreak >}}
+
+# Discussion
+
+{{< pagebreak >}}
+
+# Review of test requirements
+
+# Requirements for clinical implementation
+
+# References
+
+::: {#refs}
+:::
