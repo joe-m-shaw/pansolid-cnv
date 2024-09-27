@@ -362,7 +362,7 @@ pansolid_ws <- read_csv(file = paste0(data_folder,
 
 ```
 
-Samples were tested on version 2 (CDHS-48608Z-11752) of the PanSolid QIAseq enrichment ([DOC5925: QIAseq PanSolid DNA Panel NGS Library Preparation]{custom-style="Strong"}) with 2 × 150 bp paired-end sequencing on an Illumina Novaseq. The NGS data described in this validation document comes from `r length(unique(pansolid_ws$pcrid))` worksheets performed between `r format.Date(x = min(pansolid_ws$date), format = "%B %Y")` and `r format.Date(x = max(pansolid_ws$date), format = "%B %Y")` .
+Samples were tested on version 2 (CDHS-48608Z-11752) of the PanSolid QIAseq enrichment ([DOC5925: QIAseq PanSolid DNA Panel NGS Library Preparation]{custom-style="Strong"}) with 2 × 150 bp paired-end sequencing on an Illumina Novaseq 6000. The NGS data described in this validation document comes from `r length(unique(pansolid_ws$pcrid))` worksheets performed between `r format.Date(x = min(pansolid_ws$date), format = "%B %Y")` and `r format.Date(x = max(pansolid_ws$date), format = "%B %Y")` .
 
 ## Bioinformatic analysis {#sec-methods-bioinformatics}
 
@@ -382,7 +382,9 @@ The CLC Genomics Workbench has 3 "graining levels" which determine the resolutio
 
 **Fine:** most sensitive to CNVs spanning 3 or more targets.
 
-All amplification genes were initially analysed on the "coarse" setting. Preliminary work showed that the coarse setting could not identify *MYC* amplifications in positive controls, as *MYC* has only 3 targets on the PanSolid enrichment (@tbl-amplification-coordinates). The "fine" setting was then used specifically for *MYC* to account for the lower number of QIAseq targets in this gene. *MYCN* was added to the project later, and was also analysed on the "fine" setting.
+All amplification genes were initially analysed on the "coarse" graining level. Preliminary work showed that the coarse graining level could not identify *MYC* amplifications in positive controls, as *MYC* has only 3 targets on the PanSolid enrichment (@tbl-amplification-coordinates). The "fine" graining level was then used specifically for *MYC* to account for the lower number of QIAseq targets in this gene. *MYCN* was added to the project later, and was also analysed on the "fine" graining level. 
+
+When the larger genes were analysed on the "fine" graining level, we frequently observed multiple intra-genic CNV regions with slightly different fold changes. These multiple intra-genic CNV calls were observed in SeraCare reference materials despite the materials containing equal spike-in quantities of each exon, and hence we concluded that the additional calls were the result of sample noise rather than genuine CNV breakpoints. Because of this, we decided to analyse the larger genes on the "coarse" graining level, rather than "fine".
 
 ### Fold change
 
