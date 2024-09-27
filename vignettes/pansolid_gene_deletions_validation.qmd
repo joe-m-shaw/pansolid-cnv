@@ -69,6 +69,12 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
 The p14ARF protein product of *CDKN2A* plays an important role in cell growth regulation, and deletion of *CDKN2A* can contribute to tumour proliferation (@appay2019).
 
+### *PTEN* deletions
+
+*PTEN* has a pseudogene, *PTENP1*, on chromosome 9.
+
+ddPCR primers were designed by targeting minor differences in the PTEN and PTENP1 sequences.
+
 ## Loss of heterozygosity
 
 Loss of heterozygosity (LOH) at mismatch repair (MMR) gene loci has been identified as a pathogenic mechanism in colorectal cancer (@melcher2007). This LOH is frequently copy-neutral, with the allele containing a pathogenic sequence variant being copied in the repair of the damaged wild-type allele. LOH in colorectal cancer may be identified using SNP arrays (@melcher2007, @melcher2011), PCR fragment analysis (@guerts-giele2014) and next generation sequencing.
