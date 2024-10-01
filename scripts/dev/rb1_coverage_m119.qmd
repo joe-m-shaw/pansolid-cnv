@@ -1,0 +1,111 @@
+---
+title: "RB1 coverage on the M119_PAEDEXT panel"
+author: "Joe Shaw, Clinical Scientist (CS20980)"
+date: today
+date-format: "DD/MM/YYYY"
+format: pdf
+editor: visual
+---
+
+```{r}
+#| label: packages-and-source
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+library(here)
+library(patchwork)
+
+source(here("scripts/set_shared_drive_filepath.R"))
+source(here("functions/pansolid_excel_functions.R"))
+
+```
+
+```{r}
+#| label: load-data
+#| include: FALSE
+
+m119_filepaths <- list.files(path = paste0(data_folder, "live_service/raw/"), 
+           full.names = TRUE,
+           recursive = TRUE,
+           pattern = "Annotated_v2M119_PAEDEXT_.+.xlsx")
+
+read_detailed_coverage_tab <- function(file) {
+  
+  x <- readxl::read_excel(path = file,
+                     sheet = 5,
+                     col_types = c("text", "text", "text", 
+                                   "numeric", "numeric", "numeric", "numeric",
+                                   "numeric", "numeric", "numeric", "numeric",
+                                   "numeric", "numeric", "numeric", "numeric",
+                                   "numeric", "numeric")) |> 
+    janitor::clean_names()
+  
+  output <- add_identifiers(file, x)
+  
+  if(anyNA.data.frame(output)){
+    warning("There are NAs in the data frame")
+  }
+  
+  return(output)
+  
+}
+
+m119_data <- m119_filepaths |> 
+  map(\(m119_filepaths) read_detailed_coverage_tab(file = m119_filepaths)) |> 
+  list_rbind()
+
+rb1_data <- m119_data |> 
+  filter(name == "RB1")
+
+```
+
+Here is a plot showing some coverage metrics for *RB1* on the v2M119 PAEDEXT panel. This includes `r length(unique(rb1_data$labno))` samples tested since the PanSolid filenames changed to include the panel name. Results where the panel name is not within the filename are not included.
+
+```{r}
+#| label: plots
+#| echo: FALSE
+#| fig-height: 8
+#| fig-width: 6
+
+rb1_median_plot <- ggplot(rb1_data, aes(x = worksheet, y = median_coverage)) +
+  geom_boxplot() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "", y = "Median coverage per target",
+       title = "RB1 results by worksheet")
+
+rb1_read_count_plot <- ggplot(rb1_data, aes(x = worksheet, y = read_count)) +
+  geom_boxplot() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "", y = "Read count per target")
+
+rb1_base_count_plot <- ggplot(rb1_data, aes(x = worksheet, y = base_count)) +
+  geom_boxplot() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "", y = "Base count per target")
+
+rb1_plot <- rb1_median_plot + rb1_read_count_plot + rb1_base_count_plot +
+  plot_layout(ncol = 1)
+
+rb1_plot
+
+```
+
+{{< pagebreak >}}
+
+Here are the details of the samples:
+
+```{r}
+#| label: rb1-samples
+#| echo: FALSE
+
+rb1_samples <- rb1_data |> 
+  count(worksheet, labno) |> 
+  rename(`Targets` = n)
+
+knitr::kable(rb1_samples)
+
+```
