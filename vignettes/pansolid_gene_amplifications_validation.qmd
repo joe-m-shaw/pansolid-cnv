@@ -797,7 +797,7 @@ ddpcr_ngs_plot
 samples had a discordant result from ddPCR when compared to the PanSolid NGS result. 
 `r sum(pansolid_vs_ddpcr_summary$"False positives")` samples were false positives for *ERBB2* amplifications, which were already detected in the *ERBB2* validation ([DOC6260]{custom-style="Strong"}), and the remaining
 `r sum(pansolid_vs_ddpcr_summary$"False negatives")`
-samples were false negatives. Two of these samples (24002064 and 23033921) had borderline results on both ddPCR and PanSolid NGS. The remaining sample (24037724) had a *MYC* copy number of 9 on ddPCR, with a fold change of only 2.2 detected on PanSolid NGS (@tbl-ddpcr-discordant-results). The whole genome plot for this sample showed a deletion at chromosome 5q, including the location of the *AP3B1* ddPCR reference gene (5q14.1), which probably caused an artificially high ddPCR copy number.
+samples were apparent false negatives. Two of these samples (24002064 and 23033921) had borderline results on both ddPCR and PanSolid NGS. The remaining sample (24037724) had a *MYC* copy number of 9 on ddPCR, with a fold change of only 2.2 detected on PanSolid NGS (@tbl-ddpcr-discordant-results). The whole genome plot for this sample showed a deletion at chromosome 5q, including the location of the *AP3B1* ddPCR reference gene (5q14.1), which probably caused an artificially high ddPCR copy number.
 
 ```{r}
 #| label: tbl-ddpcr-discordant-results
@@ -1046,7 +1046,7 @@ ff_wgs_pansolid_summary <- ff_wgs_pansolid |>
 
 ### WGS discordant results {#sec-wgs-discordant-result}
 
-There was a single false negative result: for sample 24030962, which was extracted using the QIAsymphony method, PanSolid NGS did not detect an amplification for *EGFR*, whilst DNA extracted from fresh frozen tissue form the sample pathology block (23033921) had an *EGFR* amplification of 14 copies detected on NGS. The same DNA from fresh-frozen tissue showed a borderline *EGFR* fold change of 2.7 when tested using PanSolid NGS.
+There was a single apparent false negative result: for sample 24030962, which was extracted using the QIAsymphony method, PanSolid NGS did not detect an amplification for *EGFR*, whilst DNA extracted from fresh frozen tissue form the sample pathology block (23033921) had an *EGFR* amplification of 14 copies detected on WGS along with a chromosome 7 copy number of 6. The same DNA from fresh-frozen tissue showed a borderline *EGFR* fold change of 2.7 when tested using PanSolid NGS.
 
 To investigate this discrepancy, both DNA samples were tested by ddPCR for *EGFR*. The ddPCR showed similar results to PanSolid NGS, with the QIAsymphony-extracted DNA having a normal *EGFR* result whilst the DNA from fresh-frozen tissue had a borderline *EGFR* amplification. This indicates that the discrepancy between the PanSolid NGS result for QIAsymphony-extracted DNA and the WGS result is due to intra-tumour heterogeneity for *EGFR* copy number in the specimens used for DNA extraction.
 
@@ -1106,6 +1106,26 @@ kable(false_neg_collated)
 ```
 
 ![Chromosome 7 for discordant sample viewed on HTML plot. The *EGFR* locus is circled in black, and is visibly different between the FFPE and the fresh tissue extraction.](`r paste0(data_folder, "images/", "egfr_discrepant_result_chr7_view.png")`){#fig-egfr-discrepant-result}
+
+```{r}
+#| label: wgs-comparison-metrics-false-negative-removed
+#| tbl-cap: "PanSolid NGS test metrics versus WGS"
+#| echo: FALSE
+
+adjusted_wgs_pansolid_metrics <-get_epir_metrics(outcome_vector = c(
+  sum(pansolid_vs_wgs_summary$`True positives`),
+  sum(pansolid_vs_wgs_summary$`False positives`),
+  sum(pansolid_vs_wgs_summary$`False negatives`) - 1,
+  sum(pansolid_vs_wgs_summary$`True negatives`)
+))
+
+adjusted_wgs_pansolid_sensitivity <- filter(adjusted_wgs_pansolid_metrics, Metric == "Sensitivity")$`Percentage (%)`
+
+adjusted_wgs_pansolid_specificity <- filter(adjusted_wgs_pansolid_metrics, Metric == "Specificity")$`Percentage (%)`
+
+```
+
+
 
 ### WGS coordinate correlation {#sec-wgs-coordinate-correlation}
 
@@ -1570,154 +1590,212 @@ repeat_all_amp_data <- amp_validation_all_amp_gene_results_collated |>
 ```
 
 ```{r}
-#| label: repeatability-standard-deviation
-#| include: FALSE
-
-repeat_data_fold_change_range <- repeat_all_amp_data |> 
-  filter(max_region_fold_change < 10)
-
-intra_run_summary <- repeat_data_fold_change_range |> 
-  filter(labno_suffix_worksheet %in% intra_run_replicates) |> 
-    group_by(labno, gene) |> 
-    summarise(sd = sd( max_region_fold_change ),
-              max = max( max_region_fold_change ),
-              min = min( max_region_fold_change ),
-              range = max - min,
-              n = n(),
-              z = (n-1)*sd^2)
-  
-intra_pooled_sd <- round(sqrt(sum(intra_run_summary$z) / 
-                            (sum(intra_run_summary$n))), 2)
-
-inter_run_summary <- repeat_data_fold_change_range |> 
-  filter(labno_suffix_worksheet %in% inter_run_replicates) |> 
-    group_by(labno, gene) |> 
-    summarise(sd = sd( max_region_fold_change ),
-              max = max( max_region_fold_change ),
-              min = min( max_region_fold_change ),
-              range = max - min,
-              n = n(),
-              z = (n-1)*sd^2)
-  
-inter_pooled_sd <- round(sqrt(sum(inter_run_summary$z) / 
-                            (sum(inter_run_summary$n))), 2)
-
-
-all_repeats_run_summary <- repeat_data_fold_change_range |> 
-    group_by(labno, gene) |> 
-    summarise(sd = sd( max_region_fold_change ),
-              max = max( max_region_fold_change ),
-              min = min( max_region_fold_change ),
-              range = max - min,
-              n = n(),
-              z = (n-1)*sd^2)
-  
-all_repeats_pooled_sd <- all_repeats_run_summary |> 
-  group_by(gene) |> 
-  summarise(pooled_sd = round(sqrt(sum(z) / 
-                            (sum(n))), 2))
-
-```
-
-There were `r nrow(repeat_noise_data)` replicates for inclusion in the repeat testing study. Sample replicate 24017319c on worksheet WS144291 failed due to poor coverage.
-The pooled standard deviation was calculated using `r nrow(repeat_data_fold_change_range)` data points from the maximum and minimum fold changes for each gene in each sample replicate, excluding the *MYC* results for sample 24027774 . The *MYC* results for sample 24027774 were excluded because the fold changes were all over 75 and there was greater variability (@fig-repeatability).
-The intra-run pooled standard deviation in the fold change range of -2 to 10 was `r intra_pooled_sd`, and the inter-run pooled standard deviation for the same fold change range was `r inter_pooled_sd`. 
-
-For the *MET* and *MYC* amplifications detected, there was no change in the region defined as amplified in any of the repeat replicates (Supplementary Information @fig-24027774-MYC and @fig-24027774-MET). However the region for the *EGFR* amplification in sample 24020998 was reduced on worksheet WS141045 in comparison to other replicates, and two different fold change regions were identified in a pattern similar to *EGFR* vIII (@fig-24020998-EGFR). This sample replicate had the lowest signal-adjusted noise value of the replicates for this patient, and over 99% of the target regions had a coverage exceeding 138X, which could explain why two CNV regions were detected in comparison to the other replicates.
-
-```{r}
-#| label: repeatability-plots
-#| include: FALSE
-
-repeat_plot_all_genes <- ggplot(repeat_all_amp_data, aes(x = gene, y = max_region_fold_change)) +
-  geom_jitter(shape = 21, width = 0.2) +
-  theme_bw() +
-  coord_cartesian(ylim = c(-2, 8)) +
-  scale_y_continuous(breaks = c(seq(-2,8, by = 2))) +
-  geom_hline(yintercept = 2.8, linetype = "dashed") +
-  facet_wrap(~labno, ncol = 1) +
-  labs(x = "", y = "PanSolid fold change")
-
-repeat_plot_24027774_myc <- ggplot(repeat_all_amp_data |> 
-                                 filter(labno %in% c("24027774") &
-                                          gene %in% c("MYC")), aes(x = gene, y = max_region_fold_change)) +
-  geom_jitter(shape = 21, width = 0.2) +
-  theme_bw() +
-  geom_hline(yintercept = 2.8, linetype = "dashed") +
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = "bottom") +
-  scale_y_continuous(limits = c(0, 100),
-                     breaks = seq(0, 100, by = 10)) +
-  facet_wrap(~labno) +
-  labs(x = "", y = "")
-
-repeatability_plot <- repeat_plot_all_genes + repeat_plot_24027774_myc + plot_layout(widths = c(8, 2))
-
-```
-
-```{r}
-#| label: repeatability-plots-with-max-and-min
-#| include: FALSE
+#| label: fig-repeatability-plot-24017319
+#| fig-cap: "The results of repeat replicates for sample 24017319. Both maximum and minimum fold changes for each gene are plotted, and are connected by a black line if they are different values. The solid line shows the fold change threshold of 2.8"
+#| fig-height: 6
+#| fig-width: 6
+#| echo: FALSE
 
 repeat_all_amp_data_long <- repeat_all_amp_data |> 
   pivot_longer(cols = c("max_region_fold_change", "min_region_fold_change"),
                names_to = "fold_change_type",
-               values_to = "fold_change") |> 
-  mutate(gene_labno_suffix_worksheet = str_c(gene, "_", labno_suffix_worksheet)) 
+               values_to = "fold_change")
 
 repeat_plot_24017319 <- repeat_all_amp_data_long |> 
   filter(labno == "24017319") |>
-  ggplot(aes(x = gene_labno_suffix_worksheet, y = fold_change)) +
+  ggplot(aes(x = labno_suffix_worksheet, y = fold_change)) +
+    geom_hline(yintercept = 2.8) +
     geom_line() +
-    geom_point(shape = 21, aes(fill = gene)) +
+    geom_point(shape = 21, size = 2, fill = "white") +
     theme_bw() +
+    coord_cartesian(ylim = c(-2, 4)) +
+    scale_y_continuous(breaks = c(seq(-2,4, by = 2))) +
+    facet_wrap(~gene) +
     theme(axis.text.x = element_blank()) +
-    labs(x = "", y = "Fold change") +
-    coord_cartesian(ylim = c(-2, 8)) +
-    scale_y_continuous(breaks = c(seq(-2,8, by = 2))) +
-    geom_hline(yintercept = 2.8, colour = "red") +
-    geom_hline(yintercept = 1, linetype = "dashed") +
-    geom_hline(yintercept = -1, linetype = "dashed")
+  labs(x = "Replicate", y = "Fold change",
+       title = "Repeat results for 24017319")
 
-repeat_plot_24020998 <- repeat_all_amp_data_long |> 
-  filter(labno == "24020998") |>
-  ggplot(aes(x = gene_labno_suffix_worksheet, y = fold_change)) +
-    geom_line() +
-    geom_point(shape = 21, aes(fill = gene)) +
-    theme_bw() +
-    theme(axis.text.x = element_blank()) +
-    labs(x = "", y = "Fold change") +
-    coord_cartesian(ylim = c(-2, 8)) +
-    scale_y_continuous(breaks = c(seq(-2,8, by = 2))) +
-    geom_hline(yintercept = 2.8, colour = "red") +
-    geom_hline(yintercept = 1, linetype = "dashed") +
-    geom_hline(yintercept = -1, linetype = "dashed")
-
-repeat_plot_24027774 <- repeat_all_amp_data_long |> 
-  filter(labno == "24027774") |>
-  ggplot(aes(x = gene_labno_suffix_worksheet, y = fold_change)) +
-    geom_line() +
-    geom_point(shape = 21, aes(fill = gene)) +
-    theme_bw() +
-    theme(axis.text.x = element_blank()) +
-    labs(x = "", y = "Fold change") +
-    coord_cartesian(ylim = c(-2, 8)) +
-    scale_y_continuous(breaks = c(seq(-2,8, by = 2))) +
-    geom_hline(yintercept = 2.8, colour = "red") +
-    geom_hline(yintercept = 1, linetype = "dashed") +
-    geom_hline(yintercept = -1, linetype = "dashed")
+repeat_plot_24017319
 
 ```
 
 ```{r}
-#| label: fig-repeatability
-#| fig-cap: "Repeatability results: both maximum and minimum fold changes for each gene region are shown. The dashed line shows the PanSolid fold change threshold of 2.8. Fold changes cannot have a value between 1 and -1, hence the absence of results in this region for sample 24017319. The *MYC* results for sample 24027774 is plotted on a facet with a separate axis due to the high fold changes."
-#| fig-width: 6.1
+#| label: fig-repeatability-plot-24020998
+#| fig-cap: "The results of repeat replicates for sample 24020998. Both maximum and minimum fold changes for each gene are plotted. The solid line shows the fold change threshold of 2.8"
+#| fig-height: 6
+#| fig-width: 6
 #| echo: FALSE
 
-repeatability_plot
+repeat_plot_24020998 <- repeat_all_amp_data_long |> 
+  filter(labno == "24020998") |>
+  ggplot(aes(x = labno_suffix_worksheet, y = fold_change)) +
+    geom_hline(yintercept = 2.8) +
+    geom_line() +
+    geom_point(shape = 21, size = 2, fill = "white") +
+    theme_bw() +
+    coord_cartesian(ylim = c(-2, 6)) +
+    scale_y_continuous(breaks = c(seq(-2,6, by = 2))) +
+    facet_wrap(~gene) +
+    theme(axis.text.x = element_blank()) +
+  labs(x = "Replicate", y = "Fold change",
+       title = "Repeat results for 24020998")
+
+repeat_plot_24020998
 
 ```
+
+```{r}
+#| label: fig-repeatability-plot-24027774
+#| fig-cap: "The results of repeat replicates for sample 24027774 Both maximum and minimum fold changes for each gene are plotted. The solid line shows the fold change threshold of 2.8. The Y axis varies between each facet due to the very high fold change values for the *MYC* amplification."
+#| fig-height: 6
+#| fig-width: 6
+#| echo: FALSE
+
+repeat_plot_24027774 <- repeat_all_amp_data_long |> 
+  filter(labno == "24027774") |>
+  ggplot(aes(x = labno_suffix_worksheet, y = fold_change)) +
+    geom_hline(yintercept = 2.8) +
+    geom_line() +
+    geom_point(shape = 21, size = 2, fill = "white") +
+    theme_bw() +
+    facet_wrap(~gene, scales = "free_y") +
+    theme(axis.text.x = element_blank()) +
+  labs(x = "Replicate", y = "Fold change",
+       title = "Repeat results for 24027774")
+
+repeat_plot_24027774
+
+```
+
+```{r}
+#| label: repeatability-standard-deviation
+#| include: FALSE
+
+repeat_data_fold_change_range <- repeat_all_amp_data |> 
+  filter(max_region_fold_change <= 10) |> 
+  # Remove the "empty space" between 1 and -1
+  mutate(fold_change_for_uom = case_when(
+    max_region_fold_change < -1 ~max_region_fold_change +2,
+    TRUE ~max_region_fold_change
+  ))
+
+intra_run_summary <- repeat_data_fold_change_range |> 
+  filter(labno_suffix_worksheet %in% intra_run_replicates) |> 
+    group_by(labno, gene) |> 
+    summarise(sd = sd( fold_change_for_uom ),
+              n = n(),
+              z = (n-1)*sd^2)
+  
+intra_pooled_sd <- round(sqrt(sum(intra_run_summary$z) / 
+                            (sum(intra_run_summary$n))), 3)
+
+inter_run_summary <- repeat_data_fold_change_range |> 
+  filter(labno_suffix_worksheet %in% inter_run_replicates) |> 
+    group_by(labno, gene) |> 
+    summarise(sd = sd( fold_change_for_uom ),
+              n = n(),
+              z = (n-1)*sd^2)
+  
+inter_pooled_sd <- round(sqrt(sum(inter_run_summary$z) / 
+                            (sum(inter_run_summary$n))), 3)
+
+
+all_repeats_run_summary <- repeat_data_fold_change_range |> 
+    group_by(labno, gene) |> 
+    summarise(sd = sd( fold_change_for_uom ),
+              n = n(),
+              max = max(fold_change_for_uom),
+              min = min(fold_change_for_uom),
+              range = max - min,
+              z = (n-1)*sd^2) |> 
+  filter(!is.na(sd))
+  
+all_repeats_pooled_sd <- round(sqrt(sum(all_repeats_run_summary$z) / 
+                            (sum(all_repeats_run_summary$n))), 3)
+
+```
+
+```{r}
+#| label: sd-fold-change-thresholds
+#| include: FALSE
+
+fold_change_threshold <- 2.8
+
+fold_change_uom_upper <- fold_change_threshold + (2 * inter_pooled_sd)
+
+fold_change_uom_lower <- fold_change_threshold - (2 * inter_pooled_sd)
+
+validation_results_with_uom <- amp_validation_all_amp_gene_results_collated |> 
+  mutate(uom_category = case_when(
+    max_region_fold_change > fold_change_uom_upper ~"Amplified",
+    max_region_fold_change < fold_change_uom_lower ~"Not amplified",
+    max_region_fold_change <= fold_change_uom_upper &
+      max_region_fold_change >= fold_change_uom_lower ~"Borderline"))
+
+```
+
+### Fold change uncertainty of measurement
+
+There were `r nrow(repeat_noise_data)` replicates for inclusion in the repeat testing study. Sample replicate 24017319c on worksheet WS144291 failed due to poor coverage.
+
+For the calculation of uncertainty of measurement, the data was altered in the following ways:
+
+- The *MYC* results for sample 24027774 were excluded because the fold changes were all over 75 and there was much greater variability than for lower fold changes. 
+
+- Any fold changes lower than -1 had 2 added. This is because the fold change for amplifications cannot have a value between 1 and -1. Adding 2 to fold changes below -1 was performed to avoid this mathematical constraint being misinterpreted as sample variation.
+
+- The maximum fold change for each gene in each replicate was used.
+
+This left `r nrow(repeat_data_fold_change_range)` data points. 
+Fold changes between genes or samples were not compared, as each gene within each sample will have a different dosage. Instead, the standard deviation of fold change values was calculated for each gene within each sample. The pooled standard deviation for all genes across all samples was then calculated using the method from Harris, Section 8.4, page 211. 
+
+This method calculated the intra-run pooled standard deviation in the fold change range of -2 to 10 as `r intra_pooled_sd`, and the inter-run pooled standard deviation for the same fold change range as `r inter_pooled_sd`. The inter-run standard deviation was chosen as the standard deviation value for the uncertainty of measurement, as it is the most conservative.
+
+Taking the assumption that repeat variation in the measurement of fold change follows a normal distribution, 95% of repeat values would be expected to fall within ± 2 standard deviations of the mean. Consequently, the uncertainty of measurement for a fold change value in the range of -1 to 10 can be taken as ± `r (2*inter_pooled_sd)` (2 x `r inter_pooled_sd`) at a confidence level of 95%. The uncertainty of measurement was used create a "grey zone" of 2 standard deviations around the fold change threshold (@fig-fold-change-uom-plot). 
+
+```{r}
+#| label: tbl-fold-change-uom-categories
+#| include: FALSE
+
+uom_table <- validation_results_with_uom |> 
+  count(uom_category) |> 
+  mutate(percentage = round((n / sum(n))*100, 1)) |> 
+  arrange(desc(uom_category)) |> 
+  adorn_totals() |> 
+  rename("Category" = uom_category,
+         "Replicates" = n,
+         "Percentage" = percentage)
+
+kable(uom_table)
+
+```
+
+```{r}
+#| label: fig-fold-change-uom-plot
+#| fig-cap: "All the fold change results for PanSolid NGS validation samples, coloured by their relation to the fold change threshold with uncertainty of measurement. The solid black line shows the fold change threshold of 2.8, and the dashed lines show the fold change threshold ± 2 standard deviations. The Y axis is -2 to 4 to make the plot clearer - amplifications with fold changes above 4 are not shown."
+#| fig-width: 6
+#| echo: FALSE
+
+fold_change_uom_plot <- ggplot(validation_results_with_uom, aes(x = gene,
+                                                         y = max_region_fold_change)) +
+  geom_hline(yintercept = fold_change_threshold) +
+  geom_hline(yintercept = fold_change_uom_upper, linetype = "dashed") +
+  geom_hline(yintercept = fold_change_uom_lower, linetype = "dashed") +
+  geom_jitter(shape = 21, aes(fill = uom_category), width = 0.2, alpha = 0.6) +
+  scale_fill_manual(values = c("#CC6677", "#888888", "#88CCEE")) +
+  theme_bw() +
+  theme(legend.position = "right",
+        panel.grid = element_blank()) +
+  coord_cartesian(ylim = c(-2, 4)) +
+  labs(fill = "", x = "", y = "Fold change")
+
+fold_change_uom_plot
+
+```
+
+### CNV region variation
+
+For the *MET* and *MYC* amplifications detected, there was no change in the region defined as amplified in any of the repeat replicates (Supplementary Information @fig-24027774-MYC and @fig-24027774-MET). However the region for the *EGFR* amplification in sample 24020998 was reduced on worksheet WS141045 in comparison to other replicates, and two different fold change regions were identified in a pattern similar to *EGFR* vIII (@fig-24020998-EGFR). This sample replicate had the lowest signal-adjusted noise value of the replicates for this patient, and over 99% of the target regions had a coverage exceeding 138X, which could explain why two CNV regions were detected in comparison to the other replicates.
 
 ```{r}
 #| label: fig-24020998-EGFR
@@ -1791,11 +1869,13 @@ poor_quality_results <- amp_validation_pos_cnv_results_collated |>
          `Fold change` = fold_change,
          `Extraction method` = method_name)
 
+number_of_poor_quality_cobas_samples <- nrow(poor_quality_results[poor_quality_results$`Extraction method` == "COBAS",])
+
 ```
 
 Within the poor-quality samples, there were 
 `r nrow(poor_quality_results)`
-gene amplification calls (@tbl-noisy-amplification-calls). The calls in the *ERBB2* and *MDM2* genes had very high fold changes, and result was confirmed on ddPCR and WGS, respectively. In contrast, the remaining calls had low fold change values; inspection of the whole genome plots showed that gene targets were not significantly elevated above their surrounding targets (@fig-sample-23032153-whole-genome). This indicated that these were false positive calls, caused by the high noise in the samples.
+gene amplification calls (@tbl-noisy-amplification-calls). The calls in the *ERBB2* and *MDM2* genes had very high fold changes, and result was confirmed on ddPCR and WGS, respectively. In contrast, the remaining calls had low fold change values; inspection of the whole genome plots showed that gene targets were not significantly elevated above their surrounding targets (@fig-sample-23032153-whole-genome). This indicated that these were false positive calls, caused by the high noise in the samples. Notably, `r number_of_poor_quality_cobas_samples` samples were extracted by the Cobas extraction method, which is no longer used due to the QIAsymphony method providing higher quality DNA ([DOC6255]{custom-style="Strong"}).
 
 ```{r}
 #| label: tbl-noisy-amplification-calls
@@ -1845,6 +1925,10 @@ The limit of detection for the PanSolid NGS workflow is therefore:
 - 6 additional copies with an NCC of 100%
 
 - 12 additional copies with an NCC of 30% for *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2*  *MYCN* and *SMO*, but not for *MYC*.
+
+## Quantification
+
+Add description of copy number thresholds with reference to literature and whether copy number is in relation to the chromosome or ploidy level.
 
 ## Extrapolation to other genes {#sec-extrapolation-to-other-genes}
 
@@ -1902,7 +1986,10 @@ when compared to ddPCR (@sec-results-ddpcr-comparison), and a sensitivity and sp
 `r wgs_pansolid_sensitivity`%
 and
 `r wgs_pansolid_specificity`%
-when compared to WGS (@sec-results-wgs-comparison).
+when compared to WGS (@sec-results-wgs-comparison). One WGS sample had a discordant result that appeared to be due to intra-tumour heterogeneity (@sec-wgs-discordant-result). If this apparent false negative is removed, the sensitivity of PanSolid NGS in comparison to WGS increases to
+`r adjusted_wgs_pansolid_sensitivity`%.
+
+24030962
 
 **3. Dosage accuracy: it should be shown how accurate the test is at detecting amplifications of different copy number states, expressed as a correlation between the test and copy numbers from an orthogonal test.**
 
