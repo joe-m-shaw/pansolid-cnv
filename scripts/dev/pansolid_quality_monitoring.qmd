@@ -106,6 +106,7 @@ percent_138_plot
 
 quality_category_summary <- std_dev_results |> 
   mutate(quality_category = factor(quality_category, levels = c("poor", "sub-optimal", "good"))) |> 
+  arrange(worksheet) |> 
   group_by(quality_category, worksheet) |> 
   summarise(total = n())
 
@@ -299,3 +300,12 @@ reads_percent_plot
 
 ```
 
+```{r}
+#| label: checks
+#| include: FALSE
+
+sapply(list(unique(live_service_percent_138_results_collated$worksheet), 
+            unique(quality_category_summary$worksheet), 
+            unique(std_dev_results$worksheet)), FUN = identical, unique(amp_gene_results$worksheet))
+
+```
