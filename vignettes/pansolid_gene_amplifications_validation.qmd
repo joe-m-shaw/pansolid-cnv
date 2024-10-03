@@ -1126,8 +1126,6 @@ adjusted_wgs_pansolid_specificity <- filter(adjusted_wgs_pansolid_metrics, Metri
 
 ```
 
-
-
 ### WGS coordinate correlation {#sec-wgs-coordinate-correlation}
 
 There were 5 amplifications in the *EGFR* and *MDMD2* genes detected by both WGS and PanSolid. @fig-egfr-wgs-pansolid and @fig-mdm2-wgs-pansolid show that the PanSolid pipeline identified shorter amplified regions than WGS, which correspond to the regions targeted by PanSolid QIAseq primers.
@@ -1289,6 +1287,20 @@ wgs_pansolid_dosage_plot <- ggplot(pansolid_wgs_dosage,
   facet_wrap(~gene)
 
 ```
+
+### Ploidy 
+
+```{r}
+#| label: wgs-ploidy
+#| include: FALSE
+
+wgs_html_ids
+
+```
+
+
+WGS is able to estimate tumour ploidy by comparing tumour WGS results to a matched blood sample. In
+
 
 {{< pagebreak >}}
 
@@ -1585,6 +1597,28 @@ fold_change_uom_plot <- ggplot(validation_results_with_uom, aes(x = gene,
   labs(fill = "", x = "", y = "Fold change")
 
 fold_change_uom_plot
+
+```
+
+```{r}
+#| label: fig-fold-change-uom-plot-zoomed-out
+#| fig-cap: "This figure shows the same plot as @fig-fold-change-uom-plot but includes the full range of fold changes detected."
+#| fig-width: 6
+#| echo: FALSE
+
+fold_change_uom_plot_zoomed_out <- ggplot(validation_results_with_uom, aes(x = gene,
+                                                         y = max_region_fold_change)) +
+  geom_hline(yintercept = fold_change_threshold) +
+  geom_hline(yintercept = fold_change_uom_upper, linetype = "dashed") +
+  geom_hline(yintercept = fold_change_uom_lower, linetype = "dashed") +
+  geom_jitter(shape = 21, aes(fill = uom_category), width = 0.2, alpha = 0.6) +
+  scale_fill_manual(values = c("#CC6677", "#888888", "#88CCEE")) +
+  theme_bw() +
+  theme(legend.position = "right",
+        panel.grid = element_blank()) +
+  labs(fill = "", x = "", y = "Fold change")
+
+fold_change_uom_plot_zoomed_out
 
 ```
 
@@ -1956,6 +1990,10 @@ The limit of detection for the PanSolid NGS workflow is therefore:
 
 Add description of copy number thresholds with reference to literature and whether copy number is in relation to the chromosome or ploidy level.
 
+Comment on ploidy
+
+@boiseelier2018 showed that 11% of glioblastoma cases have whole genome duplication causing tetraploidy.
+
 ## Extrapolation to other genes {#sec-extrapolation-to-other-genes}
 
 ### "Coarse" setting {#sec-discussion-coarse-setting}
@@ -2048,6 +2086,8 @@ This validation has identified the following requirements for the clinical imple
 - Visual inspection of the interactive HTML plots should be performed when there are multiple CNV regions called within the same gene, as this may indicate intra-genic CNVs.
 
 - Analysts should take the uncertainty of measurement into account.
+
+- The method cannot distinguish between ploidy states.
 
 # Conclusion {#ref-conclusion}
 
