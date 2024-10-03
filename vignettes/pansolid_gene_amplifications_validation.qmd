@@ -18,6 +18,7 @@ fig-align: "left"
 
 library(tidyverse)
 library(knitr)
+library(readxl)
 library(here)
 library(patchwork)
 library(janitor)
@@ -1359,6 +1360,47 @@ repeat_all_amp_data <- amp_validation_all_amp_gene_results_collated |>
 ```
 
 ```{r}
+#| label: repeat-worksheet-details
+#| include: FALSE
+
+tech_progress_excel <- read_excel(path = paste0(data_folder, 
+                                                "excel_spreadsheets/",
+                                                "NGS Technical Team Progress Sheet - 2024 August 2024.xlsx"),
+                                  sheet = "QIAseq DNA PanSolid") |> 
+  janitor::clean_names()
+
+repeat_worksheet_details <- tech_progress_excel |> 
+  filter(worksheet_number %in% repeat_all_amp_data$worksheet)
+
+tbl_rpt_worksheets <- repeat_worksheet_details |> 
+  mutate(date_started = str_extract(string = frag_er_a_tail_completed_date,
+                                    pattern = "(^\\d{2}/\\d{2}/\\d{4}).+",
+                                    group = 1),
+         date_completed = str_extract(string = nova_seq_loading_completed_bioinformatics_alerted,
+                                    pattern = "(^\\d{2}/\\d{2}/\\d{4}).+",
+                                    group = 1),
+         nova_seq = ifelse(nova_seq_a_or_b == "A\r\nA", "A", nova_seq_a_or_b)) |> 
+  select(worksheet_number, date_started,
+         date_completed, nova_seq) |>  
+  rename("Worksheet" = worksheet_number,
+         "Date started" = date_started,
+         "Date completed" = date_completed,
+         "NovaSeq" = nova_seq)
+
+```
+
+Samples were tested on `r length(unique(repeat_all_amp_data$worksheet))` worksheets over a period of 3 months, with 5 members of the technical team performing the setup and NGS libraries run on two different NovaSeq instruments (@tbl-repeat-worksheets).
+
+```{r}
+#| label: tbl-repeat-worksheets
+#| tbl-cap: "Details of worksheets with repeat samples"
+#| echo: FALSE
+
+kable(tbl_rpt_worksheets)
+
+```
+
+```{r}
 #| label: fig-repeatability-plot-24017319
 #| fig-cap: "The results of repeat replicates for sample 24017319. Both maximum and minimum fold changes for each gene are plotted, and are connected by a black line if they are different values. The solid line shows the fold change threshold of 2.8"
 #| fig-height: 6
@@ -1436,6 +1478,8 @@ repeat_plot_24027774
 
 ```
 
+### Fold change uncertainty of measurement
+
 ```{r}
 #| label: repeatability-standard-deviation
 #| include: FALSE
@@ -1503,41 +1547,22 @@ validation_results_with_uom <- amp_validation_all_amp_gene_results_collated |>
 
 ```
 
-### Fold change uncertainty of measurement
-
 There were `r nrow(repeat_noise_data)` replicates for inclusion in the repeat testing study. Sample replicate 24017319c on worksheet WS144291 failed due to poor coverage.
 
 For the calculation of uncertainty of measurement, the data was altered in the following ways:
 
-- The *MYC* results for sample 24027774 were excluded because the fold changes were all over 75 and there was much greater variability than for lower fold changes. 
+- The *MYC* results for sample 24027774 were excluded because the fold changes were all over 75 and there was much greater variability than for lower fold changes (@fig-repeatability-plot-24027774). 
 
 - Any fold changes lower than -1 had 2 added. This is because the fold change for amplifications cannot have a value between 1 and -1. Adding 2 to fold changes below -1 was performed to avoid this mathematical constraint being misinterpreted as sample variation.
 
 - The maximum fold change for each gene in each replicate was used.
 
 This left `r nrow(repeat_data_fold_change_range)` data points. 
-Fold changes between genes or samples were not compared, as each gene within each sample will have a different dosage. Instead, the standard deviation of fold change values was calculated for each gene within each sample. The pooled standard deviation for all genes across all samples was then calculated using the method from Harris, Section 8.4, page 211. 
+Fold changes between genes or samples were not compared, as each gene within each sample will have a different dosage. Instead, the standard deviation of fold change values was calculated for each gene within each sample. The pooled standard deviation for all genes across all samples was then calculated using the method from @harris2019 (Section 8.4, page 211). 
 
 This method calculated the intra-run pooled standard deviation in the fold change range of -2 to 10 as `r intra_pooled_sd`, and the inter-run pooled standard deviation for the same fold change range as `r inter_pooled_sd`. The inter-run standard deviation was chosen as the standard deviation value for the uncertainty of measurement, as it is the most conservative.
 
-Taking the assumption that repeat variation in the measurement of fold change follows a normal distribution, 95% of repeat values would be expected to fall within ± 2 standard deviations of the mean. Consequently, the uncertainty of measurement for a fold change value in the range of -1 to 10 can be taken as ± `r (2*inter_pooled_sd)` (2 x `r inter_pooled_sd`) at a confidence level of 95%. The uncertainty of measurement was used create a "grey zone" of 2 standard deviations around the fold change threshold (@fig-fold-change-uom-plot). 
-
-```{r}
-#| label: tbl-fold-change-uom-categories
-#| include: FALSE
-
-uom_table <- validation_results_with_uom |> 
-  count(uom_category) |> 
-  mutate(percentage = round((n / sum(n))*100, 1)) |> 
-  arrange(desc(uom_category)) |> 
-  adorn_totals() |> 
-  rename("Category" = uom_category,
-         "Replicates" = n,
-         "Percentage" = percentage)
-
-kable(uom_table)
-
-```
+Taking the assumption that repeat variation in the measurement of fold change follows a normal distribution, 95% of repeat values would be expected to fall within ± 2 standard deviations of the mean. Consequently, the uncertainty of measurement for a fold change value in the range of -1 to 10 can be taken as ± `r (2*inter_pooled_sd)` (± 2 x `r inter_pooled_sd`) at a confidence level of 95%. The uncertainty of measurement was used create a "grey zone" of 2 standard deviations around the fold change threshold (@fig-fold-change-uom-plot). Out of `r nrow(validation_results_with_uom)` results, only `r nrow(validation_results_with_uom[validation_results_with_uom$uom_category == "Borderline",])` fell within this borderline range.
 
 ```{r}
 #| label: fig-fold-change-uom-plot
@@ -1556,6 +1581,7 @@ fold_change_uom_plot <- ggplot(validation_results_with_uom, aes(x = gene,
   theme(legend.position = "right",
         panel.grid = element_blank()) +
   coord_cartesian(ylim = c(-2, 4)) +
+  scale_y_continuous(breaks = c(-2, 0, 2, 2.8, 4)) +
   labs(fill = "", x = "", y = "Fold change")
 
 fold_change_uom_plot
@@ -2020,6 +2046,8 @@ This validation has identified the following requirements for the clinical imple
 - Visual inspection of the whole genome plots is required to avoid false positive calls, see @sec-results-quality-control.
 
 - Visual inspection of the interactive HTML plots should be performed when there are multiple CNV regions called within the same gene, as this may indicate intra-genic CNVs.
+
+- Analysts should take the uncertainty of measurement into account.
 
 # Conclusion {#ref-conclusion}
 
