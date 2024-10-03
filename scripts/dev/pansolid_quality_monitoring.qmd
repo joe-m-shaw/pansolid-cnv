@@ -6,6 +6,8 @@ date-format: "DD/MM/YYYY"
 format: 
   docx:
     reference-doc: template_landscape.docx
+    fig-height: 5
+    fig-width: 10
 editor: visual
 ---
 
@@ -45,16 +47,14 @@ amp_gene_results <- live_service_amp_gene_results_collated |>
 
 ```{r}
 #| label: fig-noise-plot
-#| fig-cap: "Signal-adjusted noise"
+#| fig-cap: "Signal-adjusted noise. The dashed line shows WS144734 when lot numbers changed."
 #| echo: FALSE
-#| fig-width: 9.5
-#| fig-height: 4.3
 
 noise_plot <- ggplot(std_dev_results, aes(x = worksheet, y = noise)) +
       geom_boxplot() +
       theme_bw() +
   theme(axis.text.x = element_text(angle = 90, size = 6)) +
-      labs(x = "Worksheet", y = "Signal-adjusted noise") +
+      labs(x = "", y = "Signal-adjusted noise") +
   geom_vline(xintercept = "WS144734", linetype = "dashed")
 
 noise_plot
@@ -63,37 +63,145 @@ noise_plot
 
 ```{r}
 #| label: fig-percent-138-plot
+#| fig-cap: "Percentage panel at 138X or higher."
 #| echo: FALSE
-#| fig-width: 9.5
 
 percent_138_plot <- ggplot(live_service_percent_138_results_collated, 
                            aes(x = worksheet, y = percent_whole_panel_covered_at_138x)) +
       geom_boxplot() +
       theme_bw() +
-  theme(axis.text.x = element_blank()) +
-      labs(x = "Worksheet", y = "Percentage panel at 138X or higher") +
+  theme(axis.text.x = element_text(angle = 90, size = 6)) +
+      labs(x = "", y = "Percentage panel at 138X or higher") +
   geom_vline(xintercept = "WS144734", linetype = "dashed")
 
 percent_138_plot
 
 ```
 
+```{r}
+#| label: fig-result-categories
+#| fig-cap: "Result quality categories"
+#| echo: FALSE
+#| warning: FALSE
+
+quality_category_summary <- std_dev_results |> 
+  mutate(quality_category = factor(quality_category, levels = c("poor", "sub-optimal", "good"))) |> 
+  group_by(quality_category, worksheet) |> 
+  summarise(total = n())
+
+ggplot(quality_category_summary, aes(x = worksheet, y = total)) +
+      geom_col(aes(fill = quality_category)) +
+      scale_fill_manual(values = c("#D55E00", "#E69F00","#009E73")) +
+      theme_bw() +
+      theme(axis.text.x = element_text(angle = 90, size = 6),
+            legend.position = "bottom") +
+      labs(x = "", y = "Number of samples",
+           title = "Quality categories of noise by worksheet",
+           subtitle = "Sub-optimal noise threshold: 0.7; poor noise threshold: 1",
+           fill = "") +
+  geom_vline(xintercept = "WS144734", linetype = "dashed")
+
+```
 
 ```{r}
-#| label: fig-gene-plot
-#| fig-height: 15
-#| fig-width: 9.5
-#| echo: FALSE
+#| label: plot-function
+#| include: FALSE
 
-gene_plot <- ggplot(amp_gene_results |> 
-         filter(max_region_fold_change < 10), aes(x = worksheet, y = max_region_fold_change)) +
+make_qc_gene_plot <- function(input_gene) {
+  
+  plot <- ggplot(amp_gene_results |> 
+         filter(max_region_fold_change < 10 & gene == input_gene), 
+         aes(x = worksheet, y = max_region_fold_change)) +
       geom_boxplot() +
       theme_bw() +
-  theme(axis.text.x = element_text(angle = 90)) +
-      labs(x = "", y = "Fold change") +
-  geom_vline(xintercept = "WS144734", linetype = "dashed") +
-  facet_wrap(~gene, ncol = 1)
+      theme(axis.text.x = element_text(angle = 90, size = 6)) +
+      labs(x = "", y = "Fold change",
+           title = str_c(input_gene, " results")) +
+      geom_vline(xintercept = "WS144734", linetype = "dashed")
 
-gene_plot
+  return(plot)
+
+}
+
+```
+
+```{r}
+#| label: fig-alk-plot
+#| fig-cap: "ALK results"
+#| echo: FALSE
+
+make_qc_gene_plot("ALK")
+
+```
+
+```{r}
+#| label: fig-arid1a-plot
+#| fig-cap: "ARID1A results"
+#| echo: FALSE
+
+make_qc_gene_plot("ARID1A")
+
+```
+
+```{r}
+#| label: fig-braf-plot
+#| fig-cap: "BRAF results"
+#| echo: FALSE
+
+make_qc_gene_plot("BRAF")
+
+```
+
+```{r}
+#| label: fig-ctnnb1-plot
+#| fig-cap: "CTNNB1 results"
+#| echo: FALSE
+
+make_qc_gene_plot("CTNNB1")
+
+```
+
+```{r}
+#| label: fig-egfr-plot
+#| fig-cap: "EGFR results"
+#| echo: FALSE
+
+make_qc_gene_plot("EGFR")
+
+```
+
+```{r}
+#| label: fig-erbb2-plot
+#| fig-cap: "ERBB2 results"
+#| echo: FALSE
+
+make_qc_gene_plot("ERBB2")
+
+```
+
+```{r}
+#| label: fig-met-plot
+#| fig-cap: "MET results"
+#| echo: FALSE
+
+make_qc_gene_plot("MET")
+
+```
+
+```{r}
+#| label: fig-myc-plot
+#| fig-cap: "MYC results"
+#| echo: FALSE
+
+make_qc_gene_plot("MYC")
+
+```
+
+```{r}
+#| label: fig-sufu-plot
+#| fig-cap: "SUFU results"
+#| echo: FALSE
+
+make_qc_gene_plot("SUFU")
 
 ```
