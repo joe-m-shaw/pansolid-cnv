@@ -98,6 +98,13 @@ wgs_tumour_details <- wgs_htmls |>
   rename(wgs_pathno = histopathology_or_sihmds_lab_id) |> 
   select(filepath, wgs_pathno)
 
+wgs_tumour_samples <- wgs_htmls |> 
+  map(\(wgs_htmls) parse_wgs_html_table_by_div_id(
+    html_filepath = wgs_htmls, 
+    div_id = "t_tumour_sample")) |> 
+  list_rbind() |> 
+  select(filepath, calculated_overall_ploidy, calculated_chromosome_count, calculated_tumour_content)
+
 if(anyNA.data.frame(wgs_pids)) {
   stop("NA values in WGS patient IDs")
 }
@@ -127,7 +134,8 @@ wgs_pathway_tracker_dna_no_df <- wgs_pathway_tracker |>
 wgs_html_ids <- inner_join(x = wgs_headers, y = wgs_pids, by = "filepath") |> 
   left_join(wgs_pathway_tracker_dna_no_df, join_by("wgs_r_no" == "ngis_referral_id"),
             relationship = "one-to-one") |> 
-  left_join(wgs_tumour_details, by = "filepath")
+  left_join(wgs_tumour_details, by = "filepath") |> 
+  left_join(wgs_tumour_samples, by = "filepath")
 
 # Export collated information -------------------------------------------------------
 
