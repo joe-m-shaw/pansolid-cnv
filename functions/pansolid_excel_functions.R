@@ -28,9 +28,6 @@ parse_filename <- function(input_file, input_group) {
   output <- stringr::str_extract(input_file, filename_regex,
                         group = input_group)
   
-  if (is.na(output)) stop("NA in filename parsing",
-                          call. = FALSE)
-  
   return(output)
   
 }
