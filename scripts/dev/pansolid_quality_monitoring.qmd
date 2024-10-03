@@ -1,0 +1,99 @@
+---
+title: "PanSolid Quality Monitoring"
+author: "Joe Shaw, Clinical Scientist (CS20980)"
+date: today
+date-format: "DD/MM/YYYY"
+format: 
+  docx:
+    reference-doc: template_landscape.docx
+editor: visual
+---
+
+```{r}
+#| label: packages-and-scripts
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+library(here)
+
+source(here("scripts/load_processed_live_service_data.R"))
+
+```
+
+```{r}
+#| label: prepare-data
+#| include: FALSE
+
+std_dev_results <- live_service_std_dev_results_collated |> 
+  rename(noise = st_dev_signal_adjusted_log2_ratios) |> 
+  mutate(quality_category = case_when(
+    noise >= 1 ~"poor",
+    noise < 1 & noise >= 0.7 ~"sub-optimal",
+    noise < 0.7 ~"good"
+  ),
+  worksheet_number = as.numeric(str_extract(string = worksheet,
+                                 pattern = "WS(\\d{6})",
+                                 group = 1)))
+
+amp_gene_results <- live_service_amp_gene_results_collated |> 
+  mutate(worksheet_number = as.numeric(str_extract(string = worksheet,
+                                 pattern = "WS(\\d{6})",
+                                 group = 1)))
+
+```
+
+```{r}
+#| label: fig-noise-plot
+#| fig-cap: "Signal-adjusted noise"
+#| echo: FALSE
+#| fig-width: 9.5
+#| fig-height: 4.3
+
+noise_plot <- ggplot(std_dev_results, aes(x = worksheet, y = noise)) +
+      geom_boxplot() +
+      theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, size = 6)) +
+      labs(x = "Worksheet", y = "Signal-adjusted noise") +
+  geom_vline(xintercept = "WS144734", linetype = "dashed")
+
+noise_plot
+
+```
+
+```{r}
+#| label: fig-percent-138-plot
+#| echo: FALSE
+#| fig-width: 9.5
+
+percent_138_plot <- ggplot(live_service_percent_138_results_collated, 
+                           aes(x = worksheet, y = percent_whole_panel_covered_at_138x)) +
+      geom_boxplot() +
+      theme_bw() +
+  theme(axis.text.x = element_blank()) +
+      labs(x = "Worksheet", y = "Percentage panel at 138X or higher") +
+  geom_vline(xintercept = "WS144734", linetype = "dashed")
+
+percent_138_plot
+
+```
+
+
+```{r}
+#| label: fig-gene-plot
+#| fig-height: 15
+#| fig-width: 9.5
+#| echo: FALSE
+
+gene_plot <- ggplot(amp_gene_results |> 
+         filter(max_region_fold_change < 10), aes(x = worksheet, y = max_region_fold_change)) +
+      geom_boxplot() +
+      theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+      labs(x = "", y = "Fold change") +
+  geom_vline(xintercept = "WS144734", linetype = "dashed") +
+  facet_wrap(~gene, ncol = 1)
+
+gene_plot
+
+```
