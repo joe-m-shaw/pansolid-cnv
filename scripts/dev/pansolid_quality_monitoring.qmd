@@ -1,8 +1,5 @@
 ---
 title: "PanSolid Quality Monitoring"
-author: "Joe Shaw, Clinical Scientist (CS20980)"
-date: today
-date-format: "DD/MM/YYYY"
 format: 
   docx:
     reference-doc: template_landscape.docx
@@ -18,6 +15,7 @@ editor: visual
 library(tidyverse)
 library(readxl)
 library(here)
+library(janitor)
 
 source(here("scripts/load_processed_live_service_data.R"))
 
@@ -43,7 +41,29 @@ amp_gene_results <- live_service_amp_gene_results_collated |>
                                  pattern = "WS(\\d{6})",
                                  group = 1)))
 
+ngs_progress_sheet <- read_excel(path = paste0("S:/central shared/Genetics/Repository/Technical Teams/NGS/",
+                                               "NGS Technical Team Progress Sheet - 2024 August 2024.xlsx"),
+                                 sheet = "QIAseq DNA PanSolid") |> 
+  clean_names()
+
+number_regex <- "(\\d{1,3}|\\d{1,3}.\\d{1,2})"
+
+ngs_progress_sheet_clean <- ngs_progress_sheet |> 
+  filter(!is.na(worksheet_number)) |> 
+  mutate(percent_q30_number = as.numeric(str_extract(string = percent_q30,
+                                                     pattern = number_regex)),
+         cluster_pf_percent_number = as.numeric(str_extract(string = cluster_pf_percent,
+                                                     pattern = number_regex)),
+         indexing_percent_reads_identified_number = as.numeric(str_extract(string = indexing_percent_reads_identified,
+                                                     pattern = number_regex))) |> 
+  rename(worksheet = worksheet_number) |> 
+  mutate(worksheet_number = as.numeric(str_extract(string = worksheet,
+                                 pattern = "WS(\\d{6})",
+                                 group = 1)))
+  
 ```
+
+# Quality Metrics from PanSolid Ouput
 
 ```{r}
 #| label: fig-noise-plot
@@ -51,10 +71,10 @@ amp_gene_results <- live_service_amp_gene_results_collated |>
 #| echo: FALSE
 
 noise_plot <- ggplot(std_dev_results, aes(x = worksheet, y = noise)) +
-      geom_boxplot() +
-      theme_bw() +
+  geom_boxplot() +
+  theme_bw() +
   theme(axis.text.x = element_text(angle = 90, size = 6)) +
-      labs(x = "", y = "Signal-adjusted noise") +
+  labs(x = "", y = "Signal-adjusted noise") +
   geom_vline(xintercept = "WS144734", linetype = "dashed")
 
 noise_plot
@@ -68,11 +88,11 @@ noise_plot
 
 percent_138_plot <- ggplot(live_service_percent_138_results_collated, 
                            aes(x = worksheet, y = percent_whole_panel_covered_at_138x)) +
-      geom_boxplot() +
-      theme_bw() +
-  theme(axis.text.x = element_text(angle = 90, size = 6)) +
-      labs(x = "", y = "Percentage panel at 138X or higher") +
-  geom_vline(xintercept = "WS144734", linetype = "dashed")
+                           geom_boxplot() +
+                           theme_bw() +
+                           theme(axis.text.x = element_text(angle = 90, size = 6)) +
+                           labs(x = "", y = "Percentage panel at 138X or higher") +
+                           geom_vline(xintercept = "WS144734", linetype = "dashed")
 
 percent_138_plot
 
@@ -102,6 +122,8 @@ ggplot(quality_category_summary, aes(x = worksheet, y = total)) +
   geom_vline(xintercept = "WS144734", linetype = "dashed")
 
 ```
+
+# Gene Fold Changes
 
 ```{r}
 #| label: plot-function
@@ -205,3 +227,75 @@ make_qc_gene_plot("MYC")
 make_qc_gene_plot("SUFU")
 
 ```
+
+# Quality Metrics from NGS Progress Excel
+
+```{r}
+#| label: fig-percent-q30
+#| fig-cap: "Percentage Q30"
+#| echo: FALSE
+
+percent_q30_plot <- ggplot(ngs_progress_sheet_clean |> 
+         filter(!is.na(percent_q30_number)) |> 
+         filter(worksheet_number >= min(std_dev_results$worksheet_number)), 
+       aes(x = worksheet, y = percent_q30_number)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+      theme(axis.text.x = element_text(angle = 90, size = 6)) +
+  labs(x = "", y = "Percentage Q30",
+       title = "Percentage Q30 from NGS progress sheet",
+       subtitle = "Note: repeat runs not included.") +
+  geom_vline(xintercept = "WS144734", linetype = "dashed") +
+  scale_y_continuous(limits = c(50, 100),
+                     breaks = seq(50, 100, by = 10))
+
+percent_q30_plot
+
+```
+
+```{r}
+#| label: fig-cluster-pf-percent
+#| fig-cap: "Cluster percent"
+#| echo: FALSE
+
+cluster_pf_plot <- ggplot(ngs_progress_sheet_clean |> 
+         filter(!is.na(cluster_pf_percent_number)) |> 
+         filter(worksheet_number >= min(std_dev_results$worksheet_number)), 
+       aes(x = worksheet, y = cluster_pf_percent_number)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+      theme(axis.text.x = element_text(angle = 90, size = 6)) +
+  labs(x = "", y = "Cluster passing filter percentage",
+       title = "Cluster passing filter percentage from NGS progress sheet",
+       subtitle = "Note: repeat runs not included.") +
+  geom_vline(xintercept = "WS144734", linetype = "dashed") +
+  scale_y_continuous(limits = c(30, 100),
+                     breaks = seq(30, 100, by = 10))
+
+cluster_pf_plot
+
+```
+
+```{r}
+#| label: fig-indexing-percent-reads-identified
+#| fig-cap: "Percentage indexed reads identified"
+#| echo: FALSE
+
+reads_percent_plot <- ggplot(ngs_progress_sheet_clean |> 
+         filter(!is.na(cluster_pf_percent_number)) |> 
+         filter(worksheet_number >= min(std_dev_results$worksheet_number)), 
+       aes(x = worksheet, y = indexing_percent_reads_identified_number)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+      theme(axis.text.x = element_text(angle = 90, size = 6)) +
+  labs(x = "", y = "Percentage of indexed reads identified",
+       title = "Percentage of indexed reads identified from NGS progress sheet",
+       subtitle = "Note: repeat runs not included.") +
+  geom_vline(xintercept = "WS144734", linetype = "dashed") +
+  scale_y_continuous(limits = c(50, 100),
+                     breaks = seq(50, 100, by = 10))
+
+reads_percent_plot
+
+```
+
