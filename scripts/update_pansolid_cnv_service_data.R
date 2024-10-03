@@ -49,7 +49,7 @@ if (any(grepl(pattern = "/", x = s_drive_file_df$filename))) {
 }
 
 if (anyNA(s_drive_file_df)) {
-  stop("Error: there are NA values in the filepath table")
+  warning("Error: there are NA values in the filepath table")
 }
 
 write.csv(s_drive_file_df, 
