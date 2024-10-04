@@ -1294,13 +1294,23 @@ wgs_pansolid_dosage_plot <- ggplot(pansolid_wgs_dosage,
 #| label: wgs-ploidy
 #| include: FALSE
 
-wgs_html_ids
+diploid_wgs <- wgs_html_ids |> 
+  filter(nhsno %in% pansolid_vs_wgs_amps_selection$nhsno) |> 
+  filter(calculated_overall_ploidy < 4)
+
+diploid_max <- max(diploid_wgs$calculated_overall_ploidy)
+
+diploid_min <- min(diploid_wgs$calculated_overall_ploidy)
+
+tetraploid_wgs <- wgs_html_ids |> 
+  filter(nhsno %in% pansolid_vs_wgs_amps_selection$nhsno) |> 
+  filter(calculated_overall_ploidy > 4)
 
 ```
 
+In `r nrow(diploid_wgs)` WGS samples the tumours appeared to be diploid, with ploidy estimates from the Canvas software ranging from `r diploid_min` to `r diploid_max`. However, `r nrow(tetraploid_wgs)` samples the ploidy was approximately 4 (fresh frozen DNA extractions: 23018367 and 23033921, QIAsymphony DNA extractions: 24030951 and 24030962), indicating tetraploid genomes. The results for one sample are shown in @fig-tetraploid-genome.
 
-WGS is able to estimate tumour ploidy by comparing tumour WGS results to a matched blood sample. In
-
+![Comparison of results from WGS and PanSolid NGS for a tetraploid tumour sample. The WGS result (top) identified the base chromosome count as 4, with 90% tumour cell content. Convsersely, PanSolid NGS does not currently detect different ploidy states.](`r paste0(data_folder, "images/", "tetraploid_genome_comparison.png")`){#fig-tetraploid-genome}
 
 {{< pagebreak >}}
 
@@ -1986,13 +1996,14 @@ The limit of detection for the PanSolid NGS workflow is therefore:
 
 - 12 additional copies with an NCC of 30% for *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2*  *MYCN* and *SMO*, but not for *MYC*.
 
-## Quantification
+## Copy number and ploidy
+
+The copy number of a gene is 
 
 Add description of copy number thresholds with reference to literature and whether copy number is in relation to the chromosome or ploidy level.
 
-Comment on ploidy
-
-@boiseelier2018 showed that 11% of glioblastoma cases have whole genome duplication causing tetraploidy.
+In the validation cohort, 2 glioblastoma samples had ploidy levels of 4 calculated by WGS.
+@boisselier2018 showed that 11% of glioblastoma cases have whole genome duplication causing tetraploidy.
 
 ## Extrapolation to other genes {#sec-extrapolation-to-other-genes}
 
@@ -2032,6 +2043,9 @@ This validation has the following limitations:
 
 - Limit of detection studies were performed using SeraCare controls, which include artificial gene construct spike-ins and may not perfectly mimic the behaviour of clinical FFPE samples.
 
+The test has the following limitations:
+
+- Tetraploid genomes can impact copy number calculations.
 # Review of test requirements {#sec-discussion-test-requirements-review}
 
 The test requirements specified in @sec-requirements have been met:
