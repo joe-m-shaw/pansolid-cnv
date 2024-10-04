@@ -1519,20 +1519,22 @@ intra_run_summary <- repeat_data_fold_change_range |>
     group_by(labno, gene) |> 
     summarise(sd = sd( fold_change_for_uom ),
               n = n(),
+              n_1 = n-1,
               z = (n-1)*sd^2)
   
 intra_pooled_sd <- round(sqrt(sum(intra_run_summary$z) / 
-                            (sum(intra_run_summary$n))), 3)
+                            (sum(intra_run_summary$n_1))), 3)
 
 inter_run_summary <- repeat_data_fold_change_range |> 
   filter(labno_suffix_worksheet %in% inter_run_replicates) |> 
     group_by(labno, gene) |> 
     summarise(sd = sd( fold_change_for_uom ),
               n = n(),
-              z = (n-1)*sd^2)
+              n_1 = n-1,
+              z = (n_1)*sd^2)
   
 inter_pooled_sd <- round(sqrt(sum(inter_run_summary$z) / 
-                            (sum(inter_run_summary$n))), 3)
+                            (sum(inter_run_summary$n_1))), 3)
 
 
 all_repeats_run_summary <- repeat_data_fold_change_range |> 
@@ -1542,11 +1544,12 @@ all_repeats_run_summary <- repeat_data_fold_change_range |>
               max = max(fold_change_for_uom),
               min = min(fold_change_for_uom),
               range = max - min,
+              n_1 = n-1,
               z = (n-1)*sd^2) |> 
   filter(!is.na(sd))
   
 all_repeats_pooled_sd <- round(sqrt(sum(all_repeats_run_summary$z) / 
-                            (sum(all_repeats_run_summary$n))), 3)
+                            (sum(all_repeats_run_summary$n_1))), 3)
 
 ```
 
