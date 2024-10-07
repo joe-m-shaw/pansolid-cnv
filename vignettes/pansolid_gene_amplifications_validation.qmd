@@ -100,13 +100,13 @@ The purpose of this document is to describe the validation of detection of somat
 
 source(here("scripts/set_shared_drive_filepath.R"))
 
-#source(here("scripts/collate_pansolid_cnv_service_data.R"))
+source(here("scripts/collate_gene_transcript_information.R"))
 
-#source(here("scripts/collate_wgs_htmls.R"))
+source(here("scripts/collate_wgs_htmls.R"))
 
-#source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
+source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
 
-#source(here("scripts/collate_pansolid_excel_validation_data.R"))
+source(here("scripts/collate_pansolid_excel_validation_data.R"))
 
 source(here("scripts/load_processed_validation_data.R"))
 
@@ -2098,6 +2098,8 @@ This validation has identified the following requirements for the clinical imple
 - Staff should account for the uncertainty of measurement within their analysis of results. When CNV regions are identified within the fold change range of `r 2.8-(2*inter_pooled_sd)` to `r 2.8+(2*inter_pooled_sd)`, professional judgement should be exercised as to how to report these results.
 
 - The information provided on reports for this test should be updated to include the limit of detection, and the limitation that the method cannot distinguish between all ploidy states.
+
+- In future, amplification detection may be required for additional genes on the PanSolid v2 enrichment (CDHS-48608Z-11752). If these genes have greater than 11 targets, they can be added to the analysis pipeline with the "coarse" graining level without the requirement for additional validation work. The pipeline sensitivity and specificity for these new genes can be assumed to be the same as the sensitivity and specificity valus provided in this validation document (@sec-discussion-coarse-setting).  
 
 # Conclusion {#ref-conclusion}
 
