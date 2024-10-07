@@ -13,7 +13,7 @@ source(here("functions/wgs_html_functions.R"))
 # WGS HTML filepaths ----------------------------------------------------------------
 
 wgs_htmls <- list.files(path = paste0(data_folder, 
-                                      "validation/raw/wgs/"),
+                                      "validation/raw/wgs_amplifications/"),
                         full.names = TRUE,
                         pattern = "*.html")
 
