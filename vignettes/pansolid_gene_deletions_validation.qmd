@@ -57,9 +57,65 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
 **WGS**: Whole Genome Sequencing
 
+```{r}
+#| label: packages
+#| warning: FALSE
+#| include: FALSE
+
+library(tidyverse)
+library(knitr)
+library(here)
+library(janitor)
+
+source(here("scripts/set_shared_drive_filepath.R"))
+source(here("functions/gene_table_functions.R"))
+
+```
+
+
+```{r}
+#| label: targets
+#| include: FALSE
+#| warning: FALSE
+
+target_df <- read_csv(paste0(data_folder,
+                             "bed_files/PanSolidv2_GRCh38_noalt_BED.csv")) |> 
+  clean_names() |> 
+  mutate(target_type = case_when(
+    
+    grepl(x = name, pattern =  "chr(\\d{1,2}|X):\\d{1,3}.+") == TRUE ~"genomic backbone",
+    TRUE ~"gene target"
+  ))
+
+del_genes <- load_pansolid_gene_table("Deletions")
+
+gene_target_counts <- target_df |> 
+  filter(name %in% del_genes$gene) |> 
+  count(name) |>
+  mutate("Predicted CLC setting" = case_when(
+    n < 10 ~"Fine",
+    n >= 10 ~"Coarse"
+  )) |> 
+  rename("Number of targets" = n,
+         "Gene" = name) 
+
+```
+
+{{< pagebreak >}}
+
 # Purpose
 
 # Introduction
+
+```{r}
+#| label: tbl-deletion-gene-targets
+#| tbl-cap: "Genes on the deletion list"
+#| echo: FALSE
+
+kable(gene_target_counts)
+
+```
+
 
 ## Gene deletions
 
@@ -89,6 +145,8 @@ Loss of heterozygosity (LOH) at mismatch repair (MMR) gene loci has been identif
 
 4 microsatellite repeat markers (22S275, D22S929, NF2CAV and D22S268) on chromosome 22 are used to assess loss of heterozygosity (LOH) for the *NF2* gene with fluorescence-PCR analysed on an ABI-3130 analyser ([LP000069: Neurofibromatosis type 2 (NF2): Standard Operating Procedure]{custom-style="Strong"}).
 We used these samples as proof-of-concept that the PanSolid pipeline can identify regions of LOH.
+
+The Genomics England cancer pipeline estimates tumour content using the Ccube algorith (Ke Yuan et al (2018))
 
 {{< pagebreak >}}
 
