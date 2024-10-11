@@ -102,15 +102,17 @@ source(here("scripts/set_shared_drive_filepath.R"))
 
 source(here("scripts/collate_gene_transcript_information.R"))
 
-#source(here("scripts/collate_wgs_htmls.R"))
+source(here("scripts/collate_wgs_htmls.R"))
 
-#source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
+source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
 
-#source(here("scripts/collate_pansolid_excel_validation_data.R"))
+source(here("scripts/collate_pansolid_excel_validation_data.R"))
+
+# This script collect patient information but requires an ODBC connection to the
+# DNA Database mirror
+# source(here("scripts/get_patient_information_from_dna_db.R"))
 
 source(here("scripts/load_processed_validation_data.R"))
-
-source(here("scripts/get_patient_information_from_dna_db.R"))
 
 ```
 
@@ -805,6 +807,8 @@ samples had a discordant result from ddPCR when compared to the PanSolid NGS res
 `r sum(pansolid_vs_ddpcr_summary$"False negatives")`
 samples were apparent false negatives. Two of these samples (24002064 and 23033921) had borderline results on both ddPCR and PanSolid NGS. The remaining sample (24037724) had a *MYC* copy number of 9 on ddPCR, with a fold change of only 2.2 detected on PanSolid NGS (@tbl-ddpcr-discordant-results). The whole genome plot for this sample showed a deletion at chromosome 5q, including the location of the *AP3B1* ddPCR reference gene (5q14.1), which probably caused an artificially high ddPCR copy number (@fig-sample-24037724-whole-genome).
 
+{{< pagebreak >}}
+
 ```{r}
 #| label: tbl-ddpcr-discordant-results
 #| tbl-cap: "False negative samples"
@@ -1429,7 +1433,7 @@ kable(tbl_rpt_worksheets)
 
 ```{r}
 #| label: fig-repeatability-plot-24017319
-#| fig-cap: "The results of repeat replicates for sample 24017319. Both maximum and minimum fold changes for each gene are plotted, and are connected by a vertical black line if they are different values. The solid line shows the fold change threshold of 2.8"
+#| fig-cap: "The results of repeat replicates for sample 24017319. Both maximum and minimum fold changes for each gene are plotted, and are connected by a vertical black line if they are different values. The solid line shows the fold change threshold of 2.8."
 #| fig-height: 6
 #| fig-width: 6
 #| echo: FALSE
@@ -1459,7 +1463,7 @@ repeat_plot_24017319
 
 ```{r}
 #| label: fig-repeatability-plot-24020998
-#| fig-cap: "The results of repeat replicates for sample 24020998. Both maximum and minimum fold changes for each gene are plotted. The solid line shows the fold change threshold of 2.8"
+#| fig-cap: "The results of repeat replicates for sample 24020998. Both maximum and minimum fold changes for each gene are plotted. The solid line shows the fold change threshold of 2.8."
 #| fig-height: 6
 #| fig-width: 6
 #| echo: FALSE
@@ -1678,7 +1682,6 @@ seracare_ids <- amp_validation_all_amp_gene_results_collated |>
                filter(!duplicated(reference_material)) |> 
                select(reference_material),
              join_by("patient_name" == "reference_material"))
-
 
 seracare_ngs_comparison <- amp_validation_all_amp_gene_results_collated |> 
   # Remove limit of detection samples
@@ -2103,6 +2106,8 @@ This validation has identified the following requirements for the clinical imple
 
 - In future, amplification detection may be required for additional genes on the PanSolid v2 enrichment (CDHS-48608Z-11752). If these genes have greater than 11 targets, they can be added to the analysis pipeline with the "coarse" graining level without the requirement for additional validation work. The pipeline sensitivity and specificity for these new genes can be assumed to be the same as the sensitivity and specificity valus provided in this validation document (@sec-discussion-coarse-setting).  
 
+- Longitudinal monitoring of test metrics, including the the signal-adjusted noise quality metric and the gene amplifications detected, should be initiated and regularly reviewed to allow auditing of test performance over time.
+
 # Conclusion {#ref-conclusion}
 
 The PanSolid NGS workflow and CLC pipeline has been validated for the detected of gene amplifications in *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* *MYC*, *MYCN* and *SMO* at the North West GLH.
@@ -2132,6 +2137,14 @@ all_amp_gene_results_for_qpulse <- amp_validation_all_amp_gene_results_collated 
   select(-patient_name) |> 
   relocate(filepath, .after = last_col())
 
+colnames(all_amp_gene_results_for_qpulse)
+
+if(any(all_amp_gene_results_for_qpulse$neoplastic_cell_content == "Error") |
+   any(all_amp_gene_results_for_qpulse$dna_extraction_method == "Error") |
+   any(all_amp_gene_results_for_qpulse$cancer_tissue_source == "Error")){
+  stop("Error values in the QPulse table")
+}
+
 # Table 2 - positive CNV results with sample and quality information
 pos_cnv_results_for_qpulse <- amp_validation_pos_cnv_results_collated |> 
   left_join(sample_ids_for_qpulse, by = "labno", 
@@ -2146,10 +2159,18 @@ pos_cnv_results_for_qpulse <- amp_validation_pos_cnv_results_collated |>
   select(-patient_name) |> 
   relocate(filepath, .after = last_col())
 
-write.csv(x = all_amp_gene_results_for_qpulse, file = "all_amp_gene_results_for_qpulse.csv",
+if(any(pos_cnv_results_for_qpulse$neoplastic_cell_content == "Error") |
+   any(pos_cnv_results_for_qpulse$dna_extraction_method == "Error") |
+   any(pos_cnv_results_for_qpulse$cancer_tissue_source == "Error")){
+  stop("Error values in the QPulse table")
+}
+
+write.csv(x = all_amp_gene_results_for_qpulse, file = paste0(outputs_folder,
+                                                             "all_amp_gene_results_for_qpulse.csv"),
           row.names = FALSE)
 
-write.csv(x = pos_cnv_results_for_qpulse, file = "pos_cnv_results_for_qpulse",
+write.csv(x = pos_cnv_results_for_qpulse, file = paste0(outputs_folder,
+                                                        "pos_cnv_results_for_qpulse.csv"),
           row.names = FALSE)
 
 ```
@@ -2171,7 +2192,8 @@ wgs_domain_1_cnvs_for_qpulse <- wgs_html_cnvs |>
   # Including all domains creates a 40MB csv file, which is too large for QPulse
   filter(domain == 1)
 
-write.csv(x = wgs_domain_1_cnvs_for_qpulse, file = "wgs_domain_1_cnvs_for_qpulse.csv",
+write.csv(x = wgs_domain_1_cnvs_for_qpulse, file = paste0(outputs_folder,
+                                                          "wgs_domain_1_cnvs_for_qpulse.csv"),
           row.names = FALSE)
 
 ```
@@ -2181,7 +2203,8 @@ write.csv(x = wgs_domain_1_cnvs_for_qpulse, file = "wgs_domain_1_cnvs_for_qpulse
 #| include: FALSE
 
 write.csv(x = amp_validation_ddpcr |> 
-            relocate(worksheet, gene), file = "ddpcr_results_for_qpulse.csv",
+            relocate(worksheet, gene), file = paste0(outputs_folder,
+                                                     "ddpcr_results_for_qpulse.csv"),
           row.names = FALSE)
 
 ```
