@@ -102,13 +102,15 @@ source(here("scripts/set_shared_drive_filepath.R"))
 
 source(here("scripts/collate_gene_transcript_information.R"))
 
-source(here("scripts/collate_wgs_htmls.R"))
+#source(here("scripts/collate_wgs_htmls.R"))
 
-source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
+#source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
 
-source(here("scripts/collate_pansolid_excel_validation_data.R"))
+#source(here("scripts/collate_pansolid_excel_validation_data.R"))
 
 source(here("scripts/load_processed_validation_data.R"))
+
+source(here("scripts/get_patient_information_from_dna_db.R"))
 
 ```
 
@@ -2104,6 +2106,85 @@ This validation has identified the following requirements for the clinical imple
 # Conclusion {#ref-conclusion}
 
 The PanSolid NGS workflow and CLC pipeline has been validated for the detected of gene amplifications in *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* *MYC*, *MYCN* and *SMO* at the North West GLH.
+
+```{r}
+#| label: export-pansolid-data-for-qpulse
+#| include: FALSE
+
+# Export data for addition to the QPulse record
+
+sample_ids_for_qpulse <- validation_sample_patient_info |> 
+  select(labno, pathno, neoplastic_cell_content, cancer_tissue_source,
+         method_name) |> 
+  rename(dna_extraction_method = method_name)
+
+# Table 1 - amp results with sample and quality information
+all_amp_gene_results_for_qpulse <- amp_validation_all_amp_gene_results_collated |> 
+  left_join(sample_ids_for_qpulse, by = "labno", 
+            relationship = "many-to-one") |> 
+  left_join(amp_validation_percent_138_collated |> 
+              select(filepath, percent_whole_panel_covered_at_138x),
+            by = "filepath", relationship = "many-to-one") |> 
+  left_join(amp_validation_stdev_results_collated |> 
+              select(filepath, st_dev_signal_adjusted_log2_ratios), 
+            by = "filepath",
+            relationship = "many-to-one") |> 
+  select(-patient_name) |> 
+  relocate(filepath, .after = last_col())
+
+# Table 2 - positive CNV results with sample and quality information
+pos_cnv_results_for_qpulse <- amp_validation_pos_cnv_results_collated |> 
+  left_join(sample_ids_for_qpulse, by = "labno", 
+            relationship = "many-to-one") |> 
+  left_join(amp_validation_percent_138_collated |> 
+              select(filepath, percent_whole_panel_covered_at_138x),
+            by = "filepath", relationship = "many-to-one") |> 
+  left_join(amp_validation_stdev_results_collated |> 
+              select(filepath, st_dev_signal_adjusted_log2_ratios), 
+            by = "filepath",
+            relationship = "many-to-one") |> 
+  select(-patient_name) |> 
+  relocate(filepath, .after = last_col())
+
+write.csv(x = all_amp_gene_results_for_qpulse, file = "all_amp_gene_results_for_qpulse.csv",
+          row.names = FALSE)
+
+write.csv(x = pos_cnv_results_for_qpulse, file = "pos_cnv_results_for_qpulse",
+          row.names = FALSE)
+
+```
+
+```{r}
+#| label: export-wgs-data-for-qpulse
+#| include: FALSE
+
+wgs_ids_for_qpulse <- wgs_html_ids |> 
+  select(filepath, labno, wgs_pathno, wgs_r_no, wgs_p_no, 
+         calculated_overall_ploidy, calculated_tumour_content)
+
+wgs_domain_1_cnvs_for_qpulse <- wgs_html_cnvs |> 
+  left_join(wgs_ids_for_qpulse, by = "filepath",
+            relationship = "many-to-one") |> 
+  select(-category) |> 
+  relocate(labno, wgs_pathno, wgs_r_no, wgs_p_no) |> 
+  relocate(filepath, .after = last_col()) |> 
+  # Including all domains creates a 40MB csv file, which is too large for QPulse
+  filter(domain == 1)
+
+write.csv(x = wgs_domain_1_cnvs_for_qpulse, file = "wgs_domain_1_cnvs_for_qpulse.csv",
+          row.names = FALSE)
+
+```
+
+```{r}
+#| label: export-ddpcr-data-for-qpulse
+#| include: FALSE
+
+write.csv(x = amp_validation_ddpcr |> 
+            relocate(worksheet, gene), file = "ddpcr_results_for_qpulse.csv",
+          row.names = FALSE)
+
+```
 
 {{< pagebreak >}}
 
