@@ -133,6 +133,8 @@ source(here("functions/test_metric_functions.R"))
 
 source(here("functions/uom_functions.R"))
 
+source(here("functions/fold_change_functions.R"))
+
 ```
 
 ```{r}
@@ -1433,7 +1435,7 @@ kable(tbl_rpt_worksheets)
 
 ```{r}
 #| label: fig-repeatability-plot-24017319
-#| fig-cap: "The results of repeat replicates for sample 24017319. Both maximum and minimum fold changes for each gene are plotted, and are connected by a vertical black line if they are different values. The solid line shows the fold change threshold of 2.8."
+#| fig-cap: "The results of repeat replicates for sample 24017319. Both maximum and minimum fold changes for each gene are plotted, and are connected by a vertical black line if they are different values. The solid line shows the fold change threshold of 2.8. The white region between 1 and -1, bordered by grey lines, shows the region which fold changes cannot have values within."
 #| fig-height: 6
 #| fig-width: 6
 #| echo: FALSE
@@ -1446,7 +1448,11 @@ repeat_all_amp_data_long <- repeat_all_amp_data |>
 repeat_plot_24017319 <- repeat_all_amp_data_long |> 
   filter(labno == "24017319") |>
   ggplot(aes(x = labno_suffix_worksheet, y = fold_change)) +
+  annotate('rect', xmin = 0, xmax = 5, ymin = -1, 
+           ymax = 1, fill='white') +
     geom_hline(yintercept = 2.8) +
+   geom_hline(yintercept = 1, colour = "grey") +
+  geom_hline(yintercept = -1, colour = "grey") +
     geom_line() +
     geom_point(shape = 21, size = 2, fill = "white") +
     theme_bw() +
@@ -1472,6 +1478,11 @@ repeat_plot_24020998 <- repeat_all_amp_data_long |>
   filter(labno == "24020998") |>
   ggplot(aes(x = labno_suffix_worksheet, y = fold_change)) +
     geom_hline(yintercept = 2.8) +
+  annotate('rect', xmin = 0, xmax = 6, ymin = -1, 
+           ymax = 1, fill='white') +
+    geom_hline(yintercept = 2.8) +
+   geom_hline(yintercept = 1, colour = "grey") +
+  geom_hline(yintercept = -1, colour = "grey") +
     geom_line() +
     geom_point(shape = 21, size = 2, fill = "white") +
     theme_bw() +
@@ -1497,6 +1508,11 @@ repeat_plot_24027774 <- repeat_all_amp_data_long |>
   filter(labno == "24027774") |>
   ggplot(aes(x = labno_suffix_worksheet, y = fold_change)) +
     geom_hline(yintercept = 2.8) +
+  annotate('rect', xmin = 0, xmax = 6, ymin = -1, 
+           ymax = 1, fill='white') +
+    geom_hline(yintercept = 2.8) +
+   geom_hline(yintercept = 1, colour = "grey") +
+  geom_hline(yintercept = -1, colour = "grey") +
     geom_line() +
     geom_point(shape = 21, size = 2, fill = "white") +
     theme_bw() +
@@ -1509,7 +1525,7 @@ repeat_plot_24027774
 
 ```
 
-### Fold change uncertainty of measurement
+### Uncertainty of measurement
 
 ```{r}
 #| label: repeatability-standard-deviation
@@ -1554,16 +1570,11 @@ all_repeats_pooled_sd <- round(pool_sd(all_results_sd_table), 3)
 
 fold_change_threshold <- 2.8
 
-fold_change_uom_upper <- fold_change_threshold + (2 * inter_pooled_sd)
+theoretical_fold_change_threshold <- 3
 
-fold_change_uom_lower <- fold_change_threshold - (2 * inter_pooled_sd)
+fold_change_uom_upper <- theoretical_fold_change_threshold + (2 * inter_pooled_sd)
 
-validation_results_with_uom <- amp_validation_all_amp_gene_results_collated |> 
-  mutate(uom_category = case_when(
-    max_region_fold_change > fold_change_uom_upper ~"Amplified",
-    max_region_fold_change < fold_change_uom_lower ~"Not amplified",
-    max_region_fold_change <= fold_change_uom_upper &
-      max_region_fold_change >= fold_change_uom_lower ~"Borderline"))
+fold_change_uom_lower <- theoretical_fold_change_threshold - (2 * inter_pooled_sd)
 
 ```
 
@@ -1580,29 +1591,44 @@ For the calculation of uncertainty of measurement, the data was altered in the f
 This left `r nrow(repeat_data_fold_change_range)` data points. 
 Fold changes between genes or samples were not compared, as each gene within each sample will have a different dosage. Instead, the standard deviation of fold change values was calculated for each gene within each sample. The pooled standard deviation for all genes across all samples was then calculated using the method from @harris2019 (Section 8.4, page 211). 
 
-This method calculated the intra-run pooled standard deviation in the fold change range of -2 to 10 as `r intra_pooled_sd`, and the inter-run pooled standard deviation for the same fold change range as `r inter_pooled_sd`. When both intra-run and inter-run data was used, the pooled standard deviation was `r all_repeats_pooled_sd`. The inter-run standard deviation was chosen as the standard deviation value for the uncertainty of measurement, as it is the most conservative.
+This method calculated the intra-run pooled standard deviation for fold changes below 10 as `r intra_pooled_sd`, and the inter-run pooled standard deviation as `r inter_pooled_sd`. When both intra-run and inter-run data was used, the pooled standard deviation was `r all_repeats_pooled_sd`. The inter-run standard deviation was chosen as the standard deviation value for the uncertainty of measurement, as it is the most conservative.
 
-Taking the assumption that repeat variation in the measurement of fold change follows a normal distribution, 95% of repeat values would be expected to fall within ± 2 standard deviations of the mean. Consequently, the uncertainty of measurement for a fold change value in the range of -1 to 10 can be taken as ± `r (2*inter_pooled_sd)` (± 2 x `r inter_pooled_sd`) at a confidence level of 95%. The uncertainty of measurement was used create a "grey zone" of 2 standard deviations around the fold change threshold (@fig-fold-change-uom-plot). Out of `r nrow(validation_results_with_uom)` results, only `r nrow(validation_results_with_uom[validation_results_with_uom$uom_category == "Borderline",])` fell within this borderline range.
+Taking the assumption that repeat variation in the measurement of fold change follows a normal distribution, 95% of repeat values would be expected to fall within ± 2 standard deviations of the mean. Consequently, the uncertainty of measurement for a fold change value below 10 can be taken as ± `r (2*inter_pooled_sd)` (± 2 x `r inter_pooled_sd`) at a confidence level of 95%. 
+
+### Application of the uncertainty of measurement
+
+At the beginning of the PanSolid CNV validation, the fold change threshold was set at 3. This value was the expected fold change of a sample with 50% NCC and 10 copies of the target gene per tumour cell (8 additional copies from a diploid copy number). The fold change threshold was reduced to 2.8 during the validation of *ERBB2* amplifications, following a limit of detection experiment. This experiment showed that a SeraCare control mixture, representing a sample with 25% NCC and 14 *ERBB2* copies per cell (12 additional copies), had a fold change of 2.81 ([DOC6260]{custom-style="Strong"}, section 5.6, page 21). This mixture had a predicted theoretical fold change of 2.5.
+
+When the uncertainty of measurement calculated in this validation document (± `r (2*inter_pooled_sd)`) is added to the original theoretical fold change threshold of 3, the actual fold change threshold of 2.8 accommodates this uncertainty (@fig-fold-change-uom-plot).
 
 ```{r}
 #| label: fig-fold-change-uom-plot
-#| fig-cap: "All the fold change results for PanSolid NGS validation samples, coloured by their relation to the fold change threshold with uncertainty of measurement. The solid black line shows the fold change threshold of 2.8, and the dashed lines show the fold change threshold ± 2 standard deviations. The Y axis is -2 to 4 to make the plot clearer - amplifications with fold changes above 4 are not shown."
+#| fig-cap: "All the fold change results for PanSolid NGS validation samples, coloured by their relation to the fold change threshold of 2.8. The dashed lines show the theoretical and actual fold change thresholds of 3 and 2.8, respectively, with the grey region shown the uncertainty of measurement around 3. The Y axis is -2 to 4 to make the plot clearer; amplifications with fold changes above 4 are not shown."
 #| fig-width: 6
+#| fig-height: 6.2
 #| echo: FALSE
 
-fold_change_uom_plot <- ggplot(validation_results_with_uom, aes(x = gene,
+fold_change_uom_plot <- ggplot(amp_validation_all_amp_gene_results_collated, aes(x = gene,
                                                          y = max_region_fold_change)) +
-  geom_hline(yintercept = fold_change_threshold) +
-  geom_hline(yintercept = fold_change_uom_upper, linetype = "dashed") +
-  geom_hline(yintercept = fold_change_uom_lower, linetype = "dashed") +
-  geom_jitter(shape = 21, aes(fill = uom_category), width = 0.2, alpha = 0.6) +
-  scale_fill_manual(values = c("#CC6677", "#888888", "#88CCEE")) +
+   annotate('rect', xmin = 0, xmax = 6, ymin = -1, 
+           ymax = 1, fill='white') +
+   geom_hline(yintercept = 1, colour = "grey") +
+  geom_hline(yintercept = -1, colour = "grey") +
+  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+  geom_hline(yintercept = theoretical_fold_change_threshold, linetype = "dashed") +
+  annotate('rect', xmin = 0, xmax = 10, ymin = fold_change_uom_lower, 
+           ymax = fold_change_uom_upper, 
+           alpha = 0.5, fill='grey') +
+  geom_jitter(shape = 21, aes(fill = pansolid_call), width = 0.2, alpha = 0.6) +
+  scale_fill_manual(values = c("#CC6677", "#88CCEE")) +
   theme_bw() +
-  theme(legend.position = "right",
+  theme(legend.position = "bottom",
         panel.grid = element_blank()) +
   coord_cartesian(ylim = c(-2, 4)) +
-  scale_y_continuous(breaks = c(-2, 0, 2, 2.8, 4)) +
-  labs(fill = "", x = "", y = "Fold change")
+  scale_y_continuous(breaks = c(-2, -1, 0, 1, 2, 2.8, 3, 4),
+                     labels = c(-2,-1, 0, 1, 2, "Actual threshold 2.8", "Theoretical threshold 3",
+                                4)) +
+  labs(fill = "", x = "", y = "") 
 
 fold_change_uom_plot
 
@@ -1614,17 +1640,23 @@ fold_change_uom_plot
 #| fig-width: 6
 #| echo: FALSE
 
-fold_change_uom_plot_zoomed_out <- ggplot(validation_results_with_uom, aes(x = gene,
+fold_change_uom_plot_zoomed_out <- ggplot(amp_validation_all_amp_gene_results_collated, aes(x = gene,
                                                          y = max_region_fold_change)) +
-  geom_hline(yintercept = fold_change_threshold) +
-  geom_hline(yintercept = fold_change_uom_upper, linetype = "dashed") +
-  geom_hline(yintercept = fold_change_uom_lower, linetype = "dashed") +
-  geom_jitter(shape = 21, aes(fill = uom_category), width = 0.2, alpha = 0.6) +
-  scale_fill_manual(values = c("#CC6677", "#888888", "#88CCEE")) +
+  annotate('rect', xmin = 0, xmax = 6, ymin = -1, 
+           ymax = 1, fill='white') +
+   geom_hline(yintercept = 1, colour = "grey") +
+  geom_hline(yintercept = -1, colour = "grey") +
+  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+  geom_hline(yintercept = theoretical_fold_change_threshold, linetype = "dashed") +
+  annotate('rect', xmin = 0, xmax = 10, ymin = fold_change_uom_lower, 
+           ymax = fold_change_uom_upper, 
+           alpha = 0.5, fill='grey') +
+  geom_jitter(shape = 21, aes(fill = pansolid_call), width = 0.2, alpha = 0.6) +
+  scale_fill_manual(values = c("#CC6677", "#88CCEE")) +
   theme_bw() +
-  theme(legend.position = "right",
+  theme(legend.position = "bottom",
         panel.grid = element_blank()) +
-  labs(fill = "", x = "", y = "Fold change")
+  labs(fill = "", x = "", y = "Fold change") 
 
 fold_change_uom_plot_zoomed_out
 
@@ -1672,8 +1704,8 @@ seracare_gene_copies <- read_csv(file = paste0(data_folder,
   mutate(total_copies_ddpcr_seracare = additional_copies_ddpcr + 2,
          total_copies_ngs_seracare = additional_copies_ngs + 2,
          reference_material_short = factor(x = reference_material_short,
-                                           levels = c("0 copies added", "3 copies added",
-                                           "6 copies added", "12 copies added")))
+                                           levels = c("2 copies (+0)", "5 copies (+3)",
+                                           "8 copies (+6)", "14 copies (+12)")))
 
 seracare_ids <- amp_validation_all_amp_gene_results_collated |> 
   filter(!duplicated(labno)) |>
@@ -1707,7 +1739,7 @@ seracare_ngs_comparison <- amp_validation_all_amp_gene_results_collated |>
 #| label: fig-seracare-pansolid-results
 #| fig-cap: "SeraCare reference material detection. Dashed line shows the PanSolid fold change threshold of 2.8."
 #| fig-height: 6.3
-#| fig-width: 6
+#| fig-width: 6.1
 #| echo: FALSE
 
 seracare_colours <- c(
@@ -1720,14 +1752,17 @@ seracare_colours <- c(
 seracare_pansolid_results_plot <- ggplot(seracare_ngs_comparison, 
                                          aes(x = reference_material_short,
                                     y = max_region_fold_change)) +
+  annotate('rect', xmin = 0, xmax = 5, ymin = fold_change_uom_lower, 
+           ymax = fold_change_uom_upper, 
+           alpha = 0.5, fill='grey') +
   geom_point(size = 3, shape = 21, aes(fill = reference_material_short)) +
   scale_fill_manual(values = seracare_colours) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = "none") +
+  theme(legend.position = "none", axis.text.x = element_text(size = 8,
+                                                             angle = 90)) +
   scale_y_continuous(limits = c(-5, 15), breaks = c(0, 5, 10, 15)) +
   facet_wrap(~gene, ncol = 2) +
-  labs(x = "", y = "PanSolid fold change", title = "SeraCare results by target gene") +
+  labs(x = "Total copies (additional copies)", y = "PanSolid fold change", title = "SeraCare results by target gene") +
   geom_hline(yintercept = fold_change_threshold)
 
 seracare_pansolid_results_plot
@@ -1847,12 +1882,16 @@ ddpcr_comparison_plot
 
 ### SeraCare dilution mixes {#sec-results-lod-seracare-mixes}
 
-Dilution mixes were prepared to simulate a sample with neoplastic cell contents of 30%, 20%, 10 % and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291. All genes except *MYC* were detected at a simulated NCC of 30%, whilst below this level no genes exceeded the fold change threshold of 2.8.
+Dilution mixes were prepared to simulate a sample with neoplastic cell contents of 30%, 20%, 10% and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291. All genes except *MYC* were detected at a simulated NCC of 30%, whilst below this level no genes exceeded the fold change threshold of 2.8 (@fig-seracare-dilution-mix-results), although indications of the amplifications could were evident on the whole genome plots (@fig-seracare-dilution-mixes-png). 
+
+Notably, a fold change threshold of 2.8 is predicted to have a limit of detection composed of many different combinations of NCC values and target copies per cell. This limit of detection is predicted to include samples with an NCC of 30% and 14 gene copies per tumour cell (12 additional copies), and this is concordant with the results from the SeraCare dilution mix experiment (@fig-fold-change-plot).
 
 ```{r}
 #| label: fig-seracare-dilution-mix-results
-#| fig-cap: "SeraCare dilution mix results. Dashed line shows the PanSolid fold change detection threshold of 2.8."
+#| fig-cap: "SeraCare dilution mix results. The dashed line shows the PanSolid fold change detection threshold of 2.8, and the grey region shows the uncertainty of measurement from a theoretical fold change threshold of 3."
 #| echo: FALSE
+#| fig-wdith: 6
+#| fig-height: 6.2
 
 lod_dilution_mix_results <- amp_validation_all_amp_gene_results_collated |> 
   filter(labno %in% c("24039973", "24039975") & worksheet == "WS144291") |> 
@@ -1870,11 +1909,18 @@ lod_dilution_mix_results <- amp_validation_all_amp_gene_results_collated |>
 
 seracare_dilution_mix_plot <- ggplot(lod_dilution_mix_results, aes(x = lod_percent_char,
                                     y = max_region_fold_change)) +
-  geom_point(size = 3, shape = 21) +
+  annotate('rect', xmin = 0, xmax = 5, ymin = -1, 
+           ymax = 1, fill='white') +
+   geom_hline(yintercept = 1, colour = "grey") +
+  geom_hline(yintercept = -1, colour = "grey") +
+  geom_hline(yintercept = fold_change_threshold) +
+  annotate('rect', xmin = 0, xmax = 5, ymin = fold_change_uom_lower, 
+           ymax = fold_change_uom_upper, 
+           alpha = 0.5, fill='grey') +
+  geom_point(size = 3, shape = 21, fill = "white") +
   theme_bw() +
   theme(legend.position = "none") +
   facet_wrap(~gene, ncol = 2) +
-  geom_hline(yintercept = fold_change_threshold) +
   labs(x = "Simulated NCC", y = "PanSolid fold change",
        title = "PanSolid NGS SeraCare dilution mix results")
   
@@ -1883,6 +1929,36 @@ seracare_dilution_mix_plot
 ```
 
 ![Results for limit of detection dilution mixes: SeraCare +12 copies (24039973) spiked into SeraCare WT (24039975) at decreasing percentages on worksheet WS144291.](`r paste0(data_folder, "images/", "lod_dilution_mixes.png")`){#fig-seracare-dilution-mixes-png}
+
+{{< pagebreak >}}
+
+```{r}
+#| label: fig-fold-change-plot
+#| fig-cap: "The plot shows the relationship between neoplastic cell content and the number of target gene copies per cell, with the black curve showing the predicted detection limit with a fold change of 2.8. The predicted position of a sample with an NCC of 30% and 14 copies per tumour cell is shown as a white dot, which sits on the limit of detection."
+#| echo: FALSE
+
+fold_change_df <- data.frame(ncc = seq(0, 100, by = 0.1)) |> 
+  mutate(target_copies = calculate_target_copies(fold_change = 2.8,
+                                                 tcc_percent = ncc))
+
+fold_change_plot <- fold_change_df |> 
+  filter(target_copies <= 100) |> 
+  ggplot(aes(x = target_copies, y = ncc)) +
+  geom_line(linewidth = 1) +
+  theme_bw() +
+  labs(x = "Target copies per cell", y = "Neoplastic cell content (%)") +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0,100,10)) +
+  scale_x_continuous(limits = c(0, 100), breaks = seq(0,100,10),
+                     minor_breaks = FALSE) +
+  annotate(geom = "text", x = 30, y = 30, size = 4, label = "Detected") +
+  annotate(geom = "text", x = 30, y = 5, size = 4, label = "Not detected") + 
+  annotate(geom = "segment", x = 0, xend = 14, y = 30, yend = 30, linetype = "dashed") +
+  annotate(geom = "segment", x = 14, xend = 14, y = 0, yend = 30, linetype = "dashed") +
+  annotate(geom = "point", x = 14, y = 30, shape = 21, fill = "white", size = 2)
+
+fold_change_plot
+
+```
 
 {{< pagebreak >}}
 
@@ -1995,7 +2071,11 @@ The limit of detection for the PanSolid NGS workflow is therefore:
 
 It is important to note that there is no consistent definition of gene copy number in somatic amplifications, and the definition of gene dosage also reflects the method used. For FISH, which has single-cell resolution, gene copy number may be defined as the overall number of copies per cell [@qin2023]; or it may be defined relative to the chromosome the gene is located on [@french2019; @boldrin2022], to a different chromosome [@bontoux2023], or to the overall ploidy of the sample [@ross2018]. For molecular methods including NGS and ddPCR, dosage can be expressed as relative gene copy number [@robinson2021], fold change [@ross2018] or log2 ratios [@yang2020], which makes comparisons between methods difficult. There is also a lack of consensus over how many copies of a gene are required to be classified as an "amplification" [@wang2019]. For example, in publications describing detection of *ERBB2* copy number by NGS, thresholds from 3 to 6 have been described [@nakamura2021; @cenaj2019].
 
-In the PanSolid workflow described, gene dosage is quantified by fold change and amplifications are defined by a clear fold change threshold of 2.8. This threshold was determined through limit of detection experiment, and has a defined uncertainty of measurement. However, as the sample is sequenced in bulk, the number of gene copies present within individual cells cannot be quantified. The number of gene copies per tumour cell can be estimated based on the fold change value and the NCC value provided for the sample. However this calculation assumes that the NCC value is entirely accurate to the area of sample from which DNA was extracted, and that each cancer cell has the same number of gene copies. The PanSolid workflow is therefore semi-quantitative: it is able to provide clear indication of increased gene dosage, but the exact quantification of gene copies is limited by multiple factors, including ploidy.
+In the PanSolid workflow described, gene dosage is quantified by fold change and amplifications are defined by a clear fold change threshold of 2.8. Whilst the threshold was originally set at 3 at the beginning of the validation process, it was reduced to 2.8 during the *ERBB2* amplifications validation due to the results of a limit of detection experiment. The rationale was that lowering the threshold slightly below the theoretical threshold value would account for technical variation.
+
+In this validation, the uncertainty of measurement was shown to be ± `r (2*inter_pooled_sd)`, demonstrating that the fold change threshold of 2.8 does account for technical variation. This means that any combination of NCC and gene copy values with a predicted fold change of 3, such as 50% NCC with 10 gene copies, should be reliably detected with the fold change threshold of 2.8.
+
+There are caveats to this prediction. As the sample is sequenced in bulk, the true number of gene copies present within individual cells cannot be quantified, and instead are estimated based on the fold change value and the NCC value provided for the sample. However this calculation assumes that the NCC value is entirely accurate to the area of sample from which DNA was extracted, and that each cancer cell is diploid and has the same number of gene copies. The PanSolid workflow is therefore semi-quantitative: it is able to provide clear indication of increased gene dosage, but the exact quantification of gene copies is limited by multiple factors, including ploidy.
 
 ## Ploidy {#sec-discussion-ploidy}
 
@@ -2043,11 +2123,11 @@ The test has the following limitations:
 
 - Multiple CNV regions may be identified within the same gene. These may reflect underlying biological variation, such as *EGFR* version 3 (@sec-results-egfr-v3), or may not be replicable indicating that they are caused by technical variation such as coverage (@sec-cnv-region-variation).
 
-- Fold change values in the region of -2 to 10 have an uncertainty of measurement of ± `r (2*inter_pooled_sd)` at 95% confidence.
+- Fold change values below 10 have an uncertainty of measurement of ± `r (2*inter_pooled_sd)` at 95% confidence.
 
 - The test does not detect tetraploidy when present (@sec-ploidy), which can impact copy number calculations performed using NCC, as these calculations assume a diploid copy number.
 
-- The CNV regions identified by the test may be narrower than the true region of underlying varitio: this is a known limitation of performing CNV detection using an NGS enrichment method (@sec-wgs-coordinate-correlation). 
+- The CNV regions identified by the test may be narrower than the true region of underlying varition: this is a known limitation of performing CNV detection using an NGS enrichment method (@sec-wgs-coordinate-correlation). 
 
 # Review of test requirements {#sec-discussion-test-requirements-review}
 
@@ -2080,7 +2160,7 @@ Low-level false positive calls were seen when the signal-adjusted noise value ex
 
 **5. Variability: the test should have defined intra-run variation (repeatability) and inter-run variation (repeatability) for these amplifications.**
 
-Intra-run pooled standard deviation in fold change in the range of -2 to 10 was `r intra_pooled_sd` and inter-run pooled standard deviation in fold change was  `r inter_pooled_sd` for the same range.  The uncertainty of measurement is defined as ± `r (2*inter_pooled_sd)` at 95% confidence (@sec-results-repeat-testing). 
+Intra-run pooled standard deviation for fold changes below 10 was `r intra_pooled_sd` and inter-run pooled standard deviation for fold changes below 10 was  `r inter_pooled_sd`.  The uncertainty of measurement is defined as ± `r (2*inter_pooled_sd)` at 95% confidence (@sec-results-repeat-testing). 
 
 **6. Visualisation: the results should be presented in a clear and visual manner.**
 
@@ -2099,8 +2179,6 @@ This validation has identified the following requirements for the clinical imple
 - Visual inspection of the whole genome plots is required to avoid false positive calls (@sec-results-quality-control).
 
 - Visual inspection of the interactive HTML plots should be performed when there are multiple CNV regions called within the same gene, as this may indicate intra-genic CNVs.
-
-- Staff should account for the uncertainty of measurement within their analysis of results. When CNV regions are identified within the fold change range of `r 2.8-(2*inter_pooled_sd)` to `r 2.8+(2*inter_pooled_sd)`, professional judgement should be exercised as to how to report these results.
 
 - The information provided on reports for this test should be updated to include the limit of detection, and the limitation that the method cannot distinguish between all ploidy states.
 
