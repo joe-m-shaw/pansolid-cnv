@@ -326,7 +326,7 @@ and
 
 ### SeraCare reference materials {#sec-seracare-reference-materials}
 
-Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from a formalin-fixed paraffin embedded (FFPE) sample of a stable cell line (GM24385), spiked with plasmid DNA for specific genes at different quantities. The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes. The details of the SeraCare reference materials, including DNA numbers and batch numbers, are shown in the Supplementary Information (@tbl-seracare-reference-material-details).
+Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from a formalin-fixed paraffin embedded (FFPE) sample of a stable cell line (GM24385), spiked with different quantities of a 130kb synthetic DNA construct containing specific genes. The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes. The product information states that the *EGFR*, *BRAF* and *MET* genes are present using two synthetic DNA constructs, with an overlap region in each gene present in both constructs, which leads to higher quantities of these regions. The ddPCR assays designed in this validation (@sec-methods-ddpcr) were checked and do not target these regions. The details of the SeraCare reference materials, including DNA numbers and batch numbers, are shown in the Supplementary Information (@tbl-seracare-reference-material-details).
 
 ```{r}
 #| label: tbl-seracare-reference-material-genes
@@ -1764,7 +1764,7 @@ seracare_pansolid_results_plot <- ggplot(seracare_ngs_comparison,
                                                              angle = 90)) +
   scale_y_continuous(limits = c(-5, 15), breaks = c(0, 5, 10, 15)) +
   facet_wrap(~gene, ncol = 2) +
-  labs(x = "Total copies (additional copies)", y = "PanSolid fold change", title = "SeraCare results by target gene") +
+  labs(x = "Total copies (additional copies)", y = "PanSolid NGS fold change", title = "SeraCare results by target gene") +
   geom_hline(yintercept = fold_change_threshold)
 
 seracare_pansolid_results_plot
@@ -1796,7 +1796,7 @@ kable(seracare_ngs_comparison_tbl)
 ![Results in the whole genome view for the SeraCare reference materials. The +12, +6 and +3 copies samples were run on worksheet WS139890 and the wild type sample (+0 copies) was run on worksheet WS144291. The +0 copies result is the same sample as the 0% spike-in dilution for the limit of detection dilution experiment.](
 `r paste0(data_folder, "images/", "lod_seracare_controls.png")`){#fig-seracare-control-results-png}
 
-The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the *EGFR* and *ERBB2* genes for the +3 copies, +6 copies and +12 copies reference materials. Conversely, the PanSolid results for *MYC* were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@fig-seracare-ddpcr-pansolid).
+The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the *EGFR* and *ERBB2* genes for the +3 copies, +6 copies and +12 copies reference materials. Conversely, the PanSolid results for *MYC* were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@fig-seracare-ddpcr-pansolid). Notably, the PanSolid NGS results for *MET* were closely consistent with the NGS results for *MET* provided by SeraCare, but when the ddPCR and NGS results provided by SeraCare are directly compared, there is a clear overestimation of *MET* copy number (@fig-seracare-ddpcr-ngs).
 
 ```{r}
 #| label: fig-seracare-ngs-pansolid
@@ -1819,8 +1819,8 @@ ngs_comparison_plot <- ggplot(seracare_ngs_comparison,
                     breaks = c(0, 10, 20, 30)) +
   facet_wrap(~gene) +
   labs(title = "PanSolid NGS vs SeraCare NGS",
-       x = "Total copies NGS (Manchester)",
-       y = "Total copies NGS (SeraCare)",
+       x = "Total copies PanSolid NGS (Manchester)",
+       y = "Total copies TruSight NGS (SeraCare)",
        fill = "")
 
 ngs_comparison_plot
@@ -1880,13 +1880,40 @@ ddpcr_comparison_plot
 
 ```
 
+```{r}
+#| label: fig-seracare-ddpcr-ngs
+#| fig-cap: "Correlation of copy numbers provided by SeraCare for SeraCare reference materials on ddPCR and NGS. This information is taken from the SeraCare reference material technical product reports. Copy numbers for the wild type reference material are not shown as these were not provided on the technical product report."
+#| fig-width: 6
+#| echo: FALSE
+
+seracare_ddpcr_ngs_plot <- seracare_gene_copies |> 
+  filter(reference_material_short != "2 copies (+0)") |> 
+  filter(!is.na(total_copies_ngs_seracare)) |> 
+  ggplot(aes(x = total_copies_ddpcr_seracare, y = total_copies_ngs_seracare)) +
+  geom_abline(linetype = "dashed") +
+  geom_point(shape = 21, size = 3, alpha = 0.6, aes(fill = reference_material_short)) +
+  scale_fill_manual(values = c("#F0E442","#E69F00", "#D55E00")) +
+  facet_wrap(~gene) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(limits = c(0, 30), 
+                     breaks = c(0, 10, 20, 30)) +
+  scale_y_continuous(limits = c(0, 30), 
+                     breaks = c(0, 10, 20, 30)) +
+  labs(fill = "",
+       x = "Total copies ddPCR (SeraCare)",
+       y = "Total copies TruSight NGS (SeraCare)")
+
+
+seracare_ddpcr_ngs_plot
+
+```
+
 {{< pagebreak >}}
 
 ### SeraCare dilution mixes {#sec-results-lod-seracare-mixes}
 
-Dilution mixes were prepared to simulate a sample with neoplastic cell contents of 30%, 20%, 10% and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291. All genes except *MYC* were detected at a simulated NCC of 30%, whilst below this level no genes exceeded the fold change threshold of 2.8 (@fig-seracare-dilution-mix-results), although indications of the amplifications could were evident on the whole genome plots (@fig-seracare-dilution-mixes-png). 
-
-Notably, a fold change threshold of 2.8 is predicted to have a limit of detection composed of many different combinations of NCC values and target copies per cell. This limit of detection is predicted to include samples with an NCC of 30% and 14 gene copies per tumour cell (12 additional copies), and this is concordant with the results from the SeraCare dilution mix experiment (@fig-fold-change-plot).
+Dilution mixes were prepared to simulate a sample with 14 gene copies and neoplastic cell contents of 30%, 20%, 10% and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291. All genes except *MYC* were detected at a simulated NCC of 30%, whilst below this level no genes exceeded the fold change threshold of 2.8 (@fig-seracare-dilution-mix-results), although indications of the amplifications could were evident on the whole genome plots (@fig-seracare-dilution-mixes-png). In the 30% NCC sample, *MYC* (fold change: 2.48) was the only gene with a lower fold change than predicted, whilst *MET* had the highest measured fold change (4.46) (@tbl-thirty-percent-fold-change-values).
 
 ```{r}
 #| label: fig-seracare-dilution-mix-results
@@ -1931,8 +1958,8 @@ seracare_dilution_mix_plot
 ```
 
 ```{r}
-#| label: tbl-30-percent-fold-change-values
-#| tbl-cap: 
+#| label: tbl-thirty-percent-fold-change-values
+#| tbl-cap: "Predicted and measured gene fold changes for 30% dilution"
 #| echo: FALSE
 
 lod_30_fold_change_values <- lod_dilution_mix_results |> 
@@ -1948,70 +1975,6 @@ kable(lod_30_fold_change_values)
 ```
 
 ![Results for limit of detection dilution mixes: SeraCare +12 copies (24039973) spiked into SeraCare WT (24039975) at decreasing percentages on worksheet WS144291.](`r paste0(data_folder, "images/", "lod_dilution_mixes.png")`){#fig-seracare-dilution-mixes-png}
-
-{{< pagebreak >}}
-
-```{r}
-#| label: fig-fold-change-plot
-#| fig-cap: "The plot shows the relationship between neoplastic cell content and the number of target gene copies per cell, with the black curve showing the predicted detection limit with a fold change of 2.8. The predicted position of a sample with an NCC of 30% and 14 copies per tumour cell is shown as a white dot, which sits on the limit of detection."
-#| echo: FALSE
-
-fold_change_df <- data.frame(ncc = seq(0, 100, by = 0.1)) |> 
-  mutate(target_copies = calculate_target_copies(fold_change = 3,
-                                                 tcc_percent = ncc))
-
-point_data <- fold_change_df |> 
-  filter(ncc %in% seq(10, 100, by = 10))
-
-fold_change_plot <- fold_change_df |> 
-  filter(target_copies <= 100) |> 
-  ggplot(aes(x = target_copies, y = ncc)) +
-  geom_line(linewidth = 1) +
-  geom_point(data = point_data, shape = 21, fill = "white", size = 2) +
-  theme_bw() +
-  labs(x = "Target copies per cell", y = "Neoplastic cell content (%)") +
-  scale_y_continuous(limits = c(0, 100), breaks = seq(0,100,10)) +
-  scale_x_continuous(limits = c(0, 100), breaks = seq(0,100,10),
-                     minor_breaks = FALSE) 
-
-?geom_point()
-
-  annotate(geom = "text", x = 30, y = 30, size = 4, label = "Detected") +
-  annotate(geom = "text", x = 30, y = 5, size = 4, label = "Not detected") + 
-  annotate(geom = "segment", x = 0, xend = 14, y = 30, yend = 30, linetype = "dashed") +
-  annotate(geom = "segment", x = 14, xend = 14, y = 0, yend = 30, linetype = "dashed") +
-  annotate(geom = "point", x = 14, y = 30, shape = 21, fill = "white", size = 2) +
-  annotate(geom = "point", x = 14, y = 30, shape = 21, fill = "white", size = 2)
-
-fold_change_plot
-
-```
-
-```{r}
-#| label: tbl-fold-change-predicted-lod
-#| echo: FALSE
-
-theoretical_lod_df <- point_data |> 
-  arrange(desc(ncc)) |> 
-  mutate(theoretical_lod_target_copies = round(target_copies, 0)) 
-
-measured_lod_df <- data.frame(
-  ncc = c(100, 30),
-  measured_lod_target_copies = 
-    c("5 for EGFR, ERBB2, MET and MYCN; 8 for MYC and BRAF",
-      "14 for BRAF, EGFR, ERBB2, MET and MYCN")
-)
-
-lod_df_joined <- theoretical_lod_df |> 
-  left_join(measured_lod_df, by = "ncc") |> 
-  select(-target_copies) |> 
-  rename(
-    "Neoplastic cell content (%)" = ncc,
-    "Predicted limit of detection in gene copies per cell (rounded) with a fold change threshold of 3" = theoretical_lod_target_copies,
-    "Measured limit of detection in gene copies per cell" = measured_lod_target_copies
-  )
-
-```
 
 {{< pagebreak >}}
 
@@ -2108,18 +2071,6 @@ of amplification statuses, which is equivalent to reports in the literature. For
 
 The ability of the PanSolid pipeline to quantify gene dosage was assessed using reference materials from the company SeraCare, which were provided along with the gene dosages quantified by SeraCare using the TruSight Oncology 500 assay (Illumina) and ddPCR with a BioRad QX200 system. There was close agreement between the quantification of gene dosage for both PanSolid NGS and ddPCR compared to the results provided by SeraCare, although a consistent overestimation of dosage for *EGFR* and *ERBB2* was observed (@fig-seracare-ngs-pansolid and @fig-seracare-ddpcr-pansolid). 
 
-## Limit of detection {#sec-discussion-lod}
-
-The limit of detection is impacted by multiple factors, such as the the NCC of the sample, the number of amplified gene copies in the tumour, the coverage across the locus of interest, the quantity of DNA available for the QIAseq enrichment, the size of the gene, the settings used in the pipeline, the uncertainty of measurement, and the presence of intra-tumoral heterogeneity in gene copy number. Consequently, establishing a limit of detection for the PanSolid NGS workflow involves many caveats. 
-
-Two approaches were used to determine the limit of detection: undiluted SeraCare reference materials with known quantities of target genes added, and mixtures of these controls to simulate clinical samples with different NCC values. All genes were detected in the +6 copies SeraCare control, and all genes except *MYC* were detected in the +12 copies control when 30% NCC was simulated.
-
-The limit of detection for the PanSolid NGS workflow is therefore:
-
-- 6 additional copies with an NCC of 100%
-
-- 12 additional copies with an NCC of 30% for *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2*  *MYCN* and *SMO*, but not for *MYC*.
-
 ## Copy number {#sec-discussion-copy-number}
 
 It is important to note that there is no consistent definition of gene copy number in somatic amplifications, and the definition of gene dosage also reflects the method used. For FISH, which has single-cell resolution, gene copy number may be defined as the overall number of copies per cell [@qin2023]; or it may be defined relative to the chromosome the gene is located on [@french2019; @boldrin2022], to a different chromosome [@bontoux2023], or to the overall ploidy of the sample [@ross2018]. For molecular methods including NGS and ddPCR, dosage can be expressed as relative gene copy number [@robinson2021], fold change [@ross2018] or log2 ratios [@yang2020], which makes comparisons between methods difficult. There is also a lack of consensus over how many copies of a gene are required to be classified as an "amplification" [@wang2019]. For example, in publications describing detection of *ERBB2* copy number by NGS, thresholds from 3 to 6 copies have been described [@nakamura2021; @cenaj2019].
@@ -2133,6 +2084,67 @@ There are caveats to this prediction. As the sample is sequenced in bulk, the tr
 ## Ploidy {#sec-discussion-ploidy}
 
 In the validation cohort, 2 glioblastoma samples had ploidy levels of 4 calculated by WGS. Tetraploidy caused by whole genome duplication is frequently reported in glioblastoma, with @boisselier2018 reporting that 11% of glioblastoma cases have whole genome duplication. In the Genomics England WGS pipeline, tumour ploidy is calculated by the Canvas tool using a machine learning approach comparing the results for tumour and germline DNA samples [@roller2016]. The version of the PanSolid NGS workflow described in this validation document does not include the detection of ploidy status, and the gene copy number calculator includes the assumption that the tumour is diploid. Therefore, it is possible that the true gene copy number could be underestimated in tetraploid samples. 
+
+## Limit of detection {#sec-discussion-lod}
+
+```{r}
+#| label: fold-change-predicted-lod
+#| include: FALSE
+
+lod_fold_change_df <- data.frame(ncc = seq(0, 100, by = 0.1)) |> 
+  mutate(target_copies_3 = calculate_target_copies(fold_change = 3,
+                                                 tcc_percent = ncc),
+         target_copies_2_8 = calculate_target_copies(fold_change = 2.8,
+                                                 tcc_percent = ncc))
+
+theoretical_lod_df <- lod_fold_change_df |> 
+  filter(ncc %in% seq(10, 100, by = 10)) |> 
+  arrange(desc(ncc)) |> 
+  mutate(theoretical_additional_copies_3 = target_copies_3 - 2,
+         theoretical_additional_copies_2_8 = target_copies_2_8 - 2,
+         theoretical_lod_target_copies_3 = str_c(round(target_copies_3, 0), " (+", 
+                                                 round(theoretical_additional_copies_3, 0), ")"),
+         theoretical_lod_target_copies_2_8 = str_c(round(target_copies_2_8, 0), " (+", 
+                                                 round(theoretical_additional_copies_2_8, 0), ")"))
+
+measured_lod_df <- data.frame(
+  ncc = c(100, 30),
+  measured_lod_target_copies = 
+    c("5 (+3) for EGFR, ERBB2, MET and MYCN; 8 (+6) for MYC and BRAF",
+      "14 (+12) for BRAF, EGFR, ERBB2, MET and MYCN, but not MYC")
+)
+
+lod_df_joined <- theoretical_lod_df |> 
+  select(ncc, theoretical_lod_target_copies_3, theoretical_lod_target_copies_2_8) |> 
+  left_join(measured_lod_df, by = "ncc") |> 
+  rename(
+    "Neoplastic cell content (%)" = ncc,
+    "Predicted limit of detection in gene copies per cell with a fold change threshold of 3" = theoretical_lod_target_copies_3,
+    "Predicted limit of detection in gene copies per cell with a fold change threshold of 2.8" = 
+      theoretical_lod_target_copies_2_8,
+    "Measured limit of detection in gene copies per cell with threshold of 3 ±0.174" = measured_lod_target_copies
+  )
+
+```
+
+The limit of detection is an important test metric, but is influenced by several factors. To comprehensively assess the limit of detection through experimentation would require the testing of samples simulating every possible copy number state of every gene at every possible NCC level. This is clearly impractical. Instead, we tested undiluted SeraCare reference materials with known quantities of target genes added, which simulated clinical samples at 100% NCC, and we also tested diluted mixtures of these controls to simulate clinical samples at 30%, 20%, 10% and 0% NCC.
+
+The results from these experiments can be viewed alongside the theoretical predictions of limit of detection for different NCC states (@tbl-lod-theoretical-actual). These results show that the theoretical predicted limit of detection is broadly similar to the limit of detection from experimentation, but there are some key differences. 3 additional copies were detected for *EGFR*, *ERBB2*, *MET* and *MYCN* in the undiluted SeraCare +3 copies control, despite this being below the theoretical limit of detection for fold changes of 3 and 2.8. And at a simulated 30% NCC, *MYC* was not detected at +12 copies despite this being predicted when using a fold change threshold of 2.8. These findings are not unusual; for example, @chandramohan2022 also report slight discrepancies between theoretical and experimental limits of detection for somatic copy number analysis with NGS, and @dehghani2019 report gene-specific in their limit of detection series.
+
+```{r}
+#| label: tbl-lod-theoretical-actual
+#| tbl-cap: "All values are rounded to 0 decimal places. Gene copies per cell are given as total copies, with additional copies in brackets, assuming a diploid genome."
+#| echo: FALSE
+
+kable(lod_df_joined)
+
+```
+
+This shows that there is variation in detection and dosage accuracy between genes. This is also evident in the results provided by SeraCare for each reference material: the Illumina TruSight NGS method consistently reported higher *MET* copy numbers than detected by ddPCR (@fig-seracare-ddpcr-ngs). As the additional gene copies in these reference materials are on the same synthetic DNA construct, they should have identical quantities. However variation in dosage is observed in both the results provided by SeraCare and the data in this validation (@tbl-thirty-percent-fold-change-values). Despite these limitations, communicating a clear limit of detection is important for those using and delivering a clinical service, particularly for NCC levels which are commonly used on pathology reports and referral forms, such as 20% and 50%. With this in mind, we can conclude the following:
+
+The theoretical limit of detection for gene amplification by PanSolid NGS is 8 additional gene copies at 50% NCC, and 20 additional gene copies at 20% NCC. This is supported by data from limit of detection experiments, however there can be variation between genes and the true limit of detection is impacted by the exact NCC of the sample, the number of amplified gene copies in the tumour, the coverage across the locus of interest, the quantity of DNA available, the size and sequence content of the gene, the ploidy of the sample, the uncertainty of measurement, and the presence of intra-tumoral heterogeneity in gene copy number.
+
+The limit of detection work in this validation supersedes the limit of detection threshold decided in the *ERBB2* validation ([DOC6260]{custom-style="Strong"}).
 
 ## Extrapolation to other genes {#sec-extrapolation-to-other-genes}
 
@@ -2160,13 +2172,13 @@ False positive calls were observed for 2 samples extracted on the Cobas method w
 
 This validation has the following limitations:
 
--   FISH is considered the gold standard test for many amplifications, but FISH data were not available for comparison.
+- FISH is considered the gold standard test for many amplifications, but FISH data were not available for comparison with PanSolid NGS results.
 
--   Positive control samples were not available for the *ALK* and *SMO* genes.
+- Positive control samples were not available for the *ALK* and *SMO* genes.
 
--   All SeraCare reference materials were not tested by each ddPCR assay due to limited DNA volumes.
+- All SeraCare reference materials were not tested by each ddPCR assay due to limited DNA volumes.
 
--   Short-read NGS is not able to distinguish the different cellular contexts of gene amplifications, which may be present on chromosomes or extra-chromosomal DNA.
+- *In silico* limit of detection studies using down-sampling were not performed.
 
 - ddPCR was not performed for *MYCN* or *MDM2* as these genes were added later in the validation.
 
@@ -2175,6 +2187,8 @@ This validation has the following limitations:
 The test has the following limitations:
 
 - Multiple CNV regions may be identified within the same gene. These may reflect underlying biological variation, such as *EGFR* version 3 (@sec-results-egfr-v3), or may not be replicable indicating that they are caused by technical variation such as coverage (@sec-cnv-region-variation).
+
+-   Short-read NGS is not able to distinguish the different cellular contexts of gene amplifications, which may be present on chromosomes or extra-chromosomal DNA.
 
 - Fold change values below 10 have an uncertainty of measurement of ± `r (2*inter_pooled_sd)` at 95% confidence.
 
@@ -2238,6 +2252,8 @@ This validation has identified the following requirements for the clinical imple
 - In future, amplification detection may be required for additional genes on the PanSolid v2 enrichment (CDHS-48608Z-11752). If these genes have greater than 11 targets, they can be added to the analysis pipeline with the "coarse" graining level without the requirement for additional validation work. The pipeline sensitivity and specificity for these new genes can be assumed to be the same as the sensitivity and specificity valus provided in this validation document (@sec-discussion-coarse-setting).  
 
 - Longitudinal monitoring of test metrics, including the the signal-adjusted noise quality metric and the gene amplifications detected, should be initiated and regularly reviewed to allow auditing of test performance over time.
+
+- The laboratory should participate in relevant external quality assessment schemes for the target genes, if available.
 
 # Conclusion {#ref-conclusion}
 
