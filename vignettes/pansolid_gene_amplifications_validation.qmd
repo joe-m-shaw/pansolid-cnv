@@ -102,11 +102,11 @@ source(here("scripts/set_shared_drive_filepath.R"))
 
 source(here("scripts/collate_gene_transcript_information.R"))
 
-source(here("scripts/collate_wgs_htmls.R"))
+#source(here("scripts/collate_wgs_htmls.R"))
 
-source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
+#source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
 
-source(here("scripts/collate_pansolid_excel_validation_data.R"))
+#source(here("scripts/collate_pansolid_excel_validation_data.R"))
 
 # This script collect patient information but requires an ODBC connection to the
 # DNA Database mirror
@@ -326,7 +326,7 @@ and
 
 ### SeraCare reference materials {#sec-seracare-reference-materials}
 
-Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from a formalin-fixed paraffin embedded (FFPE) sample of a stable cell line (GM24385), spiked with different quantities of a 130kb synthetic DNA construct containing specific genes. The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes. The product information states that the *EGFR*, *BRAF* and *MET* genes are present using two synthetic DNA constructs, with an overlap region in each gene present in both constructs, which leads to higher quantities of these regions. The ddPCR assays designed in this validation (@sec-methods-ddpcr) were checked and do not target these regions. The details of the SeraCare reference materials, including DNA numbers and batch numbers, are shown in the Supplementary Information (@tbl-seracare-reference-material-details).
+Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from a stable cell line (GM24385), spiked with different quantities of a 130kb synthetic DNA construct containing specific genes. The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes. The product information states that the *EGFR*, *BRAF* and *MET* genes are present using two synthetic DNA constructs, with an overlap region in each gene present in both constructs, which leads to higher quantities of these regions. The ddPCR assays designed in this validation (@sec-methods-ddpcr) were checked and do not target these regions. The details of the SeraCare reference materials, including DNA numbers and batch numbers, are shown in the Supplementary Information (@tbl-seracare-reference-material-details).
 
 ```{r}
 #| label: tbl-seracare-reference-material-genes
@@ -1060,7 +1060,7 @@ ff_wgs_pansolid_summary <- ff_wgs_pansolid |>
 
 ### WGS discordant results {#sec-wgs-discordant-result}
 
-There was a single apparent false negative result: for sample 24030962, which was extracted using the QIAsymphony method, PanSolid NGS did not detect an amplification for *EGFR*, whilst DNA extracted from fresh frozen tissue form the sample pathology block (23033921) had an *EGFR* amplification of 14 copies detected on WGS along with a chromosome 7 copy number of 6. The same DNA from fresh-frozen tissue showed a borderline *EGFR* fold change of 2.7 when tested using PanSolid NGS.
+There was a single apparent false negative result: for sample 24030962, which was extracted using the QIAsymphony method, PanSolid NGS did not detect an amplification for *EGFR*, whilst DNA extracted from fresh frozen tissue from the sample pathology block (23033921) had an *EGFR* amplification of 14 copies detected on WGS along with a chromosome 7 copy number of 6. The same DNA from fresh-frozen tissue showed a borderline *EGFR* fold change of 2.7 when tested using PanSolid NGS.
 
 To investigate this discrepancy, both DNA samples were tested by ddPCR for *EGFR*. The ddPCR showed similar results to PanSolid NGS, with the QIAsymphony-extracted DNA having a normal *EGFR* result whilst the DNA from fresh-frozen tissue had a borderline *EGFR* amplification. This indicates that the discrepancy between the PanSolid NGS result for QIAsymphony-extracted DNA and the WGS result is due to intra-tumour heterogeneity for *EGFR* copy number in the specimens used for DNA extraction.
 
@@ -2131,7 +2131,7 @@ lod_df_joined <- theoretical_lod_df |>
 
 The limit of detection is an important test metric, but is influenced by several factors. To comprehensively assess the limit of detection through experimentation would require the testing of samples simulating every possible copy number state of every gene at every possible NCC level. This is clearly impractical. Instead, we tested undiluted SeraCare reference materials with known quantities of target genes added, which simulated clinical samples at 100% NCC, and we also tested diluted mixtures of these controls to simulate clinical samples at 30%, 20%, 10% and 0% NCC.
 
-The results from these experiments can be viewed alongside the theoretical predictions of limit of detection for different NCC states (@tbl-lod-theoretical-actual). These results show that the theoretical predicted limit of detection is broadly similar to the limit of detection from experimentation, but there are some key differences. 3 additional copies were detected for *EGFR*, *ERBB2*, *MET* and *MYCN* in the undiluted SeraCare +3 copies control, despite this being below the theoretical limit of detection for fold changes of 3 and 2.8. And at a simulated 30% NCC, *MYC* was not detected at +12 copies despite this being predicted when using a fold change threshold of 2.8. These findings are not unusual; for example, @chandramohan2022 also report slight discrepancies between theoretical and experimental limits of detection for somatic copy number analysis with NGS, and @dehghani2019 report gene-specific in their limit of detection series.
+The results from these experiments can be viewed alongside the theoretical predictions of limit of detection for different NCC states (@tbl-lod-theoretical-actual). These results show that the theoretical predicted limit of detection is broadly similar to the limit of detection from experimentation, but there are some key differences. 3 additional copies were detected for *EGFR*, *ERBB2*, *MET* and *MYCN* in the undiluted SeraCare +3 copies control, despite this being below the theoretical limit of detection for fold changes of 3 and 2.8. And at a simulated 30% NCC, *MYC* was not detected at +12 copies despite this being predicted when using a fold change threshold of 2.8. These findings are not unusual; for example, @chandramohan2022 also report slight discrepancies between theoretical and experimental limits of detection for somatic copy number analysis with NGS, and @dehghani2019 report gene-specific variation in their limit of detection series.
 
 ```{r}
 #| label: tbl-lod-theoretical-actual
@@ -2144,7 +2144,7 @@ kable(lod_df_joined)
 
 @tbl-lod-theoretical-actual: All values are rounded to 0 decimal places. Gene copies per cell are given as total copies, with additional copies in brackets, assuming a diploid genome.
 
-This shows that there is variation in detection and dosage accuracy between genes. This is also evident in the results provided by SeraCare for each reference material: the Illumina TruSight NGS method consistently reported higher *MET* copy numbers than detected by ddPCR (@fig-seracare-ddpcr-ngs). As the additional gene copies in these reference materials are on the same synthetic DNA construct, they should have identical quantities. However variation in dosage is observed in both the results provided by SeraCare and the data in this validation (@tbl-thirty-percent-fold-change-values). Despite these limitations, communicating a clear limit of detection is important for those using and delivering a clinical service, particularly for NCC levels which are commonly used on pathology reports and referral forms, such as 20% and 50%. With this in mind, we can conclude the following:
+This shows that there is variation in detection and dosage accuracy between genes. This is also evident in the results provided by SeraCare for each reference material: the Illumina TruSight NGS method consistently reported higher *MET* copy numbers than detected by ddPCR (@fig-seracare-ddpcr-ngs). As the additional gene copies in these reference materials are on the same synthetic DNA construct, they should have identical quantities. However variation in dosage is observed in both the results provided by SeraCare and the data in this validation (@tbl-thirty-percent-fold-change-values). Despite these limitations, communicating a clear limit of detection is important for those using and delivering a clinical service, particularly for NCC levels which are commonly used on local pathology reports and referral forms, such as 20% and 50%. With this in mind, we can conclude the following:
 
 The theoretical limit of detection for gene amplification by PanSolid NGS is 8 additional gene copies at 50% NCC, and 20 additional gene copies at 20% NCC. This is supported by data from limit of detection experiments, however there can be variation between genes and the true limit of detection is impacted by the exact NCC of the sample, the number of amplified gene copies in the tumour, the coverage across the locus of interest, the quantity of DNA available, the size and sequence content of the gene, the ploidy of the sample, the uncertainty of measurement, and the presence of intra-tumoral heterogeneity in gene copy number.
 
@@ -2243,7 +2243,7 @@ The results are displayed in graphical format in the output Excels with gene, CN
 
 # Requirements for clinical implementation {#sec-requirements-for-clinical-implementation}
 
-This validation has identified the following requirements for the clinical implementation of this test:
+The detection of gene amplifications has been validated on DNA extracted by the QIAsymphony method from FFPE material for *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* *MYC*, *MYCN* and *SMO*. The validation has identified the following requirements for clinical implementation:
 
 - Samples with signal-adjusted noise values above 0.7 should be analysed carefully. Confirmed amplifications have been detected in samples with high levels of noise, but low-level gene gains may in fact be false positives.
 
@@ -2253,15 +2253,17 @@ This validation has identified the following requirements for the clinical imple
 
 - The information provided on reports for this test should be updated to include the limit of detection, and the limitation that the method cannot distinguish between all ploidy states.
 
-- In future, amplification detection may be required for additional genes on the PanSolid v2 enrichment (CDHS-48608Z-11752). If these genes have greater than 11 targets, they can be added to the analysis pipeline with the "coarse" graining level without the requirement for additional validation work. The pipeline sensitivity and specificity for these new genes can be assumed to be the same as the sensitivity and specificity valus provided in this validation document (@sec-discussion-coarse-setting).  
+- In future, amplification detection may be required for additional genes on the PanSolid v2 enrichment (CDHS-48608Z-11752). If these genes have greater than 11 targets, they can be added to the analysis pipeline with the "coarse" graining level without the requirement for additional validation work. The pipeline sensitivity and specificity for these new genes can be assumed to be the same as the sensitivity and specificity values provided in this validation document (@sec-discussion-coarse-setting).  
 
 - Longitudinal monitoring of test metrics, including the the signal-adjusted noise quality metric and the gene amplifications detected, should be initiated and regularly reviewed to allow auditing of test performance over time.
 
 - The laboratory should participate in relevant external quality assessment schemes for the target genes, if available.
 
+- This validation has primarily used DNA from FFPE material. The conclusions of this validation may not be valid for other sample types.
+
 # Conclusion {#ref-conclusion}
 
-The PanSolid NGS workflow and CLC pipeline has been validated for the detected of gene amplifications in *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* *MYC*, *MYCN* and *SMO* at the North West GLH.
+The PanSolid NGS workflow and CLC pipeline has been validated for the detection of gene amplifications in *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* *MYC*, *MYCN* and *SMO* at the North West GLH.
 
 ```{r}
 #| label: export-pansolid-data-for-qpulse
