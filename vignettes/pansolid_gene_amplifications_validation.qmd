@@ -102,11 +102,11 @@ source(here("scripts/set_shared_drive_filepath.R"))
 
 source(here("scripts/collate_gene_transcript_information.R"))
 
-#source(here("scripts/collate_wgs_htmls.R"))
+source(here("scripts/collate_wgs_htmls.R"))
 
-#source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
+source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
 
-#source(here("scripts/collate_pansolid_excel_validation_data.R"))
+source(here("scripts/collate_pansolid_excel_validation_data.R"))
 
 # This script collect patient information but requires an ODBC connection to the
 # DNA Database mirror
@@ -327,7 +327,7 @@ and
 
 ### SeraCare reference materials {#sec-seracare-reference-materials}
 
-Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from a stable cell line (GM24385), spiked with different quantities synthetic DNA constructs containing specific genes. The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes. The product information states that, due to their size, the *EGFR*, *BRAF* and *MET* genes are each split between two synthetic DNA constructs. There is an overlap region in each gene which is present in both constructs, which leads to higher quantities of these regions (@tbl-seracare-gene-constructs). The ddPCR assays designed in this validation (@sec-methods-ddpcr) were checked and do not target these regions. The details of the SeraCare reference materials, including DNA numbers and batch numbers, are shown in the Supplementary Information (@tbl-seracare-reference-material-details).
+Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from a stable cell line (GM24385), spiked with different quantities of synthetic DNA constructs containing specific genes. The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes. The product information states that, due to their size, the *EGFR*, *BRAF* and *MET* genes are each split between two synthetic DNA constructs. There is an overlap region in each gene which is present in both constructs, which leads to higher quantities of these regions (@tbl-seracare-gene-constructs). The ddPCR assays designed in this validation (@sec-methods-ddpcr) were checked and do not target these regions. The details of the SeraCare reference materials, including DNA numbers and batch numbers, are shown in the Supplementary Information (@tbl-seracare-reference-material-details).
 
 ```{r}
 #| label: tbl-seracare-reference-material-genes
