@@ -268,9 +268,9 @@ The clinical impact of amplifications in these genes is summarised below:
 
 The requirements for this new method are as follows:
 
-1.  **Clinical utility:** the test should provide clear results for the 9 listed amplification genes.
+1.  **Results:** the test should provide clear results for the 9 listed amplification genes.
 
-2.  **Clinical validity:** the test should have a defined sensitivity and specificity for these markers, calculated by comparison with an orthogonal test.
+2.  **Analytical validity:** the test should have a defined sensitivity and specificity for these markers, calculated by comparison with an orthogonal test.
 
 3.  **Dosage accuracy:** it should be shown how accurate the test is at detecting amplifications of different copy number states, expressed as a correlation between the test and copy numbers from an orthogonal test.
 
@@ -2185,7 +2185,7 @@ The results from these experiments can be viewed alongside the theoretical predi
 
 ```{r}
 #| label: tbl-lod-theoretical-actual
-#| tbl-cap: "Theoretical and measured limits of detection"
+#| tbl-cap: "Theoretical and measured limits of detection using SeraCare reference materials"
 #| echo: FALSE
 
 kable(lod_df_joined)
@@ -2214,7 +2214,7 @@ Given the assumption that amplification dynamics are not radically different bet
 
 ## *EGFR* version 3 and intra-genic CNVs {#sec-discussion-egfr-v3}
 
-In a single sample, an exonic *EGFR* deletion was detected by PanSolid NGS, consistent with the result from WGS. This is a recurrent in-frame deletion of 801 *EGFR* coding base pairs, representing exons 2 to 7, which is referred to as *EGFR* version 3, Δ801EGFR, *EGFR* vIII or de2-7 *EGFR* [@sugawa1990; @pedersen2001]. *EGFR* version 3 is found in roughly 11% of glioblastoma cases [@brennan2013], but its prognostic significance is controversial [@rutkowska2019].
+In a single sample, an exonic *EGFR* deletion was detected by PanSolid NGS, consistent with the result from WGS. This is a recurrent in-frame deletion of 801 *EGFR* coding base pairs, representing exons 2 to 7, which is referred to as *EGFR* version 3, Δ801EGFR, *EGFR* vIII or del2-7 *EGFR* [@sugawa1990; @pedersen2001]. *EGFR* version 3 is found in roughly 11% of glioblastoma cases [@brennan2013], but its prognostic significance is controversial [@rutkowska2019].
 
 In this validation, the exonic deletion was visible when the individual QIAseq targets were inspected in the interactive HTML view. The CLC "coarse" setting identified two regions within *EGFR* with different fold changes, but did not identify the deleted region. This indicates that intra-genic CNVs within target genes can cause the CLC pipeline to return multiple intra-genic fold-changes, although these may not match the coordinates of the underlying CNV. However, this pattern was also observed in the repeatability study (@sec-results-repeat-testing) for a single replicate of sample 24020998, indicating that the detection of multiple CNV regions per gene is influenced by quality metrics such as signal-adjusted noise which vary between replicates.
 
@@ -2246,7 +2246,7 @@ The test has the following limitations:
 
 - Fold change values below 10 have an uncertainty of measurement of ± `r (2*inter_pooled_sd)` at 95% confidence.
 
-- The test does not detect tetraploidy when present (@sec-wgs-discordant-results), which can impact copy number calculations performed using NCC, as these calculations assume a diploid copy number.
+- The test does not detect tetraploidy when present (@sec-wgs-discordant-results), which can impact copy number calculations performed using NCC, as these calculations assume a diploid copy number. Other non-diploid karyotypes may also impact the accuracy of copy number calculations.
 
 - The CNV regions identified by the test may be narrower than the true region of underlying variation: this is a known limitation of performing CNV detection using an NGS enrichment method (@sec-wgs-coordinate-correlation). 
 
@@ -2254,11 +2254,11 @@ The test has the following limitations:
 
 The test requirements specified in @sec-requirements have been met:
 
-**1. Clinical utility: the test should provide clear results for the 9 listed amplification markers.**
+**1. Results: the test should provide clear results for the 9 listed amplification markers.**
 
 The PanSolid Excel output provides a clear result of the amplification status for all 9 genes.
 
-**2. Clinical validity: the test should have a defined sensitivity and specificity for these markers, calculated by comparison with an orthogonal test.**
+**2. Analytical validity: the test should have a defined sensitivity and specificity for these markers, calculated by comparison with an orthogonal test.**
 
 The amplification detection has a sensitivity and specificity of 
 `r ddpcr_pansolid_sensitivity`% 
@@ -2306,6 +2306,8 @@ The detection of gene amplifications has been validated on DNA extracted by the 
 - The laboratory should participate in relevant external quality assessment schemes for the target genes, if available.
 
 - This validation has primarily used DNA from FFPE material. The conclusions of this validation may not be valid for other sample types.
+
+- The limitations of the test, as described in @sec-discussion-limitations should be included in the test information box when reporting results to clinicians.
 
 # Conclusion {#ref-conclusion}
 
