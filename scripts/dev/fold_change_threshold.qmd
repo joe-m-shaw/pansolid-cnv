@@ -97,8 +97,19 @@ This then shows us which combinations of tumour cell content and target copy num
 #| echo: FALSE
 
 df <- data.frame(tcc = seq(0, 100, by = 0.1)) |> 
-  mutate(target_copies = calculate_target_copies(fold_change = 2.9,
+  mutate(target_copies = calculate_target_copies(fold_change = 2.8,
                                                  tcc_percent = tcc))
+
+point_data <- data.frame(
+  "tcc" = c(30),
+  "target_copies" = c(14)
+)
+
+line_data <- data.frame(
+  "tcc" = c(30),
+  "target_copies" = c(14)
+)
+
 fold_change_plot <- df |> 
   filter(target_copies <= 100) |> 
   ggplot(aes(x = target_copies, y = tcc)) +
@@ -106,13 +117,19 @@ fold_change_plot <- df |>
   theme_bw() +
   labs(x = "Target copies per cell", y = "Tumour cell content (%)",
        title = "Detection limit of CLC pipeline",
-       subtitle = "Line shows detection limit using a fold change threshold of 3") +
+       subtitle = "Line shows detection limit") +
   scale_y_continuous(limits = c(0, 100), breaks = seq(0,100,10),
+                     
                      minor_breaks = FALSE) +
   scale_x_continuous(limits = c(0, 100), breaks = seq(0,100,10),
                      minor_breaks = FALSE) +
   geom_text(aes(x = 30, y = 30), size = 4, label = "Detected") +
-  geom_text(aes(x = 30, y = 5), size = 4, label = "Not detected")
+  geom_text(aes(x = 30, y = 5), size = 4, label = "Not detected") +
+  geom_segment(aes(x = 0, xend = 14, y = 30, yend = 30),
+               linetype = "dashed") +
+  geom_segment(aes(x = 14, xend = 14, y = 0, yend = 30),
+               linetype = "dashed") +
+    geom_point(data = point_data, shape = 21, size = 2, fill= "white")
 
 fold_change_plot
 
