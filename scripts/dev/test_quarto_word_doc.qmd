@@ -8,7 +8,7 @@ toc-title: "Table of Contents"
 number-sections: true
 ---
 
-# Introduction
+
 
 This is me attempting to write a validation document completely in R using Quarto and the Word template provided on QPulse.
 

@@ -42,8 +42,8 @@ pos_cnv_results <- read_csv(str_c(data_folder, "live_service/collated/",
 
 panel_info <- read_csv(str_c(data_folder, "live_service/collated/",
                              "/pansolidv2_sample_worksheet_panel_information.csv"),
-                       show_col_types = FALSE)
-  
+                       col_types = "ccccc") 
+
 pos_cnv_results_with_qc <- pos_cnv_results |> 
   left_join(std_dev_results |> 
               select(filepath, noise),
@@ -88,13 +88,15 @@ total_samples <- length(unique(std_dev_results$filepath))
 
 samples_per_week <- round(total_samples / weeks_live, 0)
 
-worksheet_quality_outcomes <- std_dev_results |> 
+quality_outcomes <- std_dev_results |> 
   mutate(quality_category = case_when(
     noise >= 1 ~"poor",
     noise < 1 & noise >= 0.7 ~"sub-optimal",
     noise < 0.7 ~"good"
   ),
-  quality_category = factor(quality_category, levels = c("poor", "sub-optimal", "good"))) |> 
+  quality_category = factor(quality_category, levels = c("poor", "sub-optimal", "good"))) 
+
+worksheet_quality_outcomes_summary <- quality_outcomes |> 
   group_by(quality_category, worksheet) |> 
   summarise(total = n())
   
@@ -103,57 +105,82 @@ worksheet_quality_outcomes <- std_dev_results |>
 ui <- fluidPage(
   
   theme = bslib::bs_theme(bootswatch = "sandstone"),
-  
-  titlePanel("PanSolidv2 CNV Audit"),
-  
-  str_c("Date: ", format(today(), "%d-%m-%Y")),
-  
-  str_c("Total samples: ", total_samples),
-  
-  str_c("Weeks live: ", weeks_live),
-  
-  str_c("Samples per week: ", samples_per_week),
-
-  fluidRow(
-    h1("Summary"),
-    
-    column(3,
-           h2("Amplification results"),
-           "Samples with noise < 0.5",
-           tableOutput("summary_gene_table")),
-    column(3,
-           h2("Colorectal Cancer Results"),
-           tableOutput("crc_summary_table"))
-  ),
-  
-  fluidRow(
-    h1("Quality Tracking"),
-    
-    column(10,
-           plotOutput("noise_by_ws_plot")),
-    
-    column(10,
-           plotOutput("percent_138_plot")),
-    
-    column(10,
-           plotOutput("noise_category_by_ws_plot"))
-
-  ),
-  
-  fluidRow(
-    
-    column(5,
-           h2("Sample details"),
-           
-           selectInput(inputId = "gene_select", label = "Gene", 
-                       choices = gene_options, selected = "ERBB2"),
-           
-           numericInput("noise_qc", "Signal-adjusted noise must be less than", 
-                        value = 0.5, min = 0, max = 6),
-           
-           tableOutput("amp_tbl")
-    )
+  tabsetPanel(
+    tabPanel("Overview",
+             titlePanel("PanSolidv2 CNV Audit"),
+             
+             str_c("Date: ", format(today(), "%d-%m-%Y")),
+             
+             str_c("Total samples: ", total_samples),
+             
+             str_c("Weeks live: ", weeks_live),
+             
+             str_c("Samples per week: ", samples_per_week),
+             
+             fluidRow(
+               h1("Summary"),
+               
+               column(3,
+                      h2("Amplification results"),
+                      "Samples with noise < 0.5",
+                      tableOutput("summary_gene_table")),
+               column(3,
+                      h2("Colorectal Cancer Results"),
+                      tableOutput("crc_summary_table"))
+             )),
+    tabPanel("Quality tracking",
+             fluidRow(
+               h1("Quality Tracking"),
+               
+               column(10,
+                      plotOutput("noise_by_ws_plot")),
+               
+               column(10,
+                      plotOutput("percent_138_plot")),
+               
+               column(10,
+                      plotOutput("noise_category_by_ws_plot"))
+               
+             )),
+    tabPanel("Other stuff",
+             fluidRow(
+               
+               column(5,
+                      h2("Sample details"),
+                      
+                      selectInput(inputId = "gene_select", label = "Gene", 
+                                  choices = gene_options, selected = "ERBB2"),
+                      
+                      numericInput("noise_qc", "Signal-adjusted noise must be less than", 
+                                   value = 0.5, min = 0, max = 6),
+                      
+                      tableOutput("amp_tbl")
+               )
+             ),
+             fluidRow(
+               h2("Panel details"),
+               tableOutput("summary_panel_table")
+             )),
+    tabPanel("Signal-adjusted noise",
+             fluidRow(
+               column(10,
+                      plotOutput("signal_adjusted_noise_histo"))
+             ),
+             fluidRow(
+               column(10,
+                      tableOutput("signal_adjusted_noise_summary"))
+             ),
+             fluidRow(
+               column(10,
+                      plotOutput("percent_138_histo"))
+             ),
+             fluidRow(
+               column(10,
+                      tableOutput("percent_138_summary"))
+             )
+             )
   )
+ 
 )
 
 # Server ----------------------------------------------------------------------------
@@ -283,7 +310,7 @@ server <- function(input, output) {
   
   output$noise_category_by_ws_plot <- renderPlot({
     
-    ggplot(worksheet_quality_outcomes, aes(x = worksheet, y = total)) +
+    ggplot(worksheet_quality_outcomes_summary, aes(x = worksheet, y = total)) +
       geom_col(aes(fill = quality_category)) +
       scale_fill_manual(values = c("#D55E00", "#E69F00","#009E73")) +
       theme_bw() +
@@ -295,6 +322,49 @@ server <- function(input, output) {
            fill = "")
     
   })
+  
+  output$signal_adjusted_noise_histo <- renderPlot({
+    
+    ggplot(std_dev_results, aes(x = noise, 
+                                y = )) +
+      geom_histogram(binwidth = 0.01) +
+      theme_bw() +
+      scale_x_continuous(breaks = c(0, 0.5, 0.7, 1, 2, 3, 4))
+
+  })
+  
+  output$percent_138_histo <- renderPlot({
+    
+    ggplot(percent_138_results, aes(x = percent_whole_panel_covered_at_138x, 
+                                y = )) +
+      geom_histogram(binwidth = 1) +
+      theme_bw() +
+      scale_x_continuous(breaks = seq(0, 100, by = 10))
+    
+  })
+  
+  output$signal_adjusted_noise_summary <- renderTable({
+    
+    quality_outcomes |> 
+      count(quality_category) |> 
+      arrange(rev(quality_category)) |> 
+      mutate(percentage = round((n/sum(n)) * 100, 1))
+    
+  })
+  
+  output$percent_138_summary <- renderTable({
+    
+    percent_138_results |> 
+      mutate(quality_category = case_when(
+        percent_whole_panel_covered_at_138x >= 90 ~"good",
+        percent_whole_panel_covered_at_138x < 90 ~"poor"
+      )) |> 
+      count(quality_category) |> 
+      arrange(rev(quality_category)) |> 
+      mutate(percentage = round((n/sum(n)) * 100, 1))
+    
+  })
+  
   
 }
 
