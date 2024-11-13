@@ -58,6 +58,8 @@ m119_data <- m119_filepaths |>
 rb1_data <- m119_data |> 
   filter(name == "RB1")
 
+# m119_data[!complete.cases(m119_data),]
+
 ```
 
 Here is a plot showing some coverage metrics for *RB1* on the v2M119 PAEDEXT panel. This includes `r length(unique(rb1_data$labno))` samples tested since the PanSolid filenames changed to include the panel name. Results where the panel name is not within the filename are not included.
@@ -109,3 +111,46 @@ rb1_samples <- rb1_data |>
 knitr::kable(rb1_samples)
 
 ```
+
+## 07/11/2024
+
+Eleanor has asked me to create plots for each sample for each exon of RB1. I've decided to generate this as a separate PDF using ggexport.
+
+```{r}
+#| label: rb1-sample-plots
+#| include: FALSE
+
+source(here("functions/extract_pansolid_cnv_coordinates.R"))
+
+library(ggpubr)
+
+rb1_data_with_coords <- extract_pansolid_cnv_coordinates(df = rb1_data,
+                                                         cnv_coord_col = region)
+
+draw_rb1_plot <- function(x) {
+  
+  plot <- rb1_data_with_coords |> 
+    filter(labno_suffix_worksheet == x) |> 
+    ggplot(aes(x = start, y = median_coverage)) +
+    geom_point(shape = 21) +
+    theme_bw() +
+    ylim(0, max(rb1_data_with_coords$median_coverage) + 50) +
+    labs(x = "GRCh38 genome coordinate", y = "Median coverage (x)",
+         title = x,
+         subtitle = "Data shown is for RB1 targets")
+  
+  return(plot)
+}
+
+plot_sample_list <- unique(rb1_data_with_coords$labno_suffix_worksheet)
+
+rb1_plots <- plot_sample_list |> 
+  map(\(plot_sample_list) draw_rb1_plot(x = plot_sample_list))
+
+ggexport(plotlist = rb1_plots, filename = paste0(
+  outputs_folder, "rb1_plots_all_samples.pdf"), 
+  width=15, height=8, res=300)
+
+```
+
+
