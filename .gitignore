@@ -72,11 +72,11 @@ outputs/
 # HTML files
 *.html
 
+# Word file
+*.docx
+
 # PNG files
 *.png
-
-# RProject
-*.Rproj
 
 # Extra quarto files
 scripts/pansolid_cnv_analysis_files/
