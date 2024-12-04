@@ -43,7 +43,8 @@ results_tbl <- tbl(dbi_con,
                      catalog = "MolecularDB",
                      schema = "dbo",
                      table = "ResultsAccess")) |> 
-  janitor::clean_names()
+  janitor::clean_names() |> 
+  rename(pcrid = resultsid)
 
 tissue_types <- tbl(dbi_con, dbplyr::in_catalog(catalog = "MolecularDB",
                                                 schema = "dbo",
