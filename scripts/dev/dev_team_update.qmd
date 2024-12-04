@@ -1,0 +1,76 @@
+---
+title: "Development Team Update"
+author: "The Dev Team"
+date: today
+date-format: "DD/MM/YYYY"
+format: pptx
+---
+
+```{r}
+#| label: packages
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+library(here)
+library(odbc)
+library(DBI)
+library(dbplyr)
+library(ggpubr)
+
+source(here::here("scripts/connect_to_dna_db.R"))
+
+source(here::here("functions/dna_db_functions.R"))
+
+```
+
+## QIAsymphony extractions
+
+```{r}
+#| label: qiasymphony-extractions
+#| include: FALSE
+
+qiasymphony_batch_tbl <- extraction_batch_tbl |> 
+  filter(extraction_method_fk == 33 &
+          run_date > "2024-03-31 00:00:00") |> 
+  collect()
+
+qiasymphony_batches <- qiasymphony_batch_tbl$extraction_batch_id
+
+qiasymphony_samples <- extraction_tbl |> 
+  filter(extraction_batch_fk %in% qiasymphony_batches) |> 
+  collect() |> 
+  left_join(qiasymphony_batch_tbl, join_by("extraction_batch_fk" == "extraction_batch_id"),
+            relationship = "many-to-one")
+
+qiasymphony_weeks <- qiasymphony_samples |> 
+  mutate(date = as_datetime(run_date),
+           week = lubridate::floor_date(date, "week"),
+         day = lubridate::floor_date(date, "day")) |> 
+  filter(!is.na(week)  & !is.na(day)) 
+
+qiasymphony_summary <- qiasymphony_weeks |> 
+  count(week) |> 
+  arrange(week) |> 
+  mutate(cumulative = cumsum(n))
+
+```
+
+- Louise validated the QIAsymphony robot in April 2024.
+- Since then, **`r nrow(qiasymphony_samples)`** samples have been extracted.
+
+```{r}
+#| label: qiasymphony-extractions-plot
+#| echo: FALSE
+
+qs_plot <- ggplot(qiasymphony_summary, aes(x = week, y = n)) +
+  geom_col() +
+  theme_bw() +
+  labs(x = "", y = "Samples extracted per week",
+       title = "Samples extracted on the QIAsymphony by the tech team") +
+  coord_cartesian(xlim = as_datetime(c('1/1/2024', '31/09/2024'),
+                                     format="%d/%m/%Y"))
+
+qs_plot
+
+```
