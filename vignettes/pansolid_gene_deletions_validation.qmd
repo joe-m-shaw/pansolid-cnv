@@ -57,6 +57,12 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
 **NHS**: National Health Service
 
+**p14ARF**: protein 14 kilo Daltons Alternate Reading Frame
+
+**p15INK4B**: protein 15 kilo Daltons Inhibitor of CDK4 B
+
+**p16INK4A**: protein 16 kilo Daltons Inhibitor of CDK4 A
+
 **PTEN**: Phosphatase and tensin homolog deleted on chromosome ten
 
 **WGS**: Whole Genome Sequencing
@@ -78,6 +84,7 @@ library(patchwork)
 source(here("scripts/set_shared_drive_filepath.R"))
 source(here("functions/gene_table_functions.R"))
 source(here("functions/test_metric_functions.R"))
+source(here("functions/extract_pansolid_cnv_coordinates.R"))
 
 ```
 
@@ -97,8 +104,11 @@ target_df <- read_csv(paste0(data_folder,
 
 del_genes <- load_pansolid_gene_table("Deletions")
 
+genes_in_validation <- c("CDKN2A", "CDKN2B", "PTEN", "TP53", "MLH1", "MSH2",
+                         "MSH6", "NF2")
+
 gene_target_counts <- target_df |> 
-  filter(name %in% del_genes$gene) |> 
+  filter(name %in% genes_in_validation) |> 
   count(name) |>
   mutate("Predicted CLC setting" = case_when(
     n < 10 ~"Fine",
@@ -163,53 +173,26 @@ Homozygous deletion is associated poor prognosis in meningiomas [@sievers2020] a
 
 Homozygous *CDKN2A/B* deletion is included in the fifth edition of the World Health Organisation Classification of Tumours of the Central Nervous System [@louis2021]. 
 
-Germline *CDKN2A* mutations increase predisposition to melanoma [@toussi2020].
+Germline *CDKN2A* mutations increase predisposition to melanoma [@toussi2020]. A single publication links germline mutations in *CDKN2B* to renal cell carcinoma (Jafri et al (2015)). Germline deletions of both *CDKN2A* and *CDKN2B* have been reported (Jensen et al (2022)). 
+
+Vieler at al (2023) used optical genome mapping to characterise CDKN2/B deletions in acute lymphoblastic leukaemia, showing deletions varied between 24 kilobases to 34 Megabases. Abdulaziz et al (2019) analysed *CDKN2A* deletions on the COSMIC database and reported a median deletion length of 1.2Mb.
+
+Due to their proximity, *CDKN2A* and *CDKN2B* are normally deleted together, however there are less common cases where only one gene is deleted. For example, González-Gil et al (2021) reported that in 20% of acute lymphoblastic leukaemia only one of *CDKN2A* or *CDKN2B* was lost.
 
 ### *PTEN*
 
 *PTEN* is deleted in many different cancer types [@alvarezgarcia2019].
 
-*PTEN* has a pseudogene, *PTENP1*, on chromosome 9.
-
-ddPCR primers were designed by targeting minor differences in the PTEN and PTENP1 sequences.
-
 Germline mutations in *PTEN* cause PTEN hamartoma tumor syndrome [@yehia2020]. Germline deletions in PTEN can either encompass the whole gene or include only certain exons [@zhou2003]. 
 
-### Clinical impact of other genes
+### *TP53*
 
-The clinical impact of the remaining genes is summarised below:
 
-- APC
+### *NF2*
 
-- ATM
 
-- BMPR1A
+### Mismatch repair genes: *MLH1*, *MSH2* and *MSH6*
 
-- BRCA1 and BRCA2
-
-- CDH1
-
-- CHEK2
-
-- MLH1
-
-- MSH2
-
-- MSH6
-
-- PALB2
-
-- PMS2
-
-- RAD51C
-
-- RAD51D
-
-- SMAD4
-
-- STK11
-
-- TP53
 
 ## Loss of heterozygosity
 
@@ -231,7 +214,7 @@ The requirements for this new method are as follows:
 
 6 **Visualisation:** the results should be presented in a clear and visual manner.
 
-7 **Analysis:** there should be a clear procedure for analysis fo gene deletions by laboratory staff.
+7 **Analysis:** there should be a clear procedure for analysis for gene deletions by laboratory staff.
 
 {{< pagebreak >}}
 
@@ -248,6 +231,8 @@ The requirements for this new method are as follows:
 ## Next generation sequencing
 
 ## Bioinformatics Pipeline
+
+A bioinformatics pipeline was built in the CLC Genomics Workbench v23 (Qiagen).
 
 ### Fold change {#sec-methods-fold-change}
 
@@ -356,23 +341,73 @@ copy_number_plot
 
 ```
 
+### Ploidy status
+
+Ploidy status was predicted using the "Detect Regional Ploidy" tool. 
+
 ### Pipeline version
 
-## Orthogonal testing: droplet digital PCR
+The version of the PanSolid CLC pipeline tested in this validation was PanSolid Workflow v2.4.
+
+## Orthogonal testing
+
+### Droplet digital PCR
 
 20ng input was used.
 
 ddPCR assays were designed for *CDKN2A*, *PTEN*, *MSH6* and *MLH1*.
 
+*PTEN* has a pseudogene, *PTENP1*, on chromosome 9.
+
+ddPCR primers were designed by targeting minor differences in the PTEN and PTENP1 sequences.
+
 ddPCR assays already exist for *BRCA1*, *MSH2* and *PALB2*.
 
-## Orthogonal testing: whole genome sequencing
+WS146462 and WS146463
+
+### Whole genome sequencing
 
 The Genomics England cancer pipeline estimates tumour content using the Ccube algorithm [@yuan2018].
 
-## Orthogonal testing: loss of heterozgosity
+### Loss of heterozgosity
 
-4 microsatellite repeat markers (22S275, D22S929, NF2CAV and D22S268) on chromosome 22 are used to assess loss of heterozygosity (LOH) for the *NF2* gene with fluorescence-PCR analysed on an ABI-3130 analyser ([LP000069: Neurofibromatosis type 2 (NF2): Standard Operating Procedure]{custom-style="Strong"}). We used these samples as proof-of-concept that the PanSolid pipeline can identify regions of LOH.
+```{r}
+#| label: nf2-markers
+#| include: FALSE
+
+nf2_loh_markers <- tribble(
+  ~marker,      ~chromosome, ~grch38_start,    ~grch38_end,
+  "D22S275",    "22",        28718848,         28719015,
+  "NF2CA3",     "22",        29628082,         29628219,
+  "NF2intron10", "22",       29670415,         29670600,
+  "D22S268",     "22",       30162212,         30162464
+) |> 
+  mutate(amplicon_size_bp = abs(grch38_start - grch38_end))
+
+nf2_marker_mb <- round((max(nf2_loh_markers$grch38_end) - min(nf2_loh_markers$grch38_start)) / 10^6, 1)
+
+target_df_with_coordinates <- extract_pansolid_cnv_coordinates(target_df, region)
+
+nf2_loh_targets <- target_df_with_coordinates |> 
+  filter(chromosome == "22") |> 
+  filter(start >= min(nf2_loh_markers$grch38_start) &
+           end <= max(nf2_loh_markers$grch38_end))
+
+```
+
+4 dinucleotide microsatellite repeat markers (D22S275, NF2CA3, NF2intron10 and D22S268) on chromosome 22 are used to assess loss of heterozygosity (LOH) for the *NF2* gene with fluorescence-PCR analysed on an ABI-3130 analyser ([LP 000 069: Neurofibromatosis type 2 (NF2): Standard Operating Procedure]{custom-style="Strong"}). Testing was performed on paired tumour and blood DNA.
+
+These markers span `r nf2_marker_mb` Mb of chromosome 22, the same region contains `r nrow(nf2_loh_targets)` targets on PanSolid v2.
+
+We used these samples as proof-of-concept that the PanSolid pipeline can identify regions of LOH.
+
+```{r}
+#| label: tbl-nf2-markers
+#| echo: FALSE
+
+kable(nf2_loh_markers)
+
+```
 
 {{< pagebreak >}}
 
