@@ -16,6 +16,8 @@ source(here("functions/pansolid_excel_functions.R"))
 pansolidv2_worksheets <- read_excel(paste0(data_folder,
                                            "live_service/pansolid_live_service_worksheets.xlsx"))
 
+message("PanSolid worksheet list read")
+
 worksheet_list <- list(pansolidv2_worksheets$worksheet)
 
 s_drive_filepaths <- worksheet_list |> 
@@ -52,6 +54,8 @@ if (anyNA(s_drive_file_df)) {
   warning("Error: there are NA values in the filepath table")
 }
 
+message("Sample filepaths compiled")
+
 write.csv(s_drive_file_df, 
           paste0(data_folder, "live_service/collated/",
                  "pansolidv2_sample_worksheet_panel_information.csv"),
@@ -80,6 +84,8 @@ if (nrow(new_files) > 0) {
   
   file.copy(from = new_files$filepath, 
             to = paste0(data_folder, "live_service/raw/"))
+  
+  message("Copying new files to raw_data folder")
   
 }
 
