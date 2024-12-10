@@ -3,7 +3,9 @@ group_sd <- function(df, group_variable1, group_variable2, measurement_variable)
   #' Calculate standard deviations with grouped variables
   #'
   #' This function performs calculations described in 
-  #' [NISTIR 6969 Selected Laboratory and Measurement Practices and Procedures to Support Basic Mass Calibrations (2019 Ed)](https://nvlpubs.nist.gov/nistpubs/ir/2019/NIST.IR.6969-2019.pdf)
+  #' [NISTIR 6969](https://nvlpubs.nist.gov/nistpubs/ir/2019/NIST.IR.6969-2019.pdf) 
+  #' Selected Laboratory and Measurement Practices and Procedures to Support 
+  #' Basic Mass Calibrations (2019 Ed)]
   #' (page 211, section 8.4).
   #' 
   #' @param df A dataframe containing measurement data
