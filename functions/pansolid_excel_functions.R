@@ -15,13 +15,13 @@ parse_filename <- function(input_file, input_group) {
   
   filename_regex <- stringr::regex(
     r"[
-    (WS\d{6})                                   # Worksheet number
+    (WS\d{6})             # Worksheet number
     _
-    (\d{5,8})                                   # Lab number
-    (a|b|c|d|)                                  # Suffix
+    (\d{5,8})             # Lab number
+    (a|b|c|d|)            # Suffix
     _
-    ([:alnum:]{3,30})                           # Patient name - alphanumeric characters only
-    (.xlsx|_S.+.xlsx|_S.+|_CNV_processed.xlsx)  # Ending varies between patients and controls
+    ([:alnum:]{3,30})     # Patient name - alphanumeric characters only
+    .*.xlsx               # Variable ending                      
     ]",
     comments = TRUE)
   
@@ -308,3 +308,5 @@ get_amp_sheetname <- function(filepath) {
   return(amp_sheet_name)
   
 }
+
+source(here("tests/test_pansolid_excel_functions.R"))
