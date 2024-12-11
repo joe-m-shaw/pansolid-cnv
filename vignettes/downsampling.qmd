@@ -1,0 +1,409 @@
+---
+title: "Downsampling experiment"
+author: "Joe Shaw"
+format: pdf
+date: today
+date-format: "DD/MM/YYYY"
+editor: visual
+fig-height: 6
+fig-width: 6
+---
+
+# Introduction
+
+FASTQ files were downsampled to different levels to assess how coverage impacts CNV calling for 3 samples.
+
+```{r}
+#| label: packages-and-functions
+#| include: FALSE
+
+library(tidyverse)
+library(here)
+
+source(here("functions/pansolid_excel_functions.R"))
+source(here("functions/clc_raw_excel_functions.R"))
+source(here("functions/cnv_plot_functions.R"))
+source(here("functions/extract_pansolid_cnv_coordinates.R"))
+
+```
+
+```{r}
+#| label: downsampling-levels
+#| include: FALSE
+
+downsample_regex <- stringr::regex(
+    r"[
+    (WS\d{6})             # Worksheet number
+    _
+    (\d{8})               # Lab number
+    (a|b|c|d|)            # Suffix
+    _
+    ([:alnum:]{3,30})     # Patient name
+    (-\d{1}.\d{1,3})      # Downsampling level
+    .*                    # Variable ending
+    .xlsx                                      
+    ]",
+    comments = TRUE)
+
+add_downsample_level <- function(df) {
+  
+  output <- df |> 
+    mutate(downsample_level = str_extract(filepath,
+                                        downsample_regex,
+                                        5),
+         downsample_level = factor(x = str_replace(downsample_level, "-", ""),
+                                      levels = c("1.0", "0.5", "0.25", "0.2",
+                                                 "0.125", "0.1")),
+         labno_downsample = str_c(labno, "_", downsample_level)) |> 
+    relocate(downsample_level, labno_downsample, .after = labno)
+  
+  return(output)
+  
+}
+
+```
+
+```{r}
+#| label: files
+#| include: FALSE
+
+ds_filepath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Downsampling/"
+
+amp_files <- list.files(ds_filepath,
+                        pattern = "Annotated_Downsampling_.*",
+                        full.names = TRUE)
+
+del_files <- list.files(ds_filepath,
+                        pattern = "Results_TSG\\s\\(Deleted\\).*.xlsx",
+                        full.names = TRUE)
+
+# Amplification results
+
+std_dev_collated <- amp_files |> 
+  map(\(amp_files) read_stdev_results(
+    file = amp_files,
+    sheet = get_amp_sheetname(amp_files))) |> 
+  list_rbind() |> 
+  add_downsample_level() |> 
+  rename(noise = st_dev_signal_adjusted_log2_ratios)
+
+percent_138_collated <- amp_files |> 
+  map(\(amp_files) read_percent_138_results(
+    file = amp_files,
+    sheet = get_amp_sheetname(amp_files))) |> 
+  list_rbind() |> 
+  add_downsample_level() |> 
+  rename(percent_138 = percent_whole_panel_covered_at_138x)
+
+pos_cnv_collated <- amp_files |> 
+  map(\(amp_files) read_pos_cnv_results(
+    file = amp_files,
+    sheet = get_amp_sheetname(amp_files))) |> 
+  list_rbind() |> 
+  add_downsample_level()
+
+all_amp_collated <- amp_files |> 
+  map(\(amp_files) read_all_amp_genes_results(
+    file = amp_files,
+    sheet = get_amp_sheetname(amp_files))) |> 
+  list_rbind() |> 
+  add_downsample_level()
+
+# Deletion results
+
+coarse_results <- del_files |> 
+  map(\(del_files) read_del_raw_excel(filepath = del_files,
+                                       sheet = 1)) |> 
+  list_rbind() |> 
+  add_downsample_level() |> 
+  mutate(graining = "coarse")
+
+fine_results <- del_files |> 
+  map(\(del_files) read_del_raw_excel(filepath = del_files,
+                                       sheet = 2)) |> 
+  list_rbind() |> 
+  add_downsample_level() |> 
+  mutate(graining = "fine")
+
+all_del_results <- extract_pansolid_cnv_coordinates(df = rbind(coarse_results,
+                                                               fine_results), 
+                                                    cnv_coord_col = cnv_region) |> 
+  rename(fold_change = fold_change_adjusted)
+
+
+```
+
+# Quality metrics
+
+```{r}
+#| label: quality-metrics
+#| echo: FALSE
+
+qc_joined <- std_dev_collated |> 
+  left_join(percent_138_collated |> 
+              select(filepath, percent_138), 
+            by = "filepath")
+
+ggplot(qc_joined, aes(x = noise, y = percent_138)) +
+  geom_point(size = 3, shape = 21, aes(fill = downsample_level)) +
+  theme_bw() +
+  facet_wrap(~labno) +
+  xlim(0, 1) +
+  ylim(0, 100) +
+  theme(legend.position = "bottom") +
+  labs(x = "Signal-adjusted noise", y = "Percentage coverage above 138X",
+       title = "Downsampling has a minor impact on noise")
+
+```
+
+{{< pagebreak >}}
+
+# Impact on fold change
+
+Downsampling did not have a significant impact on the fold changes measured for amplification genes in any of the 3 samples.
+
+```{r}
+#| label: fold-change-plots
+#| echo: FALSE
+
+all_amp_collated_long <- all_amp_collated |> 
+  pivot_longer(cols = c("max_region_fold_change", "min_region_fold_change"),
+               names_to = "fold_change_type",
+               values_to = "fold_change")
+
+make_repeatability_plot <- function(df = all_amp_collated_long, 
+                                    labno_input, 
+                                    x_axis,
+                                    y_axis = fold_change) {
+  
+  plot <- df |> 
+            filter(labno == {{ labno_input }}) |> 
+            ggplot(aes(x = {{ x_axis }} , y = {{ y_axis }})) +
+              annotate('rect', xmin = 0, xmax = 5, ymin = -1, 
+                       ymax = 1, fill='white') +
+              geom_hline(yintercept = 2.8) +
+              geom_hline(yintercept = 1, colour = "grey") +
+              geom_hline(yintercept = -1, colour = "grey") +
+              geom_line() +
+              geom_point(shape = 21, size = 2, fill = "white") +
+              theme_bw() +
+              facet_wrap(~gene) 
+            
+  
+  return(plot)
+  
+}
+
+make_repeatability_plot(labno = "24030945",
+                        x_axis = downsample_level) +
+  coord_cartesian(ylim = c(-2, 5)) +
+  labs(x = "Downsample level", y = "Fold change",
+       title = "24030945",
+       subtitle = "EGFR results cropped due to amplification")
+
+make_repeatability_plot(labno = "24017319",
+                        x_axis = downsample_level) +
+  coord_cartesian(ylim = c(-2, 5)) +
+  labs(x = "Downsample level", y = "Fold change",
+       title = "24017319")
+
+make_repeatability_plot(labno = "24002071",
+                        x_axis = downsample_level) +
+  coord_cartesian(ylim = c(-2, 15)) +
+  labs(x = "Downsample level", y = "Fold change",
+       title = "24002071")
+
+```
+
+{{< pagebreak >}}
+
+# Impact on CNV coordinates
+
+## 24002071
+
+This sample is the SeraSeq +12 copies control. Downsampling did not impact the coordinates of the amplifications detected, except for the *EGFR* gene which had 2 CNV calls when no downsampling was performed.
+
+```{r}
+#| label: 24002071-amp-plots
+#| echo: FALSE
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
+                      filter(labno == "24002071"),
+                    gene = "EGFR", 
+                    yaxis = labno_downsample))
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
+                      filter(labno == "24002071"),
+                    gene = "MYC", 
+                    yaxis = labno_downsample))
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
+                      filter(labno == "24002071"),
+                    gene = "BRAF", 
+                    yaxis = labno_downsample))
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
+                      filter(labno == "24002071"),
+                    gene = "ERBB2", 
+                    yaxis = labno_downsample))
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
+                      filter(labno == "24002071"),
+                    gene = "MET", 
+                    yaxis = labno_downsample))
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
+                      filter(labno == "24002071"),
+                    gene = "MYCN", 
+                    yaxis = labno_downsample))
+
+```
+
+{{< pagebreak >}}
+
+## 24030945
+
+This sample has a WGS result with an EGFR amplification. The EGFR amplification was detected at all downsampling levels.
+
+```{r}
+#| label: 24030945-egfr
+#| echo: FALSE
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
+                      filter(labno == "24030945"),
+                    gene = "EGFR", 
+                    yaxis = labno_downsample,
+                    interval = 100000,
+                    buffer = 100000))
+
+```
+
+{{< pagebreak >}}
+
+The sample also had biallelic deletions in CDKN2A and PTEN.
+
+```{r}
+#| echo: FALSE
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24030945" & graining == "coarse"),
+                    gene = "CDKN2A", 
+                    yaxis = labno_downsample,
+                    interval = 100000,
+                    buffer = 100000,
+                    title = "24030945 CDKN2A coarse"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24030945" & graining == "fine"),
+                    gene = "CDKN2A", 
+                    yaxis = labno_downsample,
+                    interval = 100000,
+                    buffer = 100000,
+                    title = "24030945 CDKN2A fine"))
+
+```
+
+{{< pagebreak >}}
+
+The PTEN call was impacted by downsampling on the "coarse" setting, but not on the "fine" setting.
+
+```{r}
+#| echo: FALSE
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24030945" & graining == "coarse"),
+                    gene = "PTEN", 
+                    yaxis = labno_downsample,
+                    interval = 1000000,
+                    buffer = 200000,
+                    title = "24030945 PTEN coarse"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24030945" & graining == "fine"),
+                    gene = "PTEN", 
+                    yaxis = labno_downsample,
+                    interval = 1000000,
+                    buffer = 200000,
+                    title = "24030945 PTEN fine"))
+
+```
+
+{{< pagebreak >}}
+
+## 24017319
+
+This sample has a WGS result with no amplifications. WGS showed homozygous CDKN2A deletion and a heterozygous PTEN deletion. No amplifications were detected on PanSolid at any downsampling level.
+
+```{r}
+#| label: 24017319-amp-table
+#| echo: FALSE
+
+pos_cnv_collated |> 
+  filter(labno == "24017319") |> 
+  select(labno, downsample_level, gene)
+
+```
+
+However there was variation in the coordinates for CDKN2A and PTEN calls with different downsampling levels.
+
+```{r}
+#| echo: FALSE
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24017319" & graining == "coarse"),
+                    gene = "CDKN2A", 
+                    yaxis = labno_downsample,
+                    interval = 1000000,
+                    buffer = 500000,
+                    title = "24017319 CDKN2A coarse"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24017319" & graining == "fine"),
+                    gene = "CDKN2A", 
+                    yaxis = labno_downsample,
+                    interval = 1000000,
+                    buffer = 500000,
+                    title = "24017319 CDKN2A fine"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24017319" & graining == "coarse"),
+                    gene = "PTEN", 
+                    yaxis = labno_downsample,
+                    interval = 10000000,
+                    buffer = 500000,
+                    title = "24017319 PTEN coarse"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24017319" & graining == "fine"),
+                    gene = "PTEN", 
+                    yaxis = labno_downsample,
+                    interval = 10000000,
+                    buffer = 500000,
+                    title = "24017319 PTEN fine"))
+
+```
