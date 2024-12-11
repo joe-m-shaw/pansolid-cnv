@@ -74,7 +74,7 @@ set_cnv_df_types <- function(df) {
   }
   
   df <- df |> 
-    mutate(
+    dplyr::mutate(
       chromosome = as.character(chromosome),
       region = as.character(region),
       name = as.character(name),
@@ -105,9 +105,9 @@ set_cnv_df_types <- function(df) {
 
 read_raw_cnv_excel <- function(filepath, sheet_no) {
   
-  df <- read_excel(path = filepath,
+  df <- readxl::read_excel(path = filepath,
                    sheet = sheet_no) |> 
-    clean_names()
+    janitor::clean_names()
   
   if(nrow(df) == 0){
     
@@ -118,13 +118,13 @@ read_raw_cnv_excel <- function(filepath, sheet_no) {
   if(!"comments" %in% colnames(df)) {
     
     df <- df |> 
-      mutate(comments = "") |> 
-      relocate(comments, .after = number_of_targets)
+      dplyr::mutate(comments = "") |> 
+      dplyr::relocate(comments, .after = number_of_targets)
     
   }
   
   df <- set_cnv_df_types(df) |> 
-    mutate(filepath = filepath)
+    dplyr::mutate(filepath = filepath)
   
   return(df)
   
@@ -133,11 +133,11 @@ read_raw_cnv_excel <- function(filepath, sheet_no) {
 read_del_raw_excel <- function(filepath, sheet_no) {
   
   df <- read_raw_cnv_excel(filepath = filepath, sheet_no = sheet_no) |> 
-    mutate(labno = str_extract(string = filepath, pattern = "\\d{8}"),
+    dplyr::mutate(labno = str_extract(string = filepath, pattern = "\\d{8}"),
            suffix = str_extract(string = filepath, pattern = ".*\\d{8}(|a|b|c|d)_.*",
                                 group = 1),
            worksheet = str_extract(string = filepath, pattern = "WS\\d{6}")) |> 
-    relocate(labno, worksheet)
+    dplyr::relocate(labno, worksheet)
   
   return(df)
   

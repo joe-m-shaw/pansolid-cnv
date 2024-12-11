@@ -124,8 +124,6 @@ gene_coord_table |>
 
 ```
 
-
-
 {{< pagebreak >}}
 
 # 24018922
@@ -457,4 +455,3 @@ make_del_fine_plot("24048159", "CHEK2",
                    buffer_input = 100000, ymin_input = -5)
 
 ```
-
