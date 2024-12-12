@@ -10,20 +10,6 @@ fig-width: 7
 fig-height: 6
 ---
 
-# Summary
-
-- PanSolid can miss cases where chromosomes have a copy number of 1 (examples: 24025266, 24025266, 24021613), especially when the NCC is low (examples: 24018922, 24017321)
-
-- Non-diploid samples are tricky. PanSolid detects loss from the tumour ploidy, not absolute copy number. This means PanSolid may flag a deletion, but the gene actually has a copy number of 2 and the rest of the genome is at a higher ploidy (examples: 23033921, 24030951, 24042543). This can also happen with disordered diploid genomes (example: 24035920).
-
-- Signal-adjusted noise above 1 leads to false positive deletion calls on both coarse and fine settings (examples: 23011114, 24030364)
-
-- CDKN2A is detected the same by coarse and fine in most cases, but in one case coarse did not detection and deletion detected on fine (24048159).
-
-- Fine is the better choice for PTEN, although it does sometimes detect very small intragenic PTEN deletions not seen on WGS (24042543).
-
-- Fine gives small intragenic deletions in PMS2 in multiple samples (examples: 24031053)
-
 ```{r}
 #| label: scripts-and-packages
 #| include: FALSE
@@ -136,6 +122,55 @@ del_genes <- read_csv(file = paste0(config::get("data_filepath"),
 
 ```
 
+# Summary
+
+- PanSolid can miss cases where chromosomes have a copy number of 1 (examples: 24025266, 24025266, 24021613), especially when the NCC is low (examples: 24018922, 24017321, 23026481)
+
+- There are also cases where PanSolid detects a copy number of 1 not present on WGS (24043023) which is particularly apparent when the percentage coverage at 138X is low (24042074 - 65%).
+
+- Non-diploid samples are tricky. PanSolid seems to detect losses from the tumour ploidy, not by absolute copy number. This means PanSolid may flag a deletion, but the gene actually has a copy number of 2 on WGS and the rest of the genome is at a higher ploidy (examples: 23033921, 24030951, 24042543, 24048159). This can also happen with disordered diploid genomes (example: 24035920).
+
+- The tricky thing is that tetraploid genomes look like diploid genomes in the B allele frequency plot - example 24048159.
+
+- PanSolid does well with samples that have NCC above 80% measured on WGS, and diploid genomes (examples: 24035924, 24030957, 24026628)
+
+- With diploid genomes and 60-70% NCC, it misses deletions (24025266, 24021613)
+
+- Signal-adjusted noise above 0.7 leads to false positive deletion calls on both coarse and fine settings (examples: 23011114, 24030364, 23032153).
+
+- Fine is the better choice for CDKN2A. CDKN2A is detected the same by coarse and fine in most cases, but in one case coarse did not detection and deletion detected on fine (24048159).
+
+- Fine is the better choice for PTEN. Coarse misses some PTEN deletions which are detected by fine (see repeat results for 24027774). Fine can sometimes detect very small intragenic PTEN deletions not seen on WGS (24042543).
+
+- Fine gives small intragenic deletions in PMS2 in multiple samples (examples: 24031053, 23024556, 24030957). 
+
+- A CDKN2A/B copy number 0 loss was missed for one sample (24033015) although this was low confidence (LC-9) on WGS, with 50% NCC and a tetraploid tumour.
+
+{{< pagebreak >}}
+
+# Deletions in WGS samples
+
+In the current WGS cohort we only have copy number 0 losses for CDKN2A/B and PTEN.
+
+```{r}
+#| echo: FALSE
+
+del_wgs_summary <- del_val_wgs_html_cnvs |> 
+  filter(gene %in% del_genes$gene & cnv_class %in% c("LOSS", "DEL")) |> 
+  group_by(gene, cnv_copy_number) |> 
+  count() |> 
+  pivot_wider(id_cols = gene,
+              names_from = cnv_copy_number,
+              values_from = n,
+              values_fill = 0) |> 
+  rename(copy_number_1 = `1`,
+         copy_number_0 = `0`)
+
+
+knitr::kable(del_wgs_summary)
+
+```
+
 {{< pagebreak >}}
 
 # Previous WGS samples
@@ -176,7 +211,7 @@ get_wgs_results <- function(labno) {
 
 ## 24018922
 
-PanSolid calls a loss of SMAD4 on both coarse and fine, and this is also detected by WGS as a loss of chromosome 18. But WGS also calls deletions on chromosomes 16 and 19, which are not called on PanSolid.
+PanSolid calls a loss of SMAD4 on both coarse and fine, and this is also detected by WGS as a loss of chromosome 18. But WGS also calls deletions on chromosomes 16 and 19, which are not called on PanSolid. WGS has very low tumour content (NCC not calculated).
 
 ```{r}
 #| label: tbl-24018922-pansolid
@@ -260,6 +295,7 @@ make_del_plot("23024556", "PMS2", buffer_input = 50000,
 
 ```
 
+{{< pagebreak >}}
 
 ### 24030945
 
@@ -311,6 +347,8 @@ make_del_plot("24030945", "BMPR1A",
 
 ```
 
+{{< pagebreak >}}
+
 ### 24030946
 
 ```{r}
@@ -344,6 +382,7 @@ make_del_fine_plot("24030946", "PMS2", buffer_input = 50000,
 
 ```
 
+{{< pagebreak >}}
 
 ### 23023889
 
@@ -368,6 +407,8 @@ make_del_plot("23023889", "PTEN", buffer_input = 20000,
               interval_input = 100000)
 
 ```
+
+{{< pagebreak >}}
 
 ## N,23.0607
 
@@ -415,6 +456,8 @@ make_del_plot("23033921", "BMPR1A", buffer_input = 1000000,
               interval_input = 1000000)
 
 ```
+
+{{< pagebreak >}}
 
 ### 24030962
 
@@ -464,6 +507,8 @@ make_del_plot("24030962", "PALB2",
 
 ```
 
+{{< pagebreak >}}
+
 ### 23032153
 
 ```{r}
@@ -472,6 +517,8 @@ make_del_plot("24030962", "PALB2",
 knitr::kable(summarise_del_calls("23032153"))
 
 ```
+
+{{< pagebreak >}}
 
 ## N,23.0454
 
@@ -500,6 +547,8 @@ make_del_plot("23026481", "CDKN2A")
 
 ```
 
+{{< pagebreak >}}
+
 ### 23025733
 
 ```{r}
@@ -508,6 +557,8 @@ make_del_plot("23026481", "CDKN2A")
 knitr::kable(summarise_del_calls("23025733"))
 
 ```
+
+{{< pagebreak >}}
 
 ## 23024575
 
@@ -525,6 +576,8 @@ knitr::kable(get_wgs_results("23024547"))
 
 ```
 
+{{< pagebreak >}}
+
 ## NB23-145
 
 ### 23013975
@@ -539,6 +592,8 @@ Signal-adjusted noise above 1 for this sample. This produces lots of false posit
 knitr::kable(summarise_del_calls("23011114"))
 
 ```
+
+{{< pagebreak >}}
 
 ## 24030364
 
@@ -557,6 +612,8 @@ knitr::kable(summarise_del_calls("24030364"))
 knitr::kable(get_wgs_results("24032444"))
 
 ```
+
+{{< pagebreak >}}
 
 ## 24025211
 
@@ -591,6 +648,8 @@ make_del_plot("24025211", "BRCA2",
               buffer_input = 5000000,
               ymin_input = -3)
 ```
+
+{{< pagebreak >}}
 
 ## 24030951
 
@@ -632,6 +691,8 @@ make_del_plot("24030951", "BMPR1A",
               interval_input = 500000)
 ```
 
+{{< pagebreak >}}
+
 ## 24017321
 
 This WGS sample has an NCC of 30%.
@@ -650,6 +711,8 @@ knitr::kable(get_wgs_results("24017321"))
 
 ```
 
+{{< pagebreak >}}
+
 ## 24030957
 
 ```{r}
@@ -666,6 +729,8 @@ knitr::kable(get_wgs_results("23036271"))
 
 ```
 
+{{< pagebreak >}}
+
 ## 24030966
 
 ```{r}
@@ -681,6 +746,8 @@ knitr::kable(summarise_del_calls("24030966"))
 knitr::kable(get_wgs_results("23034780"))
 
 ```
+
+{{< pagebreak >}}
 
 # New WGS Samples
 
@@ -724,6 +791,8 @@ make_del_plot("24035924", "CHEK2", interval_input = 10000000,
 
 ```
 
+{{< pagebreak >}}
+
 ## 24025266
 
 WGS calls CDKN2A as just LOH, but CDKN2A as a biallelic loss.The coarse and fine calls both don't include all of CDKN2A. This is interesting as it indicates that not all deletions at this locus include both genes.
@@ -741,8 +810,6 @@ knitr::kable(summarise_del_calls("24025266"))
 knitr::kable(get_wgs_results("24029491"))
 
 ```
-
-
 
 ```{r}
 # echo: FALSE
@@ -779,6 +846,8 @@ cdkn2a_24025266_exon <- make_exon_plot(21978976 -100000,
 
 This sample has multiple chromosome losses on WGS which are not called on PanSolid, including PTEN (chr10) and CHEK2 (chr22).
 
+{{< pagebreak >}}
+
 ## 24042543
 
 Hexaploid genome.
@@ -796,8 +865,6 @@ knitr::kable(summarise_del_calls("24042543"))
 knitr::kable(get_wgs_results("24045841"))
 
 ```
-
-
 
 ```{r}
 #| echo: FALSE
@@ -828,6 +895,8 @@ make_del_plot("24042543", "BRCA2", buffer_input = 1000000,
 
 ```
 
+{{< pagebreak >}}
+
 ## 24035920
 
 ```{r}
@@ -845,6 +914,8 @@ No losses were detected by WGS.
 knitr::kable(get_wgs_results("24035919"))
 
 ```
+
+{{< pagebreak >}}
 
 ## 24031053
 
@@ -867,9 +938,9 @@ knitr::kable(get_wgs_results("24031671"))
 make_del_fine_plot("24031053", "PMS2", buffer_input = 50000,
                    interval_input = 10000)
 
-
-
 ```
+
+{{< pagebreak >}}
 
 ## 24021613
 
@@ -887,9 +958,140 @@ knitr::kable(get_wgs_results("24027851"))
 
 ```
 
+{{< pagebreak >}}
+
+## 24026628
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("24026628"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(get_wgs_results("24028153"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("24026628", "CDKN2A", interval_input = 1000000,
+              buffer_input = 1000000)
+
+```
+
+{{< pagebreak >}}
+
+## 24043023
+
+STK11 deletion on PanSolid but not seen on WGS. Same tumour block for both:
+S24-3460.
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("24043023"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(get_wgs_results("24048080"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("24043023", "STK11", interval_input = 1000000)
+
+```
+
+{{< pagebreak >}}
+
+## 24042074
+
+This PanSolid sample has noise of 0.5 and 138X coverage at 65%. PanSolid does not detect a chromosome 22 deletion detected on WGS, and detects false positive CDKN2A and SMAD4 deletions.
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("24042074"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(get_wgs_results("24044301"))
+
+```
+
+{{< pagebreak >}}
+
+## 24035922
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("24035922"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(get_wgs_results("24036644"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("24035922", "CDKN2A")
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("24035922", "PTEN", interval_input = 1000000,
+              buffer_input = 100000)
+
+```
+
+{{< pagebreak >}}
+
+## 24033015
+
+No deletions detected on PanSolid. WGS shows tetraploid genome. 52% NCC with a tetrapoloid genome.
+
+WGS: N24-000337
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("24033015"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(get_wgs_results("24034555"))
+
+```
+
+{{< pagebreak >}}
+
 ## 24048159
 
-A CDKN2A deletion is detected on fine but not coarse. This deletion is seen on WGS.
+A CDKN2A deletion is detected on fine but not coarse. This deletion is seen on WGS. This is a tetraploid genome.
 
 ```{r}
 #| echo: FALSE
@@ -906,12 +1108,14 @@ knitr::kable(get_wgs_results("24051760"))
 ```
 
 ```{r}
+#| echo: FALSE
 
 make_del_fine_plot("24048159", "CDKN2A")
 
 ```
 
 ```{r}
+#| echo: FALSE
 
 make_del_fine_plot("24048159", "STK11",
                    interval_input = 1000000,
@@ -921,6 +1125,7 @@ make_del_fine_plot("24048159", "STK11",
 ```
 
 ```{r}
+#| echo: FALSE
 
 make_del_fine_plot("24048159", "CHEK2",
                    interval_input = 1000000,
@@ -928,10 +1133,12 @@ make_del_fine_plot("24048159", "CHEK2",
 
 ```
 
+{{< pagebreak >}}
 
 # Repeatability Samples
 
 ```{r}
+#| include: FALSE
 
 inter_run_replicates <- c(
   # 24017319
@@ -952,18 +1159,158 @@ intra_run_replicates <- c(
 
 all_replicates <- c(inter_run_replicates, intra_run_replicates)
 
-repeat_data <- del_val_pansolid_ngs_collated |> 
+repeat_data <- pansolid_del_coords |> 
   mutate(labno_suffix_worksheet = paste0(labno, suffix, "_", worksheet)) |> 
-  filter(labno_suffix_worksheet %in% all_replicates) |> 
-  select(graining, labno, worksheet, labno_suffix_worksheet, gene, fold_change_adjusted) 
+  filter(labno_suffix_worksheet %in% all_replicates)
+
+```
+
+## 24027774
+
+```{r}
+#| echo: FALSE
 
 repeat_data |> 
-  filter(labno == "24020998") |> 
+  filter(labno == "24027774" & graining == "coarse") |> 
   ggplot(aes(x = labno_suffix_worksheet, y = fold_change_adjusted)) +
-  geom_col(aes(fill = gene), position = "dodge") +
+  geom_point(shape = 21) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90)) +
-  labs(x = "", y = "Fold Change") +
-  facet_wrap(~graining)
+  labs(x = "", y = "Fold Change", title = "24027774 coarse repeat results") +
+  facet_wrap(~gene) +
+  geom_hline(yintercept = -1.3, linetype = "dashed") +
+  ylim(-3, 0)
+
+```
+
+```{r}
+#| echo: FALSE
+
+repeat_data |> 
+  filter(labno == "24027774" & graining == "fine") |> 
+  ggplot(aes(x = labno_suffix_worksheet, y = fold_change_adjusted)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "", y = "Fold Change", title = "24027774 fine repeat results") +
+  facet_wrap(~gene) +
+  geom_hline(yintercept = -1.3, linetype = "dashed") +
+  ylim(-3, 0)
+
+```
+
+{{< pagebreak >}}
+
+## 24017319
+
+```{r}
+#| echo: FALSE
+
+repeat_data |> 
+  filter(labno == "24017319" & graining == "coarse") |> 
+  ggplot(aes(x = labno_suffix_worksheet, y = fold_change_adjusted)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "", y = "Fold Change", title = "24017319 coarse repeat results") +
+  facet_wrap(~gene) +
+  geom_hline(yintercept = -1.3, linetype = "dashed") +
+  ylim(-3, 0)
+
+```
+
+```{r}
+#| echo: FALSE
+
+repeat_data |> 
+  filter(labno == "24017319" & graining == "fine") |> 
+  ggplot(aes(x = labno_suffix_worksheet, y = fold_change_adjusted)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "", y = "Fold Change", title = "24017319 fine repeat results") +
+  facet_wrap(~gene) +
+  geom_hline(yintercept = -1.3, linetype = "dashed") +
+  ylim(-3, 0)
+
+```
+
+{{< pagebreak >}}
+
+## 24020998
+
+```{r}
+#| echo: FALSE
+
+repeat_data |> 
+  filter(labno == "24020998" & graining == "coarse") |> 
+  ggplot(aes(x = labno_suffix_worksheet, y = fold_change_adjusted)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "", y = "Fold Change", title = "24020998 coarse repeat results") +
+  facet_wrap(~gene) +
+  geom_hline(yintercept = -1.3, linetype = "dashed") +
+  ylim(-3, 0)
+
+```
+
+```{r}
+#| echo: FALSE
+
+repeat_data |> 
+  filter(labno == "24020998" & graining == "fine") |> 
+  ggplot(aes(x = labno_suffix_worksheet, y = fold_change_adjusted)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "", y = "Fold Change", title = "24020998 fine repeat results") +
+  facet_wrap(~gene) +
+  geom_hline(yintercept = -1.3, linetype = "dashed") +
+  ylim(-3, 0)
+
+```
+
+# ddPCR samples
+
+```{r}
+#| include: FALSE
+
+pansolid_del_ddpcr <- pansolid_del_coords |> 
+  inner_join(del_val_ddpcr_collated |> 
+              filter(target_type == "Ch1Unknown"),
+            join_by("labno" == "sample",
+                    "gene" == "gene"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+pansolid_del_ddpcr |> 
+  filter(gene == "CDKN2A") |> 
+  ggplot(aes(x = cnv, y = fold_change)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  facet_wrap(~graining) +
+  labs(x = "ddPCR copy number", y = "PanSolid fold change",
+       title = "CDKN2A results") +
+  ylim(-25, 0) +
+  geom_hline(yintercept = -1.33, linetype = "dashed")
+
+```
+
+```{r}
+#| echo: FALSE
+
+pansolid_del_ddpcr |> 
+  filter(gene == "PTEN") |> 
+  ggplot(aes(x = cnv, y = fold_change)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  facet_wrap(~graining) +
+  labs(x = "ddPCR copy number", y = "PanSolid fold change",
+       title = "PTEN results") +
+  geom_hline(yintercept = -1.33, linetype = "dashed")
 
 ```
