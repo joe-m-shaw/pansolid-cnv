@@ -31,7 +31,7 @@ ddpcr_validation_data <- ddpcr_validation_files |>
                                  pattern = ".+(WS\\d{6}).+",
                                  group = 1),
          gene = str_extract(string = experiment,
-                            pattern = "^(\\w{3,5})\\sEx.+",
+                            pattern = "^(\\w{3,6})_Ex.+",
                             group = 1))
 
 stopifnot(ncol(ddpcr_validation_data) == 66)
