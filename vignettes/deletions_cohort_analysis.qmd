@@ -1,13 +1,21 @@
 ---
-title: "Deletions Cohort Analysis"
+title: "PanSolid Deletions Cohort Analysis"
 author: "Joe Shaw (CS20980)"
 date: today
 date-format: "DD/MM/YYYY"
 format: pdf
+fontsize: 10pt
 editor: visual
 fig-width: 7
 fig-height: 6
 ---
+
+# Summary
+
+- PanSolid can miss cases where chromosomes have a copy number of 1 (examples: 24018922)
+
+- Non-diploid samples are tricky. PanSolid detects loss from the tumour ploidy, not absolute copy number. This means PanSolid may flag a deletion, but the gene actually has a copy number of 2 and the rest of the genome is tetraploid (example: 23033921)
+
 
 ```{r}
 #| label: scripts-and-packages
@@ -32,8 +40,15 @@ source(here("scripts/del_val_load_processed_data.R"))
 
 pansolid_del_coords <- extract_pansolid_cnv_coordinates(del_val_pansolid_ngs_collated,
                                                         cnv_region) |> 
-  rename(fold_change = fold_change_adjusted) |> 
-  filter(!is.na(fold_change))
+  mutate(fold_change = round(fold_change_adjusted, 2)) |> 
+  left_join(del_val_sample_patient_info |> 
+              select(labno, firstname, surname, method_name, nhsno), 
+            by = "labno") |> 
+  filter(!is.na(fold_change)) |> 
+  rename(extraction = method_name) |> 
+  mutate(extraction = ifelse(extraction == "QIAsymphony_DNA_FFPE",
+                             "QIAsymphony", extraction),
+         cnv_kb = round(cnv_region_length / 1000, 0))
 
 make_del_fine_plot <- function(labno_input, gene_input, interval_input = 1000,
                                buffer_input = 5000, ymin_input = -30,
@@ -102,12 +117,6 @@ make_del_plot <- function(labno_input, gene_input, interval_input = 1000,
   
 }
 
-```
-
-# Introduction
-
-```{r}
-
 gene_coord_table <- read_csv(file = paste0(config::get("data_filepath"), 
                                       "validation/DOC6283_amplifications/",
                                       "gene_lists/",
@@ -118,17 +127,68 @@ del_genes <- read_csv(file = paste0(config::get("data_filepath"),
                                    "validation/DOC6567_deletions/gene_lists/",
                                    "pansolid_deletion_gene_list.csv"))
 
-gene_coord_table |> 
-  filter(gene %in% del_genes$gene) |> 
-  select(gene, chromosome) |>  view()
-
 ```
 
 {{< pagebreak >}}
 
-# 24018922
+# WGS samples
 
-This sample doesn't seem to have great quality on WGS. PanSolid calls a loss of SMAD4 on both coarse and fine, and this is also detected by WGS as a loss of chromosome 18.
+```{r}
+#| label: summary-table-functions
+#| include: FALSE
+
+summarise_del_calls <- function(labno) {
+  
+  tbl <- pansolid_del_coords |>
+    filter(labno == {{ labno }}) |> 
+    select(firstname, surname, labno, extraction, graining, 
+           chromosome, gene, fold_change, cnv_kb) |> 
+    arrange(gene)
+  
+  return(tbl)
+  
+}
+
+del_val_wgs_html_cnvs_with_ids <- del_val_wgs_html_cnvs |> 
+  left_join(del_val_wgs_html_ids,
+            by = "filepath", relationship = "many-to-one")
+
+get_wgs_results <- function(labno) {
+  
+  df <- del_val_wgs_html_cnvs_with_ids |> 
+    filter(labno == {{ labno }} & gene %in% del_genes$gene &
+             cnv_class %in% c("LOSS", "DEL")) |> 
+    select(patient_name, labno, chromosome, gene, cnv_class, cnv_copy_number)
+  
+  return(df)
+  
+}
+
+```
+
+## 24:H393U
+
+### 24018922
+
+PanSolid calls a loss of SMAD4 on both coarse and fine, and this is also detected by WGS as a loss of chromosome 18. But WGS also calls deletions on chromosomes 16 and 19, which are not called on PanSolid.
+
+```{r}
+#| label: tbl-24018922-pansolid
+#| tbl-cap: "24018922 PanSolid results"
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("24018922"))
+
+```
+
+```{r}
+#| label: tbl-24015386-wgs
+#| tbl-cap: "WGS results"
+#| echo: FALSE
+
+knitr::kable(get_wgs_results("24015386"))
+
+```
 
 ```{r}
 #| echo: FALSE
@@ -137,17 +197,72 @@ make_del_plot("24018922", "SMAD4",
               interval_input = 10000000,
               buffer_input = 10000000,
               ymin_input = -3)
+
 ```
 
 {{< pagebreak >}}
 
-# 24030945
+## N,23.436
 
-This is a QIAsymphony extracted sample with results from WGS.
+### 23024556
 
-## CDKN2A
+PanSolid detects losses in CDKN2A/B and PTEN which are detected on WGS. PanSolid also detects a small PMS2 deletion - likely false positive.
 
-WGS shows a CDKN2A/B homozygous deletion on a background of monosomy 9p. PanSolid also detects the CDKN2A/B deletions.
+```{r}
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("23024556"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(get_wgs_results("23024556"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("23024556", "CDKN2A")
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("23024556", "PTEN", interval_input = 10000,
+              buffer_input = 10000)
+
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("23024556", "BMPR1A", interval_input = 10000000,
+              buffer_input = 10000000)
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("23024556", "PMS2", buffer_input = 50000,
+              interval_input = 20000)
+
+```
+
+
+### 24030945
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("24030945"))
+
+```
 
 ```{r}
 #| echo: FALSE
@@ -157,10 +272,6 @@ make_del_plot("24030945", "CDKN2A",
 ```
 
 {{< pagebreak >}}
-
-## PMS2
-
-Fine setting (but not coarse) calls an exonic deletion in PMS2 in this sample which is not seen on WGS. This indicates that fine is not appropriate for larger genes.
 
 ```{r}
 #| echo: FALSE
@@ -174,10 +285,6 @@ make_del_fine_plot("24030945", "PMS2",
 
 {{< pagebreak >}}
 
-## PTEN
-
-WGS shows PTEN homozygous deletion on a background of monosomy 10. The coarse setting misses the focal PTEN deletion, but this is detected on fine.
-
 ```{r}
 #| echo: FALSE
 
@@ -189,10 +296,6 @@ make_del_plot("24030945", "PTEN",
 
 {{< pagebreak >}}
 
-## BMPR1A
-
-BMPR1A is also on chromosome 10. WGS shows a heterzygous loss (domain 3). Both coarse and fine detect this on PanSolid, with fine showing a narrower call.
-
 ```{r}
 #| echo: FALSE
 
@@ -202,9 +305,119 @@ make_del_plot("24030945", "BMPR1A",
 
 ```
 
-# 24030962
+### 24030946
 
-This is a tetraploid sample with WGS, extracted via QIAsymphony.
+```{r}
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("24030946"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("24030946", "CDKN2A", interval_input = 10000)
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("24030946", "PTEN", interval_input = 10000,
+              buffer_input = 10000)
+
+```
+
+
+```{r}
+#| echo: false
+
+make_del_fine_plot("24030946", "PMS2", buffer_input = 50000, 
+                   interval_input = 50000)
+
+```
+
+
+### 23023889
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("23023889"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("23023889", "CDKN2A")
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("23023889", "PTEN", buffer_input = 20000, 
+              interval_input = 100000)
+
+```
+
+## N,23.0607
+
+Tetraploid tumour sample
+
+### 23033921
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("23033921"))
+
+```
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(get_wgs_results("23033921"))
+
+```
+
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("23033921", "PTEN", buffer_input = 10000,
+              interval_input = 10000)
+
+
+```
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("23033921", "PALB2", buffer_input = 1000000,
+              interval_input = 1000000)
+
+```
+
+
+```{r}
+#| echo: FALSE
+
+make_del_plot("23033921", "BMPR1A", buffer_input = 1000000,
+              interval_input = 1000000)
+
+```
+
+### 24030962
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("24030962"))
+
+```
 
 ```{r}
 #| echo: FALSE
@@ -215,9 +428,6 @@ make_del_plot("24030962", "PTEN",
 
 ```
 
-## BMPR1A
-
-Both fine and coarse call a large deletion in BMPR1A. On WGS, chromosome 10 has a copy number of 2 on a background of tetraploidy.
 
 ```{r}
 # echo: FALSE
@@ -228,9 +438,6 @@ make_del_plot("24030962", "BMPR1A",
 
 ```
 
-## RAD51D
-
-Fine calls a large deletion in RAD51D. This deletion is not seen on WGS.
 
 ```{r}
 # echo: FALSE
@@ -241,9 +448,6 @@ make_del_fine_plot("24030962", "RAD51D",
 
 ```
 
-## PALB2
-
-Both coarse and fine call a large deletion including PABL2. PABL2 has a copy number of 2 on WGS against a background of tetraploidy.
 
 ```{r}
 # echo: FALSE
@@ -253,6 +457,16 @@ make_del_plot("24030962", "PALB2",
               ymin_input = -3)
 
 ```
+
+### 23032153
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(summarise_del_calls("23032153"))
+
+```
+
 
 # 24025211
 
@@ -455,3 +669,48 @@ make_del_fine_plot("24048159", "CHEK2",
                    buffer_input = 100000, ymin_input = -5)
 
 ```
+
+
+# Repeatability Samples
+
+
+
+```{r}
+
+inter_run_replicates <- c(
+  # 24017319
+  "24017319_WS141734", "24017319a_WS144291", "24017319_WS144364",
+  # 24027774
+  "24027774_WS142076", "24027774a_WS144291", "24027774_WS144364",
+  # 24020998
+  "24020998_WS141045", "24020998a_WS144291", "24020998_WS144364")
+
+intra_run_replicates <- c(
+  # 24017319
+  "24017319a_WS144291", "24017319b_WS144291", "24017319c_WS144291",
+  # 24027774
+  "24027774a_WS144291", "24027774b_WS144291", "24027774c_WS144291",
+  # 24020998
+  "24020998a_WS144291", "24020998b_WS144291", "24020998c_WS144291"
+)
+
+all_replicates <- c(inter_run_replicates, intra_run_replicates)
+
+repeat_data <- del_val_pansolid_ngs_collated |> 
+  mutate(labno_suffix_worksheet = paste0(labno, suffix, "_", worksheet)) |> 
+  filter(labno_suffix_worksheet %in% all_replicates) |> 
+  select(graining, labno, worksheet, labno_suffix_worksheet, gene, fold_change_adjusted) 
+
+repeat_data |> 
+  filter(labno == "24020998") |> 
+  ggplot(aes(x = labno_suffix_worksheet, y = fold_change_adjusted)) +
+  geom_col(aes(fill = gene), position = "dodge") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "", y = "Fold Change") +
+  facet_wrap(~graining)
+
+```
+
+# ddPCR Samples
+
