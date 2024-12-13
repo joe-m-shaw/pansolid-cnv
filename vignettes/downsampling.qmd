@@ -407,3 +407,11 @@ make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |>
                     title = "24017319 PTEN fine"))
 
 ```
+
+## CHEK2 deletion
+
+2 samples both have a CHEK2 deletion (copy number 1) on chromosome 22 detected by WGS.
+
+CHEK2 deletion is not detected on 24042074 (NCC 84%, ploidy 1.9, noise 0.58, 138X coverage 64%) but is detected on 24035924 (NCC 86%, ploidy 1.9, noise: 0.39, 138X coverage 98%).
+
+This indicates that the coverage threshold must be above 64% in order to detect deletions.

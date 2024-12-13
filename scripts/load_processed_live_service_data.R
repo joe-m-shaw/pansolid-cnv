@@ -3,7 +3,7 @@
 library(tidyverse)
 library(here)
 
-source(here("scripts/set_shared_drive_filepath.R"))
+data_folder <- config::get("data_filepath")
 
 live_service_amp_gene_results_collated <- read_csv(paste0(data_folder, 
                                                             "live_service/collated/",
