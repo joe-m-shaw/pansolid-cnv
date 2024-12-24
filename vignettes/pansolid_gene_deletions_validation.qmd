@@ -30,6 +30,8 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
 **APC**: adenomatous polyposis coli tumor suppressor
 
+**BAF:** B Allele Frequency
+
 **CDKN2A**: Cyclin Dependent Kinase iNhibitor 2A
 
 **CDKN2B**: Cyclin Dependent Kinase iNhibitor 2B
@@ -264,7 +266,7 @@ view cancers at a single-cell resolution. Over the last 25 years, there has
 been increasing development of molecular methods for detection of somatic CNVs,
 including deletions, beginning with array comparative genome hybridisation
 (CGH) and SNP-microarrays, before progressing to next generation sequencing
-(NGS) of gene-panels, exomes and genomes [@das2013]. 
+(NGS) of gene-panels, exomes [@zare2017] and genomes [@das2013]. 
 
 ### Challenges
 
@@ -297,6 +299,8 @@ populations of cells, in which copy number changes may only found in specific
 sub-clones [@dagogojack2018]. Analysing the homogenised DNA of tumours risks
 missing or misinterpreting the contributions from low-level, but
 clinically significant, cell populations.
+
+There is also the impact of technical noise.
 
 ### Approaches
 
@@ -504,8 +508,8 @@ WS146462 and WS146463
 
 ### Whole genome sequencing
 
-The Genomics England cancer pipeline estimates tumour content using the 
-Ccube algorithm [@yuan2018].
+The Genomics England cancer pipeline predicts somatic CNVs using Manta 
+[@chen2016] and estimates tumour content using Ccube [@yuan2018].
 
 ```{r}
 #| label: pipeline-metrics
@@ -522,8 +526,6 @@ pipeline_metric_tbl <- tribble(
 knitr::kable(pipeline_metric_tbl)
 
 ```
-
-
 
 ### Loss of heterozgosity
 
@@ -1026,7 +1028,7 @@ heterogeneity could produce the same levels of dosage and allelic imbalance -
 there will always be unknown quantities.
 
 Many different bioinformatic tools have been developed, each with strengths and
-weaknesses, and the choice of tool can have a significant impact on accuracy. 
+weaknesses, and the choice of tool can have a significant impact on accuracy [@zare2017]. 
 For example, @masood2024 demonstrated that prediction of tumour ploidy can vary
 between bioinformatic tools, and showed that the ControlFREEC tool gave 
 different ploidy predictions on different replicates of the same sample.
