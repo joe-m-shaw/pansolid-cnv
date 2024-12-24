@@ -17,11 +17,14 @@ fig-align: "left"
 
 Author: Joe Shaw
 
-Project Lead(s): Joe Shaw, Elizabeth Sollars, Eleanor Baker, Helene Schlecht, George Burghel
+Project Lead(s): Joe Shaw, Elizabeth Sollars, Eleanor Baker, Helene Schlecht,
+George Burghel
 
 Date: `r Sys.Date()`
 
 Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
+
+{{< pagebreak >}}
 
 # Acronyms
 
@@ -31,9 +34,17 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
 **CDKN2B**: Cyclin Dependent Kinase iNhibitor 2B
 
+**CGH:** Comparative Genome Hybridisation
+
+**CIN:** Chromosomal Instability
+
 **CLC**: Acronym unknown. CLC Bio was acquired by Qiagen in 2013.
 
+**CNA:** Copy Number Alteration
+
 **CNV**: Copy Number Variant
+
+**COSMIC:** Catalogue of Somatic Mutations in Cancer
 
 **ddPCR**: droplet digital Polymerase Chain Reaction
 
@@ -65,9 +76,13 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
 **PTEN**: Phosphatase and tensin homolog deleted on chromosome ten
 
+**TSG:** Tumour Suppressor Gene
+
 **WGS**: Whole Genome Sequencing
 
 **WHO**: World Health Organisation
+
+{{< pagebreak >}}
 
 ```{r}
 #| label: packages-and-functions
@@ -112,15 +127,21 @@ source(here("scripts/del_val_load_processed_data.R"))
 #| warning: FALSE
 
 target_df <- read_csv(paste0(data_folder,
-                             "bed_files/PanSolidv2_GRCh38_noalt_BED.csv")) |> 
+                             "validation/DOC6283_amplifications/bed_files/",
+                             "PanSolidv2_GRCh38_noalt_BED.csv")) |> 
   clean_names() |> 
   mutate(target_type = case_when(
     
-    grepl(x = name, pattern =  "chr(\\d{1,2}|X):\\d{1,3}.+") == TRUE ~"genomic backbone",
+    grepl(x = name, 
+          pattern =  "chr(\\d{1,2}|X):\\d{1,3}.+") == TRUE ~"genomic backbone",
     TRUE ~"gene target"
   ))
 
-del_genes <- load_pansolid_gene_table("Deletions")
+del_genes <- read_csv(paste0(
+  data_folder,
+  "validation/DOC6567_deletions/gene_lists/",
+  "pansolid_deletion_gene_list.csv"
+))
 
 genes_in_validation <- c("CDKN2A", "CDKN2B", "PTEN", "TP53", "MLH1", "MSH2",
                          "MSH6", "NF2")
@@ -136,16 +157,16 @@ gene_target_counts <- target_df |>
          "Gene" = name) 
 
 ```
-
-{{< pagebreak >}}
-
 # Purpose
 
-The purpose of this document is to describe the validation of detection of somatic gene deletions on the PanSolid v2 QIAseq panel using the PanSolid CLC pipeline at the North West Genomic Laboratory Hub (GLH).
+The purpose of this document is to describe the validation of detection of
+somatic gene deletions on the PanSolid v2 QIAseq panel using the PanSolid CLC
+pipeline at the North West Genomic Laboratory Hub (GLH).
 
 # Introduction
 
-This validation is part of the continuing project to validate copy number variants (CNVs) on the PanSolid enrichment panel.
+This validation is part of the continuing project to validate copy number
+variants (CNVs) on the PanSolid enrichment panel.
 
 ```{r}
 #| label: tbl-previous-validations
@@ -164,9 +185,32 @@ kable(prev_validation_table)
 
 ```
 
-{{< pagebreak >}}
+## Gene deletions
 
-The aim of this validation is to detect deletions in `r length(del_genes$gene)` genes on the PanSolid enrichment (@tbl-deletion-gene-targets).
+Somatic copy number changes are a common pathogenic mechanism in cancers,
+leading to the amplification of expression from proto-oncogenes (addressed in
+[DOC6283]{custom-style="Strong"}) and the reduction or ablation of expression
+from tumour suppressor genes (TSGs) (addressed in this validation document).
+Inactivation of TSGs can occur by multiple methods including sequence variants,
+gene deletion, copy-neutral loss of heterozygosity and epigenetic silencing.
+The physical loss of a TSG copy from the genome can occur via a focal deletion
+of the gene locus, or as part of a much larger chromosomal change, such as
+aneuploidy for a whole chromosome or chromosome arm. The loss of expression
+from a TSG leads to cancer development via a recessive mechanism, requiring two
+events to inactivate both TSG alleles [@knudson1971]. One example is the highly
+conserved *TP53* gene [@levine2020], which is most commonly inactivated by a
+missense variant on one allele and a loss of the other allele through loss of
+chromosome 17p [@bendavid2020].
+
+## Target genes
+
+The aim of this validation is to detect deletions in `r length(del_genes$gene)`
+genes on the PanSolid enrichment (@tbl-deletion-gene-targets). These genes were
+selected due to the presence on the NHS Genomic Test Directory.
+There was a
+particular focus on *CDKN2A*, *CDKN2B* and *PTEN*, as these deletions are
+frequently found in glioblastoma samples, which comprised the main tumour type
+in the testing cohort.
 
 ```{r}
 #| label: tbl-deletion-gene-targets
@@ -177,62 +221,127 @@ kable(gene_target_counts)
 
 ```
 
-## Gene deletions and tumour suppressor genes
-
-Tumour suppressor genes can be deleted, giving rise to cancer. A patient may have a germline deletion of the gene which predisposes them to cancer. Traditionally, FISH testing was used to identify gene deletions.
-
 ### *CDKN2A* and *CDKN2B*
 
-*CDKN2A* and *CDKN2B* are adjacent to each other on chromosome 9, separated by roughly 20kb.
+The *CDKN2A* and *CDKN2B* genes are adjacent to each other on chromosome 9,
+separated by roughly 20 kilobases (kb). The p14ARF protein product of *CDKN2A*
+plays an important role in cell growth regulation, and deletion of *CDKN2A* 
+contributes to tumour proliferation [@appay2019]. 
 
-The p14ARF protein product of *CDKN2A* plays an important role in cell growth regulation, and deletion of *CDKN2A* can contribute to tumour proliferation [@appay2019].
+Due to their proximity, *CDKN2A* and *CDKN2B* are frequently deleted together,
+and this co-deletion of these loci may be abbreviated to *CDKN2A/B*. However
+there are less common cases where only one gene is deleted. For example, 
+@gonzálezgil2021 reported that in 20% of acute lymphoblastic leukaemia only 
+one of *CDKN2A* or *CDKN2B* was lost. Homozygous *CDKN2A/B* deletion is
+included in the fifth edition of the World Health Organisation Classification
+of Tumours of the Central Nervous System [@louis2021]. Homozygous deletion of
+*CDKN2A* is also associated with poor prognosis in meningiomas [@sievers2020]
+and astrocytomas [@yuile2023]. 
 
-Homozygous deletion is associated poor prognosis in meningiomas [@sievers2020] and astrocytomas [@yuile2023].
+The size of deletions at the *CDKN2A/B* locus vary. @vieler2023 used optical
+genome mapping to characterise *CDKN2A/B* deletions in acute lymphoblastic
+leukaemia, showing deletions ranging from 24 kb to 34 Megabases (Mb). 
+@hamid2019 analysed *CDKN2A* deletions reported on the COSMIC
+database and calculated a median deletion length of 1.2 Mb.
 
-Homozygous *CDKN2A/B* deletion is included in the fifth edition of the World Health Organisation Classification of Tumours of the Central Nervous System [@louis2021]. 
-
-Germline *CDKN2A* mutations increase predisposition to melanoma [@toussi2020]. A single publication links germline mutations in *CDKN2B* to renal cell carcinoma (Jafri et al (2015)). Germline deletions of both *CDKN2A* and *CDKN2B* have been reported (Jensen et al (2022)). 
-
-Vieler at al (2023) used optical genome mapping to characterise CDKN2/B deletions in acute lymphoblastic leukaemia, showing deletions varied between 24 kilobases to 34 Megabases. Abdulaziz et al (2019) analysed *CDKN2A* deletions on the COSMIC database and reported a median deletion length of 1.2Mb.
-
-Due to their proximity, *CDKN2A* and *CDKN2B* are normally deleted together, however there are less common cases where only one gene is deleted. For example, González-Gil et al (2021) reported that in 20% of acute lymphoblastic leukaemia only one of *CDKN2A* or *CDKN2B* was lost.
+Germline *CDKN2A* mutations increase predisposition to melanoma [@toussi2020], 
+whilst a single publication links germline mutations in *CDKN2B* to renal cell
+carcinoma [@jafri2015]. Germline deletions of both *CDKN2A* and *CDKN2B* have
+been reported [@jensen2022].
 
 ### *PTEN*
 
-*PTEN* is deleted in many different cancer types [@alvarezgarcia2019].
+The *PTEN* gene is deleted in many different cancer types [@alvarezgarcia2019].
+Germline mutations in *PTEN* cause PTEN hamartoma tumor syndrome [@yehia2020].
+Germline deletions in PTEN can either encompass the whole gene or include only
+certain exons [@zhou2003]. 
 
-Germline mutations in *PTEN* cause PTEN hamartoma tumor syndrome [@yehia2020]. Germline deletions in PTEN can either encompass the whole gene or include only certain exons [@zhou2003]. 
+## Detection of gene deletions
 
-### *TP53*
+Somatic deletions were originally characterised using karyotyping and
+fluorescence in-situ hybridisation (FISH). These cytogenetic techniques can
+view cancers at a single-cell resolution. Over the last 25 years, there has
+been increasing development of molecular methods for detection of somatic CNVs,
+including deletions, beginning with array comparative genome hybridisation
+(CGH) and SNP-microarrays, before progressing to next generation sequencing
+(NGS) of gene-panels, exomes and genomes [@das2013]. 
 
+### Challenges
 
-### *NF2*
+Whilst array and NGS approaches can define genomic losses more precisely than
+previous cytogenetic techniques, they do not allow single-cell resolution.
+Instead, DNA from millions of cancer and stromal cells is homogenised and
+analysed simultaneously within the same experiment. As a result, identifying
+somatic CNVs by these methods is confounded by three key factors:
 
+1) **Neoplastic cell content (NCC):** the neoplastic cell content, or tumour 
+purity, is the proportion of tumour cells within a sample. The NCC can vary 
+significantly and this impacts the sensitivity 
+of any copy-number technique. In addition, the normal tissue may contain 
+germline genetic variation which may mask or alter the signal of 
+somatic variation.
 
-### Mismatch repair genes: *MLH1*, *MSH2* and *MSH6*
+2) **Ploidy:** cancer cells frequently deviate from a standard diploid
+chromosome complement to become polyploid. Polyploidy arises across many
+different cancer types, usually arising after mitotic replication without
+cytokinesis, known as endoreplication, which multiplies the genome within a
+single cell [@conway2024]. Assuming that the tumour has a diploid chromosome
+complement can lead to incorrect copy number prediction when polyploidy is
+present. For example @gardina2008 report several tetraploid glioblastoma
+samples with chromosome 10 trisomy. When ploidy was not accounted for,
+SNP-array analysis mistakenly reported a loss of chromosome 10, due to 
+the relative dosage of chromosome 10 versus the rest the polyploid genome.
 
+3) **Intra-tumoural heterogeneity:** cancers are composed  of diverse
+populations of cells, in which copy number changes may only found in specific
+sub-clones [@dagogojack2018]. Analysing the homogenised DNA of tumours risks
+missing or misinterpreting the contributions from low-level, but
+clinically significant, cell populations.
 
-## Loss of heterozygosity
+### Approaches
 
-Loss of heterozygosity (LOH) at mismatch repair (MMR) gene loci has been identified as a pathogenic mechanism in colorectal cancer (@melcher2007). This LOH is frequently copy-neutral, with the allele containing a pathogenic sequence variant being copied in the repair of the damaged wild-type allele. LOH in colorectal cancer may be identified using SNP arrays (@melcher2007, @melcher2011), PCR fragment analysis (@guerts-giele2014) and next generation sequencing.
+Purity, ploidy and intratumoural heterogeneity create a problem: the analysis 
+method must take data from a bulk-sequenced sample and attempt to separate out 
+the underlying genomic complexity [@gao2020; @chandramohan2022]. A pragmatic 
+approach is to combine sequence dosage and allele-frequency analysis, which was 
+first introduced by combining array CGH and SNP-arrays [@vanloo2010; 
+@gardina2008] and has since been adopted for NGS approaches [@carter2012]. NGS 
+analysis can be performed on a tumour sample ("tumour-only") or paired tumour 
+and germline samples, with paired analysis having the advantage of being able 
+to distinguish between somatic and germline variants [@jones2015]. 
+Other approaches which have shown promise for solving the challenges of purity, 
+ploidy and heterogeneity deconvolution include multiple tumour sequencing 
+[@zaccaria2020] and single-cell genome sequencing [@baslan2020]. However, these 
+techniques are expensive and experimental, and consequently have not yet been
+clinically implemented. 
 
 ## Requirements
 
 The requirements for this new method are as follows:
 
-1. **Results:** the test should provide clear results for the `r length(del_genes$gene)` deletion genes.
+1. **Results:** the test should provide clear results for the 
+`r length(del_genes$gene)` deletion genes.
 
-2. **Analytical validity:** the test should have a defined sensitivity and specificity for these genes, calculated by comparison with orthogonal methods.
+2. **Analytical validity:** the test should have a defined sensitivity and 
+specificity for these genes, calculated by comparison with orthogonal methods.
 
-3. **Dosage accuracy:** it should be show how accurate the test is at detecting heterozygous and homozygous deletions, in samples with varying neoplastic cell contents.
+3. **Dosage accuracy:** it should be show how accurate the test is at detecting 
+heterozygous and homozygous deletions, in samples with a range of NCC values.
 
-4 **Quality control:** the test should have clear quality control thresholds for deciding when the test results should be reported and when the test has failed.
+4. **Quality control:** the test should have clear quality control thresholds
+for deciding when the test results should be reported and when the test has 
+failed.
 
-5. **Variability:** the test should have defined intra-run variation (repeatability) and inter-run variability (reproducibility) for detection of deletions. Analysis of this variation should then be used to derive the uncertainty of measurement for the test.
+5. **Variability:** the test should have defined intra-run variation 
+(repeatability) and inter-run variability (reproducibility) for detection of 
+deletions. Analysis of this variation should then be used to derive the 
+uncertainty of measurement for the test.
 
-6 **Visualisation:** the results should be presented in a clear and visual manner.
+6 **Visualisation:** the results should be presented in a clear and visual 
+manner.
 
-7 **Analysis:** there should be a clear procedure for analysis for gene deletions by laboratory staff.
+7 **Analysis:** there should be a clear procedure for analysis for gene 
+deletions by laboratory staff.
 
 {{< pagebreak >}}
 
@@ -243,6 +352,10 @@ The requirements for this new method are as follows:
 7 WGS samples from amplifications validation
 10 WGS samples newly run
 29 samples to be tested with ddPCR
+
+Only 1 sample had a germline finding in a targeted gene on WGS.
+
+Ploidy ranged from x to y and NCC ranged from a to b.
 
 ## DNA extraction
 
@@ -308,7 +421,9 @@ deletion_fc_threshold <- calculate_deletion_fold_change(50, 1)
 
 ```
 
-The threshold was set at `r round(deletion_fc_threshold,2)`, which is the fold change for a sample with a heterozygous deletion at 50% neoplastic cell content. This would be an overall copy number of 1.5.
+The threshold was set at `r round(deletion_fc_threshold,2)`, which is the fold 
+change for a sample with a heterozygous deletion at 50% neoplastic cell content. 
+This would be an overall copy number of 1.5.
 
 ```{r}
 #| label: fold-change-plot
@@ -361,11 +476,14 @@ copy_number_plot
 
 ### Ploidy status
 
-Ploidy status was predicted using the "Detect Regional Ploidy" tool. 
+Ploidy status was predicted using the "Detect Regional Ploidy" tool. This uses
+a Hidden Markov Model to predict ploidy based on SNP and coverage data, which 
+is influenced by @beroukhim2006.
 
 ### Pipeline version
 
-The version of the PanSolid CLC pipeline tested in this validation was PanSolid Workflow v2.4.
+The version of the PanSolid CLC pipeline tested in this validation was PanSolid 
+Workflow v2.4.
 
 ## Orthogonal testing
 
@@ -377,7 +495,8 @@ ddPCR assays were designed for *CDKN2A*, *PTEN*, *MSH6* and *MLH1*.
 
 *PTEN* has a pseudogene, *PTENP1*, on chromosome 9.
 
-ddPCR primers were designed by targeting minor differences in the PTEN and PTENP1 sequences.
+ddPCR primers were designed by targeting minor differences in the PTEN and 
+PTENP1 sequences.
 
 ddPCR assays already exist for *BRCA1*, *MSH2* and *PALB2*.
 
@@ -385,7 +504,26 @@ WS146462 and WS146463
 
 ### Whole genome sequencing
 
-The Genomics England cancer pipeline estimates tumour content using the Ccube algorithm [@yuan2018].
+The Genomics England cancer pipeline estimates tumour content using the 
+Ccube algorithm [@yuan2018].
+
+```{r}
+#| label: pipeline-metrics
+#| echo: FALSE
+
+pipeline_metric_tbl <- tribble(
+  ~"",         ~"PanSolid NGS", ~"Whole genome sequencing",
+  "Sample(s)",   "FFPE tumour sample",   "Paired fresh frozen tumour sample and blood sample for germline DNA",
+  "Library preparation", "QIAseq panel enrichment", "Whole genome amplification",
+  "CNV caller",  "QIAgen CLC Genomics Workbench", "Germline CNVs: DRAGEN CNV; Somatic CNVs: Canvas and Manta",
+  "NCC calculated", "No", "Yes - by Ccube"
+)
+
+knitr::kable(pipeline_metric_tbl)
+
+```
+
+
 
 ### Loss of heterozgosity
 
@@ -446,10 +584,12 @@ str(del_val_pansolid_ngs_collated)
 
 ## Comparison to ddPCR
 
-ddPCR was performed for the *PTEN* and *CDKN2A* genes for all 25 normal control samples and 29 patient samples.
+ddPCR was performed for the *PTEN* and *CDKN2A* genes for all 25 normal control 
+samples and 29 patient samples.
 
 ```{r}
 #| label: load-ddpcr-data
+#| eval: FALSE
 #| include: FALSE
 
 qs_normals <- read_csv(file = paste0(data_folder,
@@ -470,6 +610,7 @@ pansolid_fold_change_threshold <- -1.33
 
 ```{r}
 #| label: cdkn2a-results
+#| eval: FALSE
 #| include: FALSE
 
 cdkn2a_ddpcr_results <- ddpcr_data |> 
@@ -517,6 +658,7 @@ discrepant_cdkn2a <- cdkn2a_ddpcr_results |>
 
 ```{r}
 #| label: pten-results
+#| eval: FALSE
 #| include: FALSE
 
 pten_ddpcr_results <- ddpcr_data |>
@@ -560,7 +702,8 @@ discrepant_pten <- pten_ddpcr_results |>
 
 ```{r}
 #| label: fig-cdkn2a-ddpcr-results
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 #| fig-width: 6
 
 cdkn2a_normal_plot <- cdkn2a_ddpcr_results |> 
@@ -598,7 +741,8 @@ cdkn2a_comb_plot
 
 ```{r}
 #| label: fig-pten-ddpcr-results
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 #| fig-width: 6
 
 pten_normal_plot <- pten_ddpcr_results |> 
@@ -639,7 +783,8 @@ pten_comb_plot
 ```{r}
 #| label: tbl-cdkn2a-results
 #| tbl-cap: "CDKN2A results"
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 kable(cdkn2a_result_summary)
 
@@ -648,7 +793,8 @@ kable(cdkn2a_result_summary)
 ```{r}
 #| label: tbl-cdkn2a-metrics
 #| tbl-cap: "CDKN2A metrics"
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 kable(cdkn2a_metrics)
 
@@ -659,7 +805,8 @@ kable(cdkn2a_metrics)
 ```{r}
 #| label: tbl-pten-results
 #| tbl-cap: "PTEN results"
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 kable(pten_result_summary)
 
@@ -668,7 +815,8 @@ kable(pten_result_summary)
 ```{r}
 #| label: tbl-pten-metrics
 #| tbl-cap: "PTEN metrics"
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 kable(pten_metrics)
 
@@ -677,7 +825,8 @@ kable(pten_metrics)
 ```{r}
 #| label: fig-ddpcr-vs-pansolid
 #| fig-height: 7
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 cdkn2a_ps_plot <- cdkn2a_ddpcr_results |> 
     filter(!is.na(cdkn2a_ddpcr_results$cdkn2a_fold_change)) |> 
@@ -721,10 +870,12 @@ pten_ps_plot
 
 ## Comparison to whole genome sequencing
 
-We have the following true-positive samples from whole genome sequencing testing, which have already been tested by PanSolid NGS.
+We have the following true-positive samples from whole genome sequencing testing, 
+which have already been tested by PanSolid NGS.
 
 ```{r}
 #| label: wgs-deletions
+#| eval: FALSE
 #| include: FALSE
 
 del_genes <- read_csv(file = paste0(data_folder,
@@ -758,15 +909,12 @@ fine_pansolid_vs_wgs <- pansolid_with_ids |>
   select(labno.x, labno.y, firstname, surname, pathno, wgs_pathno,
          gene, cnv_region, fold_change_adjusted, cnv_class, cnv_copy_number)
 
-
-colnames(coarse_pansolid_vs_wgs)
-
-
 ```
 
 ```{r}
 #| label: tbl-wgs-deletions
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 kable(wgs_del_cnvs_summary)
 
@@ -794,13 +942,14 @@ Sample 24017319 had a homozygous *CDKN2A* deletion and a heterozygous *PTEN* del
 ```{r}
 #| label: tbl-repeat-schedule
 #| tbl-cap: "Repeat testing"
-#| echo: FALSE
+#| include: FALSE
 
 kable(repeat_schedule)
 
 ```
 
 ```{r}
+#| include: FALSE
 
 inter_run_replicates <- c(
   # 24017319
@@ -842,21 +991,89 @@ repeat_data |>
 
 ### Uncertainty of measurement
 
-The uncertainty of measurement will be greater for fold changes detected for deletions rather than amplifications because the two equations differ. The deletions equation is more sensitive to variation
+The uncertainty of measurement will be greater for fold changes detected for 
+deletions rather than amplifications because the two equations differ. The 
+deletions equation is more sensitive to variation
 
-*"The fact that the same percent-wise change in coverage (copy number) leads to a higher fold change for deletions than for amplifications means that given the same amplification and deletion fold change cutoff there is a higher risk of calling false positive deletions than amplifications - it takes less coverage fluctuation to pass the fold change cutoff for deletions."* [@qiagen2023]
+"The fact that the same percent-wise change in coverage (copy number) leads 
+to a higher fold change for deletions than for amplifications means that given 
+the same amplification and deletion fold change cutoff there is a higher risk 
+of calling false positive deletions than amplifications - it takes less 
+coverage fluctuation to pass the fold change cutoff for deletions." 
+[@qiagen2023]
 
 ## Limit of detection
 
-The theoretical limit of detection for a heterozygous deletion is 50%, and for a homozygous deletion it is 25% (@sec-methods-fold-change).
+The theoretical limit of detection for a heterozygous deletion is 50%, and 
+for a homozygous deletion it is 25% (@sec-methods-fold-change).
 
 {{< pagebreak >}}
 
 # Discussion
 
+Whole genome duplication is often followed by loss of genomic material, 
+leading to tetraploid tumours having overall ploidy states of 3.5-4 rather 
+than exactly 4 [@zack2013].
+
+Aneuploidy is observed in many cancer types, with some cancers having specific 
+recurrent aneuploidies. For example, gain of chromosome 7 and loss of 
+chromosome 10 [@boström1998] are frequently observed in glioblastoma. 
+
+## Ploidy estimation
+
+A key weakness is that different combinations of purity, ploidy and 
+heterogeneity could produce the same levels of dosage and allelic imbalance - 
+there will always be unknown quantities.
+
+Many different bioinformatic tools have been developed, each with strengths and
+weaknesses, and the choice of tool can have a significant impact on accuracy. 
+For example, @masood2024 demonstrated that prediction of tumour ploidy can vary
+between bioinformatic tools, and showed that the ControlFREEC tool gave 
+different ploidy predictions on different replicates of the same sample.
+
 # Review of test requirements
 
+1. **Results:** the test should provide clear results for the 
+`r length(del_genes$gene)` deletion genes.
+
+
+
+2. **Analytical validity:** the test should have a defined sensitivity and 
+specificity for these genes, calculated by comparison with orthogonal methods.
+
+
+3. **Dosage accuracy:** it should be show how accurate the test is at detecting 
+heterozygous and homozygous deletions, in samples with a range of NCC values.
+
+
+
+4. **Quality control:** the test should have clear quality control thresholds
+for deciding when the test results should be reported and when the test has 
+failed.
+
+
+
+5. **Variability:** the test should have defined intra-run variation 
+(repeatability) and inter-run variability (reproducibility) for detection of 
+deletions. Analysis of this variation should then be used to derive the 
+uncertainty of measurement for the test.
+
+
+
+6 **Visualisation:** the results should be presented in a clear and visual 
+manner.
+
+
+
+7 **Analysis:** there should be a clear procedure for analysis for gene 
+deletions by laboratory staff.
+
+
+
+
 # Requirements for clinical implementation
+
+# Conclusion
 
 {{< pagebreak >}}
 
