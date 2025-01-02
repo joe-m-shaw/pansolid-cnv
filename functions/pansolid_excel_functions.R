@@ -20,8 +20,8 @@ parse_filename <- function(input_file, input_group) {
     (\d{5,8})             # Lab number
     (a|b|c|d|)            # Suffix
     _
-    ([:alnum:]{3,30})     # Patient name - alphanumeric characters only
-    .*.xlsx               # Variable ending                      
+    ([:alnum:]{2,30})     # Patient name - alphanumeric characters only
+    (.*.xlsx|.xlsx)               # Variable ending                      
     ]",
     comments = TRUE)
   

@@ -217,7 +217,8 @@ make_labno_cnv_plot <- function(df,
                             interval = 10000, 
                             buffer = 5000, 
                             yaxis = labno,
-                            title = "") {
+                            title = "",
+                            yaxis_title = "Sample number") {
   
   #' Make a CNV plot with sample lab number on the Y axis
   #'
@@ -281,7 +282,7 @@ make_labno_cnv_plot <- function(df,
     
     # Add labels
     labs(
-      y = "Sample number",
+      y = yaxis_title,
       x = "",
       colour = "Fold change",
       title = title)
