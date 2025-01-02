@@ -3,15 +3,40 @@ title: "Downsampling experiment"
 author: "Joe Shaw"
 format: pdf
 date: today
-date-format: "DD/MM/YYYY"
+date-format: "DD-MM-YYYY"
 editor: visual
-fig-height: 6
-fig-width: 6
+fig-height: 5.5
+fig-width: 7
+fig-pos: H
 ---
 
-# Introduction
+# Summary
 
-FASTQ files were downsampled to different levels to assess how coverage impacts CNV calling for 3 samples.
+-   Downsampling did not have a significant impact on the fold changes measured for amplification genes in any of the 4 samples.
+
+-   Amplifications could be detected as low as 28.4% panel covered at 138X (24030945 - EGFR)
+
+-   Downsampling did not lead to false positive amplification or deletion calls.
+
+-   Downsampling did change the CNV coordinates for some deletions.
+
+- In a diploid genome (24030945) with high NCC (95%), and low signal-adjusted noise (0.2), biallelic and monoallelic deletions could be detected as low as 28% panel covered at 138X. 
+
+- In a diploid genome (24017319) with low NCC (32%) and low signal adjusted noise (0.3), biallelic and monoallelic deletions were detected as low as 34% panel covered at 138X, but with significant changes in the coordinates of the CNV calls.
+
+- In a tetraploid genome (23032153) with low NCC (43%) and high signal adjusted noise (0.9), a biallelic deletion could be detected as low as 33% panel covered at 138X.
+
+# Methods
+
+FASTQ files were downsampled to different levels to assess how coverage impacts CNV calling for 4 samples.
+
+- 24002071: SeraSeq +12 copies amplification control
+
+The 3 remaining samples had results from whole genome sequencing (WGS) testing. For each sample, DNA was extracted from the same pathology block that had WGS:
+
+- 23032153 was extracted on the Cobas method
+
+- 24030945 and 24017319 were extracted on the QIAsymphony method.
 
 ```{r}
 #| label: packages-and-functions
@@ -100,14 +125,22 @@ pos_cnv_collated <- amp_files |>
     file = amp_files,
     sheet = get_amp_sheetname(amp_files))) |> 
   list_rbind() |> 
-  add_downsample_level()
+  add_downsample_level() |> 
+  left_join(percent_138_collated |> 
+              select(percent_138, filepath),
+            by = "filepath") |> 
+  mutate(percent_138_char = as.character(round(percent_138, 0)))
 
 all_amp_collated <- amp_files |> 
   map(\(amp_files) read_all_amp_genes_results(
     file = amp_files,
     sheet = get_amp_sheetname(amp_files))) |> 
   list_rbind() |> 
-  add_downsample_level()
+  add_downsample_level() |> 
+  left_join(percent_138_collated |> 
+              select(percent_138, filepath),
+            by = "filepath") |> 
+  mutate(percent_13_char = as.character(round(percent_138, 0)))
 
 # Deletion results
 
@@ -128,15 +161,25 @@ fine_results <- del_files |>
 all_del_results <- extract_pansolid_cnv_coordinates(df = rbind(coarse_results,
                                                                fine_results), 
                                                     cnv_coord_col = cnv_region) |> 
-  rename(fold_change = fold_change_adjusted)
-
+  rename(fold_change = fold_change_adjusted) |> 
+  mutate(labno_suffix_worksheet = str_c(labno, suffix, "_", worksheet)) |> 
+  left_join(percent_138_collated |> 
+              select(labno_downsample, 
+                     percent_138, filepath),
+            by = "labno_downsample") |> 
+  mutate(percent_13_char = as.character(round(percent_138, 0)))
 
 ```
 
+{{< pagebreak >}}
+
 # Quality metrics
 
+Reducing the coverage for each sample led to a minor increase in the signal-adjusted noise metric (@fig-quality-metrics). The maximum increase in signal-adjusted noise was 0.05 (@tbl-quality-metrics).
+
 ```{r}
-#| label: quality-metrics
+#| label: fig-quality-metrics
+#| fig-cap: "Impact of varying coverage on signal-adjusted noise"
 #| echo: FALSE
 
 qc_joined <- std_dev_collated |> 
@@ -144,23 +187,44 @@ qc_joined <- std_dev_collated |>
               select(filepath, percent_138), 
             by = "filepath")
 
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
 ggplot(qc_joined, aes(x = noise, y = percent_138)) +
   geom_point(size = 3, shape = 21, aes(fill = downsample_level)) +
+  scale_fill_manual(values = cbPalette) +
   theme_bw() +
-  facet_wrap(~labno) +
+  facet_wrap(~labno, ncol = 2, nrow = 2) +
   xlim(0, 1) +
   ylim(0, 100) +
-  theme(legend.position = "bottom") +
+  theme(legend.position = "right") +
   labs(x = "Signal-adjusted noise", y = "Percentage coverage above 138X",
-       title = "Downsampling has a minor impact on noise")
+       fill = "Downsample")
+
+```
+
+```{r}
+#| label: tbl-quality-metrics
+#| tbl-cap: "Downsampling quality metrics"
+#| echo: FALSE
+
+qc_table <- qc_joined |> 
+  group_by(labno) |> 
+  summarise(
+    min_138X = round(min(percent_138), 3),
+    max_138X = round(max(percent_138), 3),
+    min_noise = round(min(noise), 3),
+    max_noise = round(max(noise), 3),
+    diff_noise = max_noise - min_noise)
+
+knitr::kable(qc_table)
 
 ```
 
 {{< pagebreak >}}
 
-# Impact on fold change
+# Impact on amplification fold change
 
-Downsampling did not have a significant impact on the fold changes measured for amplification genes in any of the 3 samples.
+Downsampling did not have a significant impact on the fold changes measured for amplification genes in any of the 4 samples.
 
 ```{r}
 #| label: fold-change-plots
@@ -179,13 +243,13 @@ make_repeatability_plot <- function(df = all_amp_collated_long,
   plot <- df |> 
             filter(labno == {{ labno_input }}) |> 
             ggplot(aes(x = {{ x_axis }} , y = {{ y_axis }})) +
-              annotate('rect', xmin = 0, xmax = 5, ymin = -1, 
+              annotate('rect', xmin = 0, xmax = 100, ymin = -1, 
                        ymax = 1, fill='white') +
               geom_hline(yintercept = 2.8) +
               geom_hline(yintercept = 1, colour = "grey") +
               geom_hline(yintercept = -1, colour = "grey") +
-              geom_line() +
-              geom_point(shape = 21, size = 2, fill = "white") +
+              geom_point(shape = 21, size = 2, fill = "white",
+                         alpha = 0.7) +
               theme_bw() +
               facet_wrap(~gene) 
             
@@ -194,85 +258,193 @@ make_repeatability_plot <- function(df = all_amp_collated_long,
   
 }
 
-make_repeatability_plot(labno = "24030945",
-                        x_axis = downsample_level) +
-  coord_cartesian(ylim = c(-2, 5)) +
-  labs(x = "Downsample level", y = "Fold change",
-       title = "24030945",
-       subtitle = "EGFR results cropped due to amplification")
+```
 
-make_repeatability_plot(labno = "24017319",
-                        x_axis = downsample_level) +
-  coord_cartesian(ylim = c(-2, 5)) +
-  labs(x = "Downsample level", y = "Fold change",
-       title = "24017319")
+## 24002071 - SeraSeq control
+
+```{r}
+#| label: fig-24002071-repeatability
+#| fig-cap: "24002071 amplification gene fold changes"
+#| echo: FALSE
 
 make_repeatability_plot(labno = "24002071",
-                        x_axis = downsample_level) +
+                        x_axis = percent_138) +
   coord_cartesian(ylim = c(-2, 15)) +
-  labs(x = "Downsample level", y = "Fold change",
+  labs(x = "Percent coverage at 138X (%)", y = "Fold change",
        title = "24002071")
+
+```
+
+```{r}
+#| label: tbl-24002071-repeatability
+#| fig-cap: "24002071 amplification gene fold changes"
+#| echo: FALSE
+
+tbl_24002071 <- all_amp_collated |> 
+  filter(labno == "24002071") |> 
+  group_by(gene) |> 
+  summarise(highest_fold_change = max(max_region_fold_change),
+            lowest_fold_change = min(max_region_fold_change)) |> 
+  mutate(difference = round(highest_fold_change - lowest_fold_change, 2)) |> 
+  arrange(desc(difference))
+
+knitr::kable(tbl_24002071)
 
 ```
 
 {{< pagebreak >}}
 
-# Impact on CNV coordinates
-
-## 24002071
-
-This sample is the SeraSeq +12 copies control. Downsampling did not impact the coordinates of the amplifications detected, except for the *EGFR* gene which had 2 CNV calls when no downsampling was performed.
+## 24030945 - WGS QIAsymphony extraction
 
 ```{r}
-#| label: 24002071-amp-plots
+#| label: fig-24030945-repeatability
+#| fig-cap: "24030945 amplification gene fold changes"
+#| echo: FALSE
+
+make_repeatability_plot(labno = "24030945",
+                        x_axis = percent_138) +
+  coord_cartesian(ylim = c(-2, 5)) +
+  labs(x = "Percent coverage at 138X (%)", y = "Fold change",
+       title = "24030945",
+       subtitle = "EGFR results cropped due to amplification")
+
+```
+
+{{< pagebreak >}}
+
+## 23032153 - WGS Cobas extraction
+
+```{r}
+#| label: fig-23032153-repeatability
+#| fig-cap: "23032153 amplification gene fold changes"
+#| echo: FALSE
+
+make_repeatability_plot(labno = "23032153",
+                        x_axis = percent_138) +
+  coord_cartesian(ylim = c(-10, 15)) +
+  labs(x = "Percent coverage at 138X (%)", y = "Fold change",
+       title = "23032153")
+
+```
+
+{{< pagebreak >}}
+
+## 24017319 - WGS QIAsymphony extraction
+
+```{r}
+#| label: fig-24017319-repeatability
+#| fig-cap: "24017319 amplification gene fold changes"
+#| echo: FALSE
+
+make_repeatability_plot(labno = "24017319",
+                        x_axis = percent_138) +
+  coord_cartesian(ylim = c(-2, 5)) +
+  labs(x = "Percent coverage at 138X (%)", y = "Fold change",
+       title = "24017319")
+
+```
+
+{{< pagebreak >}}
+
+# Impact on amplification CNV coordinates
+
+## 24002071 - SeraSeq control
+
+Downsampling did not impact the coordinates of the amplifications detected, except for the *EGFR* gene which had 2 CNV calls when no downsampling was performed. This extra call is the region of the overlap between two synthetic DNA constructs used in the manufacture of the SeraSeq control.
+
+```{r}
+#| label: fig-24002071-egfr
+#| fig-cap: "24002071 EGFR results"
 #| echo: FALSE
 
 make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
                       filter(labno == "24002071"),
                     gene = "EGFR", 
-                    yaxis = labno_downsample))
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X"))
+```
+
+```{r}
+#| label: fig-24002071-myc
+#| fig-cap: "24002071 MYC results"
+#| echo: FALSE
 
 make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
                       filter(labno == "24002071"),
                     gene = "MYC", 
-                    yaxis = labno_downsample))
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X"))
+
+```
+
+```{r}
+#| label: fig-24002071-braf
+#| fig-cap: "24002071 BRAF results"
+#| echo: FALSE
 
 make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
                       filter(labno == "24002071"),
                     gene = "BRAF", 
-                    yaxis = labno_downsample))
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X"))
+
+```
+
+```{r}
+#| label: fig-24002071-erbb2
+#| fig-cap: "24002071 ERBB2 results"
+#| echo: FALSE
 
 make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
                       filter(labno == "24002071"),
                     gene = "ERBB2", 
-                    yaxis = labno_downsample))
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X"))
+
+```
+
+```{r}
+#| label: fig-24002071-met
+#| fig-cap: "24002071 MET results"
+#| echo: FALSE
 
 make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
                       filter(labno == "24002071"),
                     gene = "MET", 
-                    yaxis = labno_downsample))
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X"))
+
+```
+
+```{r}
+#| label: fig-24002071-mycn
+#| fig-cap: "24002071 MYCN results"
+#| echo: FALSE
 
 make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
                       filter(labno == "24002071"),
                     gene = "MYCN", 
-                    yaxis = labno_downsample))
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X"))
 
 ```
 
 {{< pagebreak >}}
 
-## 24030945
+## 24030945 - WGS QIAsymphony extraction
 
-This sample has a WGS result with an EGFR amplification. The EGFR amplification was detected at all downsampling levels.
+This sample has a WGS result with an EGFR amplification. The EGFR amplification was detected at all downsampling levels. The EGFR amplification was the only amplification detected on PanSolid.
 
 ```{r}
-#| label: 24030945-egfr
+#| label: fig-24030945-egfr
+#| fig-cap: "24030945 EGFR results"
 #| echo: FALSE
 
 make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
                       filter(labno == "24030945"),
                     gene = "EGFR", 
-                    yaxis = labno_downsample,
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
                     interval = 100000,
                     buffer = 100000))
 
@@ -280,31 +452,127 @@ make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |>
 
 {{< pagebreak >}}
 
-The sample also had biallelic deletions in CDKN2A and PTEN.
+## 23032153 - WGS Cobas extraction
+
+This sample has a WGS result with an amplification in MDM2. The MDM2 amplification was detected at all downsampling levels.
+
+The sample also has polysomy of chromosome 7, which led to false positive calls of BRAF, MET and SMO amplifications.
 
 ```{r}
+#| label: fig-23032153-mdm2
+#| fig-cap: "23032153 MDM2 results"
 #| echo: FALSE
 
-make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
-                      filter(labno == "24030945" & graining == "coarse"),
-                    gene = "CDKN2A", 
-                    yaxis = labno_downsample,
+make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
+                      filter(labno == "23032153"),
+                    gene = "MDM2", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
                     interval = 100000,
-                    buffer = 100000,
-                    title = "24030945 CDKN2A coarse"))
+                    buffer = 100000))
 
 ```
 
 ```{r}
+#| label: fig-23032153-braf
+#| fig-cap: "23032153 BRAF results"
 #| echo: FALSE
 
-make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
-                      filter(labno == "24030945" & graining == "fine"),
+make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
+                      filter(labno == "23032153"),
+                    gene = "BRAF", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
+                    interval = 1000000,
+                    buffer = 1000000))
+
+```
+
+```{r}
+#| label: fig-23032153-smo
+#| fig-cap: "23032153 SMO results"
+#| echo: FALSE
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
+                      filter(labno == "23032153"),
+                    gene = "SMO", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
+                    interval = 1000000,
+                    buffer = 1000000))
+
+```
+
+```{r}
+#| label: fig-23032153-met
+#| fig-cap: "23032153 MET results"
+#| echo: FALSE
+
+make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |> 
+                      filter(labno == "23032153"),
+                    gene = "MET", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
+                    interval = 1000000,
+                    buffer = 1000000))
+
+```
+
+## 24017319 - WGS QIAsymphony extraction
+
+This sample had no amplifications detected on WGS. No amplifications were detected at any downsampling level.
+
+{{< pagebreak >}}
+
+# Impact on deletion CNV coordinates
+
+## 24002071 - SeraSeq control
+
+The SeraCare control had no reported deletions. No deletions were detected at either graining level at any downsampling level.
+
+```{r}
+#| label: tbl-24002071-del-results
+#| tbl-cap: "24002071 deletion results"
+#| echo: FALSE
+
+del_results_24002071 <- all_del_results |> 
+  filter(labno == "24002071") |>
+  select(labno, downsample_level, graining, gene)
+
+knitr::kable(del_results_24002071)
+
+```
+
+{{< pagebreak >}}
+
+## 24030945 - WGS QIAsymphony extraction
+
+This sample had biallelic deletions in CDKN2A and PTEN reported on WGS.
+
+```{r}
+#| label: fig-24030945-cdkn2a
+#| fig-cap: "24030945 CDKN2A results"
+#| echo: FALSE
+
+coarse_24030945_cdkn2a <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24030945" & graining == "coarse"),
                     gene = "CDKN2A", 
-                    yaxis = labno_downsample,
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
                     interval = 100000,
                     buffer = 100000,
-                    title = "24030945 CDKN2A fine"))
+                    title = "Coarse"))
+
+fine_24030945_cdkn2a <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24030945" & graining == "fine"),
+                    gene = "CDKN2A", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
+                    interval = 100000,
+                    buffer = 100000,
+                    title = "Fine"))
+
+coarse_24030945_cdkn2a | fine_24030945_cdkn2a
 
 ```
 
@@ -313,105 +581,177 @@ make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |>
 The PTEN call was impacted by downsampling on the "coarse" setting, but not on the "fine" setting.
 
 ```{r}
+#| label: fig-24030945-pten
+#| fig-cap: "24030945 PTEN results"
 #| echo: FALSE
 
-make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+coarse_24030945_pten <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
                       filter(labno == "24030945" & graining == "coarse"),
                     gene = "PTEN", 
-                    yaxis = labno_downsample,
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
                     interval = 1000000,
-                    buffer = 200000,
-                    title = "24030945 PTEN coarse"))
+                    buffer = 1000000,
+                    title = "Coarse"))
+
+fine_24030945_pten <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24030945" & graining == "fine"),
+                    gene = "PTEN", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
+                    interval = 1000000,
+                    buffer = 1000000,
+                    title = "Fine"))
+
+coarse_24030945_pten | fine_24030945_pten
 
 ```
 
 ```{r}
+#| label: fig-24030945-bmpr1a
+#| fig-cap: "24030945 BMPR1A results"
 #| echo: FALSE
 
-make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+coarse_24030945_bmpr1a <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24030945" & graining == "coarse"),
+                    gene = "BMPR1A", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
+                    interval = 10000000,
+                    buffer = 10000000,
+                    title = "Coarse"))
+
+fine_24030945_bmpr1a <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
                       filter(labno == "24030945" & graining == "fine"),
-                    gene = "PTEN", 
-                    yaxis = labno_downsample,
-                    interval = 1000000,
-                    buffer = 200000,
-                    title = "24030945 PTEN fine"))
+                    gene = "BMPR1A", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
+                    interval = 10000000,
+                    buffer = 10000000,
+                    title = "Fine"))
+
+coarse_24030945_bmpr1a | fine_24030945_bmpr1a
 
 ```
 
 {{< pagebreak >}}
 
-## 24017319
+## 23032153 - WGS Cobas extraction
 
-This sample has a WGS result with no amplifications. WGS showed homozygous CDKN2A deletion and a heterozygous PTEN deletion. No amplifications were detected on PanSolid at any downsampling level.
+This is a tetraploid sample on WGS, with high noise (0.8) on PanSolid, leading to many false positive deletion calls.
 
 ```{r}
-#| label: 24017319-amp-table
+#| label: fig-23032153-pten
+#| fig-cap: "23032153 PTEN results"
 #| echo: FALSE
 
-pos_cnv_collated |> 
-  filter(labno == "24017319") |> 
-  select(labno, downsample_level, gene)
+coarse_23032153_pten <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "23032153" & graining == "coarse"),
+                    gene = "PTEN", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
+                    interval = 1000000,
+                    buffer = 1000000,
+                    title = ""))
+
+fine_23032153_pten <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "23032153" & graining == "fine"),
+                    gene = "PTEN", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
+                    interval = 100000,
+                    buffer = 100000,
+                    title = ""))
+
+coarse_23032153_pten | fine_23032153_pten
 
 ```
+
+{{< pagebreak >}}
+
+## 24017319 - WGS QIAsymphony extraction
+
+This sample has a WGS result with no amplifications. WGS showed homozygous CDKN2A deletion and a heterozygous PTEN deletion. Ploidy is 1.98 and tumour content is 32.5%
 
 However there was variation in the coordinates for CDKN2A and PTEN calls with different downsampling levels.
 
 ```{r}
+#| label: fig-24017319-cdkn2a
+#| fig-cap: "24017319 CDKN2A results"
 #| echo: FALSE
 
-make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+coarse_24017319_cdkn2a <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
                       filter(labno == "24017319" & graining == "coarse"),
                     gene = "CDKN2A", 
-                    yaxis = labno_downsample,
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
                     interval = 1000000,
-                    buffer = 500000,
-                    title = "24017319 CDKN2A coarse"))
+                    buffer = 1000000,
+                    title = "Coarse"))
 
-```
-
-```{r}
-#| echo: FALSE
-
-make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+fine_24017319_cdkn2a <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
                       filter(labno == "24017319" & graining == "fine"),
                     gene = "CDKN2A", 
-                    yaxis = labno_downsample,
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
                     interval = 1000000,
-                    buffer = 500000,
-                    title = "24017319 CDKN2A fine"))
+                    buffer = 1000000,
+                    title = "Fine"))
+
+coarse_24017319_cdkn2a | fine_24017319_cdkn2a
 
 ```
 
 ```{r}
+#| label: fig-24017319-pten
+#| fig-cap: "24017319 PTEN results"
 #| echo: FALSE
 
-make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+coarse_24017319_pten <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
                       filter(labno == "24017319" & graining == "coarse"),
                     gene = "PTEN", 
-                    yaxis = labno_downsample,
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
                     interval = 10000000,
-                    buffer = 500000,
-                    title = "24017319 PTEN coarse"))
+                    buffer = 10000000,
+                    title = "Coarse"))
+
+fine_24017319_pten <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24017319" & graining == "fine"),
+                    gene = "PTEN", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
+                    interval = 10000000,
+                    buffer = 10000000,
+                    title = "Fine"))
+
+coarse_24017319_pten | fine_24017319_pten
 
 ```
 
 ```{r}
+#| label: fig-24017319-bmpr1a
+#| fig-cap: "24017319 BMPR1A results"
 #| echo: FALSE
 
-make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
-                      filter(labno == "24017319" & graining == "fine"),
-                    gene = "PTEN", 
-                    yaxis = labno_downsample,
+coarse_24017319_bmpr1a <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24017319" & graining == "coarse"),
+                    gene = "BMPR1A", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
                     interval = 10000000,
-                    buffer = 500000,
-                    title = "24017319 PTEN fine"))
+                    buffer = 10000000,
+                    title = "Coarse"))
+
+fine_24017319_bmpr1a <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_results |> 
+                      filter(labno == "24017319" & graining == "fine"),
+                    gene = "BMPR1A", 
+                    yaxis = percent_138,
+                    yaxis_title = "Percent 138X",
+                    interval = 10000000,
+                    buffer = 10000000,
+                    title = "Fine"))
+
+coarse_24017319_bmpr1a | fine_24017319_bmpr1a
 
 ```
-
-## CHEK2 deletion
-
-2 samples both have a CHEK2 deletion (copy number 1) on chromosome 22 detected by WGS.
-
-CHEK2 deletion is not detected on 24042074 (NCC 84%, ploidy 1.9, noise 0.58, 138X coverage 64%) but is detected on 24035924 (NCC 86%, ploidy 1.9, noise: 0.39, 138X coverage 98%).
-
-This indicates that the coverage threshold must be above 64% in order to detect deletions.

@@ -127,39 +127,39 @@ del_genes <- read_csv(file = paste0(config::get("data_filepath"),
 
 **Copy number 0 (CN0) losses**
 
-- Every example of a CDKN2A/B CN0 loss detected on WGS was detected on PanSolid, with one exception (24033015) although this was low confidence (LC-9) on WGS, with 50% NCC and a tetraploid tumour.
+-   Every example of a CDKN2A/B CN0 loss detected on WGS was detected on PanSolid, with one exception (24033015) although this was low confidence (LC-9) on WGS, with 50% NCC and a tetraploid tumour.
 
-- Every example of a PTEN CN0 loss detected on WGS was detected on PanSolid.
+-   Every example of a PTEN CN0 loss detected on WGS was detected on PanSolid.
 
-- PanSolid has close agreement with WGS for samples that have NCC above 80% measured on WGS, and diploid genomes (examples: 24035924, 24030957, 24026628)
+-   PanSolid has close agreement with WGS for samples that have NCC above 80% measured on WGS, and diploid genomes (examples: 24035924, 24030957, 24026628)
 
 **Copy number 1 (CN1) losses**
 
-- PanSolid does not detect some cases where WGS detects chromosomes with a copy number of 1 (examples: 23024575, 24025266, 24021613), especially when the NCC is low (examples:  24018922, 24017321, 23026481).
+-   PanSolid does not detect some cases where WGS detects chromosomes with a copy number of 1 (examples: 23024575, 24025266, 24021613), especially when the NCC is low (examples: 24018922, 24017321, 23026481).
 
-- This is reflected in the repeatability data for 24027774 and 24017319: PanSolid identifies deletions in some genes only for certain replicates.
+-   This is reflected in the repeatability data for 24027774 and 24017319: PanSolid identifies deletions in some genes only for certain replicates.
 
 **Quality metrics**
 
-- Signal-adjusted noise above 0.7 leads to false positive deletion calls on both coarse and fine settings (examples: 23011114, 24030364, 23032153).
+-   Signal-adjusted noise above 0.7 leads to false positive deletion calls on both coarse and fine settings (examples: 23011114, 24030364, 23032153).
 
-- There are also cases where PanSolid detects a copy number of 1 not present on WGS (24043023, 23013975), which is particularly apparent when the percentage coverage at 138X is low (24042074).
+-   There are also cases where PanSolid detects a copy number of 1 not present on WGS (24043023, 23013975), which is particularly apparent when the percentage coverage at 138X is low (24042074).
 
 **Ploidy**
 
-- Non-diploid samples are tricky. PanSolid seems to detect losses from the tumour ploidy, not by absolute copy number. This means PanSolid may detect a deletion, but the gene actually has a copy number of 2 on WGS and the rest of the genome is at a higher ploidy (examples: 23033921, 24030951, 24042543,  24048159). This can also happen with disordered diploid genomes (example:  24035920).
+-   Non-diploid samples are tricky. PanSolid seems to detect losses from the tumour ploidy, not by absolute copy number. This means PanSolid may detect a deletion, but the gene actually has a copy number of 2 on WGS and the rest of the genome is at a higher ploidy (examples: 23033921, 24030951, 24042543, 24048159). This can also happen with disordered diploid genomes (example: 24035920).
 
-- The tricky thing is that tetraploid genomes look like diploid genomes in the B allele frequency plot - example 24048159.
+-   The tricky thing is that tetraploid genomes look like diploid genomes in the B allele frequency plot - example 24048159.
 
 **Graining level**
 
-- Fine is the better choice for CDKN2A. CDKN2A is detected the same by coarse and fine in most cases, but in one case coarse did not detection and deletion detected on fine (24048159).
+-   Fine is the better choice for CDKN2A. CDKN2A is detected the same by coarse and fine in most cases, but in one case coarse did not detection and deletion detected on fine (24048159).
 
-- CDKN2A and CDKN2B are usually deleted together, but not always. Examples: 24030966, 24025266.
+-   CDKN2A and CDKN2B are usually deleted together, but not always. Examples: 24030966, 24025266.
 
-- Fine is the better choice for PTEN. Coarse misses some PTEN deletions which are detected by fine (see repeat results for 24027774). Fine can sometimes detect very small intragenic PTEN deletions not seen on WGS (24042543).
+-   Fine is the better choice for PTEN. Coarse misses some PTEN deletions which are detected by fine (see repeat results for 24027774). Fine can sometimes detect very small intragenic PTEN deletions not seen on WGS (24042543).
 
-- Fine gives small intragenic deletions in PMS2 in multiple samples (examples:  24031053, 23024556, 24030957). These deletions are not detected on WGS. This indicates the coarse setting is more appropriate for larger genes.
+-   Fine gives small intragenic deletions in PMS2 in multiple samples (examples: 24031053, 23024556, 24030957). These deletions are not detected on WGS. This indicates the coarse setting is more appropriate for larger genes.
 
 {{< pagebreak >}}
 
@@ -249,6 +249,14 @@ get_wgs_results <- function(labno) {
 
 PanSolid calls a loss of SMAD4 on both coarse and fine, and this is also detected by WGS as a loss of chromosome 18. But WGS also calls deletions on chromosomes 16 and 19, which are not called on PanSolid. WGS has very low tumour content (NCC not calculated).
 
+Signal-adjusted noise was 0.38, percent at 138X was 97.8%. Ploidy was 2.16.
+
+PALB2 fold change -1.06
+
+CDH1 fold change -1.06
+
+STK11 fold change 1.7
+
 PanSolid results
 
 ```{r}
@@ -298,6 +306,9 @@ knitr::kable(summarise_del_calls("23024556"))
 #| echo: FALSE
 
 knitr::kable(get_wgs_results("23024556"))
+
+knitr::kable(del_wgs_ids |> 
+               filter(labno == "23024556"))
 
 ```
 
@@ -415,7 +426,6 @@ make_del_plot("24030946", "PTEN", interval_input = 10000,
 
 ```
 
-
 ```{r}
 #| echo: false
 
@@ -474,8 +484,10 @@ knitr::kable(summarise_del_calls("23033921"))
 
 knitr::kable(get_wgs_results("23033921"))
 
-```
+knitr::kable(del_wgs_ids |> 
+               filter(labno == "23033921"))
 
+```
 
 ```{r}
 #| echo: FALSE
@@ -493,7 +505,6 @@ make_del_plot("23033921", "PALB2", buffer_input = 1000000,
               interval_input = 1000000)
 
 ```
-
 
 ```{r}
 #| echo: FALSE
@@ -525,7 +536,6 @@ make_del_plot("24030962", "PTEN",
 
 ```
 
-
 ```{r}
 #| echo: FALSE
 
@@ -535,7 +545,6 @@ make_del_plot("24030962", "BMPR1A",
 
 ```
 
-
 ```{r}
 #| echo: FALSE
 
@@ -544,7 +553,6 @@ make_del_fine_plot("24030962", "RAD51D",
               ymin_input = -5)
 
 ```
-
 
 ```{r}
 #| echo: FALSE
@@ -574,6 +582,10 @@ knitr::kable(summarise_del_calls("23032153"))
 
 ### 23026481 {#sec-23026481}
 
+Loss of chromosome 10 not detected on PanSolid. Ploidy 2.6, tumour content 33%. Signal-adjusted noise 0.28 and percent 138X is 99.6%.
+
+PTEN fold change -1.21
+
 PanSolid results
 
 ```{r}
@@ -587,6 +599,9 @@ knitr::kable(summarise_del_calls("23026481"))
 #| echo: FALSE
 
 knitr::kable(get_wgs_results("23026481"))
+
+knitr::kable(del_wgs_ids |> 
+               filter(labno == "23026481"))
 
 ```
 
@@ -615,7 +630,9 @@ knitr::kable(summarise_del_calls("23025733"))
 
 ## 23024575 {#sec-23024575}
 
-BRCA2 CN1 loss detected on WGS but not PanSolid.
+BRCA2 CN1 loss detected on WGS but not PanSolid. Ploidy is 1.8 and tumour content is 61%. Signal-adjusted noise is 0.3, percent at 138X is 99%.
+
+BRCA2 has a fold change of -1.25.
 
 PanSolid results
 
@@ -772,8 +789,6 @@ knitr::kable(get_wgs_results("23018367"))
 
 ```
 
-
-
 ```{r}
 #| echo: FALSE
 
@@ -799,6 +814,14 @@ make_del_plot("24030951", "BMPR1A",
 ## 24017321 {#sec-24017321}
 
 This WGS sample has an NCC of 30%. CN1 losses on chromosomes 10, 17 and 22 are not detected on PanSolid.
+
+Signal-adjusted noise was 0.36 and percent 138X was 99.6%.
+
+PTEN fold change -1.24.
+
+RAD51D and BRCA1 fold change -1.16.
+
+CHEK2 fold change 1.04.
 
 PanSolid results
 
@@ -907,7 +930,6 @@ knitr::kable(get_wgs_results("24036195"))
 
 ```
 
-
 ```{r}
 #| echo: FALSE
 
@@ -938,6 +960,14 @@ make_del_plot("24035924", "CHEK2", interval_input = 10000000,
 WGS calls CDKN2A as just LOH, but CDKN2A as a biallelic loss.The coarse and fine calls both don't include all of CDKN2A. This is interesting as it indicates that not all deletions at this locus include both genes.
 
 No amplifications detected on PanSolid and no amplifications (copy number greater than 10) on WGS.
+
+Ploidy is 1.92, tumour content is 66%. Signal-adjusted noise is 0.33 and percent at 138X is 99.1%.
+
+PTEN loss not detected - fold change -1.28 (coarse) and -1.3 (fine)
+
+SMAD4 loss not detected - fold change -1.31 (coarse).
+
+CHEK2 loss not detected - fold change -1.26.
 
 PanSolid results
 
@@ -1103,7 +1133,15 @@ make_del_fine_plot("24031053", "PMS2", buffer_input = 50000,
 
 ## 24021613 {#sec-24021613}
 
-PanSolid doesn't detect CN1 losses on chromosomes 10, 16 and 22 which are detected on WGS. 
+PanSolid doesn't detect CN1 losses on chromosomes 10, 16 and 22 which are detected on WGS.
+
+Ploidy is 1.93, tumour content is 77.7%. Signal-adjusted noise is 0.43, percent at 138X is 99%.
+
+PTEN loss not detected - fold change -1.26
+
+CDH1 loss not detected - fold change -1.329
+
+CHEK2 loss not detected - fold change -1.31
 
 PanSolid results
 
@@ -1165,8 +1203,7 @@ make_del_plot("24026628", "CDKN2A", interval_input = 1000000,
 
 ## 24043023 {#sec-24043023}
 
-STK11 deletion on PanSolid but not seen on WGS. Same tumour block for both:
-S24-3460.
+STK11 deletion on PanSolid but not seen on WGS. Same tumour block for both: S24-3460.
 
 PanSolid results
 
