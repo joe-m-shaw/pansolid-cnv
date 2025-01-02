@@ -7,7 +7,7 @@ format:
 toc: true
 toc-title: "Table of Contents"
 bibliography: pansolid_cnv_references.bib
-csl: harvard-manchester-metropolitan-university.csl
+csl: vancouver.csl
 fig-align: "left"
 ---
 
@@ -57,6 +57,8 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 **FISH**: Fluorescent In-Situ Hybridisation
 
 **GLH**: Genomic Laboratory Hub
+
+**HMM**: Hidden Markov Model
 
 **IHC**: Immuno-HistoChemistry
 
@@ -189,7 +191,7 @@ kable(prev_validation_table)
 
 ## Gene deletions
 
-Somatic copy number changes are a common pathogenic mechanism in cancers,
+Somatic copy number changes are a common pathogenic mechanism in cancers [@li2020],
 leading to the amplification of expression from proto-oncogenes (addressed in
 [DOC6283]{custom-style="Strong"}) and the reduction or ablation of expression
 from tumour suppressor genes (TSGs) (addressed in this validation document).
@@ -265,8 +267,7 @@ fluorescence in-situ hybridisation (FISH). These cytogenetic techniques can
 view cancers at a single-cell resolution. Over the last 25 years, there has
 been increasing development of molecular methods for detection of somatic CNVs,
 including deletions, beginning with array comparative genome hybridisation
-(CGH) and SNP-microarrays, before progressing to next generation sequencing
-(NGS) of gene-panels, exomes [@zare2017] and genomes [@das2013]. 
+(CGH) and SNP-microarrays [@das2013], before progressing to next generation sequencing (NGS) of gene-panels, exomes [@zare2017] and genomes [@yi2023]. 
 
 ### Challenges
 
@@ -307,9 +308,15 @@ There is also the impact of technical noise.
 Purity, ploidy and intratumoural heterogeneity create a problem: the analysis 
 method must take data from a bulk-sequenced sample and attempt to separate out 
 the underlying genomic complexity [@gao2020; @chandramohan2022]. A pragmatic 
-approach is to combine sequence dosage and allele-frequency analysis, which was 
-first introduced by combining array CGH and SNP-arrays [@vanloo2010; 
-@gardina2008] and has since been adopted for NGS approaches [@carter2012]. NGS 
+approach is to combine sequence dosage (log2 ratio) and allele-frequency 
+analysis (allelic ratio or B-allele frequency), which was 
+first introduced by combining array CGH and SNP-arrays [@zhao2004; @vanloo2010; 
+@gardina2008] and has since been adopted for NGS approaches [@carter2012]. These
+approaches frequently employ Hidden Markov Models (HMMs): statistical models
+which use raw data to select the most likely copy number state from a series of
+possible states [@seiser2014].
+
+NGS 
 analysis can be performed on a tumour sample ("tumour-only") or paired tumour 
 and germline samples, with paired analysis having the advantage of being able 
 to distinguish between somatic and germline variants [@jones2015]. 
@@ -318,6 +325,10 @@ ploidy and heterogeneity deconvolution include multiple tumour sequencing
 [@zaccaria2020] and single-cell genome sequencing [@baslan2020]. However, these 
 techniques are expensive and experimental, and consequently have not yet been
 clinically implemented. 
+
+Notably, the WHO does not specify a technology for CNV detection in their
+guidelines, which reflects the diversity of approaches used in clinical 
+laboratories [@neill2020].
 
 ## Requirements
 
@@ -364,6 +375,14 @@ Ploidy ranged from x to y and NCC ranged from a to b.
 ## DNA extraction
 
 ## Next generation sequencing
+
+### PanSolid panel
+
+PanSolid contains targets for genes and also a SNP backbone which can be used 
+for LOH calling.
+
+There are `r nrow(target_df[target_df$target_type == "genomic backbone",])`
+targets within the genomic backbone.
 
 ## Bioinformatics Pipeline
 
@@ -478,6 +497,10 @@ copy_number_plot
 
 ```
 
+### B allele frequency
+
+
+
 ### Ploidy status
 
 Ploidy status was predicted using the "Detect Regional Ploidy" tool. This uses
@@ -491,14 +514,6 @@ Workflow v2.4.
 
 ## Orthogonal testing
 
-### Droplet digital PCR
-
-20ng input was used.
-
-ddPCR assays were designed for *CDKN2A*, *PTEN*, *MSH6* and *MLH1*.
-
-*PTEN* has a pseudogene, *PTENP1*, on chromosome 9.
-
 ddPCR primers were designed by targeting minor differences in the PTEN and 
 PTENP1 sequences.
 
@@ -508,8 +523,18 @@ WS146462 and WS146463
 
 ### Whole genome sequencing
 
-The Genomics England cancer pipeline predicts somatic CNVs using Manta 
-[@chen2016] and estimates tumour content using Ccube [@yuan2018].
+Samples were tested by whole genome sequencing (WGS) within the NHS Genomic
+Medicine Service [@sosinsky2024]. WGS was performed by Illumina Laboratory Services in Cambridge
+on paired blood and fresh frozen tumour samples. Bioinformatic analysis was
+performed by Genomics England, and HTML reports were downloaded from the Genomics
+England [clinical interpretation portal](https://cipapi.genomicsengland.nhs.uk/interpretationportal/gms/).
+
+Within the pipeline, tumour ploidy and chromosome count are calculated by the
+Canvas algorithm which was developed by Illumina [@roller2016]. Canvas also
+detects somatic CNVs using sample read-depth and allele ratios, and reports
+them as GAIN, LOSS or LOH in the HTML report. Structural variants are detected
+using the Manta algorithm [@chen2016] and included as DEL or DUP in the HTML
+report. Tumour content is estimated using the Ccube package [@yuan2018].
 
 ```{r}
 #| label: pipeline-metrics
@@ -526,6 +551,14 @@ pipeline_metric_tbl <- tribble(
 knitr::kable(pipeline_metric_tbl)
 
 ```
+
+### Droplet digital PCR
+
+20ng input was used.
+
+ddPCR assays were designed for *CDKN2A*, *PTEN*, *MSH6* and *MLH1*.
+
+*PTEN* has a pseudogene, *PTENP1*, on chromosome 9.
 
 ### Loss of heterozgosity
 
@@ -1021,6 +1054,12 @@ Aneuploidy is observed in many cancer types, with some cancers having specific
 recurrent aneuploidies. For example, gain of chromosome 7 and loss of 
 chromosome 10 [@boström1998] are frequently observed in glioblastoma. 
 
+TSGs aren't always hit by deletions, they could have tandem duplications of
+certain sections of the gene which render the gene transcript non functional [@li2020]
+
+Loss of chromosome 22 is commonly seen in meningiomas [@neill2020]
+
+
 ## Ploidy estimation
 
 A key weakness is that different combinations of purity, ploidy and 
@@ -1029,9 +1068,22 @@ there will always be unknown quantities.
 
 Many different bioinformatic tools have been developed, each with strengths and
 weaknesses, and the choice of tool can have a significant impact on accuracy [@zare2017]. 
+
 For example, @masood2024 demonstrated that prediction of tumour ploidy can vary
 between bioinformatic tools, and showed that the ControlFREEC tool gave 
 different ploidy predictions on different replicates of the same sample.
+
+Haploidy in gliomas has been reported and often includes chromosome 7 at 
+normal levels [@baker2020; ahrendsen2022].
+
+## Comparison to WGS
+
+@glodzik2023 compared FFPE tumour-only analysis to WGS and reported sensitivity
+and specificity of 95% and 91%.
+
+It should be noted that the WGS user guide states "The sensitivity for
+detection of SVs and CNVs is yet to be determined."
+
 
 # Review of test requirements
 
