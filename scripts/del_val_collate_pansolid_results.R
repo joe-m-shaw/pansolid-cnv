@@ -15,14 +15,14 @@ source(here("functions/clc_raw_excel_functions.R"))
 
 data_folder <- config::get("data_filepath")
 
-del_filepath <- paste0(data_folder, "validation/DOC6567_deletions/",
-                       "raw/pansolid_ngs/raw_clc/")
+bio_cnv_folder <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Deletions/"
 
 # Load data ---------------------------------------------------------------
 
-del_files <- list.files(path = del_filepath,
+del_files <- list.files(path = bio_cnv_folder,
+                        recursive = FALSE,
                         full.names = TRUE,
-                        pattern  = "Results_TSG.*.xlsx")
+                        pattern  = "TSG\\s\\(Deleted\\).*.xlsx")
 
 coarse_df <- del_files |> 
   map(\(del_files) read_del_raw_excel(filepath = del_files,
