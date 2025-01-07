@@ -1,5 +1,4 @@
 source(here("functions/extract_pansolid_cnv_coordinates.R"))
-source(here("scripts/set_shared_drive_filepath.R"))
 
 library(patchwork)
 
