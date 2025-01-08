@@ -1,0 +1,260 @@
+---
+title: "Deletions - Repeatability"
+author: "Joe Shaw (CS20980)"
+format: pdf
+editor: visual
+---
+
+# Aim
+
+The aim of this experiment is to determine the uncertainty of measurement for
+deletion calling on PanSolid.
+
+```{r}
+#| label: packages-and-functions
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+library(here)
+
+source(here("functions/pansolid_excel_functions.R"))
+source(here("functions/uom_functions.R"))
+
+```
+
+# Data
+
+I have used the initial outputs from the CLC pipeline.
+
+```{r}
+#| label: data
+#| include: FALSE
+
+bio_cnv_folder <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Deletions/"
+
+data_folder <- config::get("data_filepath")
+
+del_files <- list.files(path = bio_cnv_folder,
+                        recursive = FALSE,
+                        full.names = TRUE,
+                        pattern  = "TSG\\s\\(Deleted\\).*.xlsx")
+
+del_genes <- read_csv(file = paste0(data_folder,
+                                    "validation/DOC6567_deletions/gene_lists/",
+                                    "del_genes_new.csv"))
+
+read_all_targets <- function(filepath, sheet_no) {
+  
+  df <- read_excel(path = filepath,
+                   sheet = sheet_no,
+                   col_types = c("text", "text", "text", "numeric",
+                                 "numeric", "numeric", "numeric", 
+                                 "numeric", "numeric", "numeric", "numeric", 
+                                 "numeric", "numeric", "text", "text", 
+                                 "numeric", "numeric", "text", 
+                                 "text", "text")) |> 
+    mutate(filepath = filepath) |> 
+    janitor::clean_names()
+  
+  output <- add_identifiers(filepath, df)
+  
+  return(output)
+  
+}
+
+coarse_target_df <- del_files |> 
+  map(\(del_files) read_all_targets(del_files,
+                                    sheet_no = 3)) |> 
+  list_rbind() |> 
+  mutate(graining = "coarse")
+
+fine_target_df <- del_files |> 
+  map(\(del_files) read_all_targets(del_files,
+                                    sheet_no = 4)) |> 
+  list_rbind() |> 
+  mutate(graining = "fine")
+
+all_target_df <- rbind(coarse_target_df, fine_target_df)
+
+```
+
+# Samples
+
+I have focussed on the 3 samples (24017319, 24027774 and 24020998) which were
+repeated on multiple worksheets as part of the PanSolid amplifications validation.
+Of these, 24017319 has results from whole genome sequencing.
+
+```{r}
+#| label: replicates
+#| include: FALSE
+
+inter_run_replicates <- c(
+  # 24017319
+  "24017319_WS141734", "24017319a_WS144291", "24017319_WS144364",
+  # 24027774
+  "24027774_WS142076", "24027774a_WS144291", "24027774_WS144364",
+  # 24020998
+  "24020998_WS141045", "24020998a_WS144291", "24020998_WS144364")
+
+intra_run_replicates <- c(
+  # 24017319
+  "24017319a_WS144291", "24017319b_WS144291", 
+  # This replicate removed because of low quality
+  # "24017319c_WS144291",
+  
+  # 24027774
+  "24027774a_WS144291", "24027774b_WS144291", "24027774c_WS144291",
+  # 24020998
+  "24020998a_WS144291", "24020998b_WS144291", "24020998c_WS144291"
+)
+
+```
+
+# Genes
+
+I have filtered the target fold changes for each sample to focus on the `r length(del_genes$gene)` genes specified by George and Helene. The full gene list is:
+
+```{r}
+#| label: del-genes
+#| echo: FALSE
+
+print(del_genes$gene)
+
+```
+
+# Uncertainty of Measurement
+
+```{r}
+#| label: calculate-uom
+#| include: FALSE
+
+repeat_results <- coarse_target_df |> 
+  filter(labno_suffix_worksheet %in% inter_run_replicates |
+           labno_suffix_worksheet %in% intra_run_replicates) |> 
+  filter(name %in% del_genes$gene) 
+
+del_fc_threshold <- -1.33333
+
+repeat_results_distinct <- repeat_results |> 
+  distinct(worksheet, labno, suffix,
+           labno_suffix_worksheet, 
+           filepath, name, region_joined_targets, regional_fold_change, 
+           regional_consequence, graining) |> 
+  mutate(worksheet_suffix = str_c(worksheet, "_", suffix),
+         pansolid_call_minus_1_3 = case_when(
+           regional_fold_change <= del_fc_threshold ~"Deletion",
+           regional_fold_change > del_fc_threshold ~"Normal"
+         ))
+
+repeat_data_uom <- repeat_results_distinct |> 
+  # Convert amplification fold changes to deletion fold changes
+  mutate(fold_change_uom = case_when(
+    regional_fold_change >= 1 ~-1 / regional_fold_change,
+    TRUE ~regional_fold_change))
+
+inter_sd_table <- group_sd(repeat_data_uom |> 
+                             filter(labno_suffix_worksheet %in% inter_run_replicates),
+                           labno, name, fold_change_uom)
+
+inter_sd <- round(pool_sd(inter_sd_table), 3)
+
+intra_sd_table <- group_sd(repeat_data_uom |> 
+                             filter(labno_suffix_worksheet %in% intra_run_replicates),
+                           labno, name, fold_change_uom)
+
+intra_sd <- round(pool_sd(intra_sd_table), 3)
+
+all_sd_table <- group_sd(repeat_data_uom,
+                         labno, name, fold_change_uom)
+
+all_sd <- round(pool_sd(all_sd_table), 3)
+
+del_uom <- define_uom(max(inter_sd, intra_sd, all_sd), 2)
+
+```
+
+I calculated the pooled standard deviation for the fold change of each gene in 
+the 3 samples.
+
+**Intra-run standard deviation: `r intra_sd`**
+
+**Inter-run standard deviation: `r inter_sd`**
+
+**Total standard deviation: `r all_sd`**
+
+The standard deviation is greater for deletions than amplifications. The intra, 
+inter and total standard deviation for amplifications were 0.032, 0.085 and 0.077.
+
+Taking the highest standard deviation value, the uncertainty of measurement can be calculated.
+
+**Uncertainty of measurement for fold change: ±`r del_uom` (95% confidence)**
+
+This would mean a deletion fold change threshold of `r del_fc_threshold + del_uom`.
+
+```{r}
+#| label: new-threshold
+#| include: FALSE
+
+repeat_data_uom_mod <- repeat_data_uom |> 
+  mutate(pansolid_call_new_threshold = case_when(
+    regional_fold_change <=  del_fc_threshold + del_uom ~"Deletion",
+    regional_fold_change >  del_fc_threshold + del_uom ~"Normal"
+  ))
+
+
+make_repeat_plot <- function(labno, graining_level, 
+                             threshold) {
+  
+  plot <- repeat_data_uom_mod |> 
+    filter(labno == {{ labno }} & graining == {{ graining_level }}) |> 
+    ggplot(aes(x = worksheet_suffix,
+               y = regional_fold_change)) +
+    annotate('rect', xmin = 0, xmax = 5, ymin = -1, 
+             ymax = 1, fill='white') +
+    geom_hline(yintercept = del_fc_threshold, linetype = "dashed") +
+    geom_hline(yintercept = 1, colour = "grey") +
+    geom_hline(yintercept = -1, colour = "grey") +
+    geom_point(shape = 21, size = 2, aes(fill = {{ threshold }})) +
+    scale_fill_manual(values = c("red", "white")) +
+    theme_bw() +
+    theme(axis.text.x = element_blank()) +
+    facet_wrap(~name) +
+    labs(x = "Replicate", y = "Fold change", fill = "",
+         title = labno)
+  
+  return(plot)
+  
+}
+
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: fig-24017319-original-threshold
+#| fig-cap: "24017319 original results"
+#| fig-width: 6
+#| fig-height: 7
+#| echo: FALSE
+
+make_repeat_plot("24017319", "coarse", pansolid_call_minus_1_3) +
+  coord_cartesian(ylim = c(-3, 3)) +
+  labs(title = "24017319 -1.33 threshold")
+
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: fig-24017319-new-threshold
+#| fig-cap: "24017319 results with new threshold"
+#| fig-width: 6
+#| fig-height: 7
+#| echo: FALSE
+
+make_repeat_plot("24017319", "coarse", pansolid_call_new_threshold) +
+  coord_cartesian(ylim = c(-3, 3)) +
+  labs(title = "24017319 -1.06 threshold")
+
+```

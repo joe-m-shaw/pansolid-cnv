@@ -28,8 +28,6 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
 # Acronyms
 
-**APC**: adenomatous polyposis coli tumor suppressor
-
 **BAF:** B Allele Frequency
 
 **CDKN2A**: Cyclin Dependent Kinase iNhibitor 2A
@@ -141,23 +139,28 @@ target_df <- read_csv(paste0(data_folder,
     TRUE ~"gene target"
   ))
 
-del_genes <- read_csv(paste0(
+target_df_with_coordinates <- extract_pansolid_cnv_coordinates(target_df, 
+                                                               region) |> 
+  mutate(target_size_bp = abs(end-start))
+
+(pansolid_bed_bp / haploid_genome_bp) * 100
+
+del_genes <- read_excel(paste0(
   data_folder,
   "validation/DOC6567_deletions/gene_lists/",
-  "pansolid_deletion_gene_list.csv"
-))
-
-genes_in_validation <- c("CDKN2A", "CDKN2B", "PTEN", "TP53", "MLH1", "MSH2",
-                         "MSH6", "NF2")
+  "2024_12_20_deletion_gene_list.xlsx"
+)) |> 
+  janitor::clean_names() |> 
+  select(priority, gene)
 
 gene_target_counts <- target_df |> 
-  filter(name %in% genes_in_validation) |> 
+  filter(name %in% del_genes$gene) |> 
   count(name) |>
-  mutate("Predicted CLC setting" = case_when(
+  mutate("CLC setting" = case_when(
     n < 10 ~"Fine",
     n >= 10 ~"Coarse"
   )) |> 
-  rename("Number of targets" = n,
+  rename("Number of PanSolid targets" = n,
          "Gene" = name) 
 
 ```
@@ -209,21 +212,12 @@ chromosome 17p [@bendavid2020].
 ## Target genes
 
 The aim of this validation is to detect deletions in `r length(del_genes$gene)`
-genes on the PanSolid enrichment (@tbl-deletion-gene-targets). These genes were
+genes on the PanSolid enrichment (Supplementary Information, @tbl-deletion-gene-targets). These genes were
 selected due to the presence on the NHS Genomic Test Directory.
 There was a
 particular focus on *CDKN2A*, *CDKN2B* and *PTEN*, as these deletions are
 frequently found in glioblastoma samples, which comprised the main tumour type
 in the testing cohort.
-
-```{r}
-#| label: tbl-deletion-gene-targets
-#| tbl-cap: "Genes on the deletion list"
-#| echo: FALSE
-
-kable(gene_target_counts)
-
-```
 
 ### *CDKN2A* and *CDKN2B*
 
@@ -267,7 +261,14 @@ fluorescence in-situ hybridisation (FISH). These cytogenetic techniques can
 view cancers at a single-cell resolution. Over the last 25 years, there has
 been increasing development of molecular methods for detection of somatic CNVs,
 including deletions, beginning with array comparative genome hybridisation
-(CGH) and SNP-microarrays [@das2013], before progressing to next generation sequencing (NGS) of gene-panels, exomes [@zare2017] and genomes [@yi2023]. 
+(CGH) and SNP-microarrays [@das2013], before progressing to Illumina short-read
+next generation sequencing (NGS) of gene-panels [@conroy2021; glodzik2023], 
+exomes [@zare2017] and genomes [@yi2023; sonsinsky2024]. The majority of NGS 
+approaches use a depth-of-coverage approach:
+the number of sequencing reads mapping to a locus is used to infer the copy
+number of that locus within the sample. This approach was based on initial
+array approaches, in which the signal intensity from a probe was used to infer
+the locus copy number [@teo2012].
 
 ### Challenges
 
@@ -275,16 +276,16 @@ Whilst array and NGS approaches can define genomic losses more precisely than
 previous cytogenetic techniques, they do not allow single-cell resolution.
 Instead, DNA from millions of cancer and stromal cells is homogenised and
 analysed simultaneously within the same experiment. As a result, identifying
-somatic CNVs by these methods is confounded by three key factors:
+somatic CNVs by these methods is confounded by three biological factors:
 
-1) **Neoplastic cell content (NCC):** the neoplastic cell content, or tumour 
-purity, is the proportion of tumour cells within a sample. The NCC can vary 
-significantly and this impacts the sensitivity 
-of any copy-number technique. In addition, the normal tissue may contain 
-germline genetic variation which may mask or alter the signal of 
-somatic variation.
+- **Neoplastic cell content (NCC):** the neoplastic cell content is the 
+proportion of tumour cells within a sample. NCC may also be referred to as 
+tumour purity or cancer cell fraction. The NCC can vary significantly and this 
+impacts the sensitivity  of any copy-number technique. In addition, the normal 
+tissue may contain  germline genetic variation which may mask or alter the
+signal of somatic variation.
 
-2) **Ploidy:** cancer cells frequently deviate from a standard diploid
+- **Ploidy:** cancer cells frequently deviate from a standard diploid
 chromosome complement to become polyploid. Polyploidy arises across many
 different cancer types, usually arising after mitotic replication without
 cytokinesis, known as endoreplication, which multiplies the genome within a
@@ -295,13 +296,23 @@ samples with chromosome 10 trisomy. When ploidy was not accounted for,
 SNP-array analysis mistakenly reported a loss of chromosome 10, due to 
 the relative dosage of chromosome 10 versus the rest the polyploid genome.
 
-3) **Intra-tumoural heterogeneity:** cancers are composed  of diverse
+- **Intra-tumoural heterogeneity:** cancers are composed  of diverse
 populations of cells, in which copy number changes may only found in specific
 sub-clones [@dagogojack2018]. Analysing the homogenised DNA of tumours risks
 missing or misinterpreting the contributions from low-level, but
 clinically significant, cell populations.
 
-There is also the impact of technical noise.
+In addition, depth-of-coverage methods for CNV detection are also impacted by
+technical variation within samples:
+
+- **GC content:** the GC content of DNA fragments can alter the read count
+in short-read NGS in a non-linear fashion, with both high and low GC contents
+associated with reduced sequencing depth [@benjamini2012]. Various statistical
+methods have been developed to attempt to correct for this bias [@teo2012].
+
+- **Formalin fixation:** the process of fixing tumour samples in formalin
+chemically modifies DNA, leading to shorter DNA fragments and non-uniform 
+sequencing coverage [@stiert2024]. 
 
 ### Approaches
 
@@ -316,10 +327,20 @@ approaches frequently employ Hidden Markov Models (HMMs): statistical models
 which use raw data to select the most likely copy number state from a series of
 possible states [@seiser2014].
 
-NGS 
-analysis can be performed on a tumour sample ("tumour-only") or paired tumour 
+NGS analysis can be performed on a tumour sample ("tumour-only") or paired tumour 
 and germline samples, with paired analysis having the advantage of being able 
-to distinguish between somatic and germline variants [@jones2015]. 
+to distinguish between somatic and germline variants [@jones2015]. Paired 
+analysis also differs in its approach to ploidy calculations. One example is the
+Canvas algorithm developed by Illumina for paired tumour-normal CNV calling
+[@roller2016]. Canvas takes the coverage and MAF values for a tumour sample and
+compares them to the predicted coverage and MAF values for multiple combinations
+of tumour purity, ploidy and heterogeneity. The combination with the smallest 
+deviation from the actual results is accepted as the likely purity, ploidy and
+heterogeneity state of the tumour, and then used for calculating copy number.
+The process of comparing the actual to predicted results was optimised using
+a cohort of tumour-normal samples with known ploidy and purity values
+(@roller2016, supplementary information, page 17).
+
 Other approaches which have shown promise for solving the challenges of purity, 
 ploidy and heterogeneity deconvolution include multiple tumour sequencing 
 [@zaccaria2020] and single-cell genome sequencing [@baslan2020]. However, these 
@@ -376,17 +397,25 @@ Ploidy ranged from x to y and NCC ranged from a to b.
 
 ## Next generation sequencing
 
+Samples were processed on the PanSolid version 2 enrichment and sequenced on an
+Illumina Novaseq.
+
 ### PanSolid panel
 
-PanSolid contains targets for genes and also a SNP backbone which can be used 
-for LOH calling.
-
-There are `r nrow(target_df[target_df$target_type == "genomic backbone",])`
-targets within the genomic backbone.
+The PanSolid panel is a QIAseq enrichment containing primers for
+`r nrow(target_df)` genomic targets. 
+`r nrow(target_df[target_df$target_type == "gene target",])` targets lie within
+specific genes related to cancer, and a further 
+ `r nrow(target_df[target_df$target_type == "genomic backbone",])`
+targets provide a genomic backbone for LOH and ploidy calling.
 
 ## Bioinformatics Pipeline
 
 A bioinformatics pipeline was built in the CLC Genomics Workbench v23 (Qiagen).
+
+### Control cohort
+
+### Graining level
 
 ### Fold change {#sec-methods-fold-change}
 
@@ -497,11 +526,42 @@ copy_number_plot
 
 ```
 
-### B allele frequency
+### Signal-adjusted noise
 
+The signal-adjusted noise metric was developed during the *ERBB2* validation and
+is described in detail in DOCxxxx.
 
+### Variant frequency
 
-### Ploidy status
+To produce a visualisation of allele frequency across the genome, the read depth
+frequencies of variants in the sequenced sample were used. The variants were
+filtered according to the following criteria:
+
+1) The variant was in a Genome In A Bottle high-confidence region
+2) The variant had a frequency greater than 4%
+
+This variant frequency is different to the B allele frequency (BAF) which is
+used in WGS analysis. The BAF shows the frequency of the allele present in
+the reference genome versus the alternate allele. Bases are given an arbitrary 
+hierarchy: A < T < G < C.
+
+When the reference base is higher in the hierarchy to the alternate base, BAF
+is defined as:
+
+$$
+BAF = (AltCount / (RefCount + AltCount))
+$$ {#eq-baf-1}
+
+When the reference bases is lower in the hierarchy to the alternate base, BAF
+is defined as:
+
+$$
+BAF = 1 - (AltCount / (RefCount + AltCount))
+$$ {#eq-baf-2}
+
+Equations taken from [Illumina website](https://help.dragen.illumina.com/product-guides/dragen-v4.3/dragen-dna-pipeline/small-variant-calling/baf-output)
+
+### Ploidy
 
 Ploidy status was predicted using the "Detect Regional Ploidy" tool. This uses
 a Hidden Markov Model to predict ploidy based on SNP and coverage data, which 
@@ -512,29 +572,37 @@ is influenced by @beroukhim2006.
 The version of the PanSolid CLC pipeline tested in this validation was PanSolid 
 Workflow v2.4.
 
-## Orthogonal testing
+### Visualisation
 
-ddPCR primers were designed by targeting minor differences in the PTEN and 
-PTENP1 sequences.
+A new visualisation was developed to include deletions and LOH.
 
-ddPCR assays already exist for *BRCA1*, *MSH2* and *PALB2*.
+## Whole genome sequencing
 
-WS146462 and WS146463
-
-### Whole genome sequencing
+Additional samples were added to the existing cohort reported in 
+[DOC6283]{custom-style="Strong"}. 
 
 Samples were tested by whole genome sequencing (WGS) within the NHS Genomic
-Medicine Service [@sosinsky2024]. WGS was performed by Illumina Laboratory Services in Cambridge
+Medicine Service [@sosinsky2024]. WGS was performed by Illumina Laboratory 
+Services in Cambridge
 on paired blood and fresh frozen tumour samples. Bioinformatic analysis was
-performed by Genomics England, and HTML reports were downloaded from the Genomics
+performed by Genomics England, and HTML reports were downloaded from the 
+Genomics
 England [clinical interpretation portal](https://cipapi.genomicsengland.nhs.uk/interpretationportal/gms/).
 
+### Genomics England Pipeline
+
 Within the pipeline, tumour ploidy and chromosome count are calculated by the
-Canvas algorithm which was developed by Illumina [@roller2016]. Canvas also
-detects somatic CNVs using sample read-depth and allele ratios, and reports
+Canvas algorithm [@roller2016]. Canvas also
+detects somatic CNVs and LOH using sample read-depth and allele ratios, and reports
 them as GAIN, LOSS or LOH in the HTML report. Structural variants are detected
 using the Manta algorithm [@chen2016] and included as DEL or DUP in the HTML
-report. Tumour content is estimated using the Ccube package [@yuan2018].
+report. 
+
+Whilst Canvas predicts tumour purity, the tumour purity stated on the 
+final HTML report is predicted using the Ccube package [@yuan2018]. Ccube 
+predicts NCC from variant fractions, using a probabilistic model to account for 
+two important challenges: not all cancer cells may contain a variant, and cancer
+cells may not be diploid.
 
 ```{r}
 #| label: pipeline-metrics
@@ -545,22 +613,24 @@ pipeline_metric_tbl <- tribble(
   "Sample(s)",   "FFPE tumour sample",   "Paired fresh frozen tumour sample and blood sample for germline DNA",
   "Library preparation", "QIAseq panel enrichment", "Whole genome amplification",
   "CNV caller",  "QIAgen CLC Genomics Workbench", "Germline CNVs: DRAGEN CNV; Somatic CNVs: Canvas and Manta",
-  "NCC calculated", "No", "Yes - by Ccube"
+  "NCC calculated", "No", "Yes - by Canvas and Ccube"
 )
 
 knitr::kable(pipeline_metric_tbl)
 
 ```
 
-### Droplet digital PCR
+## Droplet digital PCR
 
-20ng input was used.
+ddPCR assays were designed for the *CDKN2A* and *PTEN* genes. ddPCR was 
+performed on a BioRad QX200 system with 20ng DNA input. The ddPCR
+assays were validated on WS146103 and samples were tested on WS146462 and 
+WS146463. The ddPCR assays for *CDKN2A* exon 3 and *PTEN* exon 1 were used.
+The same ddPCR mix volumes and thermocycling conditions were used as for the 
+previous amplifications validation, and are detailed in the Supplementary 
+Information of [DOC6283]{custom-style="Strong"}.
 
-ddPCR assays were designed for *CDKN2A*, *PTEN*, *MSH6* and *MLH1*.
-
-*PTEN* has a pseudogene, *PTENP1*, on chromosome 9.
-
-### Loss of heterozgosity
+## Loss of heterozgosity
 
 ```{r}
 #| label: nf2-markers
@@ -577,8 +647,6 @@ nf2_loh_markers <- tribble(
 
 nf2_marker_mb <- round((max(nf2_loh_markers$grch38_end) - min(nf2_loh_markers$grch38_start)) / 10^6, 1)
 
-target_df_with_coordinates <- extract_pansolid_cnv_coordinates(target_df, region)
-
 nf2_loh_targets <- target_df_with_coordinates |> 
   filter(chromosome == "22") |> 
   filter(start >= min(nf2_loh_markers$grch38_start) &
@@ -586,11 +654,18 @@ nf2_loh_targets <- target_df_with_coordinates |>
 
 ```
 
-4 dinucleotide microsatellite repeat markers (D22S275, NF2CA3, NF2intron10 and D22S268) on chromosome 22 are used to assess loss of heterozygosity (LOH) for the *NF2* gene with fluorescence-PCR analysed on an ABI-3130 analyser ([LP 000 069: Neurofibromatosis type 2 (NF2): Standard Operating Procedure]{custom-style="Strong"}). Testing was performed on paired tumour and blood DNA.
+4 dinucleotide microsatellite repeat markers (D22S275, NF2CA3, NF2intron10 and
+D22S268) on chromosome 22 are used to assess loss of heterozygosity (LOH) for 
+the *NF2* gene with fluorescence-PCR analysed on an ABI-3130 analyser 
+([LP 000 069: Neurofibromatosis type 2 (NF2): Standard Operating
+Procedure]{custom-style="Strong"}). Testing was performed on paired tumour and
+blood DNA.
 
-These markers span `r nf2_marker_mb` Mb of chromosome 22, the same region contains `r nrow(nf2_loh_targets)` targets on PanSolid v2.
+These markers span `r nf2_marker_mb` Mb of chromosome 22, the same region 
+contains `r nrow(nf2_loh_targets)` targets on PanSolid v2.
 
-We used these samples as proof-of-concept that the PanSolid pipeline can identify regions of LOH.
+We used these samples as proof-of-concept that the PanSolid pipeline can 
+identify regions of LOH.
 
 ```{r}
 #| label: tbl-nf2-markers
@@ -600,9 +675,23 @@ kable(nf2_loh_markers)
 
 ```
 
+## Validation analysis
+
+Analysis was performed in R version 4.4.1. This validation document is written in
+Quarto [@allaire2024] and is saved in a public Github repository:
+[https://github.com/joe-m-shaw/pansolid_cnv_validation/tree/main/vignettes](https://github.com/joe-m-shaw/pansolid_cnv_validation/tree/main/vignettes)
+
+## Data locations
+
+All data analysed in this validation is saved at this file location:
+
+S:/central shared/Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/validation/DOC6567_deletions/
+
 {{< pagebreak >}}
 
 # Results
+
+## Overall results
 
 ```{r}
 #| label: overall-results
@@ -614,13 +703,84 @@ str(del_val_pansolid_ngs_collated)
 
 ```
 
+## Comparison to whole genome sequencing
 
+
+### Homozygous losses
+
+Every example of a CDKN2A/B CN0 loss detected on WGS was detected on PanSolid, 
+with one exception (24033015) although this was low confidence (LC-9) on WGS, 
+with 50% NCC and a tetraploid tumour.
+
+Every example of a PTEN CN0 loss detected on WGS was detected on PanSolid.
+
+### Heterozygous losses
+
+### Germline loss
+
+
+
+### Ploidy
+
+Comparison plot of ploidy estimates from PanSolid and WGS.
+
+
+
+```{r}
+#| label: wgs-deletions
+#| eval: FALSE
+#| include: FALSE
+
+del_genes <- read_csv(file = paste0(data_folder,
+                                   "validation/DOC6567_deletions/gene_lists/",
+                                   "pansolid_deletion_gene_list.csv"))
+
+wgs_cnvs_with_ids <- del_val_wgs_html_cnvs |> 
+  left_join(del_val_wgs_html_ids, by = "filepath",
+            relationship = "many-to-one")
+
+pansolid_with_ids <- del_val_pansolid_ngs_collated |> 
+  left_join(del_val_sample_patient_info |> 
+              select(labno, firstname, surname, nhsno, pathno), by = "labno")
+
+wgs_pansolid_nhs_nos <- intersect(wgs_cnvs_with_ids$nhsno,
+                                  pansolid_with_ids$nhsno)
+
+wgs_del_cnvs <- wgs_cnvs_with_ids |> 
+  filter(cnv_class %in% c("LOSS", "DEL")) |> 
+  filter(gene %in% del_genes$gene)
+
+coarse_pansolid_vs_wgs <- pansolid_with_ids |> 
+  filter(graining == "coarse" & nhsno %in% wgs_pansolid_nhs_nos) |> 
+  full_join(wgs_del_cnvs, by = c("nhsno", "gene")) |> 
+  select(labno.x, labno.y, firstname, surname, pathno, wgs_pathno,
+         gene, cnv_region, fold_change_adjusted, cnv_class, cnv_copy_number)
+
+fine_pansolid_vs_wgs <- pansolid_with_ids |> 
+  filter(graining == "fine" & nhsno %in% wgs_pansolid_nhs_nos) |> 
+  full_join(wgs_del_cnvs, by = c("nhsno", "gene")) |> 
+  select(labno.x, labno.y, firstname, surname, pathno, wgs_pathno,
+         gene, cnv_region, fold_change_adjusted, cnv_class, cnv_copy_number)
+
+```
+
+```{r}
+#| label: tbl-wgs-deletions
+#| eval: FALSE
+#| include: FALSE
+
+kable(wgs_del_cnvs_summary)
+
+```
 
 
 ## Comparison to ddPCR
 
 ddPCR was performed for the *PTEN* and *CDKN2A* genes for all 25 normal control 
 samples and 29 patient samples.
+
+*PTEN* has a pseudogene, *PTENP1*, on chromosome 9, which could have influenced
+the results.
 
 ```{r}
 #| label: load-ddpcr-data
@@ -903,57 +1063,9 @@ pten_ps_plot
 
 {{< pagebreak >}}
 
-## Comparison to whole genome sequencing
+## Comparison to LOH testing
 
-We have the following true-positive samples from whole genome sequencing testing, 
-which have already been tested by PanSolid NGS.
 
-```{r}
-#| label: wgs-deletions
-#| eval: FALSE
-#| include: FALSE
-
-del_genes <- read_csv(file = paste0(data_folder,
-                                   "validation/DOC6567_deletions/gene_lists/",
-                                   "pansolid_deletion_gene_list.csv"))
-
-wgs_cnvs_with_ids <- del_val_wgs_html_cnvs |> 
-  left_join(del_val_wgs_html_ids, by = "filepath",
-            relationship = "many-to-one")
-
-pansolid_with_ids <- del_val_pansolid_ngs_collated |> 
-  left_join(del_val_sample_patient_info |> 
-              select(labno, firstname, surname, nhsno, pathno), by = "labno")
-
-wgs_pansolid_nhs_nos <- intersect(wgs_cnvs_with_ids$nhsno,
-                                  pansolid_with_ids$nhsno)
-
-wgs_del_cnvs <- wgs_cnvs_with_ids |> 
-  filter(cnv_class %in% c("LOSS", "DEL")) |> 
-  filter(gene %in% del_genes$gene)
-
-coarse_pansolid_vs_wgs <- pansolid_with_ids |> 
-  filter(graining == "coarse" & nhsno %in% wgs_pansolid_nhs_nos) |> 
-  full_join(wgs_del_cnvs, by = c("nhsno", "gene")) |> 
-  select(labno.x, labno.y, firstname, surname, pathno, wgs_pathno,
-         gene, cnv_region, fold_change_adjusted, cnv_class, cnv_copy_number)
-
-fine_pansolid_vs_wgs <- pansolid_with_ids |> 
-  filter(graining == "fine" & nhsno %in% wgs_pansolid_nhs_nos) |> 
-  full_join(wgs_del_cnvs, by = c("nhsno", "gene")) |> 
-  select(labno.x, labno.y, firstname, surname, pathno, wgs_pathno,
-         gene, cnv_region, fold_change_adjusted, cnv_class, cnv_copy_number)
-
-```
-
-```{r}
-#| label: tbl-wgs-deletions
-#| eval: FALSE
-#| include: FALSE
-
-kable(wgs_del_cnvs_summary)
-
-```
 
 ## Repeat testing
 
@@ -970,7 +1082,8 @@ repeat_schedule <- tibble(
 
 ```
 
-Intra-run variation (repeatability) and inter-run variation (reproducibility) were investigated for 3 samples using the testing structure shown in @tbl-repeat-schedule. 
+Intra-run variation (repeatability) and inter-run variation (reproducibility) 
+were investigated for 3 samples using the testing structure shown in @tbl-repeat-schedule. 
 
 Sample 24017319 had a homozygous *CDKN2A* deletion and a heterozygous *PTEN* deletion, whilst sample 24020998 and sample 24027774 did not have deletions.
 
@@ -1042,6 +1155,15 @@ coverage fluctuation to pass the fold change cutoff for deletions."
 The theoretical limit of detection for a heterozygous deletion is 50%, and 
 for a homozygous deletion it is 25% (@sec-methods-fold-change).
 
+## Quality control
+
+Signal-adjusted noise above 0.7 leads to false positive deletion calls on both 
+coarse and fine settings (examples: 23011114, 24030364, 23032153).
+
+There are also cases where PanSolid detects a copy number of 1 not present 
+on WGS (24043023, 23013975), which is particularly apparent when the percentage 
+coverage at 138X is low (24042074).
+
 {{< pagebreak >}}
 
 # Discussion
@@ -1055,26 +1177,10 @@ recurrent aneuploidies. For example, gain of chromosome 7 and loss of
 chromosome 10 [@boström1998] are frequently observed in glioblastoma. 
 
 TSGs aren't always hit by deletions, they could have tandem duplications of
-certain sections of the gene which render the gene transcript non functional [@li2020]
+certain sections of the gene which render the gene transcript non functional 
+[@li2020]
 
 Loss of chromosome 22 is commonly seen in meningiomas [@neill2020]
-
-
-## Ploidy estimation
-
-A key weakness is that different combinations of purity, ploidy and 
-heterogeneity could produce the same levels of dosage and allelic imbalance - 
-there will always be unknown quantities.
-
-Many different bioinformatic tools have been developed, each with strengths and
-weaknesses, and the choice of tool can have a significant impact on accuracy [@zare2017]. 
-
-For example, @masood2024 demonstrated that prediction of tumour ploidy can vary
-between bioinformatic tools, and showed that the ControlFREEC tool gave 
-different ploidy predictions on different replicates of the same sample.
-
-Haploidy in gliomas has been reported and often includes chromosome 7 at 
-normal levels [@baker2020; ahrendsen2022].
 
 ## Comparison to WGS
 
@@ -1084,6 +1190,83 @@ and specificity of 95% and 91%.
 It should be noted that the WGS user guide states "The sensitivity for
 detection of SVs and CNVs is yet to be determined."
 
+WGS uses far more data than PanSolid - try to find the number of SNPs used for
+both.
+
+## Ploidy estimation
+
+A key weakness is that different combinations of purity, ploidy and 
+heterogeneity could produce the same levels of dosage and allelic imbalance - 
+there will always be unknown quantities.
+
+For example, a tetraploid genome will show the same Log2 ratios and BAF profile
+on tumour-only analysis as a diploid genome. Paired tumour-normal analysis is 
+required to distinguish that whole genome duplication has occurred, and the 
+average chromosome number is 4, not 2.
+
+The problem of heterogeneity. Consider the hypothetical scenario where NGS
+has predicted a tumour to have a ploidy of 4, with an aneuploidy of chromosome 
+10 which has a copy number of 3. If we assume the tumour to be homogenous, each 
+cell will have 3 copies of chromosome 10, so there is no PTEN deficiency. 
+However, the tumour may be heterogenous and include 2 clones, both at 50% 
+purity. One clone is tetraploid, with 4 copies of chromosome 10. The other 
+clone is diploid, with 1 copy of chromosome 10. Merged together in the 
+sequencing and bioinformatic analysis, the ratio of chromosome 10 to the rest 
+of the genome will be 3:4.
+
+Many different bioinformatic tools have been developed, each with strengths and
+weaknesses, and the choice of tool can have a significant impact on accuracy 
+[@zare2017]. 
+
+For example, @masood2024 demonstrated that prediction of tumour ploidy can vary
+between bioinformatic tools, and showed that the ControlFREEC tool gave 
+different ploidy predictions on different replicates of the same sample.
+
+Haploidy in gliomas has been reported and often includes chromosome 7 at 
+normal levels [@baker2020; ahrendsen2022].
+
+## Resolution
+
+Not all CNVs will impact the whole gene.
+
+## Quality control
+
+Compare to waviness and MAPD metrics used for microarrays.
+
+## Comparison to commercial kits
+
+Compare to FoundationOne, TruSight 500 and other tumour-only NGS assays.
+
+Foundation One [@milbury2022]
+Bespoke [@chandramohan2022]
+GenomicsEngland [@genomicsengland2019]
+Tempus @beaubier2018
+
+## Extrapolation to other genes
+
+
+## Limitations
+
+Ultimately, due to the bulk-sequencing approach which has ploidy, purity and
+heterogeneity as unknown variables, somatic NGS results are fundamentally
+probabilistic in nature.
+
+```{r}
+#| label: pansolid-bed-bp
+#| include: FALSE
+
+pansolid_bed_bp <- sum(target_df_with_coordinates$target_size_bp)
+
+haploid_genome_bp <- (3.2*10^9)
+
+```
+
+The limited genomic backbone of PanSolid vs WGS means that the resolution of
+LOH calls will be limited.
+
+The total target regions specified in the PanSolid BED file sum to 
+`r round(pansolid_bed_bp/1000, 1)` kilobases, which is 
+`r round((pansolid_bed_bp / haploid_genome_bp)*100, 2)`% of the human genome.
 
 # Review of test requirements
 
@@ -1137,3 +1320,41 @@ deletions by laboratory staff.
 :::
 
 # Supplementary Information
+
+## Panel details
+
+```{r}
+#| label: tbl-deletion-gene-targets
+#| tbl-cap: "Genes on the deletion list"
+#| echo: FALSE
+
+kable(gene_target_counts)
+
+```
+
+## Sample details
+
+
+## ddPCR details
+
+```{r}
+#| label: tbl-ddpcr-primers
+#| tbl-cap: "ddPCR primer sequences"
+#| echo: FALSE
+
+ddpcr_primer_tbl <- tribble(
+  ~`Primer name`, ~`Sequence (5'-3')`,
+  "dCDKN2A_Ex3_1F", "TGTAAAACGACGGCCAGTCACTTCACACGGTCTCGCACTGGGTCCTACAGGGCCACAACTG",
+  "dCDKN2A_Ex3_1R", "AAACTACGAAAGCGGGGTGG",
+  "dPTEN_Ex1_2F", "TGTAAAACGACGGCCAGTCACTTCACACGGTCTCGCACTGGCCATTTCCATCCTGCAGAAGAAGC",
+  "dPTEN_Ex1_2R", "GATGATGGCTGTCATGTCTGGG"
+)
+
+knitr::kable(ddpcr_primer_tbl)
+
+```
+
+
+## Supplementary plots
+
+
