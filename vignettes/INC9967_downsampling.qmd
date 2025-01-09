@@ -193,11 +193,9 @@ write.csv(all_del_results, paste(col_data_folder,
 
 ```
 
-The information for the WGS samples is shown here:
-
 ```{r}
 #| label: sample-ids
-#| echo: FALSE
+#| include: FALSE
 
 pansolid_labnos <- unique(std_dev_collated$labno)
 
@@ -222,30 +220,30 @@ write_csv(pansolid_and_wgs_ids, file =
             paste0(data_folder, 
                    "live_service/INC9967_downsampling/collated_data/",
                    "pansolid_and_wgs_ids.csv"))
+```
+
+The information for the WGS samples is shown here:
+
+```{r}
+#| label: wgs-ids
+#| echo: FALSE
 
 knitr::kable(pansolid_and_wgs_ids)
 
 ```
 
-The WGS HTML reports for 24017319, 24030945 and 23032153 are saved here:
+The data folder is saved here:
 
-```{r}
-#| label: html-filepath
-#| include: TRUE
+`r data_folder`
 
-paste0(data_folder, "validation/DOC6283_amplifications/raw/wgs/")
+The WGS HTML reports for 24017319, 24030945 and 23032153 are saved within the
+data folder here:
 
-```
+validation/DOC6283_amplifications/raw/wgs/
 
-The WGS HTML report for 24035924 is saved here:
+The WGS HTML report for 24035924 is saved within the data folder her:
 
-```{r}
-#| label: html-filepath2
-#| include: TRUE
-
-paste0(data_folder, "validation/DOC6567_deletions/raw/wgs/")
-
-```
+validation/DOC6567_deletions/raw/wgs/
 
 {{< pagebreak >}}
 
@@ -276,7 +274,8 @@ qc_summary <- qc_joined |>
               select(pansolid_labno, patient_name, wgs_p_no),
             join_by("labno" == "pansolid_labno"))
 
-cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", 
+               "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 ggplot(qc_joined, aes(x = noise, y = percent_138)) +
   geom_point(size = 3, shape = 21, aes(fill = downsample_level)) +
@@ -291,6 +290,8 @@ ggplot(qc_joined, aes(x = noise, y = percent_138)) +
        title = "Reducing coverage increases noise")
 
 ```
+
+{{< pagebreak >}}
 
 ```{r}
 #| label: tbl-quality-metrics
@@ -344,7 +345,6 @@ make_repeatability_plot <- function(df = all_amp_collated_long,
               theme_bw() +
               facet_wrap(~gene) 
             
-  
   return(plot)
   
 }
@@ -657,6 +657,8 @@ make_cnv_triptych_plot(make_labno_cnv_plot(df = pos_cnv_collated |>
 
 ```
 
+{{< pagebreak >}}
+
 ### 24017319 - WGS QIAsymphony extraction
 
 ```{r}
@@ -668,6 +670,8 @@ knitr::kable(qc_summary |> filter(labno == "24017319"))
 
 This sample had no amplifications detected on WGS. No amplifications were 
 detected at any downsampling level.
+
+{{< pagebreak >}}
 
 ### 24035924 - WGS QIAsymphony extraction
 
@@ -805,6 +809,8 @@ coarse_24030945_pten | fine_24030945_pten
 
 ```
 
+{{< pagebreak >}}
+
 A loss of chromosome 10 as visible as a BMPR1A deletion, which was called on
 the "coarse" setting with no difference in coordinates for all coverage levels.
 
@@ -877,6 +883,8 @@ fine_23032153_pten <- make_cnv_triptych_plot(make_labno_cnv_plot(df = all_del_re
 coarse_23032153_pten | fine_23032153_pten
 
 ```
+
+{{< pagebreak >}}
 
 However, on WGS BMPR1A has a copy number of 2, which should show up as a 
 relative loss on the PanSolid analysis. BMPR1A is not listed as a deletion at 
@@ -1060,6 +1068,8 @@ coarse_24017319_brca1 | fine_24017319_brca1
 
 ```
 
+{{< pagebreak >}}
+
 ### 24035924 - WGS QIAsymphony extraction
 
 ```{r}
@@ -1157,6 +1167,8 @@ coarse_24035924_chek2 | fine_24035924_chek2
 
 ```
 
+{{< pagebreak >}}
+
 ### 24042074
 
 This sample was not part of the downsampling experiment but is important to be 
@@ -1167,21 +1179,14 @@ It has a loss of chromosome 22, similar to sample 24035924. However, for sample
 
 Noise was 0.58 and percent at 138X was 64%.
 
+Both the fresh frozen sample for WGS (24044301) and the FFPE sample tested with 
+PanSolid NGS (24042074) were from the same tumour block (24BR102).
+
+![Chromosome 22 loss detection for samples 24035924 and 24042074](`r paste0(data_folder, "live_service/INC9967_downsampling/images/", "chr22_loss_detection.png")`){#fig-chr22-detection}
+
+{{< pagebreak >}}
+
 # Discussion
-
-Setting coverage thresholds is impacted by:
-
--   The NCC of the sample
-
--   The type of CNV (amplification or deletion)
-
--   The degree of the change (low or high fold change)
-
--   The size of the change (small or large CNV)
-
--   The noise of the sample
-
--   The ploidy of the sample
 
 Here is a summary of the results:
 
@@ -1191,7 +1196,7 @@ Here is a summary of the results:
 
 **Amplifications**
 
--   Reducing coverage as low as 30% at 138X did not significantly impact 
+- Reducing coverage as low as 30% at 138X did not significantly impact 
 whole-gene fold changes or coordinates for amplification calls in samples 
 with signal-adjusted noise from 0.2 to 0.8.
 
@@ -1201,34 +1206,37 @@ with signal-adjusted noise from 0.2 to 0.8.
 -   Reduced coverage did lead to a loss of an intragenic EGFR copy number 
 gain in the SeraCare control on "coarse".
 
--   No new false positive or false negative amplification calls were noted.
+-   No new false positive or false negative amplification calls were noted as 
+a result of downsampling.
 
 **Deletions**
 
 -   Reducing coverage as low as 30% at 138X did not significantly impact 
 whole-gene fold changes of coordinates for genes with copy numbers of 0 on 
-WGS. These samples had signal-adjusted noise from 0.2 to 0.8.
-
--   CN1 deletions were more impacted by coverage.
+WGS (CN0). These samples had signal-adjusted noise from 0.2 to 0.8.
 
 -   High noise (greater than 0.7) led to false positive deletion calls at all 
 coverage levels.
 
+-   Deletions with a copy number of 1 (CN1) in samples with noise from 0.2 to 0.4
+could be detected as low as 5% 138X coverage, but coordinates of the deleted
+region tended to change when coverage fell below 75% at 138X.
 
--   In a diploid genome (24030945) with high NCC (95%), and low signal-adjusted noise (0.2), biallelic and monoallelic deletions could be detected as low as 28% panel covered at 138X.
+- One sample from the deletions cohort (24042074) had a chr22 loss which was 
+not detected on PanSolid when the noise was 0.58 and the percent coverage at 
+138X was 64.9%. This indicates that a combination of noise above 0.58 and 
+percent 138X above 65% would be needed to detect CN1 deletions.
 
--   In a diploid genome (24017319) with low NCC (32%) and low signal adjusted noise (0.3), biallelic and monoallelic deletions were detected as low as 34% panel covered at 138X, but with significant changes in the coordinates of the CNV calls.
+A practical compromise would be noise at 0.7 and 138X coverage at 75%, with the
+understanding that this is actually very conservative for amplifications and
+CN0 deletions.
 
--   In a tetraploid genome (23032153) with low NCC (43%) and high signal adjusted noise (0.9), a biallelic deletion could be detected as low as 33% panel covered at 138X.
-
-
-Could we use median coverage as an alternate metric? 138X is from the SNV
-validation, and doesn't seem to be useful from a CNV perspective. We have seen
-samples with 0% coverage at 138X but the results look OK
-(WS148333, 24068563).
+Long term, it may be worth using a different coverage metric for quality control.
+We have seen samples with 0% coverage at 138X but acceptable signal-adjusted 
+noise (WS148333, 24068563).
 
 # Conclusion
 
 Thresholds of greater than 75% panel covered at 138X and signal-adjusted 
-noise greater than 0.7 are a pragmatic combination for calling of 
-amplifications and deletions.
+noise greater than 0.7 are a pragmatic, but conservative, combination for 
+detection of amplifications and deletions.
