@@ -1,6 +1,8 @@
 ---
 title: "Deletions - Repeatability"
 author: "Joe Shaw (CS20980)"
+date: today
+date-format: "DD/MM/YYYY"
 format: pdf
 editor: visual
 ---
@@ -17,6 +19,7 @@ deletion calling on PanSolid.
 library(tidyverse)
 library(readxl)
 library(here)
+library(janitor)
 
 source(here("functions/pansolid_excel_functions.R"))
 source(here("functions/uom_functions.R"))
@@ -40,9 +43,11 @@ del_files <- list.files(path = bio_cnv_folder,
                         full.names = TRUE,
                         pattern  = "TSG\\s\\(Deleted\\).*.xlsx")
 
-del_genes <- read_csv(file = paste0(data_folder,
+del_genes <- read_excel(path = paste0(data_folder,
                                     "validation/DOC6567_deletions/gene_lists/",
-                                    "del_genes_new.csv"))
+                                    "2024_12_20_deletion_gene_list.xlsx")) |> 
+  janitor::clean_names() |> 
+  select(priority, gene)
 
 read_all_targets <- function(filepath, sheet_no) {
   
@@ -77,13 +82,43 @@ fine_target_df <- del_files |>
 
 all_target_df <- rbind(coarse_target_df, fine_target_df)
 
+target_df <- read_csv(paste0(data_folder,
+                             "validation/DOC6283_amplifications/bed_files/",
+                             "PanSolidv2_GRCh38_noalt_BED.csv")) |> 
+  clean_names() |> 
+  mutate(target_type = case_when(
+    
+    grepl(x = name, 
+          pattern =  "chr(\\d{1,2}|X):\\d{1,3}.+") == TRUE ~"genomic backbone",
+    TRUE ~"gene target"
+  ))
+
+target_df_with_coordinates <- extract_pansolid_cnv_coordinates(target_df, 
+                                                               region) |> 
+  mutate(target_size_bp = abs(end-start))
+
+gene_target_counts <- target_df |> 
+  filter(name %in% del_genes$gene | name == "DICER1") |> 
+  count(name) |>
+  mutate("CLC setting" = case_when(
+    n < 10 ~"Fine",
+    n >= 10 ~"Coarse"
+  )) |> 
+  janitor::clean_names()
+
+genes_on_coarse <- gene_target_counts |> 
+  filter(clc_setting == "Coarse")
+
+genes_on_fine <- gene_target_counts |> 
+  filter(clc_setting == "Fine")
+
 ```
 
 # Samples
 
-I have focussed on the 3 samples (24017319, 24027774 and 24020998) which were
-repeated on multiple worksheets as part of the PanSolid amplifications validation.
-Of these, 24017319 has results from whole genome sequencing.
+I have focussed on the 3 samples (24017319, 24027774 and 24020998) which were 
+repeated on multiple worksheets as part of the PanSolid amplifications 
+validation. Of these, 24017319 has results from whole genome sequencing.
 
 ```{r}
 #| label: replicates
@@ -113,7 +148,7 @@ intra_run_replicates <- c(
 
 # Genes
 
-I have filtered the target fold changes for each sample to focus on the `r length(del_genes$gene)` genes specified by George and Helene. The full gene list is:
+I have filtered the target fold changes for each sample to focus on the `r length(del_genes$gene)` genes with priority 1 or priority 2.
 
 ```{r}
 #| label: del-genes
@@ -125,54 +160,113 @@ print(del_genes$gene)
 
 # Uncertainty of Measurement
 
+For the uncertainty of measurement analysis I've filtered the PanSolid results
+by graining level: genes with 10 or more targets are analysed on "coarse" and 
+genes with fewer than 10 targets are analysed on "fine".
+
+I have also only used dosage results for the `r length(del_genes$gene)` genes on
+the deletions list.
+
 ```{r}
-#| label: calculate-uom
+#| label: identify-repeat-results
 #| include: FALSE
 
-repeat_results <- coarse_target_df |> 
+repeat_results <- all_target_df |> 
+  filter((name %in% genes_on_coarse$name & graining == "coarse") |
+           (name %in% genes_on_fine$name & graining == "fine")) |> 
   filter(labno_suffix_worksheet %in% inter_run_replicates |
            labno_suffix_worksheet %in% intra_run_replicates) |> 
   filter(name %in% del_genes$gene) 
 
+```
+
+I then performed the following steps:
+
+- Converted any fold changes calculated with the "gain" fold change equation
+ to the results for the "loss" equation.
+ 
+- Took the lowest regional fold change for each gene (some genes had different
+regions at different fold changes)
+
+- Removed results for the CDKN2A, CDKN2B and PTEN genes where the fold change
+was below -1.75. This was because these calls were for homozygous deletions
+and subsequently have more variation than regions with normal or single loss
+dosage.
+
+```{r}
+#| label: select-uom-data
+#| include: FALSE
+
 del_fc_threshold <- -1.33333
 
-repeat_results_distinct <- repeat_results |> 
+repeat_data_filtered <- repeat_results |> 
   distinct(worksheet, labno, suffix,
            labno_suffix_worksheet, 
            filepath, name, region_joined_targets, regional_fold_change, 
            regional_consequence, graining) |> 
-  mutate(worksheet_suffix = str_c(worksheet, "_", suffix),
-         pansolid_call_minus_1_3 = case_when(
-           regional_fold_change <= del_fc_threshold ~"Deletion",
-           regional_fold_change > del_fc_threshold ~"Normal"
-         ))
-
-repeat_data_uom <- repeat_results_distinct |> 
+  mutate(worksheet_suffix = str_c(worksheet, "_", suffix)) |> 
   # Convert amplification fold changes to deletion fold changes
   mutate(fold_change_uom = case_when(
     regional_fold_change >= 1 ~-1 / regional_fold_change,
-    TRUE ~regional_fold_change))
+    TRUE ~regional_fold_change)) |> 
+  group_by(labno_suffix_worksheet, name) |> 
+  summarise(min_fold_change = min(fold_change_uom)) |> 
+  mutate(pansolid_call = case_when(
+      min_fold_change <= -1.3333 ~"del",
+      min_fold_change > -1.3333 ~"normal"),
+      labno = str_extract(labno_suffix_worksheet,
+                             pattern = "\\d{8}")) 
+
+```
+
+Here is the filtered data without the CDKN2A and PTEN homozygous deletions
+removed.
+
+```{r}
+#| label: plot-uom-data
+#| echo: FALSE
+
+ggplot(repeat_data_filtered, aes(x = name, 
+                                    y = min_fold_change)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle =90)) +
+  facet_wrap(~labno, nrow = 3) +
+  geom_hline(yintercept = -1.33, linetype = "dashed") 
+
+
+```
+
+```{r}
+#| label: calculate-uom
+#| include: FALSE
+
+repeat_data_uom <- repeat_data_filtered  |> 
+  filter(!(name %in% c("CDKN2A", "CDKN2B",
+                       "PTEN") & min_fold_change < -1.75))
 
 inter_sd_table <- group_sd(repeat_data_uom |> 
                              filter(labno_suffix_worksheet %in% inter_run_replicates),
-                           labno, name, fold_change_uom)
+                           labno, name, min_fold_change)
 
 inter_sd <- round(pool_sd(inter_sd_table), 3)
 
 intra_sd_table <- group_sd(repeat_data_uom |> 
                              filter(labno_suffix_worksheet %in% intra_run_replicates),
-                           labno, name, fold_change_uom)
+                           labno, name, min_fold_change)
 
 intra_sd <- round(pool_sd(intra_sd_table), 3)
 
 all_sd_table <- group_sd(repeat_data_uom,
-                         labno, name, fold_change_uom)
+                         labno, name, min_fold_change)
 
 all_sd <- round(pool_sd(all_sd_table), 3)
 
 del_uom <- define_uom(max(inter_sd, intra_sd, all_sd), 2)
 
 ```
+
+{{< pagebreak >}}
 
 I calculated the pooled standard deviation for the fold change of each gene in 
 the 3 samples.
@@ -183,78 +277,31 @@ the 3 samples.
 
 **Total standard deviation: `r all_sd`**
 
-The standard deviation is greater for deletions than amplifications. The intra, 
-inter and total standard deviation for amplifications were 0.032, 0.085 and 0.077.
+For comparison, the intra, inter and total standard deviation for amplifications
+were 0.032, 0.085 and 0.077.
 
-Taking the highest standard deviation value, the uncertainty of measurement can be calculated.
+Taking the highest standard deviation value, the uncertainty of measurement 
+can be calculated.
 
 **Uncertainty of measurement for fold change: ±`r del_uom` (95% confidence)**
 
-This would mean a deletion fold change threshold of `r del_fc_threshold + del_uom`.
+This would mean a deletion fold change threshold of 
+`r del_fc_threshold + del_uom`.
+
+This is what adding the upper threshold onto the repeat data would look like.
 
 ```{r}
 #| label: new-threshold
-#| include: FALSE
-
-repeat_data_uom_mod <- repeat_data_uom |> 
-  mutate(pansolid_call_new_threshold = case_when(
-    regional_fold_change <=  del_fc_threshold + del_uom ~"Deletion",
-    regional_fold_change >  del_fc_threshold + del_uom ~"Normal"
-  ))
-
-
-make_repeat_plot <- function(labno, graining_level, 
-                             threshold) {
-  
-  plot <- repeat_data_uom_mod |> 
-    filter(labno == {{ labno }} & graining == {{ graining_level }}) |> 
-    ggplot(aes(x = worksheet_suffix,
-               y = regional_fold_change)) +
-    annotate('rect', xmin = 0, xmax = 5, ymin = -1, 
-             ymax = 1, fill='white') +
-    geom_hline(yintercept = del_fc_threshold, linetype = "dashed") +
-    geom_hline(yintercept = 1, colour = "grey") +
-    geom_hline(yintercept = -1, colour = "grey") +
-    geom_point(shape = 21, size = 2, aes(fill = {{ threshold }})) +
-    scale_fill_manual(values = c("red", "white")) +
-    theme_bw() +
-    theme(axis.text.x = element_blank()) +
-    facet_wrap(~name) +
-    labs(x = "Replicate", y = "Fold change", fill = "",
-         title = labno)
-  
-  return(plot)
-  
-}
-
-```
-
-{{< pagebreak >}}
-
-```{r}
-#| label: fig-24017319-original-threshold
-#| fig-cap: "24017319 original results"
-#| fig-width: 6
-#| fig-height: 7
 #| echo: FALSE
 
-make_repeat_plot("24017319", "coarse", pansolid_call_minus_1_3) +
-  coord_cartesian(ylim = c(-3, 3)) +
-  labs(title = "24017319 -1.33 threshold")
-
-```
-
-{{< pagebreak >}}
-
-```{r}
-#| label: fig-24017319-new-threshold
-#| fig-cap: "24017319 results with new threshold"
-#| fig-width: 6
-#| fig-height: 7
-#| echo: FALSE
-
-make_repeat_plot("24017319", "coarse", pansolid_call_new_threshold) +
-  coord_cartesian(ylim = c(-3, 3)) +
-  labs(title = "24017319 -1.06 threshold")
+ggplot(repeat_data_filtered, aes(x = name, 
+                                    y = min_fold_change)) +
+  geom_point(shape = 21) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle =90)) +
+  facet_wrap(~labno, nrow = 3) +
+  geom_hline(yintercept = del_fc_threshold, linetype = "dashed") +
+  geom_hline(yintercept = del_fc_threshold + del_uom, linetype = "dashed") +
+  coord_cartesian(ylim = c(-1.75, -0.25))
 
 ```
