@@ -18,7 +18,7 @@ del_val_processed_folder <- paste0(data_folder, "validation/DOC6567_deletions/pr
 # Get patient information -----------------------------------------------------------
 
 del_val_pansolid_ngs_collated <- read_csv(paste0(del_val_processed_folder,
-                                                 "del_val_pansolid_ngs_collated.csv"),
+                                                 "del_val_pansolid_targets_collated.csv"),
                                               col_types = list(
                                                 "labno" = col_character()))
 

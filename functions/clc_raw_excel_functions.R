@@ -7,6 +7,8 @@
 # versions used by clinical scientists for interpretting copy number variants
 # (CNVs).
 
+source(here("functions/pansolid_excel_functions.R"))
+
 make_empty_cnv_df <- function() {
   
   #' Create an empty dataframe for CLC outputs with no CNVs
@@ -143,3 +145,25 @@ read_del_raw_excel <- function(filepath, sheet_no) {
   
 }
 
+read_all_clc_targets <- function(filepath, tab, target_number = 6174) {
+  
+  df <- readxl::read_excel(path = filepath, sheet = tab,
+                   col_types = c("text", "text", "text", "numeric", 
+                                 "numeric", "numeric", "numeric", "numeric", 
+                                 "numeric", "numeric", "numeric", "numeric", 
+                                 "numeric", "text", "text", "numeric",
+                                 "numeric", 
+                                 "text", "text", "text"))|> 
+    janitor::clean_names() |> 
+    dplyr::mutate(tab = tab,
+           filepath = filepath)
+  
+  if(nrow(df) != 6174) {
+    stop("df does not have expected row number")
+  }
+  
+  output <- add_identifiers(filepath, df)
+  
+  return(output)
+  
+}
