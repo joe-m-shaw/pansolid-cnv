@@ -1,5 +1,5 @@
 ---
-title: "Fold change threshold"
+title: "Deletions fold change threshold"
 author: "Joe Shaw (CS20980)"
 date: today
 date-format: "DD/MM/YYYY"
@@ -7,6 +7,16 @@ format: pdf
 editor: visual
 ---
 
+# Aims
+
+The aims of this exercise are:
+
+1. To check how varying the fold change threshold for deletions impacts
+sensitivity and specificity.
+
+2. To calculate the uncertainty of measurement for fold changes for deletions.
+
+3. To use the information from 1 and 2 to decide on a fold change threshold.
 
 ```{r}
 #| label: packages-and-functions
@@ -20,11 +30,13 @@ library(janitor)
 
 source(here("functions/pansolid_excel_functions.R"))
 source(here("scripts/load_processed_live_service_data.R"))
+source(here("functions/uom_functions.R"))
 
 ```
 
 ```{r}
 #| label: folders-and-filepaths
+#| include: FALSE
 
 bio_cnv_folder <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Deletions/"
 
@@ -36,6 +48,50 @@ del_files <- list.files(path = bio_cnv_folder,
 data_folder <- config::get("data_filepath")
 
 ```
+
+```{r}
+#| label: replicates
+#| include: FALSE
+
+initial_replicates <- c("24017319_WS141734", 
+                        "24027774_WS142076",
+                        "24020998_WS141045")
+
+inter_run_replicates <- c(
+  # 24017319
+  "24017319a_WS144291", "24017319_WS144364",
+  # 24027774
+  "24027774a_WS144291", "24027774_WS144364",
+  # 24020998
+  "24020998a_WS144291", "24020998_WS144364")
+
+intra_run_replicates <- c(
+  # 24017319
+  "24017319a_WS144291", "24017319b_WS144291", "24017319c_WS144291",
+  
+  # 24027774
+  "24027774a_WS144291", "24027774b_WS144291", "24027774c_WS144291",
+  # 24020998
+  "24020998a_WS144291", "24020998b_WS144291", "24020998c_WS144291"
+)
+
+all_replicates <- unique(c(initial_replicates, inter_run_replicates,
+                    intra_run_replicates))
+
+stopifnot(length(all_replicates) == 15)
+
+```
+
+{{< pagebreak >}}
+
+# Methods
+
+## Data
+
+I have used the raw outputs from the development version of the PanSolid CNV
+pipeline. This means I have access to the fold changes for every target on the
+PanSolid enrichment, not only for regions which exceeded the default fold change
+threshold for deletion calling.
 
 ```{r}
 #| label: data
@@ -113,22 +169,35 @@ gene_chromosomes <- del_val_wgs_html_cnvs |>
   distinct() |> 
   mutate(chromosome = factor(x = as.character(chromosome),
                              levels = c("1", "2", "3", "4",
-                                               "5",  "6",  "7",  "8",
-                                               "9",  "10", "11", "12",
-                                               "13", "14", "15", "16",
-                                               "17", "18", "19", "20",
-                                               "21", "22", "X", "Y")))
-
+                                         "5",  "6",  "7",  "8",
+                                         "9",  "10", "11", "12",
+                                         "13", "14", "15", "16",
+                                         "17", "18", "19", "20",
+                                         "21", "22", "X", "Y")))
 
 ```
 
+## Genes
 
-## Data processing
+I have focussed the analysis on the `r nrow(del_genes)` genes in the current 
+gene list.
 
+## Graining level
 
+I used the fold changes for each gene from either the "coarse" or "fine"
+graining level.
+
+Genes with 10 or more PanSolid targets were analysed on coarse.
+
+Genes with fewer than 10 PanSolid targets were analysed on fine.
+
+## Fold change
+
+For each gene in the gene list, I took the region within the gene with the 
+lowest fold change value as the result for that gene.
 
 ```{r}
-#| label: data-comparison
+#| label: data-processing
 #| include: FALSE
 
 del_results_all_targets_filter <- del_results_all_targets |> 
@@ -141,7 +210,8 @@ del_results_all_targets_filter <- del_results_all_targets |>
   group_by(filepath, labno_suffix_worksheet, gene) |> 
   summarise(min_fold_change = min(regional_fold_change)) |> 
   mutate(labno = str_extract(string = labno_suffix_worksheet,
-                             pattern = "\\d{8}")) |> 
+                             pattern = "\\d{8}"),
+          labno_gene = str_c(labno, "_", gene)) |> 
   left_join(patient_info |> 
               select(labno, nhsno, pathno), by = "labno") |> 
   rename(pansolid_pathno = pathno)
@@ -162,7 +232,7 @@ wgs_cnvs_with_nhsnos <- del_val_wgs_html_cnvs |>
   mutate(nhsno = as.character(nhsno))
 
 wgs_del_results <- wgs_cnvs_with_nhsnos |> 
-  filter(cnv_class %in% c("DEL", "LOSS")) |> 
+  filter(cnv_class == "LOSS") |> 
   filter(gene %in% del_genes$gene) |> 
   distinct(nhsno, gene, .keep_all = TRUE) 
 
@@ -173,9 +243,7 @@ good_quality_noise <- live_service_std_dev_results_collated |>
   filter(st_dev_signal_adjusted_log2_ratios <= 0.7)
 
 samples_with_wgs_results <- del_results_all_targets_filter |> 
-  filter(nhsno %in% wgs_cnvs_with_nhsnos$nhsno &
-           labno %in% good_quality_coverage$labno &
-           labno %in% good_quality_noise$labno)
+  filter(nhsno %in% wgs_cnvs_with_nhsnos$nhsno)
 
 stopifnot(length(unique(samples_with_wgs_results$filepath)) * 
             length(del_genes$gene) ==
@@ -197,8 +265,8 @@ pansolid_vs_wgs <- samples_with_wgs_results |>
     by = "nhsno") |> 
   left_join(gene_chromosomes,
             by = "gene",
-            relationship = "many-to-one")
-  
+            relationship = "many-to-one") 
+
 wgs_samples_high_ncc <- del_val_wgs_html_ids |> 
   filter(wgs_tumour_content >= 50)
 
@@ -208,7 +276,8 @@ wgs_samples_not_high_ploidy <- del_val_wgs_html_ids |>
 ```
 
 ```{r}
-
+#| label: comparison-function
+#| include: FALSE
 
 compare_pansolid_vs_wgs <- function(df = pansolid_vs_wgs, 
                                     fold_change_threshold) {
@@ -219,18 +288,18 @@ compare_pansolid_vs_wgs <- function(df = pansolid_vs_wgs,
       min_fold_change > fold_change_threshold ~"normal"),
     outcome = case_when(
       pansolid_result == "deletion" & 
-        wgs_result %in% c("DEL", "LOSS") ~"true_pos",
+        wgs_result == "LOSS" ~"tp",
       pansolid_result == "normal" & 
-        wgs_result == "assumed normal" ~"true_neg",
+        wgs_result == "assumed normal" ~"tn",
       pansolid_result == "deletion" & 
-        wgs_result == "assumed normal" ~"false_pos",
+        wgs_result == "assumed normal" ~"fp",
       pansolid_result == "normal" & 
-        wgs_result %in% c("DEL", "LOSS") ~"false_neg",
+        wgs_result == "LOSS" ~"fn",
     ),
-    outcome = factor(outcome, levels = c("true_pos",
-                                         "true_neg",
-                                         "false_pos",
-                                         "false_neg")))
+    outcome = factor(outcome, levels = c("tp",
+                                         "tn",
+                                         "fp",
+                                         "fn")))
 
   pansolid_vs_wgs_summary <- pansolid_vs_wgs_mod |> 
     ungroup() |> 
@@ -238,187 +307,256 @@ compare_pansolid_vs_wgs <- function(df = pansolid_vs_wgs,
     pivot_wider(names_from = outcome,
                 values_from = n,
                 values_fill = 0) |> 
-    mutate(all = sum(true_pos + false_pos + false_neg + true_neg))
+    mutate(total_cnvs = sum(tp + fp + fn + tn))
   
-  pansolid_vs_wgs_epir <- epiR::epi.tests(c(pansolid_vs_wgs_summary$true_pos, 
-                    pansolid_vs_wgs_summary$false_pos, 
-                    pansolid_vs_wgs_summary$false_neg,
-                    pansolid_vs_wgs_summary$true_neg))
+  pansolid_vs_wgs_epir <- epiR::epi.tests(c(pansolid_vs_wgs_summary$tp, 
+                    pansolid_vs_wgs_summary$fp, 
+                    pansolid_vs_wgs_summary$fn,
+                    pansolid_vs_wgs_summary$tn))
 
   pansolid_vs_wgs_metrics <- pansolid_vs_wgs_epir$detail |> 
     filter(statistic %in% c("se", "sp")) |> 
     pivot_wider(names_from = "statistic",
                 values_from = -statistic) |> 
-    mutate(sensitivity = paste0(round(est_se * 100, 2), "%",
-                                " (", 
-                                round(lower_se * 100, 2),
+    mutate(se = round(est_se * 100, 1),
+           spe = round(est_sp * 100, 1),
+           se_95ci = paste0(round(lower_se * 100, 1),
                                 "-",
-                                round(upper_se * 100, 2), 
-                                ")"),
-           specificity = paste0(round(est_sp * 100, 2), "%",
-                                " (", 
-                                round(lower_sp * 100, 2),
+                                round(upper_se * 100, 1)),
+           spe_95ci = paste0(round(lower_sp * 100, 1),
                                 "-",
-                                round(upper_sp * 100, 2), 
-                                ")")) |>  
-    select(specificity, sensitivity)
-
+                                round(upper_sp * 100, 1))) |>  
+    select(spe, se)
+  
   output <- cbind(pansolid_vs_wgs_summary, pansolid_vs_wgs_metrics) |>  
-    mutate(fold_change_threshold = fold_change_threshold) |> 
-    relocate(fold_change_threshold)
+    mutate(fc = fold_change_threshold) |>   
+    relocate(fc) |> 
+    select(-total_cnvs)
   
   return(output)
   
 }
 
-comp_high_ncc <- pansolid_vs_wgs |> 
+```
+
+{{< pagebreak >}}
+
+# Results
+
+## Sensitivity and specificity
+
+I have selected samples which have a result from whole genome sequencing on 
+the same pathology block as was used for PanSolid next generation sequencing.
+I have compared the PanSolid and WGS results using the NHS number of each 
+patient.
+
+I have removed the replicates of 3 samples performed for the repeatablity
+study, in order to avoid double-counting the CNVs in these samples.
+
+I have also removed duplicate extractions for the same patient.
+
+```{r}
+#| label: fold-change-list
+#| include: FALSE
+
+fold_change_values <- as.list(seq(-1.33, -1.1, by = 0.01))
+
+```
+
+Acronyms: fc (fold change); tp (true positive); tn (true negative); 
+fp (false positive); fn (false negative); spe (specificity);
+se (sensitivity).
+
+```{r}
+#| label: tbl-comp-all
+#| tbl-cap: "Comparison for all samples"
+#| echo: FALSE
+
+pansolid_vs_wgs_repeats_removed <- pansolid_vs_wgs |> 
+  filter(!labno_suffix_worksheet %in% c(inter_run_replicates,
+                                        intra_run_replicates)) |> 
+  # These labnos are Cobas or fresh frozen extractions which I am removing
+  # to avoid double-counting samples from the same patient
+  filter(!labno %in% c("23023889",
+                       "23024556",
+                       "24030946",
+                       "23033921",
+                       "23032153",
+                       "23011114",
+                       "23025733",
+                       "24017321"))
+
+stopifnot(any(duplicated(pansolid_vs_wgs_repeats_removed$labno_gene)) == 0)
+
+all_tbl <- fold_change_values |> 
+  map(\(fold_change_values) 
+      compare_pansolid_vs_wgs(df = pansolid_vs_wgs_repeats_removed,
+                              fold_change_threshold = fold_change_values)) |> 
+  list_rbind()
+  
+knitr::kable(all_tbl)
+
+```
+{{< pagebreak >}}
+
+```{r}
+#| label: tbl-comp-high-ncc
+#| tbl-cap: "Comparison for samples passing QC with NCC values above 50%"
+#| echo: FALSE
+
+comp_high_ncc <- pansolid_vs_wgs_repeats_removed |> 
+  filter(labno %in% good_quality_coverage$labno &
+           labno %in% good_quality_noise$labno) |> 
     filter(nhsno %in% wgs_samples_high_ncc$nhsno)
+
+high_ncc_tbl <- fold_change_values |> 
+  map(\(fold_change_values) 
+      compare_pansolid_vs_wgs(df = comp_high_ncc,
+                              fold_change_threshold = fold_change_values)) |> 
+  list_rbind()
+  
+knitr::kable(high_ncc_tbl)
+
+```
+
+{{< pagebreak >}}
+
+High-ploidy samples complicate things because PanSolid detects genes as being
+"deleted" whereas WGS detects the genes as being lower copy number than the rest
+of the genome (but not "deleted").
+
+Removing the high-ploidy samples improves both the sensitivity and specificity.
+
+```{r}
+#| label: tbl-comp-high-ncc-low-ploidy
+#| tbl-cap: "Comparison for samples samples passing QC with NCC values above 50% and ploidy below 2.5"
+#| echo: FALSE
 
 comp_not_high_ploidy <- comp_high_ncc |> 
   filter(nhsno %in% wgs_samples_not_high_ploidy$nhsno)
 
-high_ncc_tbl <- rbind(
-  compare_pansolid_vs_wgs(df = comp_high_ncc,
-    fold_change_threshold = -1.3333),
-  compare_pansolid_vs_wgs(df = comp_high_ncc,
-    fold_change_threshold = -1.3),
-  compare_pansolid_vs_wgs(df = comp_high_ncc,
-    fold_change_threshold = -1.25),
-  compare_pansolid_vs_wgs(df = comp_high_ncc,
-    fold_change_threshold = -1.2),
-  compare_pansolid_vs_wgs(df = comp_high_ncc,
-    fold_change_threshold = -1.15),
-  compare_pansolid_vs_wgs(df = comp_high_ncc,
-    fold_change_threshold = -1.1),
-  compare_pansolid_vs_wgs(df = comp_high_ncc,
-    fold_change_threshold = -1.05),
-  compare_pansolid_vs_wgs(df = comp_high_ncc,
-    fold_change_threshold = -1.)) |> 
-  mutate(note = "Samples with NCC above 50%") |> 
-  relocate(note)
+diploid_tbl <- fold_change_values |> 
+  map(\(fold_change_values) 
+      compare_pansolid_vs_wgs(df = comp_not_high_ploidy,
+                              fold_change_threshold = fold_change_values)) |> 
+  list_rbind()
 
-diploid_tbl <- rbind(
-  compare_pansolid_vs_wgs(df = comp_not_high_ploidy,
-    fold_change_threshold = -1.3333),
-  compare_pansolid_vs_wgs(df = comp_not_high_ploidy,
-    fold_change_threshold = -1.3),
-  compare_pansolid_vs_wgs(df = comp_not_high_ploidy,
-    fold_change_threshold = -1.25),
-  compare_pansolid_vs_wgs(df = comp_not_high_ploidy,
-    fold_change_threshold = -1.2),
-  compare_pansolid_vs_wgs(df = comp_not_high_ploidy,
-    fold_change_threshold = -1.15),
-  compare_pansolid_vs_wgs(df = comp_not_high_ploidy,
-    fold_change_threshold = -1.1),
-  compare_pansolid_vs_wgs(df = comp_not_high_ploidy,
-    fold_change_threshold = -1.05),
-  compare_pansolid_vs_wgs(df = comp_not_high_ploidy,
-    fold_change_threshold = -1.)) |> 
-  mutate(note = "Samples with NCC above 50% and ploidy below 2.5") |> 
-  relocate(note)
-
-rbind(high_ncc_tbl, diploid_tbl) |>  view()
-
-comp_cdkn2a <- comp_not_high_ploidy |> 
-  filter(gene == "CDKN2A")
-
-cdkn2a_tbl <- rbind(
-  compare_pansolid_vs_wgs(df = comp_cdkn2a,
-    fold_change_threshold = -1.3333),
-  compare_pansolid_vs_wgs(df = comp_cdkn2a,
-    fold_change_threshold = -1.3),
-  compare_pansolid_vs_wgs(df = comp_cdkn2a,
-    fold_change_threshold = -1.25),
-  compare_pansolid_vs_wgs(df = comp_cdkn2a,
-    fold_change_threshold = -1.2),
-  compare_pansolid_vs_wgs(df = comp_cdkn2a,
-    fold_change_threshold = -1.15),
-  compare_pansolid_vs_wgs(df = comp_cdkn2a,
-    fold_change_threshold = -1.1),
-  compare_pansolid_vs_wgs(df = comp_cdkn2a,
-    fold_change_threshold = -1.05),
-  compare_pansolid_vs_wgs(df = comp_cdkn2a,
-    fold_change_threshold = -1.)) |> 
-  mutate(note = "CDKN2A only") |> 
-  relocate(note)
+knitr::kable(diploid_tbl)
 
 ```
 
+{{< pagebreak >}}
+
+## Uncertainty of measurement
+
+For the uncertainty of measurement calculation I converted any fold changes 
+calculated with the “gain” fold change equation to the results for the 
+“loss” equation.
 
 ```{r}
-#| echo: FALSE
+#| label: uom-function
+#| include: FALSE
 
-inter_run_replicates <- c(
-  # 24017319
-  "24017319_WS141734", "24017319a_WS144291", "24017319_WS144364",
-  # 24027774
-  "24027774_WS142076", "24027774a_WS144291", "24027774_WS144364",
-  # 24020998
-  "24020998_WS141045", "24020998a_WS144291", "24020998_WS144364")
+repeat_data <- del_results_all_targets_filter |> 
+  filter(labno_suffix_worksheet %in% all_replicates) |> 
+  # This replicate removed because it is low quality
+  filter(labno_suffix_worksheet != "24017319c_WS144291") |> 
+  mutate(fold_change_uom = case_when(
+    min_fold_change >= 1 ~-1 / min_fold_change,
+    TRUE ~min_fold_change))
 
-intra_run_replicates <- c(
-  # 24017319
-  "24017319a_WS144291", "24017319b_WS144291", "24017319c_WS144291",
-  # 24027774
-  "24027774a_WS144291", "24027774b_WS144291", "24027774c_WS144291",
-  # 24020998
-  "24020998a_WS144291", "24020998b_WS144291", "24020998c_WS144291"
-)
+make_uom_table <- function(df) {
+  
+  inter_sd_table <- group_sd(df |> 
+                             filter(labno_suffix_worksheet %in% c(inter_run_replicates,
+                                                                  initial_replicates)),
+                           labno, gene, fold_change_uom)
 
-threshold <- -1.3
-
-plot_24017319 <- del_results_all_targets_filter |> 
-  filter(labno_suffix_worksheet %in% inter_run_replicates |
-           labno_suffix_worksheet %in% intra_run_replicates) |> 
-  filter(labno == "24017319") |> 
-  mutate(call = case_when(
-    min_fold_change <= threshold ~"del",
-    min_fold_change > threshold ~"normal")) |> 
-  ggplot(aes(x = labno_suffix_worksheet,
-             y = min_fold_change)) +
-  geom_point(shape = 21, aes(fill = call)) +
-  facet_wrap(~gene) +
-  theme_bw() +
-  theme(axis.text.x = element_blank(),
-        legend.position = "bottom") +
-  geom_hline(yintercept = threshold, linetype = "dashed")
-
-plot_24027774 <- del_results_all_targets_filter |> 
-  filter(labno_suffix_worksheet %in% inter_run_replicates |
-           labno_suffix_worksheet %in% intra_run_replicates) |> 
-  filter(labno == "24027774") |> 
-  mutate(call = case_when(
-    min_fold_change <= threshold ~"del",
-    min_fold_change > threshold ~"normal")) |> 
-  ggplot(aes(x = labno_suffix_worksheet,
-             y = min_fold_change)) +
-  geom_point(shape = 21, aes(fill = call)) +
-  facet_wrap(~gene) +
-  theme_bw() +
-  theme(axis.text.x = element_blank(),
-        legend.position = "bottom") +
-  geom_hline(yintercept = threshold, linetype = "dashed")
-
-plot_24020998 <- del_results_all_targets_filter |> 
-  filter(labno_suffix_worksheet %in% inter_run_replicates |
-           labno_suffix_worksheet %in% intra_run_replicates) |> 
-  filter(labno == "24020998") |> 
-  mutate(call = case_when(
-    min_fold_change <= threshold ~"del",
-    min_fold_change > threshold ~"normal")) |> 
-  ggplot(aes(x = labno_suffix_worksheet,
-             y = min_fold_change)) +
-  geom_point(shape = 21, aes(fill = call)) +
-  facet_wrap(~gene) +
-  theme_bw() +
-  theme(axis.text.x = element_blank(),
-        legend.position = "bottom") +
-  geom_hline(yintercept = threshold, linetype = "dashed")
-
-plot_24017319
-
-plot_24027774
-
-plot_24020998
+  intra_sd_table <- group_sd(df |> 
+                               filter(labno_suffix_worksheet %in% intra_run_replicates),
+                             labno, gene, fold_change_uom)
+  
+  all_sd_table <- group_sd(df,
+                           labno, gene, fold_change_uom)
+  
+   intra_sd <- round(pool_sd(intra_sd_table), 3)
+  
+  inter_sd <- round(pool_sd(inter_sd_table), 3)
+  
+  all_sd <- round(pool_sd(all_sd_table), 3)
+  
+  del_uom <- define_uom(max(inter_sd, intra_sd, all_sd), 2)
+  
+  output <- tribble(
+    ~"Metric", ~"Value",
+    "standard deviation (intra-run)", intra_sd,
+    "standard deviation (inter-run)", inter_sd,
+    "standard deviation (intra and inter run)", all_sd,
+    "95% Uncertainty of Measurement", del_uom,
+    "-1.33 plus Uncertainty of Measurement", -1.3333 + del_uom)
+  
+  return(output)
+  
+}
 
 ```
+
+Here are the results for all the repeat data.
+
+```{r}
+#| label: uom-all
+#| echo: FALSE
+#| message: FALSE
+
+knitr::kable(make_uom_table(repeat_data))
+
+```
+
+Here are the results if I removed the homozygous CDKN2A, CDKN2B and PTEN
+deletions.
+
+```{r}
+#| label: uom-hom-del-removed
+#| echo: FALSE
+#| message: FALSE
+
+knitr::kable(make_uom_table(repeat_data |> 
+                 filter(!(gene %in% c("CDKN2A", "CDKN2B",
+                       "PTEN") & min_fold_change < -1.75))))
+
+```
+
+Adding the uncertainty of measurement would place the upper deletion threshold 
+at around -1.15. However, this does not give the best combination of sensitivity
+and specificity.
+
+{{< pagebreak >}}
+
+```{r}
+#| include: FALSE
+
+default_threshold <- -1.3333
+
+new_threshold <- -1.25
+
+del_results_all_targets_filter |> 
+  ungroup() |> 
+  filter(labno == "24020998") |> 
+  mutate(call_default_threshold = case_when(
+    min_fold_change <=  default_threshold ~"del",
+    min_fold_change > default_threshold ~"normal"),
+    
+    call_new_threshold = case_when(
+      min_fold_change <=  new_threshold ~"del",
+    min_fold_change > new_threshold ~"normal"
+    )) |> 
+  select(labno_suffix_worksheet,
+         gene, min_fold_change, call_default_threshold, call_new_threshold) |> 
+  arrange(gene) 
+
+```
+
+# Conclusion
+
+A fold change threshold of **-1.25** or **-1.3** is the best compromise of 
+sensitivity, specicifity and repeatability.
