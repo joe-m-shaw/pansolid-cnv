@@ -1,5 +1,4 @@
 library(here)
-source(here("scripts/set_shared_drive_filepath.R"))
 
 data_folder <- config::get("data_filepath")
 
