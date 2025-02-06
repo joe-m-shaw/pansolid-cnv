@@ -1,0 +1,1645 @@
+---
+title: "*ERBB2* Amplifications"
+author: "Joe Shaw"
+date: today
+date-format: "DD/MM/YYYY"
+format: html
+editor: visual
+---
+
+# Introduction
+
+This Quarto document performs the analysis for the validation of somatic *ERBB2* gene amplifications.
+
+Exported tables and plots have the prefix "plot" or "table" and should be named as they appear in the validation document ("ERBB2 Somatic Amplifications Validation Document.docx") for ease of reference.
+
+Plots do not have titles to avoid confusion with the figure titles in the Word document.
+
+The script should run with the files in the associated data folders, without requiring a connection to the DNA Database.
+
+```{r}
+#| label: packages
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+library(here)
+library(ggpubr)
+library(patchwork)
+library(ggvenn)
+
+source(here::here("functions/cnv_functions.R"))
+
+```
+
+## QiaSeq primers
+
+The overlap of primers between the PanSolid and Core enrichment panels is too great to allow Core panel results to be used for the validation of the PanSolid enrichment.
+
+```{r}
+#| label: qiaseq-primers
+#| echo: FALSE
+#| message: FALSE
+
+pan_solid_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+                             sheet = "Primer Overlap",
+                             range = "A2:D11024",
+                             col_names = c("chromosome", "coordinates", "sequence",
+                                           "gene"),
+                             col_types = c("text", "text", "text", "text")) |> 
+  mutate(category = "Unique to 44038Z-11379",
+         text = "PanSolid only")
+
+core_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+                        sheet = "Primer Overlap",
+                        range = "G2:J595",
+                        col_names = c("chromosome", "coordinates", "sequence",
+                                      "gene"),
+                        col_types = c("text", "text", "text", "text")) |> 
+  mutate(category = "Unique to 17500Z-950",
+         text = "Core only")
+
+both_panels <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+                          sheet = "Primer Overlap",
+                          range = "L2:O357",
+                          col_names = c("chromosome", "coordinates", "sequence",
+                                        "gene"),
+                          col_types = c("text", "text", "text", "text")) |> 
+  mutate(category = "common to both 44038Z-11379 and 17500Z-950",
+         text = "Both")
+
+stopifnot(intersect(pan_solid_only$sequence, core_only$sequence) == 0)
+
+all_primers <- rbind(pan_solid_only, core_only, both_panels) |> 
+  mutate(gene_clean = case_when(
+    
+    gene == "ERBB2, MIR4728" ~"ERBB2",
+    gene == "EGFR, EGFR-AS1" ~"EGFR",
+    TRUE ~gene)) 
+
+primer_table <- all_primers |> 
+  filter(gene_clean == "ERBB2") |>
+  filter(text != "Core only") |> 
+  group_by(gene_clean, text) |> 
+  summarise(total = n(), .groups = "drop_last") |> 
+  mutate(prop = round(total/sum(total) * 100, 1)) |> 
+  ungroup() |> 
+  pivot_wider(names_from = c(text),
+              values_from = c(total, prop)) |> 
+  arrange(desc(total_Both))
+
+table_ERBB2_Qiaseq_Primers <- primer_table |> 
+  rename(Gene = gene_clean,
+         "Primers shared with Core panel" = total_Both,
+         "Primers shared with Core panel (%)" = prop_Both,
+         "Primers unique to PanSolid" = "total_PanSolid only",
+         "Primers unique to PanSolid (%)" = "prop_PanSolid only") |> 
+  select(Gene, "Primers shared with Core panel",
+         "Primers shared with Core panel (%)",
+         "Primers unique to PanSolid",
+         "Primers unique to PanSolid (%)")
+
+knitr::kable(table_ERBB2_Qiaseq_Primers) 
+
+csv_timestamp(table_ERBB2_Qiaseq_Primers)
+
+```
+
+```{r}
+#| label: primer-panel-venn-diagram
+#| echo: FALSE
+#| message: FALSE
+
+# Design file sent by Qiagen
+pansolid_v2 <- read_table(here::here("data/primers/QIAseq.CDHS-48608z-11752.primers3.txt"),
+           col_names = c("chromosome", "coordinate", "strand", "sequence"))
+
+# Design file from PanSolid validation document (DOC6024)
+pansolid_v1 <- read_table(here::here("data/primers/407C7BF1.txt"),
+           col_names = c("chromosome", "coordinate", "strand", "sequence"))
+
+core_panel <- read_table(here::here("data/primers/CDHS-17500Z-950.primer3.txt"),
+           col_names = c("chromosome", "coordinate", "strand", "sequence"))
+
+primer_comparison <- list("PanSolidv1.2" = pansolid_v1$sequence, 
+                   "PanSolidv2" = pansolid_v2$sequence,
+                   "Core" = core_panel$sequence)
+
+plot_primer_venn <- ggvenn(primer_comparison,
+                           fill_color = c("#0073C2FF", "#3399FF", "#3366CC"),
+                           text_size = 4,
+                           set_name_size = 4,
+                           show_percentage = FALSE,
+                           stroke_size = 0.5)
+
+plot_primer_venn
+
+plot_timestamp(plot_primer_venn)
+
+```
+
+PanSolidv2 contains `r length(pansolid_v2$sequence) - length(pansolid_v1$sequence)` more primers than PanSolidv1.
+
+## Fold change threshold
+
+The theoretical limit of detection of the PanSolid pipeline varies with the neoplastic cell content of the sample and the number of copies of the target gene within the tumour cells.
+
+```{r}
+#| label: fold-change-threshold-plot
+#| echo: FALSE
+
+fold_change_threshold <- 2.9
+
+fc_vs_ncc <- data.frame(ncc = seq(0, 100, by = 0.1)) |> 
+  mutate(target_copies = calculate_target_copies(fold_change = fold_change_threshold,
+                                                 ncc_percent = ncc))
+
+plot_fold_change_detection_limit <- fc_vs_ncc |> 
+  filter(target_copies <= 100) |> 
+  ggplot(aes(x = target_copies, y = ncc)) +
+  geom_line(linewidth = 1) +
+  theme_bw() +
+  labs(x = "Target copies per cell", y = "Neoplastic cell content (%)",
+       caption = str_c("Line shows detection limit using a fold change threshold of ",
+                        fold_change_threshold)) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0,100,10),
+                     minor_breaks = FALSE) +
+  scale_x_continuous(limits = c(0, 100), breaks = seq(0,100,10),
+                     minor_breaks = FALSE) +
+  geom_text(aes(x = 30, y = 30), size = 4, label = "Detected") +
+  geom_text(aes(x = 25, y = 5), size = 4, label = "Not detected") 
+
+plot_fold_change_detection_limit
+
+plot_timestamp(plot_fold_change_detection_limit)
+
+```
+
+```{r}
+#| label: fold-change-table
+#| echo: FALSE
+
+table_ncc_increments <- fc_vs_ncc |> 
+  mutate(target_copies_2_8 = calculate_target_copies(fold_change = 2.8,
+                                                 ncc_percent = ncc)) |> 
+  filter(ncc %in% seq(10,100, by = 10)) |> 
+  mutate("Lowest number of theoretically detectable target copies (fold change threshold 2.9)" = round(target_copies, 1),
+         "Lowest number of theoretically detectable target copies (fold change threshold 2.8)" = round(target_copies_2_8, 1)) |>
+  rename("Neoplastic cell content (%)" = ncc) |> 
+  select(-c(target_copies, target_copies_2_8))
+
+knitr::kable(table_ncc_increments)
+
+csv_timestamp(table_ncc_increments)
+
+```
+
+## Methods
+
+### Load PanSolid results
+
+PanSolid results are taken from the formatted Excel (.xlsx) files which are exported from the PanSolid 1.6dev pipeline.
+
+The files in the "clc_processed_outputs" folder are all the processed files generated for samples extracted via cobas® or QIAsymphony extractions, and tested on PanSolid version 1 or version 2. These files are structured in the agreed format we finally decided on for analysis, with the tables and plots described in the SOP (DOC6261).
+
+```{r}
+#| label: load-processed-clc-results
+#| include: FALSE
+
+processed_files <- list.files(path = here::here("data/clc_processed_outputs"), 
+                              full.names = TRUE,
+                              pattern = ".xlsx")
+
+pos_cnv_results_collated <-  processed_files |> 
+  map(\(processed_files) read_pos_cnv_results(file = processed_files)) |> 
+  list_rbind()
+
+all_amp_gene_results_collated <- processed_files |> 
+  map(\(processed_files) read_all_amp_genes_results(file = processed_files)) |> 
+  list_rbind() |> 
+  mutate(pansolid_call = case_when(
+    max_region_fold_change >= fold_change_threshold ~"amplification",
+    max_region_fold_change < fold_change_threshold ~"normal result"))
+  
+stdev_results_collated <-  processed_files |> 
+  map(\(processed_files) read_stdev_results(file = processed_files)) |> 
+  list_rbind() 
+
+```
+
+```{r}
+#| label: check-data-loading
+#| include: FALSE
+
+# Check all files have been read
+
+stopifnot(unique(pos_cnv_results_collated$filepath) == processed_files)
+
+stopifnot(stdev_results_collated$filepath == processed_files)
+
+stopifnot(unique(all_amp_gene_results_collated$filepath) == processed_files)
+
+# Check full gene table has been read
+stopifnot(nrow(all_amp_gene_results_collated) / 9 == length(processed_files))
+
+```
+
+```{r}
+#| label: check-fold-change-threshold-application
+#| include: FALSE
+
+pos_cnv_table_amps <- pos_cnv_results_collated |> 
+  filter(gene != "no positive calls") |> 
+  select(labno_suffix_worksheet, gene) |> 
+  mutate(id_gene = str_c(labno_suffix_worksheet, "_", gene)) |> 
+  # Some EGFR CNVs have multiple calls, which appear as duplicates
+  filter(!duplicated(id_gene)) |> 
+  arrange(labno_suffix_worksheet, gene)
+
+all_amp_gene_results_table_amps <- all_amp_gene_results_collated |> 
+  filter(pansolid_call == "amplification") |> 
+  select(labno_suffix_worksheet, gene) |> 
+  mutate(id_gene = str_c(labno_suffix_worksheet, "_", gene)) |> 
+  arrange(labno_suffix_worksheet, gene)
+
+stopifnot(all.equal(target = all_amp_gene_results_table_amps,
+                    current = pos_cnv_table_amps))
+
+```
+
+```{r}
+#| label: identify-unnecessary-cases
+#| include: FALSE
+
+# 23034646: sample excluded because sample type is fresh frozen tissue
+# 23000087: not sure why included - has no ddPCR data
+
+excluded_cases <- c("23034646", "23000087")
+
+```
+
+### Load control information
+
+To make sure I am identifying the correct samples as "controls" I have exported the coverage files for the controls from the CLC pipeline.
+
+```{r}
+#| label: load-clc-controls
+#| include: FALSE
+
+cobas_control_files <- list.files(here::here("data/controls/cobas_control_data/"),
+                            full.names = TRUE, pattern = ".csv")
+
+cobas_control_info <- cobas_control_files |> 
+  map(\(cobas_control_files) filename_to_df(file = cobas_control_files)) |> 
+  list_rbind() |> 
+  mutate(sample_group = "cobas control",
+         sample_subgroup = case_when(
+           
+           patient_name %in% grep(pattern = "biobank", x = patient_name,
+                                  ignore.case = TRUE, value = TRUE) ~"MCRC control",
+           
+           TRUE ~"MSI-normal control"))
+
+qiasymphony_control_files <- list.files(here::here("data/controls/qiasymphony_control_data/"),
+                                       full.names = TRUE, pattern = ".csv")
+
+qiasymphony_control_info <- qiasymphony_control_files |> 
+  map(\(qiasymphony_control_files) filename_to_df(file = qiasymphony_control_files)) |> 
+  list_rbind() |> 
+  mutate(sample_group = "QIAsymphony control",
+         sample_subgroup = "QIAsymphony control")
+
+if (anyNA(cobas_control_info)) { stop("NAs in cobas control information")}
+
+if (anyNA(qiasymphony_control_info)) { stop("NAs in QIAsymphony control information")}
+
+```
+
+### Load sample information
+
+The sample information from the DNA Database was extracted using the erbb2_validation_dna_db_queries.R script which uses an ODBC connection. The information was exported as csv files so that this Quarto document should render without the user needing an ODBC connection to the DNA Database.
+
+I have used the following convention to describe different kinds of data:
+
+-   **Sample**: generic term for any DNA that was tested during this validation. Samples can be cases, controls or reference materials.
+-   **Case**: an FFPE sample from a patient with cancer
+-   **Control**: any sample used as a normal reference for CNV calling. This includes samples with normal microsatellite instability results, samples from the Manchester Cancer Research Centre biobank and samples of normal tissue.
+-   **Reference material**: artificial samples of mixed cell-line and plasmid vector DNA purchased from the company SeraCare.
+
+```{r}
+#| label: extraction-types
+#| echo: FALSE
+
+sample_extraction_details <- read_csv(here::here("data/dna_db_queries/sample_extraction_details.csv"),
+                                    col_types = "cc") |> 
+  # Change format to be consistent with validation document
+  mutate(extraction_method = case_when(
+    
+    extraction_method == "COBAS" ~"cobas®",
+    
+    extraction_method == "QIAsymphony_DNA_FFPE" ~"QIAsymphony",
+    
+    # "FFPE" means EZ1 extraction - see DOC907
+    extraction_method == "FFPE" ~"EZ1",
+    
+    TRUE ~extraction_method))
+
+```
+
+```{r}
+#| label: sample-genders
+#| include: FALSE
+
+sample_gender <- read_csv(here::here("data/dna_db_queries/sample_gender.csv"),
+                          col_types = "cc")
+
+```
+
+```{r}
+#| label: worksheets
+#| include: FALSE
+
+pansolid_ws_details <- read_csv(here::here("data/dna_db_queries/pansolid_ws_details.csv"),
+                             show_col_types = FALSE) |> 
+  # WS139890 is the only PanSolidv2 worksheet in this dataset
+  mutate(pansolid_version = ifelse(pcrid == 139890, "2", "1"),
+         worksheet = str_c("WS", pcrid))
+
+```
+
+```{r}
+#| label: sample-types
+#| echo: FALSE
+
+sample_types <- read_csv(here::here("data/dna_db_queries/sample_types.csv"),
+                                    col_types = "cc")
+
+```
+
+Neoplastic cell content can be parsed from the "comments" section of DNA Database, but often it is missing so I've had to manually created a csv file with the missing information. I got this information by checking the scanned referral forms on DNA Database, which usually have the neoplastic cell content written on.
+
+```{r}
+#| label: ncc
+#| echo: FALSE
+
+sample_ncc <- read_csv(here::here("data/dna_db_queries/sample_ncc.csv"),
+                                    col_types = "ccc")
+
+manual_ncc_check <- read_excel(here::here("data/manual_ncc_check.xlsx"),
+                               col_types = c("text", "text"))
+
+over_20_variants <- c(">30%", ">20%", "20-30%")
+
+ncc_collated <- sample_ncc |> 
+  left_join(manual_ncc_check, by = "labno") |> 
+  mutate(ncc = case_when(
+    
+    ncc_db %in% over_20_variants |
+      manual_ncc %in% over_20_variants ~">20%",
+    
+    ncc_db == "10-20%" |
+      manual_ncc == "10-20%" ~"10-20%",
+    
+    TRUE ~"No NCC provided"))
+
+```
+
+Initially I attempted to use the DISCODE field in DNA Database to identify the different tumour sources but this wasn't ideal (often multiple tumour sources map to the same disease code). Then I manually checked the scanned referral forms for each sample on DNA Database and collated the results in the cnv_validation_labnos_and_tissue_sources.csv file.
+
+```{r}
+#| label: tumour-sources
+#| echo: FALSE
+
+sample_tissue_sources <- read_csv(here::here("data/cnv_validation_labnos_and_tissue_sources.csv"),
+                                    col_types = "cc")
+
+cns <- c("glioma", "brain", "central nervous system", "meningioma", "glioblastoma",
+         "astrocytoma")
+
+crc <- c("colon", "rectum", "gastrointestinal", "bowel", "adenocarcinoma", 
+         "liver - gastrointestinal primary")
+
+uterus <- c("fallopian tube", "uterine serous carcinoma", "uterus")
+
+sample_tissue_sources_coded <- sample_tissue_sources |> 
+  mutate(tissue_code = case_when(
+    
+    tissue_source %in% cns ~"central nervous system",
+    
+    tissue_source %in% crc ~"colorectal",
+    
+    tissue_source %in% uterus ~"uterus/fallopian tube",
+    
+    TRUE ~tissue_source)) 
+
+```
+
+The DNA concentrations I've pulled from the submission sheets for the PanSolid workflow. This works for most samples except for 3 which for some reason weren't in the standard PanSolid Excels. I need to chase this up.
+
+```{r}
+#| label: sample-dna-concentrations
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+pansolid_submissions <- join_pansolid_submission_sheets()
+
+sample_dna_concentrations <- pansolid_submissions |> 
+  filter(labno %in% sample_tissue_sources$labno) |> 
+  filter(!duplicated(labno))
+
+```
+
+```{r}
+#| label: path-block-numbers
+#| include: FALSE
+
+sample_pathnos <- read_csv(here::here("data/dna_db_queries/sample_pathnos.csv"),
+                           col_types = "cc")
+
+```
+
+NHS numbers can be pulled off DLMS although annoyingly for two lab numbers they aren't included. The NHS numbers are on different samples for the same patients, so I've manually updated the csv file to prevent hard-coding patient-identifiable information into this Quarto.
+
+```{r}
+#| label: nhs-numbers
+#| include: FALSE
+
+sample_nhs_no <- read_csv(here::here("data/dna_db_queries/sample_nhs_no.csv"),
+                          col_types = "cc")
+
+```
+
+### Add DNA Database information
+
+Adding on the DNA Database information to each table of results allows these tables to act as the base for downstream analysis. The idea is that each table has all the variables I might want to filter by (DNA extraction method, NHS number, PanSolid version, DNA concentration etc) and so reduces joining with other tables downstream.
+
+```{r}
+#| label: add-dna-db-information
+#| include: FALSE
+
+pos_cnv_results <- pos_cnv_results_collated |>  
+  filter(!labno %in% excluded_cases) |> 
+  add_dna_db_info() |> 
+  add_case_group()
+
+all_amp_gene_results <- all_amp_gene_results_collated |>  
+  filter(!labno %in% excluded_cases) |> 
+  add_dna_db_info() |> 
+  add_case_group()
+
+stdev_results <- stdev_results_collated |>  
+  filter(!labno %in% excluded_cases) |> 
+  add_dna_db_info() |> 
+  add_case_group()
+
+cobas_controls <- cobas_control_info |> 
+  add_dna_db_info()
+
+qiasymphony_controls <- qiasymphony_control_info |> 
+  add_dna_db_info()
+
+```
+
+Samples were tested across `r length(unique(stdev_results$worksheet))` worksheets between `r min(stdev_results$date)` and `r max(stdev_results$date)`.
+
+### Make sample tables for validation document
+
+```{r}
+#| label: sample-info-tables-export
+#| include: FALSE
+
+table_sample_extractions <- sample_extraction_details |> 
+  filter(labno %in% stdev_results$labno) |> 
+  count(extraction_method) |> 
+  arrange(desc(n)) |> 
+  rename("Extraction method" = extraction_method,
+         "Samples" = n)
+
+knitr::kable(table_sample_extractions)
+
+csv_timestamp(table_sample_extractions)
+
+```
+
+```{r}
+#| label: sample-tumour-type-table
+#| echo: FALSE
+
+table_tumour_sources <- stdev_results |> 
+  filter(sample_subgroup == "Patient FFPE sample") |>
+  filter(extraction_method == "cobas®" & pansolid_version == "1") |> 
+  filter(!duplicated(labno)) |> 
+  count(tissue_code) |> 
+  rename("Samples" = n,
+         "Tumour" = tissue_code) |> 
+  arrange(desc(Samples))
+
+total_line <- data.frame("Tumour" = c("Total"),
+                         "Samples" = sum(table_tumour_sources$Samples))
+
+table_tumour_sources_total <- rbind(table_tumour_sources, total_line)
+
+knitr::kable(table_tumour_sources_total)
+
+csv_timestamp(table_tumour_sources_total)
+
+```
+
+```{r}
+#| label: dna-extraction-concentrations
+#| echo: FALSE
+
+table_extraction_method_concentrations <- stdev_results |> 
+  filter(!is.na(extraction_method)) |> 
+  group_by(extraction_method) |> 
+  summarise(min_dna = min(stock_qubit, na.rm = TRUE),
+            max_dna = max(stock_qubit, na.rm = TRUE),
+            median_dna = median(stock_qubit, na.rm = TRUE))
+
+knitr::kable(table_extraction_method_concentrations)
+
+```
+
+```{r}
+#| label: sample-ncc-table
+#| echo: FALSE
+
+table_neoplastic_cell_content <- stdev_results |> 
+  filter(sample_subgroup == "Patient FFPE sample") |>
+  filter(!duplicated(labno)) |> 
+  filter(extraction_method == "cobas®" & pansolid_version == "1") |> 
+  mutate(ncc = factor(x = ncc, levels = c(">20%", "10-20%", "No NCC provided"))) |> 
+  count(ncc) |> 
+  arrange(ncc) |> 
+  rename("NCC" = ncc,
+         "Samples" = n)
+
+total_line <- data.frame("NCC" = c("Total"),
+                         "Samples" = sum(table_neoplastic_cell_content$Samples))
+
+table_neoplastic_cell_content_total <- rbind(table_neoplastic_cell_content, total_line)
+
+knitr::kable(table_neoplastic_cell_content_total)
+
+csv_timestamp(table_neoplastic_cell_content_total)
+
+```
+
+```{r}
+#| label: sample-type-table
+#| echo: FALSE
+
+table_sample_types <- stdev_results |> 
+  filter(sample_subgroup == "Patient FFPE sample") |>
+  filter(!duplicated(labno)) |> 
+  filter(extraction_method == "cobas®" & pansolid_version == "1") |> 
+  count(tissue_type) |> 
+  arrange(desc(n)) |> 
+  rename("Type" = tissue_type,
+         "Samples" = n)
+
+total_line <- data.frame("Type" = c("Total"),
+                         "Samples" = sum(table_sample_types$Samples))
+
+
+table_sample_types_total <- rbind(table_sample_types, total_line)
+
+knitr::kable(table_sample_types_total)
+
+csv_timestamp(table_sample_types_total)
+
+```
+
+These sample numbers should match the numbers given in the flow diagram in the validation document.
+
+```{r}
+#| label: sample-numbers
+#| echo: FALSE
+#| message: FALSE
+
+table_cases_tested <- stdev_results |>
+  group_by(sample_subgroup, extraction_method, pansolid_version) |> 
+  summarise(Samples = length(unique(labno)),
+            Replicates = n()) |> 
+  arrange(sample_subgroup, extraction_method, desc(Replicates))
+
+cases_total_line <- data.frame(sample_subgroup = "Total",
+                         extraction_method = "",
+                         pansolid_version = "0",
+                         Samples = sum(table_cases_tested$Samples),
+                         Replicates = sum(table_cases_tested$Replicates))
+
+table_cases_tested_totals <- rbind(table_cases_tested, cases_total_line)
+
+knitr::kable(table_cases_tested_totals)
+
+table_controls_tested <- rbind(cobas_controls, qiasymphony_controls) |>
+  group_by(sample_subgroup, extraction_method, pansolid_version) |> 
+  summarise(Samples = length(unique(labno))) |> 
+  arrange(sample_subgroup, extraction_method)
+
+total_control_line <- data.frame(sample_subgroup = "Total",
+                         extraction_method = "",
+                         pansolid_version = "0",
+                         Samples = sum(table_controls_tested$Samples))
+
+table_controls_tested_totals <- rbind(table_controls_tested, total_control_line)
+
+knitr::kable(table_controls_tested_totals)
+
+```
+
+```{r}
+#| label: qiasymphony-control-sources
+#| echo: FALSE
+
+table_qs_control_sources <- qiasymphony_controls |> 
+  count(tissue_source) |> 
+  arrange(desc(n)) |> 
+  rename("Source" = tissue_source,
+         "Samples" = n)
+  
+total_line <- data.frame("Source" = "Total",
+                         "Samples" = sum(table_qs_control_sources$Samples))
+
+table_qs_control_sources_total <- rbind(table_qs_control_sources, total_line)
+
+knitr::kable(table_qs_control_sources_total)
+
+csv_timestamp(table_qs_control_sources_total)
+
+```
+
+### Load droplet digital PCR (ddPCR) data
+
+ddPCR data was analysed on Quantasoft and the results for each plate were exported as a single csv file.
+
+```{r}
+#| label: load-ddpcr
+#| include: FALSE
+
+ws138419 <- read_biorad_csv("WS138419_analysed.csv")
+
+ws138579 <- read_biorad_csv("WS138579_analysed.csv")
+
+ws138765 <- read_biorad_csv("WS138765_analysed.csv")
+
+ddpcr_erbb2 <- rbind(ws138579, ws138765) |> 
+  filter(target_type == "Ch1Unknown")
+
+```
+
+ERBB2 concentrations measured via ddPCR ranged from `r min(ddpcr_erbb2$copies_per20u_l_well)` to `r max(ddpcr_erbb2$copies_per20u_l_well)` copies per ul.
+
+```{r}
+#| label: impact-of-enzyme
+#| echo: FALSE
+
+dual_tested_samples <- c(21011525, 21039327, 22000209)
+
+table_impact_of_hindiii_digestion <- rbind(ws138419, ws138579) |> 
+  filter(experiment == "ERBB2 Ex13_1" & sample %in% dual_tested_samples) |> 
+  select(sample, worksheet, target, copies_per20u_l_well, cnv) |> 
+  pivot_wider(id_cols = c(sample),
+              names_from = c(worksheet, target),
+              values_from = c(copies_per20u_l_well, cnv)) |> 
+  rename(ERBB2_molecules = copies_per20u_l_well_WS138419_analysed.csv_ch1_target,
+         AP3B1_molecules = copies_per20u_l_well_WS138419_analysed.csv_AP3B1,
+         ERBB2_molecules_HindIII = copies_per20u_l_well_WS138579_analysed.csv_ch1_target,
+         AP3B1_molecules_HindIII = copies_per20u_l_well_WS138579_analysed.csv_AP3B1,
+         ERBB2_copies = cnv_WS138419_analysed.csv_ch1_target,
+         ERBB2_copies_HindIII = cnv_WS138579_analysed.csv_ch1_target) |> 
+  select(sample, ERBB2_molecules, ERBB2_molecules_HindIII,
+         AP3B1_molecules, AP3B1_molecules_HindIII,
+         ERBB2_copies, ERBB2_copies_HindIII)
+
+knitr::kable(table_impact_of_hindiii_digestion)
+
+csv_timestamp(table_impact_of_hindiii_digestion)
+
+```
+
+# Results
+
+## ERBB2 NGS results
+
+Because of the new processed Excel format, ERBB2 results can be viewed in two ways:
+
+1)  At the level of the gene region, with maximum and minimum fold changes ("all_amp_gene_results" table).
+
+2)  At the level of the CNV call, which includes the CNV coordinates ("pos_cnv_results" table).
+
+```{r}
+#| label: erbb2-calls-per-sample
+#| echo: FALSE
+
+erbb2_cases_per_sample <- pos_cnv_results |> 
+  filter(gene == "ERBB2") |> 
+  group_by(labno_suffix_worksheet) |> 
+  count(gene)
+
+cobas_v1_erbb2_results <- all_amp_gene_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(extraction_method == "cobas®" & pansolid_version == "1") |> 
+  filter(!duplicated(labno))
+
+cobas_v1_erbb2_amps <- cobas_v1_erbb2_results[cobas_v1_erbb2_results$pansolid_call == "amplification", ]
+
+```
+
+Out of `r nrow(cobas_v1_erbb2_results)` samples extracted by cobas and tested with PanSolidv1, there were `r nrow(cobas_v1_erbb2_results[cobas_v1_erbb2_results$pansolid_call == "amplification", ])` with ERBB2 amplifications detected, with fold changes ranging from `r round(min(cobas_v1_erbb2_amps$max_region_fold_change), 1)` to `r round(max(cobas_v1_erbb2_amps$max_region_fold_change), 1)`.
+
+In the cases where an ERBB2 amplification was called, the number of CNV calls in ERBB2 ranged from `r max(erbb2_cases_per_sample$n)` to `r min(erbb2_cases_per_sample$n)`.
+
+```{r}
+#| label: calls-by-tumour-type
+#| echo: FALSE
+
+table_cobas_results_by_tumour_type <- all_amp_gene_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(extraction_method == "cobas®" & pansolid_version == "1") |> 
+  filter(!duplicated(labno)) |> 
+  count(tissue_code, pansolid_call) |> 
+  arrange(desc(n)) |> 
+  pivot_wider(id_cols = tissue_code,
+              names_from = pansolid_call,
+              values_from = n,
+              values_fill = 0) |> 
+  rename("Tumour" = tissue_code, 
+         "Normal" = "normal result",
+         "Amplification" = amplification) |> 
+  select("Tumour", "Normal", "Amplification") 
+
+total_line <- data.frame("Tumour" = "Total",
+                         "Normal" = sum(table_cobas_results_by_tumour_type$Normal),
+                         "Amplification" = sum(table_cobas_results_by_tumour_type$Amplification))
+
+table_cobas_results_by_tumour_type_total <- rbind(table_cobas_results_by_tumour_type, total_line)
+
+knitr::kable(table_cobas_results_by_tumour_type_total)
+
+csv_timestamp(table_cobas_results_by_tumour_type_total)
+
+```
+
+## ERBB2 NGS vs ddPCR
+
+```{r}
+#| label: ddpcr-vs-pansolid
+#| echo: FALSE
+
+ddpcr_threshold <- 6
+
+pansolid_cobas_v1_ddpcr <- all_amp_gene_results |> 
+  filter(gene == "ERBB2" & 
+           extraction_method == "cobas®" &
+           pansolid_version == 1) |> 
+  left_join(ddpcr_erbb2 |> 
+              filter(!duplicated(labno)), by = "labno") |> 
+  mutate(outcome = case_when(
+    
+        pansolid_call == "amplification" & cnv > ddpcr_threshold ~true_pos,
+        
+        pansolid_call == "normal result" & cnv <= ddpcr_threshold ~true_neg,
+        
+        pansolid_call == "amplification" & cnv <= ddpcr_threshold ~false_pos,
+        
+        pansolid_call == "normal result" & cnv > ddpcr_threshold ~false_neg))
+
+if (anyNA(pansolid_cobas_v1_ddpcr$cnv)) { stop("Not all NGS results have a ddPCR result")}
+
+```
+
+```{r}
+#| label: cobas-controls-ddpcr-normal-range
+#| include: FALSE
+
+cobas_controls_ddpcr <- cobas_controls |> 
+  left_join(ddpcr_erbb2 |> 
+              filter(!duplicated(labno)), by = "labno")
+
+if (anyNA(cobas_controls_ddpcr$cnv)) { stop("Not all cobas controls have a ddPCR result")}
+
+```
+
+ddPCR ERBB2 copy number in normal controls ranged from `r min(cobas_controls_ddpcr$cnv)` to `r max(cobas_controls_ddpcr$cnv)` (median: `r median(cobas_controls_ddpcr$cnv)`).
+
+```{r}
+#| label: ngs-ddpcr-confusion-matrix
+#| echo: FALSE
+
+table_erbb2_results_psv1_vs_ddpcr <- make_confusion_matrix(df = pansolid_cobas_v1_ddpcr |> 
+                                                             filter(!duplicated(labno)),
+                                                          initial_test = "PanSolid",
+                                                          comparison_test = "ddPCR",
+                                                          positive_state = "Amplification",
+                                                          negative_state = "Normal")
+
+knitr::kable(table_erbb2_results_psv1_vs_ddpcr[[1]])
+
+csv_timestamp(table_erbb2_results_psv1_vs_ddpcr[[1]])
+
+```
+
+```{r}
+#| label: ngs-ddpcr-opa-table
+#| echo: FALSE
+
+table_erbb2_ddpcr_opa <- data.frame(
+  "Metric" = c("Overall percentage agreement", "Positive percentage agreement",
+               "Negative percentage agreement"),
+  "Percentage (%)" = c(table_erbb2_results_psv1_vs_ddpcr[[2]],
+                       table_erbb2_results_psv1_vs_ddpcr[[3]],
+                       table_erbb2_results_psv1_vs_ddpcr[[4]]))
+
+knitr::kable(table_erbb2_ddpcr_opa)
+
+csv_timestamp(table_erbb2_ddpcr_opa)
+
+```
+
+```{r}
+#| label: fold-change-vs-ddpcr
+#| echo: FALSE
+
+discrepant_samples <- c(23001095, 23002258, 23008380)
+
+plot_fold_change_vs_ddpcr_copy_number <- pansolid_cobas_v1_ddpcr |> 
+  filter(!duplicated(labno)) |> 
+  ggplot(aes(x = max_region_fold_change, y = cnv)) +
+  geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
+  geom_point(size = 3, fill = safe_blue, alpha = 0.5, pch = 21) +
+  theme_bw() +
+  theme(plot.caption = element_text(hjust = 0.5)) +
+  geom_hline(yintercept = 6, linetype = "dashed") +
+  geom_vline(xintercept = fold_change_threshold, linetype = "dashed") +
+  labs(x = "PanSolidv1 Fold Change", y = "ddPCR Copy Number",
+         caption = str_c("Samples 23001095, 23002258 and 23008380 in red. Data for ",
+                         nrow(pansolid_cobas_v1_ddpcr |> 
+                                filter(!duplicated(labno))), " samples displayed.")) +
+  scale_y_continuous(limits = c(0, 85), breaks = c(0, 6, 20, 40, 60, 80))  +
+  scale_x_continuous(limits = c(-20, 60), breaks = c(-20, 0, fold_change_threshold, 20, 40, 60)) +
+  geom_point(data = pansolid_cobas_v1_ddpcr |> 
+               filter(!duplicated(labno)) |>
+               filter(sample %in% discrepant_samples), size = 3, fill = safe_red,
+             pch = 21, alpha = 0.5) +
+  ggpubr::stat_cor(method = "pearson", label.x = 35, label.y = 20) 
+
+plot_fold_change_vs_ddpcr_copy_number
+
+plot_timestamp(plot_fold_change_vs_ddpcr_copy_number)
+
+```
+
+## ERBB2 copy number variant coordinates
+
+There are three main cohorts of samples to look at:
+
+1)  Samples extracted via cobas® and tested on PanSolid v1 against cobas®-extracted normal controls
+2)  Samples extracted via cobas® and tested on PanSolid v2 against QIAsymphony-extracted normal controls
+3)  Samples extracted via QIAsymphony and tested on PanSolid v2 against QIAsymphony-extracted normal controls
+
+```{r}
+#| label: cobas-v1-erbb2-calls
+#| echo: FALSE
+
+erbb2_cobas_v1_factorise <- pos_cnv_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(extraction_method == "cobas®" & pansolid_version == "1") |> 
+  arrange(cnv_length, labno_suffix_worksheet) |> 
+  mutate(labno_suffix_worksheet_factor = factor(labno_suffix_worksheet,
+                                                levels = labno_suffix_worksheet))
+
+plot_erbb2_cobas_v1 <- make_labno_plot(df = erbb2_cobas_v1_factorise, 
+                gene = "ERBB2",
+                interval = 20000, 
+                buffer = 5000, 
+                yaxis = labno_suffix_worksheet_factor)
+
+plot_all_erbb2_cobas_v1_triptych <- make_cnv_triptych(plot_erbb2_cobas_v1)
+
+plot_all_erbb2_cobas_v1_triptych
+
+plot_timestamp(plot_all_erbb2_cobas_v1_triptych, input_height = 18)
+
+```
+
+```{r}
+#| label: cobas-v1-erbb2-zoom
+#| echo: FALSE
+
+short_erbb2_calls <- erbb2_cobas_v1_factorise |> 
+                                 filter(cnv_length < 100000)
+
+plot_erbb2_cobas_v1_zoom <- make_labno_plot(df = short_erbb2_calls, 
+                      gene = "ERBB2",
+                      interval = 20000, 
+                      buffer = 5000,
+                      yaxis = labno_suffix_worksheet_factor)
+
+plot_erbb2_amplification_accuracy <- make_cnv_triptych(plot_erbb2_cobas_v1_zoom)
+
+plot_erbb2_amplification_accuracy
+
+plot_timestamp(plot_erbb2_amplification_accuracy, input_height = 15)
+
+```
+
+```{r}
+#| label: long-erbb2-calls
+#| include: FALSE
+
+erbb2_long_calls <- erbb2_cobas_v1_factorise |> 
+  filter(cnv_length > 50000) |> 
+  select(labno, cnv_length) |> 
+  arrange(desc(cnv_length))
+
+```
+
+The long calls varied from `r round(min(erbb2_long_calls$cnv_length)/1000, 1)` to `r round(max(erbb2_long_calls$cnv_length)/1000, 1)` kilobases.
+
+## Limit of detection
+
+Making plots for the SeraCare controls is quite verbose because I designed the triptych functions for the sample cohort more generally.
+
+```{r}
+#| label: seracare-results-pansolid-v1
+#| echo: FALSE
+
+copies_3v1 <- make_fold_change_plot(df = pos_cnv_results |> 
+                                     filter(labno == "24002064" & pansolid_version == "1"),
+                      ymax = 15)
+
+copies_3v1_plot <- copies_3v1[[4]] +
+  labs(title = "+3 copies (v1)")
+
+copies_3v1_primer <- make_primer_plot(plot_xmin = copies_3v1[[1]],
+                  plot_xmax = copies_3v1[[2]],
+                  interval = copies_3v1[[3]],
+                  chromosome = copies_3v1[[5]])
+
+copies_3v1_exon <- make_exon_plot(plot_xmin = copies_3v1[[1]],
+                  plot_xmax = copies_3v1[[2]],
+                  interval = copies_3v1[[3]],
+                  chromosome = copies_3v1[[5]]) +
+  labs(x = "")
+
+copies_6v1 <- make_fold_change_plot(df = pos_cnv_results |> 
+                                     filter(labno == "24002067" & pansolid_version == "1"),
+                      ymax = 15)
+
+copies_6v1_plot <- copies_6v1[[4]] +
+  labs(title = "+6 copies (v1)")
+
+copies_6v1_primer <- make_primer_plot(plot_xmin = copies_6v1[[1]],
+                  plot_xmax = copies_6v1[[2]],
+                  interval = copies_6v1[[3]],
+                  chromosome = copies_6v1[[5]])
+
+copies_6v1_exon <- make_exon_plot(plot_xmin = copies_6v1[[1]],
+                  plot_xmax = copies_6v1[[2]],
+                  interval = copies_6v1[[3]],
+                  chromosome = copies_6v1[[5]]) +
+  labs(x = "Genome coordinate")
+
+copies_12v1 <- make_fold_change_plot(df = pos_cnv_results |> 
+                                     filter(labno == "24002071" & pansolid_version == "1"),
+                      ymax = 15)
+
+copies_12v1_plot <- copies_12v1[[4]] +
+  labs(title = "+12 copies (v1)")
+
+copies_12v1_primer <- make_primer_plot(plot_xmin = copies_12v1[[1]],
+                  plot_xmax = copies_12v1[[2]],
+                  interval = copies_12v1[[3]],
+                  chromosome = copies_12v1[[5]])
+
+copies_12v1_exon <- make_exon_plot(plot_xmin = copies_12v1[[1]],
+                  plot_xmax = copies_12v1[[2]],
+                  interval = copies_12v1[[3]],
+                  chromosome = copies_12v1[[5]]) +
+  labs(x = "")
+
+plot_seracare_controls_erbb2_results_v1 <- copies_3v1_plot + copies_6v1_plot + copies_12v1_plot +
+  copies_3v1_primer + copies_6v1_primer + copies_12v1_primer +
+  copies_3v1_exon + copies_6v1_exon + copies_12v1_exon +
+  plot_layout(nrow = 3, 
+              ncol = 3,
+              heights = c(6, 1, 2))
+
+plot_seracare_controls_erbb2_results_v1
+
+plot_timestamp(plot_seracare_controls_erbb2_results_v1, input_width = 16)
+
+```
+
+```{r}
+#| label: seracare-results-pansolid-v2
+#| echo: FALSE
+
+copies_3v2 <- make_fold_change_plot(df = pos_cnv_results |> 
+                                     filter(labno == "24002064" & pansolid_version == "2"),
+                      ymax = 15)
+
+copies_3v2_plot <- copies_3v2[[4]] +
+  labs(title = "+3 copies (v2)")
+
+copies_3v2_primer <- make_primer_plot(plot_xmin = copies_3v2[[1]],
+                  plot_xmax = copies_3v2[[2]],
+                  interval = copies_3v2[[3]],
+                  chromosome = copies_3v2[[5]])
+
+copies_3v2_exon <- make_exon_plot(plot_xmin = copies_3v2[[1]],
+                  plot_xmax = copies_3v2[[2]],
+                  interval = copies_3v2[[3]],
+                  chromosome = copies_3v2[[5]]) +
+  labs(x = "")
+
+copies_6v2 <- make_fold_change_plot(df = pos_cnv_results |> 
+                                     filter(labno == "24002067" & pansolid_version == "2"),
+                      ymax = 15)
+
+copies_6v2_plot <- copies_6v2[[4]] +
+  labs(title = "+6 copies (v2)")
+
+copies_6v2_primer <- make_primer_plot(plot_xmin = copies_6v2[[1]],
+                  plot_xmax = copies_6v2[[2]],
+                  interval = copies_6v2[[3]],
+                  chromosome = copies_6v2[[5]])
+
+copies_6v2_exon <- make_exon_plot(plot_xmin = copies_6v2[[1]],
+                  plot_xmax = copies_6v2[[2]],
+                  interval = copies_6v2[[3]],
+                  chromosome = copies_6v2[[5]]) +
+  labs(x = "Genome coordinate")
+
+copies_12v2 <- make_fold_change_plot(df = pos_cnv_results |> 
+                                     filter(labno == "24002071" & pansolid_version == "2"),
+                      ymax = 15)
+
+copies_12v2_plot <- copies_12v2[[4]] +
+  labs(title = "+12 copies (v2)")
+
+copies_12v2_primer <- make_primer_plot(plot_xmin = copies_12v2[[1]],
+                  plot_xmax = copies_12v2[[2]],
+                  interval = copies_12v2[[3]],
+                  chromosome = copies_12v2[[5]])
+
+copies_12v2_exon <- make_exon_plot(plot_xmin = copies_12v2[[1]],
+                  plot_xmax = copies_12v2[[2]],
+                  interval = copies_12v2[[3]],
+                  chromosome = copies_12v2[[5]]) +
+  labs(x = "")
+
+plot_seracare_controls_erbb2_v2 <- copies_3v2_plot + copies_6v2_plot + copies_12v2_plot +
+  copies_3v2_primer + copies_6v2_primer + copies_12v2_primer +
+  copies_3v2_exon + copies_6v2_exon + copies_12v2_exon +
+  plot_layout(nrow = 3, 
+              ncol = 3,
+              heights = c(6, 1, 2))
+
+plot_seracare_controls_erbb2_v2
+
+plot_timestamp(plot_seracare_controls_erbb2_v2, input_width = 16)
+
+```
+
+```{r}
+#| label: manchester-vs-seracare-ngs
+#| echo: FALSE
+
+# Values taken from technical product reports
+seracare_erbb2_copies <- read_excel(path = here::here("data/seracare_erbb2_copies.xlsx"),
+                                    col_types = c("text", "numeric", "numeric",
+                                                  "text"))
+
+table_ngs_seracare_comparison <- pos_cnv_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(sample_subgroup == "SeraCare reference material" & labno != "24002060") |> 
+  mutate(man_ngs_additional_errb2 = round((fold_change*2)-2, 2)) |> 
+  select(labno, pansolid_version, man_ngs_additional_errb2) |> 
+  pivot_wider(id_cols = labno,
+              names_from = pansolid_version,
+              values_from = man_ngs_additional_errb2) |> 
+  left_join(seracare_erbb2_copies, by = "labno") |> 
+  select(labno, product, seracare_erbb2_additional_copies_ngs,
+         "1", "2") |> 
+  rename("Sample" = labno,
+         "Product" = product,
+         "Additional copies (SeraCare NGS)" = seracare_erbb2_additional_copies_ngs,
+         "Additional copies PanSolidv1" = "1",
+          "Additional copies PanSolidv2" = "2")
+
+knitr::kable(table_ngs_seracare_comparison)
+
+csv_timestamp(table_ngs_seracare_comparison)
+
+```
+
+```{r}
+#| label: manchester-vs-seracare-ddpcr
+#| echo: FALSE
+
+seracare_ids <- c(24002064, 24002067, 24002071)
+
+seracare_ddpcr_results <- ddpcr_erbb2 |> 
+  filter(labno %in% seracare_ids) |> 
+  group_by(labno) |> 
+  summarise(median_cnv = median(cnv))
+
+table_ddpcr_seracare_comparison <- seracare_ddpcr_results |> 
+  mutate(man_ddpcr_additional_errb2 = round(median_cnv-2, 2)) |> 
+  select(labno, man_ddpcr_additional_errb2) |> 
+  left_join(seracare_erbb2_copies, by = "labno") |> 
+  select(labno, product, seracare_erbb2_additional_copies_ddpcr, 
+         man_ddpcr_additional_errb2) |> 
+  rename("Sample" = labno,
+         "Product" = product,
+         "Additional copies (SeraCare ddPCR)" = seracare_erbb2_additional_copies_ddpcr,
+         "Median additional copies (Manchester ddPCR)" = man_ddpcr_additional_errb2)
+
+knitr::kable(table_ddpcr_seracare_comparison)
+
+csv_timestamp(table_ddpcr_seracare_comparison)
+
+```
+
+## Tumour content limit of detection experiment
+
+```{r}
+#| label: limit-of-detection
+#| echo: FALSE
+
+target_data_files <- list.files(here::here("data/clc_target_level_outputs/"), 
+                                full.names = TRUE, 
+                                pattern = ".xlsx")
+
+lod_files <- target_data_files[89:92]
+
+lod_percents <- data.frame(
+  "labno_suffix" = c("24002060a", "24002060b", "24002060c", "24002060d"),
+  "ncc" = c("25% tumour content mimic", "12.5% tumour content mimic",
+            "6.25% tumour content mimic", "0% tumour content mimic")) |> 
+  mutate(ncc = factor(ncc, levels = c("25% tumour content mimic", "12.5% tumour content mimic",
+            "6.25% tumour content mimic", "0% tumour content mimic")))
+
+lod_target_results <- lod_files |>
+  map(\(lod_files) read_clc_target_calls(
+    file = lod_files
+  )) |>
+  list_rbind() |> 
+  left_join(lod_percents, by = "labno_suffix")
+
+plot_lod_erbb2 <- draw_lod_gene_plot(df = lod_target_results, chromosome = "17.0", gene = "ERBB2") +
+  labs(title = "", x = "Chromosome 17", subtitle = "")
+
+plot_lod_erbb2
+
+plot_timestamp(plot_lod_erbb2)
+
+```
+
+## Signal-adjusted noise
+
+```{r}
+#| label: signal-adjusted-noise
+#| echo: FALSE
+
+cobas_stdev <- stdev_results |> 
+  filter(extraction_method == "cobas®") 
+
+qiasymphony_stdev <-  stdev_results |> 
+  filter(extraction_method == "QIAsymphony") 
+
+```
+
+The signal-adjusted noise for log2 ratios in the cobas®-extracted sample cohort ranged from to `r round(min(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to `r round(max(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` (median: `r round(median(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)`), and in the QIAsymphony-extracted cohort ranged from `r round(min(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to `r round(max(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` (median: `r round(median(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)`),
+
+```{r}
+#| label: qc-threshold
+#| echo: FALSE
+#| warning: FALSE
+
+pos_cnv_results_with_sd <- pos_cnv_results |> 
+  left_join(stdev_results |> 
+              select(labno_suffix_worksheet, st_dev_signal_adjusted_log2_ratios),
+            by = "labno_suffix_worksheet") |> 
+  mutate(cnv_length_mb  = cnv_length / 1000000,
+         gene_mod = ifelse(gene == "no positive calls", "No CNVs detected",
+                           gene),
+         gene_mod = factor(gene_mod, levels = c("No CNVs detected",
+                                        "BRAF", "EGFR", "MET", "MYC",
+                                        "ERBB2")))
+
+plot_signal_adjusted_noise_threshold <- ggplot(pos_cnv_results_with_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
+                                         y = fold_change)) +
+         geom_point(pch = 21, size = 3) +
+  theme_bw() +
+  facet_wrap(~gene_mod) +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  scale_y_log10(limits = c(1, 120), breaks = c(1, 2.9, 10, 100)) +
+  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+  labs(x = "Signal-adjusted noise", y = "Fold change")
+
+
+plot_signal_adjusted_noise_threshold
+
+plot_timestamp(plot_signal_adjusted_noise_threshold)
+
+```
+
+## Repeatability
+
+```{r}
+#| label: repeat-results
+#| echo: FALSE
+
+std_dev_threshold <- 1
+
+repeats <- stdev_results |> 
+  filter(extraction_method == "cobas®" & pansolid_version == "1") |> 
+  filter(duplicated(labno, fromLast = TRUE) | 
+           duplicated(labno, fromLast = FALSE)) |> 
+  arrange(labno)
+
+repeat_samples <- unique(repeats$labno)
+
+repeat_results <- all_amp_gene_results |> 
+  filter(extraction_method == "cobas®" & pansolid_version == "1") |> 
+  filter(gene == "ERBB2" & labno %in% repeat_samples) |> 
+  left_join(stdev_results |> 
+              select(labno_suffix_worksheet, st_dev_signal_adjusted_log2_ratios), 
+            by = "labno_suffix_worksheet") |> 
+  # Remove NCC limit of detection replicates
+  filter(!labno_suffix_worksheet %in% c("24002060a_WS139681", 
+                                        "24002060b_WS139681", 
+                                        "24002060c_WS139681")) |> 
+  mutate(qc_check = case_when(
+    
+    st_dev_signal_adjusted_log2_ratios < std_dev_threshold ~"pass",
+    
+    st_dev_signal_adjusted_log2_ratios >= std_dev_threshold ~"fail"
+
+  ))
+
+```
+
+```{r}
+#| label: repeat-tables
+#| echo: FALSE
+
+table_inter_run_repeat_results <- repeat_results |> 
+  filter(!suffix %in% c("b", "c")) |> 
+  filter(duplicated(labno, fromLast = TRUE) | duplicated(labno, 
+                                                             fromLast = FALSE)) |> 
+  format_repeat_table()
+
+table_intra_run_repeat_results <- repeat_results |> 
+  filter(suffix %in% c("a", "b", "c")) |> 
+  filter(duplicated(labno, fromLast = TRUE) | duplicated(labno, 
+                                                             fromLast = FALSE)) |> 
+  format_repeat_table()
+
+knitr::kable(table_inter_run_repeat_results)
+
+knitr::kable(table_intra_run_repeat_results)
+
+csv_timestamp(table_inter_run_repeat_results)
+
+csv_timestamp(table_intra_run_repeat_results)
+
+```
+
+```{r}
+#| label: repeatability-standard-deviation
+#| echo: FALSE
+
+erb2_fold_change_sd <- calculate_pooled_sd(df = repeat_results, 
+                    target_col = max_region_fold_change,
+                    round_places = 2)
+
+signal_noise_sd <- calculate_pooled_sd(df = repeat_results, 
+                    target_col = st_dev_signal_adjusted_log2_ratios,
+                    round_places = 3)
+
+```
+
+```{r}
+#| label: repeatability-reproducibility
+#| echo: FALSE
+
+inter_run_results <- repeat_results |> 
+                      filter(!suffix %in% c("b", "c")) |> 
+                      filter(duplicated(labno, fromLast = TRUE) |
+                               duplicated(labno, fromLast = FALSE))
+
+intra_run_results <- repeat_results |> 
+                      filter(suffix %in% c("a", "b", "c")) |> 
+                      filter(duplicated(labno, fromLast = TRUE) | 
+                               duplicated(labno, fromLast = FALSE))
+
+repeatability_fold_change_sd <- calculate_pooled_sd(df = intra_run_results,
+                                                    target_col = max_region_fold_change,
+                                                    round_places = 2)
+
+repeatability_noise_sd <- calculate_pooled_sd(df = intra_run_results, 
+                                                    target_col = st_dev_signal_adjusted_log2_ratios,
+                                                    round_places = 2)
+
+reproducibility_fold_change_sd <- calculate_pooled_sd(df = inter_run_results, 
+                                                    target_col = max_region_fold_change,
+                                                    round_places = 2)
+
+reproducibility_fold_change_sd <- calculate_pooled_sd(df = inter_run_results, 
+                                                    target_col = st_dev_signal_adjusted_log2_ratios,
+                                                    round_places = 2)
+```
+
+The pooled standard deviation of the ERBB2 fold change in `r length(unique(repeat_results$labno_suffix_worksheet))` repeat replicates of `r length(unique(repeat_results$labno))` DNA samples was `r erb2_fold_change_sd[[2]]`. The pooled standard deviation of the signal-adjusted noise for the same cohort was `r signal_noise_sd[[2]]`.
+
+Pooled standard deviation for intra-run results for fold change (repeatability): `r repeatability_fold_change_sd[[2]]`
+
+Pooled standard deviation for inter-run results for fold change (reproducibility): `r reproducibility_fold_change_sd[[2]]`
+
+## cobas®-EZ1 workflow vs QIAsymphony workflow
+
+I prefer not to use NHS number for the joining of these samples, but the pathology number is manually entered into DNA database and so there are lots of inconsistent formatting issues.
+
+So I have decided to modify the pathology numbers individually to make them consistent, as this avoids having NHS numbers printed on the X axes of these plots.
+
+```{r}
+#| label: samples-dual-extracted
+#| echo: FALSE
+
+pansolid_qiasymphony_v2 <- all_amp_gene_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(extraction_method == "QIAsymphony" &
+           pansolid_version == "2") |> 
+  filter(!is.na(nhsno))
+
+dual_extracted_data_for_plot <- all_amp_gene_results |> 
+  left_join(stdev_results |> 
+              select(labno_suffix_worksheet, st_dev_signal_adjusted_log2_ratios),
+            by = "labno_suffix_worksheet") |> 
+  filter(gene == "ERBB2") |> 
+  filter(nhsno %in% pansolid_qiasymphony_v2$nhsno) |> 
+  mutate(pathno_clean = case_when(
+    
+    pathno == "H.21.16470 A1"  ~"H21.16470 A1",
+    pathno == "H,22.39922 B2"  ~"H.22.39922 B2",
+    pathno == "H.23.06867 A1" ~"H.23.06867",
+    pathno == "H.22.39095 A5"  ~"H22.39095 A5",
+    pathno == "N,22.569 A5"  ~"N569/22 A5",
+    pathno == "N19-736 A1" ~"N19-739 A1",
+    pathno %in% c("NB21-449 4A", "NB21-449 1C") ~"NB21-449",
+    TRUE ~pathno))
+
+plot_cobas_qs_fold_change <- dual_extracted_data_for_plot |> 
+  ggplot(aes(x = pathno_clean,
+             y = max_region_fold_change)) +
+  geom_jitter(pch = 21, size = 3, alpha = 0.5, aes(fill = extraction_method),
+              width = 0.2) +
+  scale_fill_manual(values = c(safe_blue, safe_red)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+  labs(y = "ERBB2 region fold change", x = "",
+       fill = "Extraction method") +
+  scale_y_continuous(limits = c(-20, 120),
+                     breaks = c(-20, 0, 20, 40, 60, 80, 100, 120))
+
+plot_cobas_qs_noise <- dual_extracted_data_for_plot |> 
+  ggplot(aes(x = pathno_clean,
+             y = st_dev_signal_adjusted_log2_ratios)) +
+  geom_jitter(pch = 21, size = 3, alpha = 0.5, aes(fill = extraction_method),
+              width = 0.2) +
+  scale_fill_manual(values = c(safe_blue, safe_red)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  labs(y = "Signal-adjusted noise", x = "Pathology number",
+       fill = "Extraction method")
+
+plot_fc_noise_joined <- plot_cobas_qs_fold_change + plot_cobas_qs_noise +
+  plot_layout(ncol = 1, guides = "collect")
+
+plot_timestamp(plot_fc_noise_joined, input_height = 16)
+
+```
+
+```{r}
+#| label: samples-dual-extracted-erbb2-calls
+#| echo: FALSE
+
+dual_extracted_erbb2 <- pos_cnv_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(nhsno %in% pansolid_qiasymphony_v2$nhsno) |> 
+  mutate(pathno_extraction = str_c(nhsno, "_", extraction_method)) |> 
+  make_labno_plot(yaxis = pathno_extraction)
+
+plot_dual_extracted_erbb2_calls <- make_cnv_triptych(dual_extracted_erbb2)
+
+plot_dual_extracted_erbb2_calls
+
+plot_timestamp(plot_dual_extracted_erbb2_calls)
+
+```
+
+```{r}
+#| label: samples-dual-tested
+#| echo: FALSE
+
+pansolid_cobas_v2 <- all_amp_gene_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(extraction_method == "cobas®" &
+           pansolid_version == "2")
+
+plot_cobas_v1_2_fold_change <- all_amp_gene_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(labno %in% pansolid_cobas_v2$labno) |> 
+  ggplot(aes(x = labno,
+             y = max_region_fold_change)) +
+  geom_jitter(pch = 21, size = 3, alpha = 0.5, aes(fill = pansolid_version),
+              width = 0.2) +
+  scale_fill_manual(values = c(safe_blue, safe_red)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  geom_hline(yintercept = fold_change_threshold, linetype = "dashed") +
+  geom_hline(yintercept = 2.8, linetype = "dashed") +
+  labs(y = "ERBB2 region fold change", x = "",
+       fill = "PanSolid version") +
+  scale_y_continuous(limits = c(-10, 25),
+                     breaks = c(-10, -5, 0, 5, 10, 15, 20, 25))
+
+plot_cobas_v1_v2_noise <- stdev_results |> 
+  filter(labno %in% pansolid_cobas_v2$labno) |> 
+  ggplot(aes(x = labno,
+             y = st_dev_signal_adjusted_log2_ratios)) +
+  geom_jitter(pch = 21, size = 3, alpha = 0.5, aes(fill = pansolid_version),
+              width = 0.2) +
+  scale_fill_manual(values = c(safe_blue, safe_red)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(y = "Signal-adjusted noise", x = "",
+       fill = "PanSolid version") +
+  scale_y_continuous(limits = c(0, 1))
+
+plot_cobas_v1_2 <- plot_cobas_v1_2_fold_change +
+  plot_cobas_v1_v2_noise +
+  plot_layout(ncol = 1, guides = "collect")
+
+plot_timestamp(plot_cobas_v1_2, input_height = 16)
+
+```
+
+```{r}
+#| label: samples-dual-tested-erbb2-calls
+#| echo: FALSE
+
+dual_tested_erbb2 <- pos_cnv_results |> 
+  filter(gene == "ERBB2") |> 
+  filter(labno %in% pansolid_cobas_v2$labno) |>
+  mutate(labno_pansolid_version = str_c(labno,"_Pansolid_v", pansolid_version)) |> 
+  arrange(labno_pansolid_version) |> 
+  make_labno_plot(yaxis = labno_pansolid_version)
+
+plot_dual_tested_erbb2_calls <- make_cnv_triptych(dual_tested_erbb2)
+
+plot_dual_tested_erbb2_calls
+
+plot_timestamp(plot_dual_tested_erbb2_calls)
+
+```
+
+## Comparison to core panel
+
+```{r}
+#| label: comparison-to-core
+#| echo: FALSE
+
+core_result_info <- read_csv(here::here("data/dna_db_queries/core_result_info.csv"),
+                             col_types = "ccdccc")
+  
+core_erbb2_calls <- extract_cnv_calls(df = core_result_info, input_gene = "ERBB2")
+
+pansolid_vs_core <- all_amp_gene_results |> 
+  filter(gene == "ERBB2" & extraction_method == "cobas®" & pansolid_version == "1") |> 
+  filter(sample_subgroup == "Patient FFPE sample") |> 
+  filter(!duplicated(labno)) |> 
+  left_join(core_erbb2_calls,
+            by = "labno") |> 
+  mutate(outcome = case_when(
+           
+           pansolid_call == "amplification" &
+             core_result  == "Amplification" ~true_pos,
+           
+           pansolid_call == "normal result" & 
+             core_result  == "No call" ~true_neg,
+           
+           pansolid_call == "amplification"  & 
+             core_result  == "No call" ~false_pos,
+           
+           pansolid_call == "normal result" & 
+             core_result  == "Amplification" ~false_neg,
+
+           TRUE ~"no match")) |> 
+  filter(outcome != "no match")
+
+table_pansolid_vs_core_panel_erbb2_results <- make_confusion_matrix(
+  df = pansolid_vs_core,
+  initial_test = "PanSolid",
+  comparison_test = "Core",
+  positive_state = "Amplification",
+  negative_state = "Normal")
+
+knitr::kable(table_pansolid_vs_core_panel_erbb2_results[[1]])
+
+csv_timestamp(table_pansolid_vs_core_panel_erbb2_results[[1]])
+
+```
+
+```{r}
+#| label: export-results
+#| echo: FALSE
+
+erbb2_validation_dataset_for_export <- all_amp_gene_results |> 
+  left_join(stdev_results |> 
+              select(labno_suffix_worksheet, st_dev_signal_adjusted_log2_ratios),
+            by = "labno_suffix_worksheet") |> 
+  select(labno, suffix, worksheet, labno_suffix_worksheet,
+         pathno, 
+         sample_group, sample_subgroup, 
+         st_dev_signal_adjusted_log2_ratios, 
+         gene, max_region_fold_change, min_region_fold_change,
+         pansolid_call, pansolid_version, extraction_method,
+         ncc, tissue_source, tissue_code, panel, stock_qubit)
+
+csv_timestamp(erbb2_validation_dataset_for_export)
+
+```
+
+## Signal-adjusted noise and other quality metrics
+
+Eleanor also asked me to compare the signal-adjusted noise against other quality metrics.
+
+For this I only had access to the summarised quality metrics for the cobas®-extracted samples tested on PanSolidv1.
+
+The files in the "clc_initial_outputs" folder were generated prior to the work done by Lizzy on adding plots to the Excel outputs.
+
+```{r}
+#| label: coverage-vs-noise
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+all_patient_files <- list.files(path = here::here("data/clc_initial_outputs/"), full.names = TRUE, recursive = TRUE,
+                pattern = "*.xlsx")
+
+qc_data <- all_patient_files |>
+  map(\(all_files) read_summary_tab(
+    file = all_files)) |>
+  list_rbind()
+
+qc_data_with_ids <- qc_data |> 
+  left_join(stdev_results |> 
+              select(labno_suffix_worksheet, st_dev_signal_adjusted_log2_ratios),
+            by = "labno_suffix_worksheet")
+
+sample_number <- length(unique(qc_data_with_ids$labno_suffix_worksheet))
+
+
+make_noise_plot <- function(df = qc_data_with_ids, x_axis) {
+  
+      plot <- ggplot(qc_data_with_ids, aes(x = {{ x_axis }}, 
+                  y = st_dev_signal_adjusted_log2_ratios)) +
+      geom_point(pch = 21) +
+      theme_bw() +
+      scale_y_continuous(limits = c(0, 1.25),
+                         breaks = seq(0, 1.2, by = 0.2)) +
+      labs(y = "Signal-adjusted noise") +
+      geom_hline(yintercept = 1, linetype = "dashed")
+      
+      return(plot)
+
+}
+
+p1 <- make_noise_plot(x_axis = percent_target_region_pos_cov_greaterorequal_138) +
+  labs(x = "Percentage target positions covered to greater or equal to 138x") +
+  ggpubr::stat_cor(method = "pearson", label.x = 70, label.y = 0.1)
+      
+p2 <- make_noise_plot(x_axis = number_target_regions_with_cov_lessthan_138) +
+  labs(x = "Number of target regions with coverage below 138x")  +
+  ggpubr::stat_cor(method = "pearson", label.x = 4000, label.y = 0.1)
+
+p3 <- make_noise_plot(x_axis = median_coverage) +
+  labs(x = "Median coverage (x)",
+       caption = str_c("Data for ", sample_number, " cobas-extracted samples tested on PanSolid v1")) +
+  ggpubr::stat_cor(method = "pearson", label.x = 1100, label.y = 0.1)
+
+qc_plot_combined <- p1 + p2 + p3 +
+  plot_layout(ncol = 1)
+
+plot_timestamp(qc_plot_combined, input_height = 20)
+
+```
