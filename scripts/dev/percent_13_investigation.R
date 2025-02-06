@@ -1,6 +1,5 @@
 # Coverage at 138X investigation
 
-
 # Packages ----------------------------------------------------------------
 
 library(tidyverse)
@@ -15,10 +14,50 @@ source(here("scripts/connect_to_dna_db.R"))
 
 # Data --------------------------------------------------------------------
 
-ngs_progress_sheet <- read_excel(path = paste0("S:/central shared/Genetics/Repository/Technical Teams/NGS/",
+ngs_progress_sheet24 <- read_excel(path = paste0("S:/central shared/Genetics/Repository/Technical Teams/NGS/",
                                                "NGS Technical Team Progress Sheet - 2024 August 2024.xlsm"),
                                  sheet = "QIAseq DNA PanSolid") |> 
   clean_names()
+
+ngs_progress_sheet25 <- read_excel(path = paste0("S:/central shared/Genetics/Repository/Technical Teams/NGS/",
+                                                 "NGS Technical Team Progress Sheet - 2025.xlsm"),
+                                 sheet = "QIAseq DNA PanSolid") |> 
+  clean_names()
+
+ngs_progress_sheet <- ngs_progress_sheet24 |> 
+  select(worksheet_number, worksheet_picked_up_by) |> 
+  rbind(ngs_progress_sheet25 |> 
+          select(worksheet_number, worksheet_picked_up_by))
+
+
+colnames(live_service_std_dev_results_collated)
+
+recent_data <- live_service_percent_138_results_collated |> 
+  mutate(worksheet_number = as.numeric(str_extract(string = worksheet,
+                                                   pattern = "WS(\\d{6})",
+                                                   group = 1))) |> 
+  filter(worksheet_number >= 146232) |> 
+  left_join(live_service_std_dev_results_collated |> 
+              select(filepath, st_dev_signal_adjusted_log2_ratios),
+            by = "filepath") |> 
+  left_join(ngs_progress_sheet, join_by("worksheet" == "worksheet_number"))
+
+recent_data |> 
+  filter(!is.na(worksheet_picked_up_by)) |> 
+  ggplot(aes(x = worksheet, 
+             y = percent_whole_panel_covered_at_138x)) +
+  geom_boxplot(outliers = FALSE) +
+  theme_bw() +
+  labs(y = "Percentage panel at 138X", x = "",
+       title = "PanSolid Worksheet Data") +
+  facet_wrap(~worksheet_picked_up_by)
+
+
+
+
+
+
+
 
 number_regex <- "(\\d{1,3}|\\d{1,3}.\\d{1,2})"
 

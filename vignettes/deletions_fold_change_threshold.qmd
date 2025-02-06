@@ -38,7 +38,7 @@ source(here("functions/uom_functions.R"))
 #| label: folders-and-filepaths
 #| include: FALSE
 
-bio_cnv_folder <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Deletions/"
+bio_cnv_folder <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Deletions/Dec2024_Coarse_vs_fine_comparison"
 
 del_files <- list.files(path = bio_cnv_folder,
                         recursive = FALSE,
@@ -126,19 +126,17 @@ target_bed_df <- read_csv(paste0(data_folder,
     TRUE ~"gene target"
   ))
 
-gene_target_counts <- target_bed_df |> 
-  filter(name %in% del_genes$gene) |> 
-  count(name) |>
-  mutate(clc_setting = case_when(
-    n < 10 ~"fine",
-    n >= 10 ~"coarse"
-  ))
-
+gene_target_counts <- read_csv(file = 
+                                 paste0(data_folder,
+                                        "/validation/DOC6567_deletions/gene_lists/",
+                                        "del_gene_graining_choices.csv")) |> 
+  janitor::clean_names()
+  
 coarse_genes <- gene_target_counts |> 
-  filter(clc_setting == "coarse")
+  filter(clc_setting == "Coarse")
 
 fine_genes <- gene_target_counts |> 
-  filter(clc_setting == "fine")
+  filter(clc_setting == "Fine")
 
 patient_info <- read_csv(file = paste0(data_folder,
                                        "validation/DOC6567_deletions/",
@@ -205,8 +203,8 @@ del_results_all_targets_filter <- del_results_all_targets |>
   # Some genes have multiple target name-strings
   left_join(gene_mapping, by = "name") |> 
   filter(!is.na(gene)) |> 
-  filter((tab == "Coarse Targets" & gene %in% coarse_genes$name) |
-           (tab == "Fine Targets" & gene %in% fine_genes$name)) |> 
+  filter((tab == "Coarse Targets" & gene %in% coarse_genes$gene) |
+           (tab == "Fine Targets" & gene %in% fine_genes$gene)) |> 
   group_by(filepath, labno_suffix_worksheet, gene) |> 
   summarise(min_fold_change = min(regional_fold_change)) |> 
   mutate(labno = str_extract(string = labno_suffix_worksheet,

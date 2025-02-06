@@ -143,8 +143,6 @@ target_df_with_coordinates <- extract_pansolid_cnv_coordinates(target_df,
                                                                region) |> 
   mutate(target_size_bp = abs(end-start))
 
-(pansolid_bed_bp / haploid_genome_bp) * 100
-
 del_genes <- read_excel(paste0(
   data_folder,
   "validation/DOC6567_deletions/gene_lists/",
@@ -153,15 +151,19 @@ del_genes <- read_excel(paste0(
   janitor::clean_names() |> 
   select(priority, gene)
 
-gene_target_counts <- target_df |> 
-  filter(name %in% del_genes$gene) |> 
-  count(name) |>
+pansolid_target_loci <- target_df |> 
+  mutate(single_locus = str_split(name, pattern = ";")) |> 
+  unnest(single_locus) 
+
+gene_target_counts <- pansolid_target_loci |> 
+  filter(single_locus %in% del_genes$gene) |> 
+  count(single_locus) |>
   mutate("CLC setting" = case_when(
     n < 10 ~"Fine",
     n >= 10 ~"Coarse"
   )) |> 
   rename("Number of PanSolid targets" = n,
-         "Gene" = name) 
+         "Gene" = single_locus) 
 
 ```
 # Purpose
@@ -182,8 +184,8 @@ variants (CNVs) on the PanSolid enrichment panel.
 
 prev_validation_table <- tribble(
   ~`Description`, ~`Document number`, ~`Date`,
-  "Detection of single nucleotide variants and indel variants", "DOC6024", "July 2023",
-  "Verification of PanSolid enrichment version 2", "", "April 2024",
+  "Detection of single nucleotide variants and indel variants", "DOC6024 v1", "July 2023",
+  "Verification of PanSolid enrichment version 2", "DOC6024 v3", "April 2024",
   "Detection of amplifications in *ERBB2*", "DOC6260", "April 2024",
   "Detection of amplifications in 8 additional genes", "DOC6283", "November 2024"
 )
@@ -350,6 +352,16 @@ clinically implemented.
 Notably, the WHO does not specify a technology for CNV detection in their
 guidelines, which reflects the diversity of approaches used in clinical 
 laboratories [@neill2020].
+
+## Loss of heterozygosity
+
+Loss of heterozygosity (LOH) at mismatch repair (MMR) gene loci has been 
+identified as a pathogenic mechanism in colorectal cancer (@melcher2007). 
+This LOH is frequently copy-neutral, with the allele containing a pathogenic
+sequence variant being copied in the repair of the damaged wild-type allele. 
+LOH in colorectal cancer may be identified using SNP arrays 
+(@melcher2007, @melcher2011), PCR fragment analysis (@guerts-giele2014) and 
+next generation sequencing.
 
 ## Requirements
 
