@@ -8,9 +8,11 @@ library(here)
 
 # Functions -------------------------------------------------------------------------
 
-source(here("scripts/set_shared_drive_filepath.R"))
+data_folder <- config::get("data_filepath")
+
 source(here("scripts/connect_to_dna_db.R"))
 source(here("functions/dna_db_functions.R"))
+source(here("functions/wgs_html_functions.R"))
 
 # Identify samples tested on PanSolid -----------------------------------------------
 
@@ -44,8 +46,9 @@ pansolid_sample_info <- sample_tbl |>
 ## Find WGS samples -----------------------------------------------------------------
 
 wgs_pathway_tracker <- read_excel(path = paste0(data_folder,
+                                                "validation/DOC6567_deletions/",
                                                 "excel_spreadsheets/",
-                                                "WGS pathway tracker_copy_2024-10-07.xlsx"),
+                                                "WGS pathway tracker_copy_2024-12-16.xlsx"),
                                   sheet = "Cancer") |> 
   janitor::clean_names()
 
@@ -83,12 +86,31 @@ all_samples_from_wgs_patients <- all_samples_from_wgs_patients_df$labno
 wgs_samples_extraction_info <- get_extraction_method(sample_vector =
                                                        all_samples_from_wgs_patients)
 
+wgs_other_files <- list.files(path = paste0(data_folder,
+                                            "validation/DOC6567_deletions/raw/wgs_other/"),
+                              full.names = TRUE)
+
+wgs_amp_files <- list.files(path = paste0(data_folder,
+                                            "validation/DOC6283_amplifications/raw/wgs/"),
+                              full.names = TRUE)
+
+wgs_del_files <- list.files(path = paste0(data_folder,
+                                          "validation/DOC6567_deletions/raw/wgs/"),
+                            full.names = TRUE)
+
+previous_wgs_files <- c(wgs_other_files, wgs_amp_files, wgs_del_files)
+
+previous_wgs_pids <- previous_wgs_files |> 
+  map(\(previous_wgs_files) parse_wgs_html_pid_text(previous_wgs_files)) |> 
+  list_rbind()
+
 all_samples_from_wgs_patients_df_with_extraction <- all_samples_from_wgs_patients_df |> 
   left_join(wgs_samples_extraction_info |> 
               select(labno, method_name), by = "labno") |> 
   # Remove blood sample extractions
   filter(!method_name %in% c("Chemagen 360", "Saliva Chemagic 360-D", "FFPE RNA")) |> 
-  arrange(nhsno)
+  arrange(nhsno) |> 
+  filter(method_name != "COBAS" & pathno != "")
 
 # Check HTMLs for deletions in relevant genes ----------------------------------------------------
 

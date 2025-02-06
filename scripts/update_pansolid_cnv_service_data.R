@@ -8,7 +8,8 @@ library(here)
 
 # Functions and filepaths -----------------------------------------------------------
 
-source(here("scripts/set_shared_drive_filepath.R"))
+data_folder <- config::get("data_filepath")
+
 source(here("functions/pansolid_excel_functions.R"))
 
 # S drive filepaths -----------------------------------------------------------------
@@ -56,10 +57,9 @@ if (anyNA(s_drive_file_df)) {
 
 message("Sample filepaths compiled")
 
-write.csv(s_drive_file_df, 
+write_csv(s_drive_file_df, 
           paste0(data_folder, "live_service/collated/",
-                 "pansolidv2_sample_worksheet_panel_information.csv"),
-          row.names = FALSE)
+                 "pansolidv2_sample_worksheet_panel_information.csv"))
 
 # Single folder filepaths -----------------------------------------------------------
 
@@ -71,21 +71,39 @@ single_folder_file_df <- tibble(
                                                       pattern = "\\^", 
                                                       replacement = "")),
          labno = str_extract(string = filename, 
-                             pattern = "WS\\d{6}_(\\d{6,8})_",
+                             pattern = "WS\\d{6}_(\\d{6,8})",
                              group = 1))
+
+
+if(anyNA(single_folder_file_df$filepath)){
+  warning("NA values in filepath column")
+} else {
+  message("Filepath column has no NA values")
+}
+
+if(anyNA(single_folder_file_df$filename)){
+  warning("NA values in filename column")
+} else {
+  message("Filename column has no NA values")
+}
+
+if(anyNA(single_folder_file_df$labno)){
+  warning("NA values in labno column")
+} else {
+  message("Labno column has no NA values")
+}
 
 # Identify and copy new files -------------------------------------------------------
 
 new_files <- s_drive_file_df |> 
-  filter(!filename %in% single_folder_file_df$filename &
-           labno != "24023280")
+  filter(!filename %in% single_folder_file_df$filename)
 
 if (nrow(new_files) > 0) {
   
   file.copy(from = new_files$filepath, 
             to = paste0(data_folder, "live_service/raw/"))
   
-  message("Copying new files to raw_data folder")
+  message(paste0("Copying ", nrow(new_files), " new files to raw_data folder"))
   
 }
 
@@ -99,7 +117,7 @@ single_folder_file_df <- tibble(
                                                       pattern = "\\^", 
                                                       replacement = "")),
          labno = str_extract(string = filename, 
-                             pattern = "WS\\d{6}_(\\d{6,8})_",
+                             pattern = "WS\\d{6}_(\\d{6,8})",
                              group = 1))
 
 samples_without_amp_tabs <- c("24023280", "24025207", "24027566", "24033006",
@@ -306,22 +324,18 @@ write.csv(percent_138_results,
 
 # Save updated collated data --------------------------------------------------------
 
-write.csv(amp_gene_results_updated,
+write_csv(amp_gene_results_updated,
           paste0(data_folder, "live_service/collated/",
-                           "live_service_amp_gene_results_collated.csv"),
-          row.names = FALSE)
+                           "live_service_amp_gene_results_collated.csv"))
 
-write.csv(std_dev_results_updated,
+write_csv(std_dev_results_updated,
           paste0(data_folder, "live_service/collated/",
-                           "live_service_std_dev_results_collated.csv"),
-          row.names = FALSE)
+                           "live_service_std_dev_results_collated.csv"))
 
-write.csv(pos_cnv_results_updated,
+write_csv(pos_cnv_results_updated,
           paste0(data_folder, "live_service/collated/",
-                           "live_service_pos_cnv_results_collated.csv"),
-          row.names = FALSE)
+                           "live_service_pos_cnv_results_collated.csv"))
 
-write.csv(percent_138_results_updated,
+write_csv(percent_138_results_updated,
           paste0(data_folder, "live_service/collated/",
-                           "live_service_percent_138_results_collated.csv"),
-          row.names = FALSE)
+                           "live_service_percent_138_results_collated.csv"))

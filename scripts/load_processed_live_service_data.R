@@ -3,7 +3,7 @@
 library(tidyverse)
 library(here)
 
-source(here("scripts/set_shared_drive_filepath.R"))
+data_folder <- config::get("data_filepath")
 
 live_service_amp_gene_results_collated <- read_csv(paste0(data_folder, 
                                                             "live_service/collated/",
@@ -67,3 +67,9 @@ live_service_percent_138_results_collated <- read_csv(paste0(data_folder,
                                               "labno_suffix_worksheet" = col_character(),
                                               "filepath" = col_character(),
                                               "percent_whole_panel_covered_at_138x" = col_double()))
+
+panel_info <- read_csv(paste0(data_folder, 
+                              "live_service/collated/",
+                             "/pansolidv2_sample_worksheet_panel_information.csv"),
+                       col_types = "ccccc") 
+

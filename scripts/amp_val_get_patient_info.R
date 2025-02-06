@@ -7,34 +7,35 @@ library(here)
 
 # Source scripts --------------------------------------------------------------------
 
+source(here("scripts/set_shared_drive_filepath.R"))
+
 source(here("scripts/connect_to_dna_db.R"))
 
 source(here("functions/dna_db_functions.R"))
 
-data_folder <- config::get("data_filepath")
-
-del_val_processed_folder <- paste0(data_folder, "validation/DOC6567_deletions/processed/")
-
 # Get patient information -----------------------------------------------------------
 
-del_val_pansolid_ngs_collated <- read_csv(paste0(del_val_processed_folder,
-                                                 "del_val_pansolid_ngs_collated.csv"),
-                                              col_types = list(
-                                                "labno" = col_character()))
+amp_validation_stdev_results_collated <- read_csv(paste0(data_folder, 
+                                                         "validation/processed/",
+                                                         "amp_validation_stdev_results_collated.csv"),
+                                                  col_types = list(
+                                                    "labno" = col_character()))
 
-del_val_ddpcr_collated <- read_csv(paste0(del_val_processed_folder,
-                                             "del_val_ddpcr_collated.csv")) |> 
+validation_ddpcr_collated <- read_csv(paste0(data_folder,
+                                             "validation/processed/",
+                                             "validation_ddpcr_collated.csv")) |> 
   filter(grepl(pattern = "\\d{8}", x = sample))
 
-del_val_wgs_html_ids <- read_csv(paste0(del_val_processed_folder,
-                                "del_val_wgs_html_ids.csv"),
+wgs_html_ids <- read_csv(paste0(data_folder, 
+                                "validation/processed/",
+                                "wgs_html_ids.csv"),
                          col_types = list(
                            "labno" = col_character()
                          ))
 
-sample_labnos <- unique(c(del_val_pansolid_ngs_collated$labno, 
-                          del_val_ddpcr_collated$sample, 
-                          del_val_wgs_html_ids$labno))
+sample_labnos <- unique(c(amp_validation_stdev_results_collated$labno, 
+                          validation_ddpcr_collated$sample, 
+                          wgs_html_ids$labno))
 
 patient_info <- sample_tbl |> 
   filter(labno %in% sample_labnos) |> 
@@ -66,15 +67,15 @@ patient_ncc_manual <- patient_info_ncc |>
   mutate(ncc_manual = "")
 
 write.csv(x = patient_ncc_manual,
-          file = paste0(del_val_processed_folder, 
+          file = paste0(data_folder, "validation/processed/", 
                         "patient_ncc_manual.csv"),
           row.names = FALSE)
 
-manual_ncc_values <- read_csv(file = paste0(del_val_processed_folder,
-                       "patient_ncc_manual_edit.csv"),
-                       col_types = list(
-                         "labno" = col_character(),
-                         "ncc_manual" = col_character()))
+manual_ncc_values <- read_csv(file = paste0(data_folder, "validation/processed/",
+                                            "patient_ncc_manual_edit.csv"),
+                              col_types = list(
+                                "labno" = col_character(),
+                                "ncc_manual" = col_character()))
 
 patient_info_ncc_edit <- patient_info_ncc |> 
   left_join(manual_ncc_values, by = "labno") |> 
@@ -87,17 +88,17 @@ patient_info_ncc_edit <- patient_info_ncc |>
 # Extract cancer type from comments field -------------------------------------------
 
 cancer_type_vector <- c("(?:O|o)varian",
-                         "(?:C|c)olorectal",
-                         "(?:L|l)ung",
-                         "(?:B|b)ladder",
-                         "CNS",
-                         "(?:E|e)ndometrial",
-                         "(?:M|m)elanoma",
-                         "Oligodendroglioma",
-                         "(?:P|p)rostate",
-                         "Glioma",
-                         "Pancreatic",
-                         "Glioblastoma")
+                        "(?:C|c)olorectal",
+                        "(?:L|l)ung",
+                        "(?:B|b)ladder",
+                        "CNS",
+                        "(?:E|e)ndometrial",
+                        "(?:M|m)elanoma",
+                        "Oligodendroglioma",
+                        "(?:P|p)rostate",
+                        "Glioma",
+                        "Pancreatic",
+                        "Glioblastoma")
 
 cancer_type_regex <- paste0("(",
                             paste(cancer_type_vector, collapse  = "|"),
@@ -105,8 +106,8 @@ cancer_type_regex <- paste0("(",
 
 patient_info_cancer_type <- patient_info_ncc_edit |> 
   mutate(cancer_comment = tolower(str_extract(pattern = cancer_type_regex,
-                        string = comments,
-                        group = 1)),
+                                              string = comments,
+                                              group = 1)),
          
          cancer_group = case_when(
            
@@ -121,15 +122,15 @@ cancer_type_manual <- patient_info_cancer_type |>
   mutate(cancer_group_manual = "")
 
 write.csv(x = cancer_type_manual,
-          file = paste0(del_val_processed_folder, 
+          file = paste0(data_folder, "validation/processed/", 
                         "cancer_type_manual.csv"),
           row.names = FALSE)
 
-manual_cancer_types <- read_csv(file = paste0(del_val_processed_folder,
-                                            "cancer_type_manual_edit.csv"),
-                              col_types = list(
-                                "labno" = col_character(),
-                                "cancer_group_manual" = col_character()))
+manual_cancer_types <- read_csv(file = paste0(data_folder, "validation/processed/",
+                                              "cancer_type_manual_edit.csv"),
+                                col_types = list(
+                                  "labno" = col_character(),
+                                  "cancer_group_manual" = col_character()))
 
 patient_info_cancer_type_edit <- patient_info_cancer_type |> 
   left_join(manual_cancer_types, by = "labno") |> 
@@ -160,10 +161,10 @@ patient_info_extraction_method <- patient_info_cancer_type_edit |>
 # Get worksheet details -------------------------------------------------------------
 
 pansolid_worksheets <- data.frame(
-  "worksheet" = c(unique(del_val_pansolid_ngs_collated$worksheet))) |> 
+  "worksheet" = c(unique(amp_validation_stdev_results_collated$worksheet))) |> 
   mutate(pcrid = str_extract(string = worksheet, 
-                      pattern = "WS(\\d{6})",
-                      group = 1))
+                             pattern = "WS(\\d{6})",
+                             group = 1))
 
 pansolid_pcrids <- pansolid_worksheets$pcrid
 
@@ -178,11 +179,11 @@ validation_sample_patient_info <- patient_info_extraction_method |>
   select(-c(tissue))
 
 write.csv(x = validation_sample_patient_info,
-          file = paste0(del_val_processed_folder, 
-                        "del_val_sample_patient_info.csv"),
+          file = paste0(data_folder, "validation/processed/", 
+                        "validation_sample_patient_info.csv"),
           row.names = FALSE)
 
 write.csv(x = pansolid_worksheet_details,
-          file = paste0(del_val_processed_folder, 
-                        "del_val_pansolid_worksheet_details.csv"),
+          file = paste0(data_folder, "validation/processed/", 
+                        "pansolid_worksheet_details.csv"),
           row.names = FALSE)

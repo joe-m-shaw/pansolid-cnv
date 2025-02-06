@@ -1,0 +1,4 @@
+default:
+  data_filepath: "S:/central shared/Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/"
+
+  del_val_processed_folder: "S:/central shared/Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/validation/DOC6567_deletions/processed/"

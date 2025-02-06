@@ -1,5 +1,6 @@
 source(here("functions/extract_pansolid_cnv_coordinates.R"))
-source(here("scripts/set_shared_drive_filepath.R"))
+
+library(patchwork)
 
 get_cnv_plot_x_breaks <- function(interval, plot_xmin, plot_xmax) {
   #' Get consistent X axis breaks for creating CNV plots
@@ -121,8 +122,8 @@ get_gene_chromosome <- function(gene) {
   #'
   #' @examples chrom <- get_gene_chromosome("ERBB2")
   
-  gene_coordinates <- readr::read_csv(file = paste0(data_folder,
-                                             "gene_lists/",
+  gene_coordinates <- readr::read_csv(file = paste0(config::get("data_filepath"),
+                                             "validation/DOC6283_amplifications/gene_lists/",
                                              "gene_coordinates.csv"),
                                col_types = list(
                                  "gene" = col_character(),
@@ -215,7 +216,8 @@ make_labno_cnv_plot <- function(df,
                             interval = 10000, 
                             buffer = 5000, 
                             yaxis = labno,
-                            title = "") {
+                            title = "",
+                            yaxis_title = "Sample number") {
   
   #' Make a CNV plot with sample lab number on the Y axis
   #'
@@ -279,7 +281,7 @@ make_labno_cnv_plot <- function(df,
     
     # Add labels
     labs(
-      y = "Sample number",
+      y = yaxis_title,
       x = "",
       colour = "Fold change",
       title = title)
@@ -305,8 +307,9 @@ make_primer_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   #' plot_xmax = 39728658,
   #' interval = 10000, chromosome = "17")
   
-  grch38_primers <- readr::read_csv(file = paste0(data_folder,
-                                           "primers/CDHS-40079Z-11284.primer3_Converted.csv"),
+  grch38_primers <- readr::read_csv(file = paste0(config::get("data_filepath"),
+                                                  "validation/DOC6283_amplifications/primers/", 
+                                           "CDHS-40079Z-11284.primer3_Converted.csv"),
                              show_col_types = FALSE) |> 
     janitor::clean_names()
   
@@ -349,7 +352,8 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   #' @examples erbb2_exons <- make_exon_plot(plot_xmin = 39700064, plot_xmax = 39728658,
   #' interval = 10000, chromosome = "17")
   
-  all_transcripts <- readr::read_csv(paste0(data_folder,
+  all_transcripts <- readr::read_csv(paste0(config::get("data_filepath"),
+                                     "validation/DOC6283_amplifications/",
                                      "transcripts/processed/",
                                      "collated_transcripts.csv"),
                               show_col_types = FALSE)
@@ -359,8 +363,8 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
     dplyr::filter(chromosome == {{ chromosome }}) |> 
     dplyr::filter(start >= {{ plot_xmin }} & end <= {{ plot_xmax }})
   
-  gene_labels <- readr::read_csv(file = paste0(data_folder, 
-                                        "transcripts/processed/",
+  gene_labels <- readr::read_csv(file = paste0(config::get("data_filepath"), 
+                                        "validation/DOC6283_amplifications/transcripts/processed/",
                                         "gene_labels.csv"),
                           show_col_types = FALSE)
   
