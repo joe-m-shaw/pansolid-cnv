@@ -1,4 +1,4 @@
-# Pan Solid Copy Number Variant Validation
+# Solid Cancer Copy Number Variants
 
 This repository contains R scripts used in the validation and monitoring of copy number variant (CNV) detection on the "Pan Solid" Qiaseq primer panel at the North West Genomic Laboratory Hub (GLH) in Manchester.
 
