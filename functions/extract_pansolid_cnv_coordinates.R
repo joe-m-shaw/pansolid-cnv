@@ -34,3 +34,5 @@ extract_pansolid_cnv_coordinates <- function(df, cnv_coord_col) {
   return(output)
   
 }
+
+source(here::here("tests/test_extract_pansolid_cnv_coordinates.R"))
