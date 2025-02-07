@@ -1,0 +1,218 @@
+source(here::here("functions/extract_pansolid_cnv_coordinates.R"))
+source(here::here("functions/filename_functions.R"))
+
+get_sheetname <- function(filepath, sheet_regex = "Amplifications_") {
+  
+  sheets <- readxl::excel_sheets(filepath)
+  
+  sheetname <- grep(pattern = {{ sheet_regex }}, 
+                    x = sheets, 
+                    value = TRUE)
+  
+  if(length(sheetname) == 0) {
+    stop("Sheet name not found")
+  }
+  
+  if(length(sheetname) > 1) {
+    stop("Sheet name must be unique")
+  }
+  
+  return(sheetname)
+  
+}
+
+read_cnv_tab <- function(filepath, sheet_regex = "Amplifications_") {
+  
+  tab <- readxl::read_xlsx(path = filepath, 
+                   sheet = get_sheetname(filepath = filepath, 
+                                         sheet_regex = sheet_regex),
+                   range = "A1:K100",
+                   col_names = c("a", "b", "c", "d", "e", "f", "g", "h", 
+                                 "i", "j", "k"),
+                   col_types = c("text", "text", "text", "text", "text", 
+                                 "text", "text", "text", "text", "text",
+                                 "text"))
+  
+  return(tab)
+  
+}
+
+find_stdev_ratios <- function(input_tab) {
+  
+  stdev_start <- match("StDev Signal-adjusted Log2 Ratios", input_tab$a) + 1
+  
+  stdev_df <- as.data.frame(input_tab[stdev_start, 1]) |> 
+    dplyr::rename(stdev_noise = a) |> 
+    dplyr::mutate(stdev_noise = as.double(stdev_noise))
+  
+  if(stdev_df[1,1] < 0) {
+    stop("Standard deviation cannot be below 0")
+  }
+  
+  return(stdev_df)
+  
+}
+
+find_percent_138x <- function(input_tab) {
+  
+  percent_138x_start <- match("% Whole Panel Covered at 138X",
+                              input_tab$a) + 1
+  
+  percent_138x_df <- as.data.frame(input_tab[percent_138x_start, 1]) |> 
+    dplyr::rename(percent_138x = a) |> 
+    dplyr::mutate(percent_138x = as.double(percent_138x))
+  
+  if(percent_138x_df[1,1] < 0 | percent_138x_df[1,1] > 100) {
+    stop("Percent 138X must be between 0 and 100")
+  }
+  
+  return(percent_138x_df)
+  
+}
+
+
+find_amp_genes <- function(input_tab, num_genes = 9) {
+  
+  amp_tbl_header <- match("Amplification genes", input_tab$a)
+  
+  amp_tbl_colname_row <- amp_tbl_header + 1
+  
+  amp_tbl_start <- amp_tbl_header + 2
+  
+  amp_tbl_end <- amp_tbl_start + (num_genes-1)
+  
+  df <- as.data.frame(input_tab[amp_tbl_start:amp_tbl_end, 1:3])
+  
+  colnames(df) <- as.character(input_tab[amp_tbl_colname_row, 1:3])          
+  
+  df_clean <- df |> 
+    janitor::clean_names() |> 
+    dplyr::mutate(max_region_fold_change = as.double(max_region_fold_change),
+           min_region_fold_change = as.double(min_region_fold_change))
+  
+  return(df_clean)
+  
+}
+
+find_del_genes <- function(input_tab) {
+  
+  del_tbl_header <- match("Deletion genes", input_tab$a)
+  
+  del_tbl_colname_row <- del_tbl_header + 1
+  
+  del_tbl_start <- del_tbl_header + 2
+  
+  del_tbl_1_end <- del_tbl_start + 12
+  
+  del_tbl_3_end <- del_tbl_start + 10
+  
+  del_tbl1 <- as.data.frame(input_tab[del_tbl_start:del_tbl_1_end, 1:3])
+  
+  colnames(del_tbl1) <- as.character(input_tab[del_tbl_colname_row, 1:3])
+  
+  del_tbl2 <- as.data.frame(input_tab[del_tbl_start:del_tbl_1_end, 5:7])
+  
+  colnames(del_tbl2) <- as.character(input_tab[del_tbl_colname_row, 5:7])
+  
+  del_tbl3 <- as.data.frame(input_tab[del_tbl_start:del_tbl_3_end, 9:11])
+  
+  colnames(del_tbl3) <- as.character(input_tab[del_tbl_colname_row, 9:11])
+  
+  del_tbl <- rbind(del_tbl1, del_tbl2, del_tbl3) |> 
+    janitor::clean_names() |> 
+    dplyr::mutate(max_region_fold_change = as.double(max_region_fold_change),
+           min_region_fold_change = as.double(min_region_fold_change))
+  
+  return(del_tbl)
+  
+}
+
+find_sig_cnvs <- function(input_tab) {
+  
+  sig_cnv_header <- match("Significant CNV results", input_tab$a)
+  
+  sig_cnv_colname_row <- sig_cnv_header + 1
+  
+  amp_gene_header <- match("Amplification genes", input_tab$a)
+  
+  na_row <- amp_gene_header - 1
+  
+  stopifnot(is.na(input_tab[na_row, 1]))
+  
+  sig_cnv_tbl_start <- sig_cnv_colname_row + 1
+  
+  sig_cnv_tbl_end <- na_row - 1
+  
+  if(sig_cnv_tbl_start > sig_cnv_tbl_end) {
+    
+    sig_cnv_df <- data.frame(
+      "gene" = "no positive calls",
+      "chromosome" = "",
+      "cnv_co_ordinates" = "",
+      "cnv_length" = 0,
+      "consequence" = "no call",
+      "fold_change" = 0,
+      "p_value" = 0,
+      "no_targets" = 0,
+      "check_1" = "",
+      "check_2" = "",
+      "copy_number" = 0)
+    
+  }
+  
+  if(sig_cnv_tbl_start <= sig_cnv_tbl_end) {
+    
+    sig_cnv_df <- as.data.frame(input_tab[sig_cnv_tbl_start:sig_cnv_tbl_end, 1:11])
+    
+    colnames(sig_cnv_df) <- as.character(input_tab[sig_cnv_colname_row, 1:11])
+    
+    sig_cnv_df <- sig_cnv_df |> 
+      janitor::clean_names() |> 
+      dplyr::mutate(cnv_length = as.double(cnv_length),
+                    fold_change = as.double(fold_change),
+                    p_value = as.double(p_value),
+                    no_targets = as.double(no_targets),
+                    copy_number = as.double(copy_number))
+    
+  }
+  
+  sig_cnv_df_clean <- extract_pansolid_cnv_coordinates(sig_cnv_df,
+                                                       cnv_co_ordinates)
+  
+  return(sig_cnv_df_clean)
+  
+}
+
+extract_cnv_tbls <- function(filepath, sheet_regex = "Amplifications_") {
+  
+  tab <- read_cnv_tab(filepath = filepath, 
+                      sheet_regex = sheet_regex)
+  
+  stdev_df <- add_identifiers(file = filepath,
+                              tbl = find_stdev_ratios(tab))
+  
+  percent_138x_df <- add_identifiers(file = filepath,
+                                     tbl = find_percent_138x(tab))
+  
+  sig_cnv_df <- add_identifiers(file = filepath,
+                                tbl = find_sig_cnvs(tab))
+  
+  amp_gene_df <- add_identifiers(file = filepath,
+                                 tbl = find_amp_genes(tab))
+  
+  del_gene_df <- add_identifiers(file = filepath,
+                                 tbl = find_del_genes(tab))
+  
+  tables <- list(
+    "stdev" = stdev_df,
+    "percent_138x" = percent_138x_df,
+    "sig_cnvs"  = sig_cnv_df,
+    "amp_genes" = amp_gene_df,
+    "del_genes" = del_gene_df
+  )
+  
+  return(tables)
+  
+}
+
+source(here::here("tests/test_pansolid_cnv_excel_functions.R"))
