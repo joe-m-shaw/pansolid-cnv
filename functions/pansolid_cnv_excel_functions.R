@@ -290,30 +290,20 @@ extract_cnv_tbls <- function(filepath, sheet_regex = "Amplifications_") {
   #'
   #' @examples
   
-  tab <- read_cnv_sheet(filepath = filepath, 
+  sheet <- read_cnv_sheet(filepath = filepath, 
                       sheet_regex = sheet_regex)
   
-  stdev_df <- add_identifiers(file = filepath,
-                              tbl = find_stdev_ratios(tab))
-  
-  percent_138x_df <- add_identifiers(file = filepath,
-                                     tbl = find_percent_138x(tab))
-  
-  sig_cnv_df <- add_identifiers(file = filepath,
-                                tbl = find_sig_cnvs(tab))
-  
-  amp_gene_df <- add_identifiers(file = filepath,
-                                 tbl = find_amp_genes(tab))
-  
-  del_gene_df <- add_identifiers(file = filepath,
-                                 tbl = find_del_genes(tab))
-  
   tables <- list(
-    "stdev" = stdev_df,
-    "percent_138x" = percent_138x_df,
-    "sig_cnvs"  = sig_cnv_df,
-    "amp_genes" = amp_gene_df,
-    "del_genes" = del_gene_df
+    "stdev" = add_identifiers(file = filepath,
+                              tbl = find_stdev_ratios(sheet)),
+    "percent_138x" = add_identifiers(file = filepath,
+                                     tbl = find_percent_138x(sheet)),
+    "sig_cnvs"  = add_identifiers(file = filepath,
+                                  tbl = find_sig_cnvs(sheet)),
+    "amp_genes" = add_identifiers(file = filepath,
+                                  tbl = find_amp_genes(sheet)),
+    "del_genes" = add_identifiers(file = filepath,
+                                  tbl = find_del_genes(sheet))
   )
   
   return(tables)
