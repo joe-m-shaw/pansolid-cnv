@@ -3,6 +3,21 @@ source(here::here("functions/filename_functions.R"))
 
 get_sheetname <- function(filepath, sheet_regex = "Amplifications_") {
   
+  #' Get sheet names from an Excel file using regular expressions
+  #'
+  #' Excel files exported from the CLC pipeline have each sheet named with
+  #' the 8 digit DNA laboratory number as a suffix.
+  #' Example: "Amplifications_12345678"
+  #' `get_sheetname` can be used to find the specific sheet name for a file.
+  #'  
+  #' @param filepath Full file path to an Excel file
+  #' @param sheet_regex Regular expression for sheet name matching
+  #'
+  #' @returns The name of the sheet as a string
+  #' @export
+  #'
+  #' @examples get_sheetname()
+
   sheets <- readxl::excel_sheets(filepath)
   
   sheetname <- grep(pattern = {{ sheet_regex }}, 
@@ -21,9 +36,24 @@ get_sheetname <- function(filepath, sheet_regex = "Amplifications_") {
   
 }
 
-read_cnv_tab <- function(filepath, sheet_regex = "Amplifications_") {
+read_cnv_sheet <- function(filepath, sheet_regex = "Amplifications_") {
   
-  tab <- readxl::read_xlsx(path = filepath, 
+  #' Read the entire CNV sheet from a PanSolid CLC Excel file
+  #' 
+  #' The new PanSolid CLC Excel output includes 5 information tables on the
+  #' same tab. `read_cnv_sheet` reads the entire sheet as one table, which 
+  #' allows individual tables to be subsequently extracted without the file
+  #' being read multiple times. 
+  #'
+  #' @param filepath Full file path to an Excel file
+  #' @param sheet_regex Regular expression for sheet name matching
+  #'
+  #' @returns The full CNV sheet as a tibble
+  #' @export
+  #'
+  #' @examples
+  
+  sheet <- readxl::read_xlsx(path = filepath, 
                    sheet = get_sheetname(filepath = filepath, 
                                          sheet_regex = sheet_regex),
                    range = "A1:K100",
@@ -33,15 +63,26 @@ read_cnv_tab <- function(filepath, sheet_regex = "Amplifications_") {
                                  "text", "text", "text", "text", "text",
                                  "text"))
   
-  return(tab)
+  return(sheet)
   
 }
 
-find_stdev_ratios <- function(input_tab) {
+
+find_stdev_ratios <- function(input_sheet) {
   
-  stdev_start <- match("StDev Signal-adjusted Log2 Ratios", input_tab$a) + 1
+  #' Find standard deviation of signal-adjusted log2 ratios within the CNV tab
+  #'
+  #' @param input_sheet A tibble containing the stdev information. This is 
+  #' intended to be the output from `read_cnv_sheet`.
+  #'
+  #' @returns
+  #' @export
+  #'
+  #' @examples
   
-  stdev_df <- as.data.frame(input_tab[stdev_start, 1]) |> 
+  stdev_start <- match("StDev Signal-adjusted Log2 Ratios", input_sheet$a) + 1
+  
+  stdev_df <- as.data.frame(input_sheet[stdev_start, 1]) |> 
     dplyr::rename(stdev_noise = a) |> 
     dplyr::mutate(stdev_noise = as.double(stdev_noise))
   
@@ -53,12 +94,12 @@ find_stdev_ratios <- function(input_tab) {
   
 }
 
-find_percent_138x <- function(input_tab) {
+find_percent_138x <- function(input_sheet) {
   
   percent_138x_start <- match("% Whole Panel Covered at 138X",
-                              input_tab$a) + 1
+                              input_sheet$a) + 1
   
-  percent_138x_df <- as.data.frame(input_tab[percent_138x_start, 1]) |> 
+  percent_138x_df <- as.data.frame(input_sheet[percent_138x_start, 1]) |> 
     dplyr::rename(percent_138x = a) |> 
     dplyr::mutate(percent_138x = as.double(percent_138x))
   
@@ -71,9 +112,9 @@ find_percent_138x <- function(input_tab) {
 }
 
 
-find_amp_genes <- function(input_tab, num_genes = 9) {
+find_amp_genes <- function(input_sheet, num_genes = 9) {
   
-  amp_tbl_header <- match("Amplification genes", input_tab$a)
+  amp_tbl_header <- match("Amplification genes", input_sheet$a)
   
   amp_tbl_colname_row <- amp_tbl_header + 1
   
@@ -81,9 +122,9 @@ find_amp_genes <- function(input_tab, num_genes = 9) {
   
   amp_tbl_end <- amp_tbl_start + (num_genes-1)
   
-  df <- as.data.frame(input_tab[amp_tbl_start:amp_tbl_end, 1:3])
+  df <- as.data.frame(input_sheet[amp_tbl_start:amp_tbl_end, 1:3])
   
-  colnames(df) <- as.character(input_tab[amp_tbl_colname_row, 1:3])          
+  colnames(df) <- as.character(input_sheet[amp_tbl_colname_row, 1:3])          
   
   df_clean <- df |> 
     janitor::clean_names() |> 
@@ -94,9 +135,9 @@ find_amp_genes <- function(input_tab, num_genes = 9) {
   
 }
 
-find_del_genes <- function(input_tab) {
+find_del_genes <- function(input_sheet) {
   
-  del_tbl_header <- match("Deletion genes", input_tab$a)
+  del_tbl_header <- match("Deletion genes", input_sheet$a)
   
   del_tbl_colname_row <- del_tbl_header + 1
   
@@ -106,17 +147,17 @@ find_del_genes <- function(input_tab) {
   
   del_tbl_3_end <- del_tbl_start + 10
   
-  del_tbl1 <- as.data.frame(input_tab[del_tbl_start:del_tbl_1_end, 1:3])
+  del_tbl1 <- as.data.frame(input_sheet[del_tbl_start:del_tbl_1_end, 1:3])
   
-  colnames(del_tbl1) <- as.character(input_tab[del_tbl_colname_row, 1:3])
+  colnames(del_tbl1) <- as.character(input_sheet[del_tbl_colname_row, 1:3])
   
-  del_tbl2 <- as.data.frame(input_tab[del_tbl_start:del_tbl_1_end, 5:7])
+  del_tbl2 <- as.data.frame(input_sheet[del_tbl_start:del_tbl_1_end, 5:7])
   
-  colnames(del_tbl2) <- as.character(input_tab[del_tbl_colname_row, 5:7])
+  colnames(del_tbl2) <- as.character(input_sheet[del_tbl_colname_row, 5:7])
   
-  del_tbl3 <- as.data.frame(input_tab[del_tbl_start:del_tbl_3_end, 9:11])
+  del_tbl3 <- as.data.frame(input_sheet[del_tbl_start:del_tbl_3_end, 9:11])
   
-  colnames(del_tbl3) <- as.character(input_tab[del_tbl_colname_row, 9:11])
+  colnames(del_tbl3) <- as.character(input_sheet[del_tbl_colname_row, 9:11])
   
   del_tbl <- rbind(del_tbl1, del_tbl2, del_tbl3) |> 
     janitor::clean_names() |> 
@@ -127,17 +168,17 @@ find_del_genes <- function(input_tab) {
   
 }
 
-find_sig_cnvs <- function(input_tab) {
+find_sig_cnvs <- function(input_sheet) {
   
-  sig_cnv_header <- match("Significant CNV results", input_tab$a)
+  sig_cnv_header <- match("Significant CNV results", input_sheet$a)
   
   sig_cnv_colname_row <- sig_cnv_header + 1
   
-  amp_gene_header <- match("Amplification genes", input_tab$a)
+  amp_gene_header <- match("Amplification genes", input_sheet$a)
   
   na_row <- amp_gene_header - 1
   
-  stopifnot(is.na(input_tab[na_row, 1]))
+  stopifnot(is.na(input_sheet[na_row, 1]))
   
   sig_cnv_tbl_start <- sig_cnv_colname_row + 1
   
@@ -162,9 +203,9 @@ find_sig_cnvs <- function(input_tab) {
   
   if(sig_cnv_tbl_start <= sig_cnv_tbl_end) {
     
-    sig_cnv_df <- as.data.frame(input_tab[sig_cnv_tbl_start:sig_cnv_tbl_end, 1:11])
+    sig_cnv_df <- as.data.frame(input_sheet[sig_cnv_tbl_start:sig_cnv_tbl_end, 1:11])
     
-    colnames(sig_cnv_df) <- as.character(input_tab[sig_cnv_colname_row, 1:11])
+    colnames(sig_cnv_df) <- as.character(input_sheet[sig_cnv_colname_row, 1:11])
     
     sig_cnv_df <- sig_cnv_df |> 
       janitor::clean_names() |> 
@@ -185,7 +226,7 @@ find_sig_cnvs <- function(input_tab) {
 
 extract_cnv_tbls <- function(filepath, sheet_regex = "Amplifications_") {
   
-  tab <- read_cnv_tab(filepath = filepath, 
+  tab <- read_cnv_sheet(filepath = filepath, 
                       sheet_regex = sheet_regex)
   
   stdev_df <- add_identifiers(file = filepath,

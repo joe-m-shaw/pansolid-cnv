@@ -5,7 +5,7 @@ test_datapath <- paste0(config::get("data_filepath"),
 test_filepath <- paste0(test_datapath,
                         "Annotated_Jan2025_withLOH_testing_del_visualisation_WS123456_12345678_PierreBEZUKHOV.xlsx")
 
-test_tab <- read_cnv_tab(test_filepath)
+test_sheet <- read_cnv_sheet(test_filepath)
 
 # get_sheetnames
 
@@ -38,7 +38,7 @@ testthat::test_that("find_stdev_ratios works with standard format", {
     "stdev_noise" = c(0.300228451587477)
   )
   
-  expect_equal(find_stdev_ratios(test_tab), 
+  expect_equal(find_stdev_ratios(test_sheet), 
                df_expected)
   
 })
@@ -51,7 +51,7 @@ testthat::test_that("find_percent_138x works with standard format", {
     "percent_138x" = c(99.2912455702848)
   )
   
-  expect_equal(find_percent_138x(test_tab),
+  expect_equal(find_percent_138x(test_sheet),
                df_expected)
   
 })
@@ -69,7 +69,7 @@ testthat::test_that("find_sig_cnvs handles multiple significant cnvs", {
   
   df_expected <- as.data.frame(tribble_expected)
   
-  expect_equal(find_sig_cnvs(test_tab),
+  expect_equal(find_sig_cnvs(test_sheet),
                df_expected)
     
 })
@@ -79,7 +79,7 @@ testthat::test_that("find_sig_cnvs handles no significant CNVs",{
   no_sig_cnv_path <- paste0(test_datapath, 
                            "Annotated_Jan2025_withLOH_testing_del_visualisation_WS123456_12345678_AnnaKARENINA.xlsx")
   
-  no_sig_cnv_tab <- read_cnv_tab(no_sig_cnv_path)
+  no_sig_cnv_sheet <- read_cnv_sheet(no_sig_cnv_path)
   
   df_expected <- data.frame(
     "gene" = "no positive calls",
@@ -96,7 +96,7 @@ testthat::test_that("find_sig_cnvs handles no significant CNVs",{
     "start" = as.numeric(NA),
     "end" = as.numeric(NA))
   
-  expect_equal(find_sig_cnvs(no_sig_cnv_tab),
+  expect_equal(find_sig_cnvs(no_sig_cnv_sheet),
                df_expected)
   
 })
@@ -106,7 +106,7 @@ testthat::test_that("find_sig_cnvs handles one significant CNV", {
   one_sig_cnv_path <- paste0(test_datapath, 
                             "Annotated_Jan2025_withLOH_testing_del_visualisation_WS123456_12345678_KonstantinLEVIN.xlsx")
   
-  one_sig_cnv_tab <- read_cnv_tab(one_sig_cnv_path)
+  one_sig_cnv_sheet <- read_cnv_sheet(one_sig_cnv_path)
   
   df_expected <- data.frame(
     "gene" = "MLH1",
@@ -123,7 +123,7 @@ testthat::test_that("find_sig_cnvs handles one significant CNV", {
     "start" = 10094284,
     "end" = 39962881)
   
-  expect_equal(find_sig_cnvs(one_sig_cnv_tab),
+  expect_equal(find_sig_cnvs(one_sig_cnv_sheet),
                df_expected)
   
 })
@@ -146,7 +146,7 @@ testthat::test_that("find_amp_genes loads table correctly", {
     
   df_expected <- as.data.frame(tribble_expected)
   
-  expect_equal(find_amp_genes(test_tab), 
+  expect_equal(find_amp_genes(test_sheet), 
                df_expected)
   
 })
@@ -198,10 +198,11 @@ testthat::test_that("find_del_genes loads table correctly", {
 
   df_expected <- as.data.frame(tribble_expected)
   
-  expect_equal(find_del_genes(test_tab),
+  expect_equal(find_del_genes(test_sheet),
                df_expected)
   
 })
 
+# Remove testing files and tibbles
 rm(test_filepath)
-rm(test_tab)
+rm(test_sheet)
