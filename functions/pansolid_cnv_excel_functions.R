@@ -132,7 +132,7 @@ find_amp_genes <- function(input_sheet, num_genes = 9) {
   #' @param num_genes The number of genes with amplification results returned
   #' by the CLC pipeline. This is currently 9 but may change in future.
   #'
-  #' @returns
+  #' @returns A tibble of the amplification genes results table
   #' @export
   #'
   #' @examples
@@ -170,7 +170,7 @@ find_del_genes <- function(input_sheet) {
   #' @param input_sheet A tibble containing the deleted gene information. 
   #' This is intended to be the output from `read_cnv_sheet`.
   #'
-  #' @returns
+  #' @returns A tibble of the deletion genes results table
   #' @export
   #'
   #' @examples
@@ -213,7 +213,7 @@ find_sig_cnvs <- function(input_sheet) {
   #' @param input_sheet A tibble containing the significant CNV information. 
   #' This is intended to be the output from `read_cnv_sheet`.
   #'
-  #' @returns
+  #' @returns A tibble of the significant CNV results table
   #' @export
   #'
   #' @examples
@@ -285,7 +285,7 @@ extract_cnv_tbls <- function(filepath, sheet_regex = "Amplifications_") {
   #' @param filepath Full file path to an Excel file
   #' @param sheet_regex Regular expression for sheet name matching
   #'
-  #' @returns
+  #' @returns A named list of tables 
   #' @export
   #'
   #' @examples
