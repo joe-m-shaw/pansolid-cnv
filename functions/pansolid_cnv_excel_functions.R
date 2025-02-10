@@ -67,15 +67,15 @@ read_cnv_sheet <- function(filepath, sheet_regex = "Amplifications_") {
   
 }
 
-
 find_stdev_ratios <- function(input_sheet) {
   
-  #' Find standard deviation of signal-adjusted log2 ratios within the CNV tab
+  #' Find standard deviation of signal-adjusted log2 ratios within the CNV sheet
   #'
   #' @param input_sheet A tibble containing the stdev information. This is 
   #' intended to be the output from `read_cnv_sheet`.
   #'
-  #' @returns
+  #' @returns A tibble with the standard deviation of signal-adjusted 
+  #' log2 ratios  
   #' @export
   #'
   #' @examples
@@ -94,7 +94,18 @@ find_stdev_ratios <- function(input_sheet) {
   
 }
 
+
 find_percent_138x <- function(input_sheet) {
+  
+  #' Find percentage coverage at 138X within the CNV sheet
+  #'
+  #' @param input_sheet A tibble containing the percent 138X information. 
+  #' This is intended to be the output from `read_cnv_sheet`.
+  #'
+  #' @returns A tibble with the percent 138X information.
+  #' @export
+  #'
+  #' @examples
   
   percent_138x_start <- match("% Whole Panel Covered at 138X",
                               input_sheet$a) + 1
@@ -111,8 +122,20 @@ find_percent_138x <- function(input_sheet) {
   
 }
 
-
 find_amp_genes <- function(input_sheet, num_genes = 9) {
+  
+  #' Find fold change information for amplification genes with the CNV sheet
+  #'
+  #' @param input_sheet A tibble containing the amplified gene information. 
+  #' This is intended to be the output from `read_cnv_sheet`.
+  #' 
+  #' @param num_genes The number of genes with amplification results returned
+  #' by the CLC pipeline. This is currently 9 but may change in future.
+  #'
+  #' @returns
+  #' @export
+  #'
+  #' @examples
   
   amp_tbl_header <- match("Amplification genes", input_sheet$a)
   
@@ -135,7 +158,22 @@ find_amp_genes <- function(input_sheet, num_genes = 9) {
   
 }
 
+
 find_del_genes <- function(input_sheet) {
+  
+  #' For fold change information for deletion genes within the CNV sheet
+  #'
+  #' There are currently 37 genes identified for deletion analysis within the
+  #' CLC pipeline. These are presented in 3 tables. `find_del_genes` identifies
+  #' each table within the CNV sheet and collates them together.
+  #'
+  #' @param input_sheet A tibble containing the deleted gene information. 
+  #' This is intended to be the output from `read_cnv_sheet`.
+  #'
+  #' @returns
+  #' @export
+  #'
+  #' @examples
   
   del_tbl_header <- match("Deletion genes", input_sheet$a)
   
@@ -170,6 +208,16 @@ find_del_genes <- function(input_sheet) {
 
 find_sig_cnvs <- function(input_sheet) {
   
+  #' Find information for significant CNV results within the CNV sheet
+  #'
+  #' @param input_sheet A tibble containing the significant CNV information. 
+  #' This is intended to be the output from `read_cnv_sheet`.
+  #'
+  #' @returns
+  #' @export
+  #'
+  #' @examples
+  
   sig_cnv_header <- match("Significant CNV results", input_sheet$a)
   
   sig_cnv_colname_row <- sig_cnv_header + 1
@@ -184,6 +232,7 @@ find_sig_cnvs <- function(input_sheet) {
   
   sig_cnv_tbl_end <- na_row - 1
   
+  # Scenario where no significant CNVs are exported by the pipeline
   if(sig_cnv_tbl_start > sig_cnv_tbl_end) {
     
     sig_cnv_df <- data.frame(
@@ -201,6 +250,7 @@ find_sig_cnvs <- function(input_sheet) {
     
   }
   
+  # Scenario where significant CNVs are exported by the pipeline
   if(sig_cnv_tbl_start <= sig_cnv_tbl_end) {
     
     sig_cnv_df <- as.data.frame(input_sheet[sig_cnv_tbl_start:sig_cnv_tbl_end, 1:11])
@@ -225,6 +275,20 @@ find_sig_cnvs <- function(input_sheet) {
 }
 
 extract_cnv_tbls <- function(filepath, sheet_regex = "Amplifications_") {
+  
+  #' Extract all information from the CNV sheet of a PanSolid CLC Excel output
+  #'
+  #' This function acts as a wrapper of the `find_*` functions to extract
+  #' information from the 5 tables on the CLC pipeline Excel output CNV
+  #' sheet, adds sample identifiers and stores them within a list. 
+  #'
+  #' @param filepath Full file path to an Excel file
+  #' @param sheet_regex Regular expression for sheet name matching
+  #'
+  #' @returns
+  #' @export
+  #'
+  #' @examples
   
   tab <- read_cnv_sheet(filepath = filepath, 
                       sheet_regex = sheet_regex)
