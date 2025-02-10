@@ -34,7 +34,7 @@ testthat::test_that("get_sheetnames fail when sheet name is not unique", {
 
 testthat::test_that("find_stdev_ratios works with standard format", {
   
-  df_expected <- data.frame(
+  df_expected <- tibble(
     "stdev_noise" = c(0.300228451587477)
   )
   
@@ -47,7 +47,7 @@ testthat::test_that("find_stdev_ratios works with standard format", {
 
 testthat::test_that("find_percent_138x works with standard format", {
   
-  df_expected <- data.frame(
+  df_expected <- tibble(
     "percent_138x" = c(99.2912455702848)
   )
   
@@ -67,10 +67,8 @@ testthat::test_that("find_sig_cnvs handles multiple significant cnvs", {
     "CDKN2A",	"9",	"21242158..28208471",	6966314,	"Loss",	-20.83,	0,	24, as.character(NA), as.character(NA), as.numeric(NA), 21242158, 28208471,
     "CDKN2B",	"9",	"21242158..23207860",	1965703,	"Loss",	-22.29,	0,	19, as.character(NA), as.character(NA), as.numeric(NA), 21242158, 23207860)
   
-  df_expected <- as.data.frame(tribble_expected)
-  
   expect_equal(find_sig_cnvs(test_sheet),
-               df_expected)
+               tribble_expected)
     
 })
 
@@ -81,7 +79,7 @@ testthat::test_that("find_sig_cnvs handles no significant CNVs",{
   
   no_sig_cnv_sheet <- read_cnv_sheet(no_sig_cnv_path)
   
-  df_expected <- data.frame(
+  df_expected <- tibble(
     "gene" = "no positive calls",
     "chromosome" = "",
     "cnv_co_ordinates" = "",
@@ -108,7 +106,7 @@ testthat::test_that("find_sig_cnvs handles one significant CNV", {
   
   one_sig_cnv_sheet <- read_cnv_sheet(one_sig_cnv_path)
   
-  df_expected <- data.frame(
+  df_expected <- tibble(
     "gene" = "MLH1",
     "chromosome" = "3",
     "cnv_co_ordinates" = "10094284..39962881",
@@ -144,10 +142,8 @@ testthat::test_that("find_amp_genes loads table correctly", {
     "MYCN",	 -1.06841134,	 -1.06841134,
     "SMO",	 1.45630905,	 1.45630905)
     
-  df_expected <- as.data.frame(tribble_expected)
-  
   expect_equal(find_amp_genes(test_sheet), 
-               df_expected)
+               tribble_expected)
   
 })
 
@@ -196,10 +192,8 @@ testthat::test_that("find_del_genes loads table correctly", {
     "TP53", 1.064460108, 1.064460108
   )
 
-  df_expected <- as.data.frame(tribble_expected)
-  
   expect_equal(find_del_genes(test_sheet),
-               df_expected)
+               tribble_expected)
   
 })
 

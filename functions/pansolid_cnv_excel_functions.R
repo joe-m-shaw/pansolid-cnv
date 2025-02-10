@@ -82,7 +82,7 @@ find_stdev_ratios <- function(input_sheet) {
   
   stdev_start <- match("StDev Signal-adjusted Log2 Ratios", input_sheet$a) + 1
   
-  stdev_df <- as.data.frame(input_sheet[stdev_start, 1]) |> 
+  stdev_df <- tibble::as_tibble(input_sheet[stdev_start, 1]) |> 
     dplyr::rename(stdev_noise = a) |> 
     dplyr::mutate(stdev_noise = as.double(stdev_noise))
   
@@ -110,7 +110,7 @@ find_percent_138x <- function(input_sheet) {
   percent_138x_start <- match("% Whole Panel Covered at 138X",
                               input_sheet$a) + 1
   
-  percent_138x_df <- as.data.frame(input_sheet[percent_138x_start, 1]) |> 
+  percent_138x_df <- tibble::as_tibble(input_sheet[percent_138x_start, 1]) |> 
     dplyr::rename(percent_138x = a) |> 
     dplyr::mutate(percent_138x = as.double(percent_138x))
   
@@ -145,7 +145,7 @@ find_amp_genes <- function(input_sheet, num_genes = 9) {
   
   amp_tbl_end <- amp_tbl_start + (num_genes-1)
   
-  df <- as.data.frame(input_sheet[amp_tbl_start:amp_tbl_end, 1:3])
+  df <- tibble::as_tibble(input_sheet[amp_tbl_start:amp_tbl_end, 1:3])
   
   colnames(df) <- as.character(input_sheet[amp_tbl_colname_row, 1:3])          
   
@@ -185,15 +185,15 @@ find_del_genes <- function(input_sheet) {
   
   del_tbl_3_end <- del_tbl_start + 10
   
-  del_tbl1 <- as.data.frame(input_sheet[del_tbl_start:del_tbl_1_end, 1:3])
+  del_tbl1 <- tibble::as_tibble(input_sheet[del_tbl_start:del_tbl_1_end, 1:3])
   
   colnames(del_tbl1) <- as.character(input_sheet[del_tbl_colname_row, 1:3])
   
-  del_tbl2 <- as.data.frame(input_sheet[del_tbl_start:del_tbl_1_end, 5:7])
+  del_tbl2 <- tibble::as_tibble(input_sheet[del_tbl_start:del_tbl_1_end, 5:7])
   
   colnames(del_tbl2) <- as.character(input_sheet[del_tbl_colname_row, 5:7])
   
-  del_tbl3 <- as.data.frame(input_sheet[del_tbl_start:del_tbl_3_end, 9:11])
+  del_tbl3 <- tibble::as_tibble(input_sheet[del_tbl_start:del_tbl_3_end, 9:11])
   
   colnames(del_tbl3) <- as.character(input_sheet[del_tbl_colname_row, 9:11])
   
@@ -235,7 +235,7 @@ find_sig_cnvs <- function(input_sheet) {
   # Scenario where no significant CNVs are exported by the pipeline
   if(sig_cnv_tbl_start > sig_cnv_tbl_end) {
     
-    sig_cnv_df <- data.frame(
+    sig_cnv_df <- tibble(
       "gene" = "no positive calls",
       "chromosome" = "",
       "cnv_co_ordinates" = "",
@@ -253,7 +253,7 @@ find_sig_cnvs <- function(input_sheet) {
   # Scenario where significant CNVs are exported by the pipeline
   if(sig_cnv_tbl_start <= sig_cnv_tbl_end) {
     
-    sig_cnv_df <- as.data.frame(input_sheet[sig_cnv_tbl_start:sig_cnv_tbl_end, 1:11])
+    sig_cnv_df <- tibble::as_tibble(input_sheet[sig_cnv_tbl_start:sig_cnv_tbl_end, 1:11])
     
     colnames(sig_cnv_df) <- as.character(input_sheet[sig_cnv_colname_row, 1:11])
     
