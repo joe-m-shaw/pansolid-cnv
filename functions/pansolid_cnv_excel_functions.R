@@ -67,12 +67,17 @@ read_cnv_sheet <- function(filepath, sheet_regex = "Amplifications_") {
   
 }
 
-find_stdev_ratios <- function(input_sheet) {
+find_stdev_ratios <- function(input_sheet, 
+                              stdev_string = "StDev Signal-adjusted Log2 Ratios") {
   
   #' Find standard deviation of signal-adjusted log2 ratios within the CNV sheet
   #'
   #' @param input_sheet A tibble containing the stdev information. This is 
   #' intended to be the output from `read_cnv_sheet`.
+  #' 
+  #' @param stdev_string The string which identifies the position of the 
+  #' standard deviation information. This defaults to the current header, but
+  #' can be changed if necessary.
   #'
   #' @returns A tibble with the standard deviation of signal-adjusted 
   #' log2 ratios  
@@ -80,7 +85,11 @@ find_stdev_ratios <- function(input_sheet) {
   #'
   #' @examples
   
-  stdev_start <- match("StDev Signal-adjusted Log2 Ratios", input_sheet$a) + 1
+  stdev_start <- match(stdev_string, input_sheet$a) + 1
+  
+  if(is.na(stdev_start)){
+    stop("stdev_start not found")
+  }
   
   stdev_df <- tibble::as_tibble(input_sheet[stdev_start, 1]) |> 
     dplyr::rename(stdev_noise = a) |> 
@@ -95,20 +104,28 @@ find_stdev_ratios <- function(input_sheet) {
 }
 
 
-find_percent_138x <- function(input_sheet) {
+find_percent_138x <- function(input_sheet, 
+                              percent_138x_string = "% Whole Panel Covered at 138X") {
   
   #' Find percentage coverage at 138X within the CNV sheet
   #'
   #' @param input_sheet A tibble containing the percent 138X information. 
   #' This is intended to be the output from `read_cnv_sheet`.
   #'
+  #' @param percent_138x_string The string which identifies the position of the 
+  #' percent coverage at 138x table. This defaults to the current header, but
+  #' can be changed if necessary.
+  #'
   #' @returns A tibble with the percent 138X information.
   #' @export
   #'
   #' @examples
   
-  percent_138x_start <- match("% Whole Panel Covered at 138X",
-                              input_sheet$a) + 1
+  percent_138x_start <- match(percent_138x_string, input_sheet$a) + 1
+  
+  if(is.na(percent_138x_start)) {
+    stop("percent_138x_start not found")
+  }
   
   percent_138x_df <- tibble::as_tibble(input_sheet[percent_138x_start, 1]) |> 
     dplyr::rename(percent_138x = a) |> 
@@ -122,7 +139,8 @@ find_percent_138x <- function(input_sheet) {
   
 }
 
-find_amp_genes <- function(input_sheet, num_genes = 9) {
+find_amp_genes <- function(input_sheet, num_genes = 9, 
+                           amp_string = "Amplification genes") {
   
   #' Find fold change information for amplification genes with the CNV sheet
   #'
@@ -132,12 +150,20 @@ find_amp_genes <- function(input_sheet, num_genes = 9) {
   #' @param num_genes The number of genes with amplification results returned
   #' by the CLC pipeline. This is currently 9 but may change in future.
   #'
+  #' @param amp_string The string which identifies the position of the 
+  #' amplification genes table. This defaults to the current header, but
+  #' can be changed if necessary.
+  #'
   #' @returns A tibble of the amplification genes results table
   #' @export
   #'
   #' @examples
   
-  amp_tbl_header <- match("Amplification genes", input_sheet$a)
+  amp_tbl_header <- match(amp_string, input_sheet$a)
+  
+  if(is.na(amp_tbl_header)){
+    stop("amp_tbl_header not found")
+  }
   
   amp_tbl_colname_row <- amp_tbl_header + 1
   
@@ -159,7 +185,8 @@ find_amp_genes <- function(input_sheet, num_genes = 9) {
 }
 
 
-find_del_genes <- function(input_sheet) {
+find_del_genes <- function(input_sheet, num_genes = 37,
+                           del_string = "Deletion genes") {
   
   #' For fold change information for deletion genes within the CNV sheet
   #'
@@ -170,12 +197,22 @@ find_del_genes <- function(input_sheet) {
   #' @param input_sheet A tibble containing the deleted gene information. 
   #' This is intended to be the output from `read_cnv_sheet`.
   #'
+  #' @param num_genes The number of genes within the deletion genes table.
+  #'
+  #' @param del_string The string which identifies the position of the 
+  #' deletion genes table. This defaults to the current header, but
+  #' can be changed if necessary.
+  #'
   #' @returns A tibble of the deletion genes results table
   #' @export
   #'
   #' @examples
   
-  del_tbl_header <- match("Deletion genes", input_sheet$a)
+  del_tbl_header <- match(del_string, input_sheet$a)
+  
+  if(is.na(del_tbl_header)){
+    stop("del_tbl_header not found")
+  }
   
   del_tbl_colname_row <- del_tbl_header + 1
   
@@ -202,27 +239,44 @@ find_del_genes <- function(input_sheet) {
     dplyr::mutate(max_region_fold_change = as.double(max_region_fold_change),
            min_region_fold_change = as.double(min_region_fold_change))
   
+  if(nrow(del_tbl) != num_genes){
+    warning("Different number of genes found to expected")
+  }
+  
   return(del_tbl)
   
 }
 
-find_sig_cnvs <- function(input_sheet) {
+find_sig_cnvs <- function(input_sheet, 
+                          sig_cnv_string = "Significant CNV results",
+                          amp_gene_string = "Amplification genes") {
   
   #' Find information for significant CNV results within the CNV sheet
   #'
   #' @param input_sheet A tibble containing the significant CNV information. 
   #' This is intended to be the output from `read_cnv_sheet`.
   #'
+  #' @param sig_cnv_string The string which identifies the position of the 
+  #' significant CNVs table. This defaults to the current header, but
+  #' can be changed if necessary.
+  #' 
+  #' @param amp_gene_string The string which identifiers the position
+  #' of the amplification genes table.
+  #'
   #' @returns A tibble of the significant CNV results table
   #' @export
   #'
   #' @examples
   
-  sig_cnv_header <- match("Significant CNV results", input_sheet$a)
+  sig_cnv_header <- match(sig_cnv_string, input_sheet$a)
+  
+  if(is.na(sig_cnv_header)){
+    stop("sig_cnv_header not found")
+  }
   
   sig_cnv_colname_row <- sig_cnv_header + 1
   
-  amp_gene_header <- match("Amplification genes", input_sheet$a)
+  amp_gene_header <- match(amp_gene_string, input_sheet$a)
   
   na_row <- amp_gene_header - 1
   

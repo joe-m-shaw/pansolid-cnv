@@ -7,6 +7,9 @@ test_filepath <- paste0(test_datapath,
 
 test_sheet <- read_cnv_sheet(test_filepath)
 
+test_sheet_missing_titles <- read_cnv_sheet(paste0(test_datapath,
+                                                   "Annotated_Jan2025_withLOH_testing_del_visualisation_WS123456_12345678_PlatonKARATAEV.xlsx"))
+
 # get_sheetnames
 
 testthat::test_that("get_sheetnames works with standard input", {
@@ -43,6 +46,13 @@ testthat::test_that("find_stdev_ratios works with standard format", {
   
 })
 
+testthat::test_that("find_stdev_ratios throws error when title is wrong", {
+  
+  expect_error(find_stdev_ratios(test_sheet_missing_titles),
+               "stdev_start not found")
+
+})
+
 # find_percent_138x
 
 testthat::test_that("find_percent_138x works with standard format", {
@@ -54,6 +64,13 @@ testthat::test_that("find_percent_138x works with standard format", {
   expect_equal(find_percent_138x(test_sheet),
                df_expected)
   
+})
+
+testthat::test_that("find_percent_138x throws error when title is wrong", {
+  
+  expect_error(find_percent_138x(test_sheet_missing_titles),
+               "percent_138x_start not found")
+
 })
 
 # find_sig_cnvs
@@ -126,6 +143,13 @@ testthat::test_that("find_sig_cnvs handles one significant CNV", {
   
 })
 
+testthat::test_that("find_sig_cnvs throws error whent the title is wrong", {
+  
+  expect_error(find_sig_cnvs(test_sheet_missing_titles),
+               "sig_cnv_header not found")
+  
+})
+
 # find_amp_genes
 
 testthat::test_that("find_amp_genes loads table correctly", {
@@ -144,6 +168,13 @@ testthat::test_that("find_amp_genes loads table correctly", {
     
   expect_equal(find_amp_genes(test_sheet), 
                tribble_expected)
+  
+})
+
+testthat::test_that("find_amp_genes throws error whent the title is wrong", {
+  
+  expect_error(find_amp_genes(test_sheet_missing_titles),
+               "amp_tbl_header not found")
   
 })
 
@@ -194,6 +225,13 @@ testthat::test_that("find_del_genes loads table correctly", {
 
   expect_equal(find_del_genes(test_sheet),
                tribble_expected)
+  
+})
+
+testthat::test_that("find_del_genes throws error when title is wrong", {
+  
+  expect_error(find_del_genes(test_sheet_missing_titles),
+               "del_tbl_header not found")
   
 })
 
