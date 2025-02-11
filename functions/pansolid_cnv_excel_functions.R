@@ -67,6 +67,29 @@ read_cnv_sheet <- function(filepath, sheet_regex = "Amplifications_") {
   
 }
 
+find_match <- function(input_sheet, input_col, match_string) {
+  
+  #' Find matches for strings within an Excel sheet
+  #'
+  #' @param input_sheet The Excel sheet to search
+  #' @param input_col The column to search
+  #' @param match_string The string to search for
+  #'
+  #' @returns The numeric position of the string match within the column
+  #' @export
+  #'
+  #' @examples
+  
+  output <- match(match_string, input_sheet[[ input_col ]])
+  
+  if(is.na(output)){
+    stop(paste0(match_string, " not found"))
+  }
+  
+  return(output)
+  
+}
+
 find_stdev_ratios <- function(input_sheet, 
                               stdev_string = "StDev Signal-adjusted Log2 Ratios") {
   
@@ -85,11 +108,8 @@ find_stdev_ratios <- function(input_sheet,
   #'
   #' @examples
   
-  stdev_start <- match(stdev_string, input_sheet$a) + 1
-  
-  if(is.na(stdev_start)){
-    stop("stdev_start not found")
-  }
+  stdev_start <- find_match(input_sheet, "a",
+                            stdev_string) + 1
   
   stdev_df <- tibble::as_tibble(input_sheet[stdev_start, 1]) |> 
     dplyr::rename(stdev_noise = a) |> 
@@ -121,11 +141,8 @@ find_percent_138x <- function(input_sheet,
   #'
   #' @examples
   
-  percent_138x_start <- match(percent_138x_string, input_sheet$a) + 1
-  
-  if(is.na(percent_138x_start)) {
-    stop("percent_138x_start not found")
-  }
+  percent_138x_start <- find_match(input_sheet, "a",
+                                   percent_138x_string) + 1
   
   percent_138x_df <- tibble::as_tibble(input_sheet[percent_138x_start, 1]) |> 
     dplyr::rename(percent_138x = a) |> 
@@ -159,11 +176,7 @@ find_amp_genes <- function(input_sheet, num_genes = 9,
   #'
   #' @examples
   
-  amp_tbl_header <- match(amp_string, input_sheet$a)
-  
-  if(is.na(amp_tbl_header)){
-    stop("amp_tbl_header not found")
-  }
+  amp_tbl_header <- find_match(input_sheet, "a", amp_string)
   
   amp_tbl_colname_row <- amp_tbl_header + 1
   
@@ -208,11 +221,7 @@ find_del_genes <- function(input_sheet, num_genes = 37,
   #'
   #' @examples
   
-  del_tbl_header <- match(del_string, input_sheet$a)
-  
-  if(is.na(del_tbl_header)){
-    stop("del_tbl_header not found")
-  }
+  del_tbl_header <- find_match(input_sheet, "a", del_string)
   
   del_tbl_colname_row <- del_tbl_header + 1
   
@@ -268,16 +277,12 @@ find_sig_cnvs <- function(input_sheet,
   #'
   #' @examples
   
-  sig_cnv_header <- match(sig_cnv_string, input_sheet$a)
-  
-  if(is.na(sig_cnv_header)){
-    stop("sig_cnv_header not found")
-  }
+  sig_cnv_header <- find_match(input_sheet, "a", sig_cnv_string)
   
   sig_cnv_colname_row <- sig_cnv_header + 1
   
-  amp_gene_header <- match(amp_gene_string, input_sheet$a)
-  
+  amp_gene_header <- find_match(input_sheet, "a", amp_gene_string)
+    
   na_row <- amp_gene_header - 1
   
   stopifnot(is.na(input_sheet[na_row, 1]))

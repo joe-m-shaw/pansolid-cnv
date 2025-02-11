@@ -1,4 +1,6 @@
 
+library(testthat)
+
 test_datapath <- paste0(config::get("data_filepath"),
                         "validation/DOC6567_deletions/test_data/")
 
@@ -7,35 +9,46 @@ test_filepath <- paste0(test_datapath,
 
 test_sheet <- read_cnv_sheet(test_filepath)
 
-test_sheet_missing_titles <- read_cnv_sheet(paste0(test_datapath,
-                                                   "Annotated_Jan2025_withLOH_testing_del_visualisation_WS123456_12345678_PlatonKARATAEV.xlsx"))
-
 # get_sheetnames
 
-testthat::test_that("get_sheetnames works with standard input", {
+test_that("get_sheetnames works with standard input", {
   
   expect_equal(get_sheetname(test_filepath),
                "Amplifications_12345678")
   
 })
 
-testthat::test_that("get_sheetnames fails when sheet name is absent", {
+test_that("get_sheetnames fails when sheet name is absent", {
 
   expect_error(get_sheetname(test_filepath, sheet_regex = "new_sheet"),
                "Sheet name not found")
   
 })
 
-testthat::test_that("get_sheetnames fail when sheet name is not unique", {
+test_that("get_sheetnames fail when sheet name is not unique", {
   
   expect_error(get_sheetname(test_filepath, sheet_regex = "Hotspots"),
                "Sheet name must be unique")
   
 })
 
+# find_match
+
+test_that("find_match fails when the string is wrong", {
+  
+  test_sheet_missing_titles <- read_cnv_sheet(paste0(test_datapath,
+                                                     "Annotated_Jan2025_withLOH_testing_del_visualisation_WS123456_12345678_PlatonKARATAEV.xlsx"))
+  
+  expect_error(find_match(test_sheet_missing_titles, "a",
+                          "StDev Signal-adjusted Log2 Ratios"),
+               "StDev Signal-adjusted Log2 Ratios not found")
+  
+  
+})
+
 # find_stdev_ratios
 
-testthat::test_that("find_stdev_ratios works with standard format", {
+test_that("find_stdev_ratios works with standard format", {
   
   df_expected <- tibble(
     "stdev_noise" = c(0.300228451587477)
@@ -46,16 +59,9 @@ testthat::test_that("find_stdev_ratios works with standard format", {
   
 })
 
-testthat::test_that("find_stdev_ratios throws error when title is wrong", {
-  
-  expect_error(find_stdev_ratios(test_sheet_missing_titles),
-               "stdev_start not found")
-
-})
-
 # find_percent_138x
 
-testthat::test_that("find_percent_138x works with standard format", {
+test_that("find_percent_138x works with standard format", {
   
   df_expected <- tibble(
     "percent_138x" = c(99.2912455702848)
@@ -66,16 +72,9 @@ testthat::test_that("find_percent_138x works with standard format", {
   
 })
 
-testthat::test_that("find_percent_138x throws error when title is wrong", {
-  
-  expect_error(find_percent_138x(test_sheet_missing_titles),
-               "percent_138x_start not found")
-
-})
-
 # find_sig_cnvs
 
-testthat::test_that("find_sig_cnvs handles multiple significant cnvs", {
+test_that("find_sig_cnvs handles multiple significant cnvs", {
   
   tribble_expected <- tibble::tribble(
     ~gene, ~chromosome, ~cnv_co_ordinates, ~cnv_length, ~consequence, ~fold_change, ~p_value, ~no_targets, ~check_1, ~check_2, ~copy_number, ~start, ~end,
@@ -89,7 +88,7 @@ testthat::test_that("find_sig_cnvs handles multiple significant cnvs", {
     
 })
 
-testthat::test_that("find_sig_cnvs handles no significant CNVs",{
+test_that("find_sig_cnvs handles no significant CNVs",{
   
   no_sig_cnv_path <- paste0(test_datapath, 
                            "Annotated_Jan2025_withLOH_testing_del_visualisation_WS123456_12345678_AnnaKARENINA.xlsx")
@@ -116,7 +115,7 @@ testthat::test_that("find_sig_cnvs handles no significant CNVs",{
   
 })
 
-testthat::test_that("find_sig_cnvs handles one significant CNV", {
+test_that("find_sig_cnvs handles one significant CNV", {
   
   one_sig_cnv_path <- paste0(test_datapath, 
                             "Annotated_Jan2025_withLOH_testing_del_visualisation_WS123456_12345678_KonstantinLEVIN.xlsx")
@@ -143,16 +142,9 @@ testthat::test_that("find_sig_cnvs handles one significant CNV", {
   
 })
 
-testthat::test_that("find_sig_cnvs throws error whent the title is wrong", {
-  
-  expect_error(find_sig_cnvs(test_sheet_missing_titles),
-               "sig_cnv_header not found")
-  
-})
-
 # find_amp_genes
 
-testthat::test_that("find_amp_genes loads table correctly", {
+test_that("find_amp_genes loads table correctly", {
   
   tribble_expected <- tibble::tribble(
     ~gene,   ~max_region_fold_change, ~min_region_fold_change,
@@ -171,16 +163,9 @@ testthat::test_that("find_amp_genes loads table correctly", {
   
 })
 
-testthat::test_that("find_amp_genes throws error whent the title is wrong", {
-  
-  expect_error(find_amp_genes(test_sheet_missing_titles),
-               "amp_tbl_header not found")
-  
-})
-
 # find_del_genes
 
-testthat::test_that("find_del_genes loads table correctly", {
+test_that("find_del_genes loads table correctly", {
   
   tribble_expected <- tibble::tribble(
     ~gene, ~max_region_fold_change, ~min_region_fold_change,
@@ -228,13 +213,4 @@ testthat::test_that("find_del_genes loads table correctly", {
   
 })
 
-testthat::test_that("find_del_genes throws error when title is wrong", {
-  
-  expect_error(find_del_genes(test_sheet_missing_titles),
-               "del_tbl_header not found")
-  
-})
-
-# Remove testing files and tibbles
-rm(test_filepath)
-rm(test_sheet)
+rm(test_datapath, test_filepath, test_sheet)
