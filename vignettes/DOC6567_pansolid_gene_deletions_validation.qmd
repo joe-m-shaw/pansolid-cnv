@@ -97,6 +97,7 @@ library(here)
 library(janitor)
 library(readxl)
 library(patchwork)
+library(foldchanger)
 
 source(here("functions/gene_table_functions.R"))
 source(here("functions/test_metric_functions.R"))
@@ -166,6 +167,7 @@ gene_target_counts <- pansolid_target_loci |>
          "Gene" = single_locus) 
 
 ```
+
 # Purpose
 
 The purpose of this document is to describe the validation of detection of
@@ -363,6 +365,9 @@ LOH in colorectal cancer may be identified using SNP arrays
 (@melcher2007, @melcher2011), PCR fragment analysis (@guerts-giele2014) and 
 next generation sequencing.
 
+LOH detection was required for the following genes: *MSH2*, *MSH6*, *MLH1*,
+*PMS2*, *LZTR1*, *SMARCB1* and *NF2*.
+
 ## Requirements
 
 The requirements for this new method are as follows:
@@ -443,34 +448,19 @@ $$ {#eq-fold-change-loss}
 #| label: fold-change
 #| include: FALSE
 
-ref_sample_copies <- 200
-
-calculate_deletion_fold_change <- function(tcc_percent, sample_target_copies_per_tumour_cell) {
-  
-  tcc_fraction <- tcc_percent / 100
-  
-  sample_target_copies_in_tumour_cells <- (100 * tcc_fraction) * sample_target_copies_per_tumour_cell
-  
-  sample_target_copies_in_normal_cells <- (100 * (1-tcc_fraction)) * 2
-  
-  sample_total_target_copies <- sample_target_copies_in_tumour_cells + sample_target_copies_in_normal_cells
-  
-  fold_change <- -1 * (ref_sample_copies / sample_total_target_copies) 
-  
-  return(fold_change)
-  
-}
-
 fold_change_df <- data.frame(ncc = seq(0, 100, by = 0.1)) |> 
-  mutate(fold_change_normal = calculate_deletion_fold_change(
-      tcc_percent = ncc,
-      sample_target_copies_per_tumour_cell = 2),
-    fold_change_het_del = calculate_deletion_fold_change(
-      tcc_percent = ncc,
-      sample_target_copies_per_tumour_cell = 1),
-    fold_change_hom_del = calculate_deletion_fold_change(
-       tcc_percent = ncc,
-       sample_target_copies_per_tumour_cell = 0)) |> 
+  mutate(fold_change_normal = pred_fc(tumour_cpc = 2,
+                                      ncc = ncc,
+                                      dir = "loss",
+                                      digits = 3),
+         fold_change_het_del = pred_fc(tumour_cpc = 1,
+                                       ncc = ncc,
+                                       dir = "loss",
+                                       digits = 3),
+         fold_change_hom_del = pred_fc(tumour_cpc = 0,
+                                       ncc = ncc,
+                                       dir = "loss",
+                                       digits = 3)) |> 
   pivot_longer(cols = -ncc,
                names_to = "del_state",
                values_to = "fold_change")
@@ -481,7 +471,8 @@ fold_change_df <- data.frame(ncc = seq(0, 100, by = 0.1)) |>
 #| label: fold-change-threshold
 #| include: FALSE
 
-deletion_fc_threshold <- calculate_deletion_fold_change(50, 1)
+deletion_fc_threshold <- pred_fc(tumour_cpc = 1, ncc = 50, dir = "loss",
+                                 digits = 3)
 
 ```
 
@@ -708,10 +699,6 @@ S:/central shared/Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/validat
 ```{r}
 #| label: overall-results
 #| include: FALSE
-
-
-str(del_val_pansolid_ngs_collated)
-
 
 ```
 
