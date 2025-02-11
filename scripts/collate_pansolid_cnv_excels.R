@@ -26,7 +26,6 @@ cnv_excel_files <- list.files(path = data_path,
 file_cnv_tbl_list <- cnv_excel_files |> 
   map(\(cnv_excel_files) extract_cnv_tbls(cnv_excel_files))
 
-
 # Isolate collated tables -------------------------------------------------
 
 collated_stdev <- map(file_cnv_tbl_list, ~ .x[["stdev"]]) |> 
