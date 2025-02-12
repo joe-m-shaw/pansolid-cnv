@@ -566,7 +566,8 @@ Equations taken from [Illumina website](https://help.dragen.illumina.com/product
 
 ### Ploidy
 
-Ploidy status was predicted using the "Detect Regional Ploidy" tool. This uses
+Ploidy status was predicted using the "Detect Regional Ploidy" tool with the
+"Region-level Ploidy Track". This uses
 a Hidden Markov Model to predict ploidy based on SNP and coverage data, which 
 is influenced by @beroukhim2006.
 
@@ -662,7 +663,8 @@ D22S268) on chromosome 22 are used to assess loss of heterozygosity (LOH) for
 the *NF2* gene with fluorescence-PCR analysed on an ABI-3130 analyser 
 ([LP 000 069: Neurofibromatosis type 2 (NF2): Standard Operating
 Procedure]{custom-style="Strong"}). Testing was performed on paired tumour and
-blood DNA.
+blood DNA. A relative loss of peak height greater than 30% between tumour DNA
+and blood DNA is used to classify "significant LOH" [@wallace2004].
 
 These markers span `r nf2_marker_mb` Mb of chromosome 22, the same region 
 contains `r nrow(nf2_loh_targets)` targets on PanSolid v2.
