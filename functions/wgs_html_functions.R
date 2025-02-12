@@ -29,20 +29,12 @@ parse_wgs_html_header <- function(html_filepath) {
     comments = TRUE
   )
   
-  wgs_version <- stringr::str_extract(header, header_regex, group = 1)
-  
-  wgs_analysis_date <- stringr::str_extract(header, header_regex, group = 2)
-  
-  wgs_r_no <- stringr::str_extract(header, header_regex, group = 3)
-  
-  wgs_p_no <- stringr::str_extract(header, header_regex, group = 4)
-  
   output <- data.frame( 
     "filepath" = html_filepath,
-    "wgs_r_no" = wgs_r_no,
-    "wgs_p_no" = wgs_p_no,
-    "wgs_version" = wgs_version,
-    "wgs_analysis_date" = wgs_analysis_date)
+    "wgs_r_no" = stringr::str_extract(header, header_regex, group = 3),
+    "wgs_p_no" = stringr::str_extract(header, header_regex, group = 4),
+    "wgs_version" = stringr::str_extract(header, header_regex, group = 1),
+    "wgs_analysis_date" = stringr::str_extract(header, header_regex, group = 2))
   
   return(output)
   
@@ -82,25 +74,20 @@ parse_wgs_html_pid_text <- function(html_filepath) {
     comments = TRUE
   )
   
-  name <- stringr::str_extract(string = pid_text, pattern = pid_regex,
-                      group = 1)
-  
-  dob <- stringr::str_extract(string = pid_text, pattern = pid_regex,
-                     group = 2)
-  
-  nhsno_raw <- stringr::str_extract(string = pid_text, pattern = pid_regex,
-                        group = 3)
-  
-  nhsno <- stringr::str_replace_all(string = nhsno_raw,
-                                  pattern = " ",
-                                  replacement = "")
-  
   output <- data.frame( 
     "filepath" = html_filepath,
-    "patient_name" = name,
-    "patient_dob" = dob,
-    "nhsno_raw" = nhsno_raw,
-    "nhsno" = nhsno)
+    "patient_name" = stringr::str_extract(string = pid_text, 
+                                          pattern = pid_regex,
+                                          group = 1),
+    "patient_dob" = stringr::str_extract(string = pid_text, 
+                                         pattern = pid_regex,
+                                         group = 2),
+    "nhsno_raw" = stringr::str_extract(string = pid_text, 
+                                       pattern = pid_regex,
+                                       group = 3),
+    "nhsno" = stringr::str_replace_all(string = nhsno_raw,
+                                       pattern = " ",
+                                       replacement = ""))
   
   return(output)
   
@@ -114,13 +101,16 @@ parse_wgs_html_table_by_div_id <- function(html_filepath,
   #' @param html_filepath The filepath for the WGS HTML file
   #' @param div_id The CSS identifier for the table (examples below)
   #' 
-  #' @return Returns the table from the HTML as a tibble with column names in snake-case.
+  #' @return Returns the table from the HTML as a tibble with column names 
+  #' in snake-case.
   #' 
   #' @section Useful Identifiers: 
   #' "t_tumour_details", "t_tumour_sample", 
   #' "t_germline_sample", "t_quality", "tier1" (Tier 1 sequence variants),
-  #' "svcnv_tier1" (Tier 1 structural and copy number variants, for v2.28 and earlier), 
-  #' "d_svcnv_tier1" (Tier 1 structural and copy number variants,later versions than v2.28)
+  #' "svcnv_tier1" (Tier 1 structural and copy number variants, for v2.28 
+  #' and earlier), 
+  #' "d_svcnv_tier1" (Tier 1 structural and copy number variants,later versions
+  #'  than v2.28)
   #'
   #' @examples parse_wgs_html_table_by_div_id(filepath, "t_tumour_details")
   
@@ -148,10 +138,12 @@ parse_wgs_html_table_by_number <- function(html_filepath,
   #' @param html_filepath The filepath for the WGS HTML file
   #' @param table_number The number of the table to select
   #'
-  #' @return Returns the table from the HTML as a tibble with column names in snake-case.
-  #' @note This function is a less specific version of parse_wgs_html_table_by_div_id.
-  #' It can be used for cases where the table does not have a div_id available. This is 
-  #' specifically relevant to the patient details table - see example.
+  #' @return Returns the table from the HTML as a tibble with column names 
+  #' in snake-case.
+  #' @note This function is a less specific version of 
+  #' parse_wgs_html_table_by_div_id.
+  #' It can be used for cases where the table does not have a div_id available.
+  #' This is specifically relevant to the patient details table - see example.
   #' 
   #' @examples patient_ids <- parse_wgs_html_table_by_number(filepath, 1)
   
@@ -177,8 +169,10 @@ wgs_html_variant_type_regex <- function() {
   
   #' Regular expression for whole genome sequencing "variant type" HTML column
   #'
-  #' @return The regular expression for the "variant type" column (example format: LOH(2); GAIN(3)).
-  #' This output is then used for later functions for extracting different parts of the regex.
+  #' @return The regular expression for the "variant type" column 
+  #' (example format: LOH(2); GAIN(3)).
+  #' This output is then used for later functions for extracting different 
+  #' parts of the regex.
   #' @export
   
   wgs_html_variant_type_regex <- stringr::regex(
@@ -201,8 +195,9 @@ parse_wgs_cnv_class <- function(x) {
   
   #' Parse the CNV class from the WGS variant type string
   #'
-  #' @param x The WGS variant type string from a WGS HTML which has the variant type and then may 
-  #' also have the copy number in brackets. Examples: "LOH(2)", "GAIN(3)", "INV"
+  #' @param x The WGS variant type string from a WGS HTML which has the 
+  #' variant type and then may also have the copy number in brackets. 
+  #' Examples: "LOH(2)", "GAIN(3)", "INV"
   #'
   #' @return The CNV class (examples: "LOH", "GAIN", "INV") as a string
   #' @export
@@ -222,15 +217,17 @@ parse_wgs_cnv_copy_number <- function(x) {
   
   #' Parse the CNV copy number from the WGS variant type string
   #'
-  #' @param x The WGS variant type string from a WGS HTML which has the variant type and then may 
-  #' also have the copy number in brackets. Examples: "LOH(2)", "GAIN(3)", "INV"
+  #' @param x The WGS variant type string from a WGS HTML which has the 
+  #' variant type and then may also have the copy number in brackets. 
+  #' Examples: "LOH(2)", "GAIN(3)", "INV"
   #'
   #' @return The CNV copy number as a number
   #' @export
   #'
   #' @examples cnv_number <- parse_wgs_cnv_copy_number("LOH (2)")
   
-  wgs_cnv_copy_number <- readr::parse_number(stringr::str_extract(string = x,
+  wgs_cnv_copy_number <- readr::parse_number(stringr::str_extract(
+                                                  string = x,
                                                   pattern = wgs_html_variant_type_regex(),
                                                   group = 2))
   
@@ -242,7 +239,8 @@ wgs_html_grch38_coordinates_regex <- function() {
   
   #' Regular expression for the whole genome sequencing variant coordinates string
   #'
-  #' @return The regular expression for the "Variant GRCh38 coordinates" column in the WGS HTML file.
+  #' @return The regular expression for the "Variant GRCh38 coordinates" 
+  #' column in the WGS HTML file.
   #' The format gives the chromosome, start coordinate and end coordinate for a CNV.
   #' Example: "7:60912080-159335569"
   #' @export
@@ -269,8 +267,8 @@ parse_wgs_html_grch38_coordinates <- function(x, group) {
   #' Parse a group from the whole genome sequencing GRCh38 coordinate string
   #'
   #' @param x The coordinate string. Example: "7:60912080-159335569"
-  #' @param group The group to be selected, which must be 1 for "chromosome", 2 for "first coordinate"
-  #' or 4 for "second coordinate".
+  #' @param group The group to be selected, which must be 1 for "chromosome", 
+  #' 2 for "first coordinate" or 4 for "second coordinate".
   #'
   #' @return The selected regex group as a string.
   #' @export
