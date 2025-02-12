@@ -294,7 +294,7 @@ find_sig_cnvs <- function(input_sheet,
   # Scenario where no significant CNVs are exported by the pipeline
   if(sig_cnv_tbl_start > sig_cnv_tbl_end) {
     
-    sig_cnv_df <- tibble(
+    sig_cnv_df <- tibble::tibble(
       "gene" = "no positive calls",
       "chromosome" = "",
       "cnv_co_ordinates" = "",
@@ -387,7 +387,10 @@ read_loh_table <- function(filepath, sheet_regex = "LOH_",
   
   loh_table <- readxl::read_xlsx(path = filepath, 
                                  sheet = get_sheetname(filepath,
-                                                       sheet_regex = sheet_regex)) |> 
+                                                       sheet_regex = sheet_regex),
+                                 n_max = 7,
+                                 col_types = c("text", "text","text", 
+                                               "text", "text")) |> 
     janitor::clean_names()
   
   if(setequal(loh_table$gene, loh_genes) == FALSE){
