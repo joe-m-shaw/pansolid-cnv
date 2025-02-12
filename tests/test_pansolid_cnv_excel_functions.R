@@ -50,7 +50,7 @@ test_that("find_match fails when the string is wrong", {
 
 test_that("find_stdev_ratios works with standard format", {
   
-  df_expected <- tibble(
+  df_expected <- tibble::tibble(
     "stdev_noise" = c(0.300228451587477)
   )
   
@@ -63,7 +63,7 @@ test_that("find_stdev_ratios works with standard format", {
 
 test_that("find_percent_138x works with standard format", {
   
-  df_expected <- tibble(
+  df_expected <- tibble::tibble(
     "percent_138x" = c(99.2912455702848)
   )
   
@@ -95,7 +95,7 @@ test_that("find_sig_cnvs handles no significant CNVs",{
   
   no_sig_cnv_sheet <- read_cnv_sheet(no_sig_cnv_path)
   
-  df_expected <- tibble(
+  df_expected <- tibble::tibble(
     "gene" = "no positive calls",
     "chromosome" = "",
     "cnv_co_ordinates" = "",
@@ -122,7 +122,7 @@ test_that("find_sig_cnvs handles one significant CNV", {
   
   one_sig_cnv_sheet <- read_cnv_sheet(one_sig_cnv_path)
   
-  df_expected <- tibble(
+  df_expected <- tibble::tibble(
     "gene" = "MLH1",
     "chromosome" = "3",
     "cnv_co_ordinates" = "10094284..39962881",
