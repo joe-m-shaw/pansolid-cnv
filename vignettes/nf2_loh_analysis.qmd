@@ -138,7 +138,7 @@ compare_results <- loh_collated |>
 
 # Results
 
-## Overall results
+## Results without quality filtering
 
 Here are the initial results from a direct comparison of the PanSolid CLC
 *NF2* LOH results with the PCR LOH results, with no filtering by quality.
@@ -159,6 +159,8 @@ knitr::kable(initial_comparison)
 ```
 
 {{< pagebreak >}}
+
+## Results with quality filtering
 
 ```{r}
 #| label: tbl-comparison-with-qc
@@ -210,9 +212,9 @@ knitr::kable(discrepant_results)
 
 ```
 
-I've checked the SNP tracks and log2 tracks in the HTML files for 24028507 and 
-24031557: in both samples the pattern seems to be a mono-allelic deletion, which
-is in agreement with the *NF2* PCR results.
+I've checked the SNP tracks and log2 tracks in the HTML files for 24028507,  
+24031557 and 24044746: in each sample the pattern seems to be a mono-allelic 
+deletion, which is in agreement with the *NF2* PCR results.
 
 {{< pagebreak >}}
 
@@ -220,7 +222,7 @@ is in agreement with the *NF2* PCR results.
 
 ```{r}
 #| label: tbl-metrics
-#| tbl-cap: "Comparison metrics"
+#| tbl-cap: "Comparison metrics for PanSolid CLC with quality filtering"
 #| echo: FALSE
 
 true_pos <- nrow(compare_results_with_qc[compare_results_with_qc$category == "true_pos", ])
@@ -251,7 +253,7 @@ knitr::kable(epi_test_se_spe)
 
 ```
 
-If we assume that a scientist inspecting the SNP track would spot the two calls
+If we assume that a scientist inspecting the SNP track would spot the calls
 of "bi-allelic deletion" which look more like mono-allelic deletions, then 
 the metrics look like this:
 
@@ -260,7 +262,7 @@ the metrics look like this:
 #| tbl-cap: "Revised comparison metrics"
 #| echo: FALSE
 
-epi_test_list2 <- epi.tests(c(true_pos+2, false_pos, false_neg-2, true_neg))
+epi_test_list2 <- epi.tests(c(true_pos+3, false_pos, false_neg-3, true_neg))
 
 epi_test_se_spe2 <- epi_test_list2$detail |> 
   filter(statistic %in% c("se", "sp")) |> 
@@ -280,11 +282,11 @@ knitr::kable(epi_test_se_spe2)
 ```
 
 
-## Individual samples
+## Other observations
 
 **Occasionally the ploidy caller and the deletion caller disagree.** Example:
 24054295 - ploidy caller says copy neutral LOH whilst deletion table has 
-fold change of -1.26.
+fold change of -1.26. 
 
 **The ploidy caller may call copy neutral LOH when the results look more like
 a deletion.** Examples: 24025435 and 24023289.
@@ -296,12 +298,24 @@ missed on previous testing.
 
 # Conclusions
 
-The quality thresholds of noise <= 0.7 and percent coverage at 138X >= 75%
-are appropriate for LOH calling.
+The PanSolid CLC pipeline has good concordance for LOH analysis with *NF2*
+dinucleotide marker PCR analysis.
 
-When these quality thresholds are applied, the agreement between the PanSolid CLC
-pipeline and *NF2* fragment PCR is high (26/28 samples).
+When quality thresholds are applied (noise <= 0.7 and percent coverage at 
+138X >= 75%), there are only 3 discrepant results.
 
-The remaining 2 discrepant samples would be classified as deletions based
+The discrepant samples would be classified as deletions based
 on scientific judgement, which would give the PanSolid CLC pipeline 
 100% sensitivity and specificity in comparison with *NF2* fragment PCR.
+
+```{r}
+#| label: export-results
+#| include: FALSE
+
+write_csv(compare_results,
+          file = paste0(data_filepath,
+                        "validation/DOC6567_deletions/processed/",
+                        "nf2_loh_result_comparison.csv"))
+
+```
+
