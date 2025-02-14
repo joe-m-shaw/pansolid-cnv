@@ -1,7 +1,7 @@
 
 library(testthat)
 
-test_datapath <- paste0(config::get("data_filepath"),
+test_datapath <- paste0(config::get("data_folderpath"),
                         "validation/DOC6567_deletions/test_data/")
 
 test_filepath <- paste0(test_datapath,
