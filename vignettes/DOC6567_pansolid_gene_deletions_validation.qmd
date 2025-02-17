@@ -267,7 +267,8 @@ fluorescence in-situ hybridisation (FISH). These cytogenetic techniques can
 view cancers at a single-cell resolution. Over the last 25 years, there has
 been increasing development of molecular methods for detection of somatic CNVs,
 including deletions, beginning with array comparative genome hybridisation
-(CGH) and SNP-microarrays [@das2013], before progressing to Illumina short-read
+(CGH) and SNP-microarrays [@das2013; @spence2022], before progressing to 
+Illumina short-read
 next generation sequencing (NGS) of gene-panels [@conroy2021; glodzik2023], 
 exomes [@zare2017] and genomes [@yi2023; sonsinsky2024]. The majority of NGS 
 approaches use a depth-of-coverage approach:
@@ -412,6 +413,12 @@ Only 1 sample had a germline finding in a targeted gene on WGS.
 
 Ploidy ranged from x to y and NCC ranged from a to b.
 
+## Limit of detection experiment
+
+A limit of detection experiment was prepared on WS150454. Dilutions were run on
+PanSolid workshet WSxxxx.
+
+
 ## DNA extraction
 
 ## Next generation sequencing
@@ -535,6 +542,8 @@ copy_number_plot
 
 The signal-adjusted noise metric was developed during the *ERBB2* validation and
 is described in detail in DOCxxxx.
+
+Quality thresholds were set following downsampling experiments for INCxxxx.
 
 ### Variant frequency
 
@@ -1280,6 +1289,8 @@ coverage fluctuation to pass the fold change cutoff for deletions."
 The theoretical limit of detection for a heterozygous deletion is 50%, and 
 for a homozygous deletion it is 25% (@sec-methods-fold-change).
 
+
+
 ## Quality control
 
 Signal-adjusted noise above 0.7 leads to false positive deletion calls on both 
@@ -1392,6 +1403,15 @@ LOH calls will be limited.
 The total target regions specified in the PanSolid BED file sum to 
 `r round(pansolid_bed_bp/1000, 1)` kilobases, which is 
 `r round((pansolid_bed_bp / haploid_genome_bp)*100, 2)`% of the human genome.
+
+A small intragenic region of copy neutral LOH could be missed.
+
+Limit of detection is impacted by multiple variables.
+
+We are focussing on whole gene deletions - we cannot define sensitivity for 
+every kind of partial gene deletion.
+
+LOH calling: PanSolid doesn't have the same targets as the Merged panel.
 
 # Review of test requirements
 
