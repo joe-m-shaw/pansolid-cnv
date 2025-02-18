@@ -11,16 +11,10 @@ source(here("functions/pansolid_cnv_excel_functions.R"))
 
 # Filepaths ---------------------------------------------------------------
 
-bio_cnv_folder <- paste0("S:/central shared/Genetics/NGS/Bioinformatics/",
-                         "1_Pan-solid-Cancer/CNV/Deletions/")
-
-pansolid_results_folder <- paste0(bio_cnv_folder,
-                                  "Jan2025_withLOH/",
-                                  "v4_withoutNormalisation_MergeSize5_TF200/",
-                                  "v2SchwannAll_PS/")
-
-pansolid_files <- list.files(path = pansolid_results_folder,
-                        recursive = FALSE,
+pansolid_files <- list.files(path = paste0(config::get("data_folderpath"),
+                                           "validation/DOC6567_deletions/raw/",
+                                           "pansolid_ngs/annotated_files/"),
+                        recursive = TRUE,
                         full.names = TRUE,
                         pattern  = "Annotated.*.xlsx")
 
@@ -68,13 +62,11 @@ collated_sig_cnvs <- map(file_cnv_tbl_list, ~ .x[["sig_cnvs"]]) |>
 
 # Export collated data ----------------------------------------------------
 
-collated_data_folder <- paste0("S:/central shared/Genetics/Mol_Shared/",
-                               "Development.Team/PanSolid CNV/data/validation/",
-                               "DOC6567_deletions/processed/")
-
 export_del_val_data <- function(df, df_name) {
   
-  filepath = paste0(collated_data_folder, 
+  filepath = paste0(config::get("data_folderpath"),
+                    "validation/",
+                    "DOC6567_deletions/processed/", 
                     "del_val_", 
                     df_name,
                     ".csv")
