@@ -84,10 +84,10 @@ parse_wgs_html_pid_text <- function(html_filepath) {
                                          group = 2),
     "nhsno_raw" = stringr::str_extract(string = pid_text, 
                                        pattern = pid_regex,
-                                       group = 3),
-    "nhsno" = stringr::str_replace_all(string = nhsno_raw,
-                                       pattern = " ",
-                                       replacement = ""))
+                                       group = 3)) |> 
+    mutate(nhsno = stringr::str_replace_all(string = nhsno_raw,
+                                            pattern = " ",
+                                            replacement = ""))
   
   return(output)
   
@@ -123,7 +123,8 @@ parse_wgs_html_table_by_div_id <- function(html_filepath,
     dplyr::mutate(filepath = html_filepath)
   
   if(nrow(output_table) == 0) {
-    warning("No rows in output table")
+    warning("No rows in table")
+    return()
   }
   
   return(output_table)
