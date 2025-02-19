@@ -480,8 +480,11 @@ fold_change_df <- data.frame(ncc = seq(0, 100, by = 0.1)) |>
 #| label: fold-change-threshold
 #| include: FALSE
 
-deletion_fc_threshold <- pred_fc(tumour_cpc = 1, ncc = 50, dir = "loss",
-                                 digits = 3)
+deletion_fc_threshold_theoretical <- pred_fc(tumour_cpc = 1, 
+                                             ncc = 50, dir = "loss",
+                                             digits = 3)
+
+deletion_fc_threshold <- -1.25
 
 ```
 
@@ -710,13 +713,152 @@ S:/central shared/Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/validat
 ## Overall results
 
 ```{r}
-#| label: overall-results
+#| label: quality-thresholds
 #| include: FALSE
+
+percent_138x_qc_threshold <- 75
+
+noise_qc_threshold <- 0.7
 
 ```
 
+```{r}
+#| label: overall-results
+#| include: FALSE
+
+noise_and_138x <- del_val_collated_stdev |> 
+  inner_join(del_val_collated_138x |> 
+               select(filepath, percent_138x),
+             by = "filepath")
+
+results_passing_qc <- noise_and_138x |> 
+  filter(stdev_noise <= noise_qc_threshold &
+           percent_138x >= percent_138x_qc_threshold)
+
+```
+
+In total, `r nrow(noise_and_138x)` replicates from 
+`r length(unique(noise_and_138x$labno))` DNA samples were tested on the PanSolid
+enrichment and analysed with the PanSolid CLC pipeline.
+Of these, `r nrow(results_passing_qc)` replicates had noise and coverage metrics
+which were of acceptable quality.
+
 ## Comparison to whole genome sequencing
 
+X samples were also tested on whole genome sequencing.
+
+NHS number, extraction method
+
+Add sample information to all_del table
+
+Add IDs to WGS CNVs
+
+Remove any repeated WGS samples for clarity
+
+```{r}
+#| label: join-pansolid-and-wgs-results
+#| include: FALSE
+
+del_gene_results_with_ids <- del_val_collated_del_genes |> 
+  left_join(del_val_sample_patient_info, by = "labno",
+            relationship = "many-to-one") |> 
+  left_join(del_val_collated_138x |> 
+               select(filepath, percent_138x),
+            by = "filepath") |> 
+  left_join(del_val_collated_stdev |> 
+              select(filepath, stdev_noise),
+            by = "filepath")
+
+wgs_cnvs_with_ids <- del_val_wgs_html_cnvs |> 
+  left_join(del_val_wgs_html_ids,
+            by = "filepath",
+            relationship = "many-to-one")
+
+patients_with_qiasymphony_extractions <- del_val_sample_patient_info |> 
+  filter(extraction_method == "QIAsymphony")
+
+pansolid_results_for_wgs_comparison <- del_gene_results_with_ids |> 
+  filter(stdev_noise <= noise_qc_threshold &
+           percent_138x >= percent_138x_qc_threshold) |> 
+  filter(nhsno %in% del_val_wgs_html_ids$nhsno) |> 
+  filter(
+    (nhsno %in% patients_with_qiasymphony_extractions$nhsno &
+    extraction_method == "QIAsymphony") |
+      (!nhsno %in% patients_with_qiasymphony_extractions$nhsno)) |> 
+  filter(!labno %in% c(
+    "23025733",                # Remove sample on Cobas extraction
+    "24030946")) |>   # These patients have 2 QIAsymphony extractions
+  # This sample was repeated for repeatability
+  filter((labno != "24017319" & worksheet != "WS144364"))
+  
+pansolid_patients_for_wgs_comparison <- pansolid_results_for_wgs_comparison |> 
+  distinct(nhsno, firstname, surname, labno)
+
+stopifnot(anyDuplicated(pansolid_patients_for_wgs_comparison$nhsno) == 0)
+
+pansolid_samples_for_wgs_comparison <- pansolid_results_for_wgs_comparison |> 
+  distinct(labno, worksheet)
+
+stopifnot(anyDuplicated(pansolid_samples_for_wgs_comparison$labno) == 0)
+
+wgs_results_for_pansolid_comparison <- wgs_cnvs_with_ids |> 
+  mutate(labno_gene = str_c(labno, "_", gene)) |> 
+  # Restrict to one result per gene per labno
+  filter(!duplicated(labno_gene))
+
+pansolid_vs_wgs <- pansolid_results_for_wgs_comparison |> 
+  left_join(wgs_results_for_pansolid_comparison,
+            join_by(nhsno == nhsno, gene == gene),
+            relationship = "one-to-one")
+
+```
+
+```{r}
+#| label: compare-pansolid-to-wgs-results
+#| include: FALSE
+
+pansolid_vs_wgs_outcomes <- pansolid_vs_wgs |> 
+  mutate(
+    wgs_result = case_when(
+      cnv_class %in% c("DEL", "LOSS") ~"Deletion detected",
+      !cnv_class %in% c("DEL", "LOSS") |
+        is.na(cnv_class) ~"No deletion detected"),
+    
+    outcome = case_when(
+    
+    min_region_fold_change <= deletion_fc_threshold &
+      wgs_result == "Deletion detected" ~"true_positive",
+    
+    min_region_fold_change > deletion_fc_threshold &
+      wgs_result == "No deletion detected" ~"true_negative",
+    
+    min_region_fold_change <= deletion_fc_threshold &
+      wgs_result == "No deletion detected" ~"false_positive",
+    
+    min_region_fold_change > deletion_fc_threshold &
+      wgs_result == "Deletion detected" ~"false_negative"),
+    
+    outcome = factor(outcome, levels = c("true_negative",
+                                         "true_positive",
+                                         "false_negative",
+                                         "false_positive")))
+
+stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome) == FALSE)
+
+pansolid_vs_wgs_per_gene_summary <- pansolid_vs_wgs_outcomes |> 
+  group_by(gene, outcome) |> 
+  count() |> 
+  pivot_wider(id_cols = c(gene),
+              names_from = outcome,
+              values_from = n,
+              values_fill = 0,
+              names_expand = TRUE)
+
+pansolid_vs_wgs_overall_summary <- pansolid_vs_wgs_outcomes |> 
+  group_by(outcome) |> 
+  count()
+
+```
 
 ### Homozygous losses
 
@@ -1299,6 +1441,11 @@ coarse and fine settings (examples: 23011114, 24030364, 23032153).
 There are also cases where PanSolid detects a copy number of 1 not present 
 on WGS (24043023, 23013975), which is particularly apparent when the percentage 
 coverage at 138X is low (24042074).
+
+## Germline deletions
+
+24067827 - germline MSH2 exonic deletion detected. Also detected in 25001806
+(same patient)
 
 {{< pagebreak >}}
 
