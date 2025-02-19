@@ -745,16 +745,6 @@ which were of acceptable quality.
 
 ## Comparison to whole genome sequencing
 
-X samples were also tested on whole genome sequencing.
-
-NHS number, extraction method
-
-Add sample information to all_del table
-
-Add IDs to WGS CNVs
-
-Remove any repeated WGS samples for clarity
-
 ```{r}
 #| label: join-pansolid-and-wgs-results
 #| include: FALSE
@@ -813,6 +803,17 @@ pansolid_vs_wgs <- pansolid_results_for_wgs_comparison |>
 
 ```
 
+The deletion results for `r length(unique(pansolid_vs_wgs$gene))` genes 
+on x autosomes were
+compared between the PanSolid CLC pipeline and the WGS pipeline for 
+`r length(unique(pansolid_vs_wgs$labno.x))` from
+`r length(unique(pansolid_vs_wgs$nhsno))` patients. To avoid double-counting,
+samples where DNA was tested following multiple extraction methods 
+had a single QIAsymphony extraction 
+selected for the comparison. If a QIAsymphony extraction was not available, then
+DNA from fresh frozen tissue was used instead. Results were only compared when
+the noise and coverage metrics were above the quality control thresholds.
+
 ```{r}
 #| label: compare-pansolid-to-wgs-results
 #| include: FALSE
@@ -838,10 +839,11 @@ pansolid_vs_wgs_outcomes <- pansolid_vs_wgs |>
     min_region_fold_change > deletion_fc_threshold &
       wgs_result == "Deletion detected" ~"false_negative"),
     
-    outcome = factor(outcome, levels = c("true_negative",
-                                         "true_positive",
-                                         "false_negative",
-                                         "false_positive")))
+    outcome = factor(outcome, levels = c("true_positive",     # Order for 
+                                         "false_positive",    # epiR::epi.tests
+                                         "false_negative",    # dat argument
+                                         "true_negative"
+                                         )))
 
 stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome) == FALSE)
 
@@ -856,7 +858,54 @@ pansolid_vs_wgs_per_gene_summary <- pansolid_vs_wgs_outcomes |>
 
 pansolid_vs_wgs_overall_summary <- pansolid_vs_wgs_outcomes |> 
   group_by(outcome) |> 
-  count()
+  count() |> 
+  arrange(outcome)
+
+pansolid_vs_wgs_overall_metrics <- get_epir_metrics(outcome_vector =
+                                                      pansolid_vs_wgs_overall_summary$n)
+
+
+pansolid_vs_wgs_overall_counts <- pansolid_vs_wgs_overall_summary |> 
+  pivot_wider(id_cols = ,
+              names_from = outcome,
+              values_from = n,
+              values_fill = 0,
+              names_expand = TRUE) |> 
+  mutate("Sample loci" = true_positive + true_negative + false_negative +
+                         false_positive) |> 
+  rename(`True negatives` = true_negative,
+         `True positives` = true_positive,
+         `False negatives` = false_negative,
+         `False positives` = false_positive) |> 
+  select("Sample loci", `True negatives`, `True positives`, `False negatives`,
+         `False positives`)
+
+```
+
+```{r}
+#| label: fig-pansolid-wgs-counts-plot
+#| fig-cap: "PanSolid vs WGS by gene"
+#| echo: FALSE
+
+# Add bar plot of outcomes
+
+```
+
+```{r}
+#| label: tbl-pansolid-wgs-gene-summary
+#| tbl-cap: "PanSolid vs WGS gene summary"
+#| echo: FALSE
+
+knitr::kable(pansolid_vs_wgs_overall_counts)
+
+```
+
+```{r}
+#| label: tbl-pansolid-wgs-metrics
+#| tbl-cap: "PanSolid vs WGS metrics"
+#| echo: FALSE
+
+knitr::kable(pansolid_vs_wgs_overall_metrics)
 
 ```
 
@@ -872,13 +921,9 @@ Every example of a PTEN CN0 loss detected on WGS was detected on PanSolid.
 
 ### Germline loss
 
-
-
 ### Ploidy
 
 Comparison plot of ploidy estimates from PanSolid and WGS.
-
-
 
 ```{r}
 #| label: wgs-deletions
