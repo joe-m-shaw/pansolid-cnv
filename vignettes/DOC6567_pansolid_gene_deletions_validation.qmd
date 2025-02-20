@@ -228,7 +228,7 @@ leading to the amplification of expression from proto-oncogenes (addressed in
 [DOC6283]{custom-style="Strong"}) and the reduction or ablation of expression
 from tumour suppressor genes (TSGs) (addressed in this validation document).
 Inactivation of TSGs can occur by multiple methods including sequence variants,
-gene deletion, copy-neutral loss of heterozygosity and epigenetic silencing.
+gene deletion, copy-neutral loss of heterozygosity (LOH) and epigenetic silencing.
 The physical loss of a TSG copy from the genome can occur via a focal deletion
 of the gene locus, or as part of a much larger chromosomal change, such as
 aneuploidy for a whole chromosome or chromosome arm. The loss of expression
@@ -236,7 +236,28 @@ from a TSG leads to cancer development via a recessive mechanism, requiring two
 events to inactivate both TSG alleles [@knudson1971]. One example is the highly
 conserved *TP53* gene [@levine2020], which is most commonly inactivated by a
 missense variant on one allele and a loss of the other allele through loss of
-chromosome 17p [@bendavid2020].
+chromosome 17p [@bendavid2020]. Gene deletions can occur in somatic tissues, or
+may be found in a patient's germline, which increases the likelihood of 
+developing cancer. For example, germline deletions in the DNA mis-match repair
+(MMR)  genes *MLH1*, *MSH2*, *MSH6* and *PMS2* cause an increased risk of 
+colorectal cancer, referred to as Lynch syndrome, whilst deletions in the 
+*NF2* gene cause *NF2*-related Schwannomatosis [@hadfield2010].
+Therefore, when a deleterious TSG variant, such as a deletion, is 
+detected in tumour sample, reflex testing of lymphocyte DNA can identify if the
+variant is present in the patient's germline, which would warrant 
+screening for future cancer development.
+
+## Loss of heterozygosity
+
+During cancer development, DNA damage to a particular allele may be repaired
+by copying the other allele, leading to copy-neutral LOH. If the allele used
+for the repair contains a deleterious variant, the genotype of the cell changes
+from being heterozygous for the variant to being homozygous. The development
+of copy-neutral LOH represents the "second-hit" within the two-hit model of 
+cancer development. Clinically, detection of copy-neutral LOH within a tumour
+can be helpful when no germline variant has been found, as it provides further 
+evidence that the cancer has arisen sporadically, rather than a germline 
+predisposition has not been detected.
 
 ## Target genes
 
@@ -380,18 +401,6 @@ techniques are expensive and experimental, and consequently have not yet been
 clinically implemented. Notably, the WHO guidelines do not specify a technology 
 for CNV detection, which reflects the diversity of approaches used in clinical 
 laboratories [@neill2020].
-
-## Loss of heterozygosity
-
-Loss of heterozygosity (LOH) at mismatch repair (MMR) gene loci has been 
-identified as a pathogenic mechanism in colorectal cancer [@melcher2007]. 
-This LOH is frequently copy-neutral, with the allele containing a pathogenic
-sequence variant being copied in the repair of the damaged wild-type allele. 
-LOH in colorectal cancer may be identified using SNP arrays 
-[@melcher2007; @melcher2011], PCR fragment analysis [@guerts-giele2014] and 
-next generation sequencing.
-
-LOH detection was required for the following genes: 
 
 ## Requirements
 
@@ -1546,6 +1555,15 @@ normal levels [@baker2020; ahrendsen2022].
 ## Resolution
 
 Not all CNVs will impact the whole gene.
+
+## Comparison to PCR LOH testing
+
+LOH in colorectal cancer may be identified using SNP arrays 
+[@melcher2007; @melcher2011], PCR fragment analysis [@guerts-giele2014] and 
+next generation sequencing.
+
+Copy neutral LOH at MMR gene loci is a frequent pathogenic mechanism in 
+colorectal cancer [@melcher2007]. 
 
 ## Uncertainty of Measurement
 
