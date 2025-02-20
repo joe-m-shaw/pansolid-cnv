@@ -654,6 +654,9 @@ The same ddPCR mix volumes and thermocycling conditions were used as for the
 previous amplifications validation, and are detailed in the Supplementary 
 Information of [DOC6283]{custom-style="Strong"}.
 
+*PTEN* has a pseudogene, *PTENP1*, on chromosome 9, which could have influenced
+the results.
+
 ## Loss of heterozgosity
 
 ```{r}
@@ -1023,15 +1026,8 @@ kable(wgs_del_cnvs_summary)
 
 ## Comparison to ddPCR
 
-ddPCR was performed for the *PTEN* and *CDKN2A* genes for all 25 normal control 
-samples and 29 patient samples.
-
-*PTEN* has a pseudogene, *PTENP1*, on chromosome 9, which could have influenced
-the results.
-
 ```{r}
 #| label: load-ddpcr-data
-#| eval: FALSE
 #| include: FALSE
 
 qs_normals <- read_csv(file = paste0(data_folderpath,
@@ -1039,266 +1035,131 @@ qs_normals <- read_csv(file = paste0(data_folderpath,
                                      "controls/qiasymphony_controls.csv"),
                        col_types = "c")
 
-
-```
-
-```{r}
-#| label: cdkn2a-results
-#| eval: FALSE
-#| include: FALSE
-
-cdkn2a_ddpcr_results <- ddpcr_data |> 
-  filter(worksheet == "WS146462") |> 
+ddpcr_data_mod <- del_val_ddpcr_collated |> 
   filter(sample != "NTC") |> 
   filter(target_type == "Ch1Unknown") |> 
   mutate(category = case_when(
     sample %in% qs_normals$labno ~"normal control",
     TRUE ~"patient"
-  )) |> 
-  left_join(ps_results, join_by("sample" == "labno",
-                                "")) |> 
-  mutate(ddpcr_result = case_when(
-    cnv < ddpcr_copy_number_threshold ~"deletion",
-    cnv >= ddpcr_copy_number_threshold ~"normal"
+  ))
+
+
+```
+
+```{r}
+#| label: compare-ddpcr-pansolid
+#| include: FALSE
+
+pansolid_vs_ddpcr <-  ddpcr_data_mod |> 
+  left_join(del_val_collated_del_genes, 
+            join_by("sample" == "labno", "gene" == "gene")) |> 
+  mutate(pansolid_result = case_when(
+    min_region_fold_change <= deletion_fc_threshold ~"deletion",
+    min_region_fold_change > deletion_fc_threshold ~"no deletion"
   ),
-  pansolid_result = case_when(
-    cdkn2a_fold_change <= pansolid_fold_change_threshold ~"deletion",
-    cdkn2a_fold_change > pansolid_fold_change_threshold ~"normal"),
-  outcome = case_when(
-    ddpcr_result == "deletion" & pansolid_result == "deletion" ~"PanSolid deletion; ddPCR deletion",
-    ddpcr_result == "normal" & pansolid_result == "deletion" ~"PanSolid deletion; ddPCR normal",
-    ddpcr_result == "normal" & pansolid_result == "normal" ~"PanSolid normal; ddPCR normal",
-    ddpcr_result == "deletion" & pansolid_result == "normal" ~"PanSolid normal; ddPCR deletion"))
-
-cdkn2a_patient_results <- cdkn2a_ddpcr_results |> 
-  filter(category != "normal control") |> 
-  filter(!is.na(outcome))
-
-cdkn2a_result_summary <- cdkn2a_patient_results |> 
-  count(outcome) |> 
-  arrange(desc(n)) |> 
-  rename(samples = n)
-
-cdkn2a_metrics <- get_epir_metrics(outcome_vector = c(17, 0, 2, 10))
-
-discrepant_strings <- c("PanSolid deletion; ddPCR normal", "PanSolid normal; ddPCR deletion")
-
-discrepant_cdkn2a <- cdkn2a_ddpcr_results |> 
-  filter(outcome %in% discrepant_strings) |> 
-  select(sample, cnv, ch1_ch2_2, ch1_ch2_3, cdkn2a_fold_change, pansolid_result)
-
-```
-
-
-```{r}
-#| label: pten-results
-#| eval: FALSE
-#| include: FALSE
-
-pten_ddpcr_results <- ddpcr_data |>
-  filter(worksheet == "WS146463") |> 
-  filter(sample != "NTC") |> 
-  filter(target_type == "Ch1Unknown") |> 
-  mutate(category = case_when(
-    sample %in% qs_normals$labno ~"normal control",
-    TRUE ~"patient"
-  )) |> 
-  left_join(ps_results, join_by("sample" == "labno")) |> 
-  mutate(ddpcr_result = case_when(
-    cnv < ddpcr_copy_number_threshold ~"deletion",
-    cnv >= ddpcr_copy_number_threshold ~"normal"
+  sub_category = case_when(
+    category != "normal control" ~paste0(category, " ", pansolid_result),
+    TRUE ~category
   ),
-  pansolid_result = case_when(
-    pten_fold_change <= pansolid_fold_change_threshold ~"deletion",
-    pten_fold_change > pansolid_fold_change_threshold ~"normal"),
+  sub_category = factor(sub_category,
+                        levels = c("normal control",
+                                   "patient no deletion",
+                                   "patient deletion",
+                                   "patient NA")),
+  ddpcr_result = case_when(
+    cnv >= 1.4 ~"no deletion",
+    cnv < 1.4 & cnv > 1.1 ~"uncertain",
+    cnv <= 1.1 ~"deletion"
+  ),
+  ddpcr_result = factor(ddpcr_result, levels = c("no deletion",
+                                                 "uncertain",
+                                                 "deletion")),
   outcome = case_when(
-    ddpcr_result == "deletion" & pansolid_result == "deletion" ~"PanSolid deletion; ddPCR deletion",
-    ddpcr_result == "normal" & pansolid_result == "deletion" ~"PanSolid deletion; ddPCR normal",
-    ddpcr_result == "normal" & pansolid_result == "normal" ~"PanSolid normal; ddPCR normal",
-    ddpcr_result == "deletion" & pansolid_result == "normal" ~"PanSolid normal; ddPCR deletion"))
-
-pten_patient_results <- pten_ddpcr_results |> 
-  filter(category != "normal control") |> 
-  filter(!is.na(outcome))
-
-pten_result_summary <- pten_patient_results |> 
-  count(outcome) |> 
-  arrange(desc(n)) |> 
-  rename(samples = n)
-
-pten_metrics <- get_epir_metrics(outcome_vector = c(8, 5, 2, 12))
-
-discrepant_pten <- pten_ddpcr_results |> 
-  filter(outcome %in% discrepant_strings) |> 
-  select(sample, cnv, ch1_ch2_2, ch1_ch2_3, pten_fold_change, pansolid_result)
+    pansolid_result == "deletion" &
+      ddpcr_result == "deletion" ~"true_positive",
+    pansolid_result == "no deletion" &
+      ddpcr_result == "no deletion" ~"true_negative",
+    pansolid_result == "deletion" &
+      ddpcr_result == "no deletion" ~"false_positive",
+    pansolid_result == "no deletion" &
+      ddpcr_result == "deletion" ~"false_negative",
+    TRUE ~"no result"
+  ),
+  outcome = factor(outcome, levels = c("true_positive",
+                                       "false_positive",
+                                       "false_negative",
+                                       "true_negative",
+                                       "no result")))
 
 ```
 
-```{r}
-#| label: fig-cdkn2a-ddpcr-results
-#| eval: FALSE
-#| include: FALSE
-#| fig-width: 6
+ddPCR was performed for the *PTEN* and *CDKN2A* genes for all 25 normal control 
+samples and 29 patient samples.
 
-cdkn2a_normal_plot <- cdkn2a_ddpcr_results |> 
-  filter(category == "normal control") |> 
-  ggplot(aes(x = reorder(sample, desc(cnv)), y = cnv)) +
-  geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
-  geom_point(shape = 21, fill = "white") +
+```{r}
+#| label: fig-ddpcr-pansolid-outcomes
+#| fig-cap: "PanSolid results vs ddPCR"
+#| echo: FALSE
+
+fig_ddpcr_pansolid_outcomes <- pansolid_vs_ddpcr |> 
+  filter(sub_category != "patient NA") |> 
+  ggplot(aes(x = sub_category, y = cnv)) +
+  geom_hline(yintercept = 1.1, linetype = "dashed") +
+  geom_hline(yintercept = 1.4, linetype = "dashed") +
+  geom_jitter(shape = 21, width = 0.1, aes(fill = ddpcr_result)) +
+  scale_fill_manual(values = c("white", "grey", "red")) +
+  facet_wrap(~gene) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle= 90),
-        legend.position = "bottom") +
-  labs(x = "", y = "ddPCR copy number",
-       title = "CDKN2A normal control results") +
-  ylim(0, 6) +
-  geom_hline(yintercept = 1.5, linetype = "dashed")
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "PanSolid result", y = "ddPCR copy number",
+       fill = "ddPCR result")
 
-cdkn2a_patient_plot <- cdkn2a_ddpcr_results |> 
-  filter(category == "patient") |> 
-  ggplot(aes(x = reorder(sample, desc(cnv)), y = cnv)) +
-  geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
-  geom_point(shape = 21, fill = "white") +
+fig_ddpcr_pansolid_outcomes
+
+```
+
+```{r}
+#| label: fig-pansolid-fold-change-vs-ddpcr
+#| fig-cap: "PanSolid fold change vs ddPCR"
+#| echo: FALSE
+
+fig_pansolid_fold_change_vs_ddpcr <- pansolid_vs_ddpcr |> 
+  filter(category == "patient" &
+           !is.na(min_region_fold_change)) |> 
+  ggplot(aes(x = cnv, y = min_region_fold_change)) +
+  geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
+  geom_vline(xintercept = 1.1, linetype = "dashed") +
+  geom_vline(xintercept = 1.4, linetype = "dashed") +
+  geom_point(shape = 21, aes(fill = pansolid_result)) +
+  scale_fill_manual(values = c("red", "white")) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle= 90),
-        legend.position = "bottom") +
-  labs(x = "", y = "",
-       title = "CDKN2A patient results") +
-  ylim(0, 6) +
-  geom_hline(yintercept = 1.5, linetype = "dashed")
+  theme(legend.position = "bottom") +
+  facet_wrap(~gene) +
+  labs(x = "ddPCR copy number", y = "PanSolid minimum fold change",
+       fill = "PanSolid result") +
+  ggpubr::stat_cor(method = "pearson", label.x = 1.5, label.y = -20)
 
-cdkn2a_comb_plot <- cdkn2a_normal_plot + cdkn2a_patient_plot +
-  plot_layout(nrow = 1)
-
-cdkn2a_comb_plot
+fig_pansolid_fold_change_vs_ddpcr
 
 ```
 
 ```{r}
-#| label: fig-pten-ddpcr-results
-#| eval: FALSE
-#| include: FALSE
-#| fig-width: 6
+#| label: tbl-pansolid-ddpcr-metrics
+#| echo: FALSE
 
-pten_normal_plot <- pten_ddpcr_results |> 
-  filter(category == "normal control") |> 
-  ggplot(aes(x = reorder(sample, desc(cnv)), y = cnv)) +
-  geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
-  geom_point(shape = 21, fill = "white") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = "bottom") +
-  labs(x = "", y = "ddPCR copy number",
-       title = "PTEN normal control results") +
-  ylim(0, 5) +
-  geom_hline(yintercept = 1.5, linetype = "dashed")
+pansolid_ddpcr_summary <- pansolid_vs_ddpcr |> 
+  filter(outcome != "no result") |> 
+  group_by(outcome) |> 
+  count() |> 
+  arrange(outcome)
 
-pten_patient_plot <- pten_ddpcr_results |> 
-  filter(category == "patient") |> 
-  ggplot(aes(x = reorder(sample, desc(cnv)), y = cnv)) +
-  geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
-  geom_point(shape = 21, fill = "white") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = "bottom") +
-  labs(x = "", y = "",
-       title = "PTEN patient results") +
-  ylim(0, 5) +
-  geom_hline(yintercept = 1.5, linetype = "dashed")
+pansolid_vs_ddpcr_metrics <- get_epir_metrics(outcome_vector =
+                                                      pansolid_ddpcr_summary$n)
 
-pten_comb_plot <- pten_normal_plot + pten_patient_plot +
-  plot_layout(nrow = 1)
-
-pten_comb_plot
+knitr::kable(pansolid_vs_ddpcr_metrics)
 
 ```
 
-{{< pagebreak >}}
-
-```{r}
-#| label: tbl-cdkn2a-results
-#| tbl-cap: "CDKN2A results"
-#| eval: FALSE
-#| include: FALSE
-
-kable(cdkn2a_result_summary)
-
-```
-
-```{r}
-#| label: tbl-cdkn2a-metrics
-#| tbl-cap: "CDKN2A metrics"
-#| eval: FALSE
-#| include: FALSE
-
-kable(cdkn2a_metrics)
-
-```
-
-{{< pagebreak >}}
-
-```{r}
-#| label: tbl-pten-results
-#| tbl-cap: "PTEN results"
-#| eval: FALSE
-#| include: FALSE
-
-kable(pten_result_summary)
-
-```
-
-```{r}
-#| label: tbl-pten-metrics
-#| tbl-cap: "PTEN metrics"
-#| eval: FALSE
-#| include: FALSE
-
-kable(pten_metrics)
-
-```
-
-```{r}
-#| label: fig-ddpcr-vs-pansolid
-#| fig-height: 7
-#| eval: FALSE
-#| include: FALSE
-
-cdkn2a_ps_plot <- cdkn2a_ddpcr_results |> 
-    filter(!is.na(cdkn2a_ddpcr_results$cdkn2a_fold_change)) |> 
-  ggplot(aes(x = cnv, y = cdkn2a_fold_change)) +
-  geom_hline(yintercept = pansolid_fold_change_threshold, linetype = "dashed") +
-  geom_vline(xintercept = ddpcr_copy_number_threshold, linetype = "dashed") +
-    annotate('rect', xmin = -1, xmax = 3, ymin = -1, 
-           ymax = 1, fill='white') +
-  geom_hline(yintercept = 1, colour = "grey") +
-  geom_hline(yintercept = -1, colour = "grey") +
-  geom_point(shape = 21) +
-  theme_bw() +
-  labs(x = "ddPCR copy number", y = "PanSolid fold change",
-       title = "CDK2NA results") +
-  scale_y_continuous(breaks = c(seq(-22, 2, by = 1))) +
-  coord_cartesian(xlim = c(0, 2))
-
-pten_ps_plot <- pten_ddpcr_results |> 
-    filter(!is.na(pten_ddpcr_results$pten_fold_change)) |> 
-  ggplot(aes(x = cnv, y = pten_fold_change)) +
-  geom_hline(yintercept = pansolid_fold_change_threshold, linetype = "dashed") +
-  geom_vline(xintercept = ddpcr_copy_number_threshold, linetype = "dashed") +
-    annotate('rect', xmin = -1, xmax = 3, ymin = -1, 
-           ymax = 1, fill='white') +
-  geom_hline(yintercept = 1, colour = "grey") +
-  geom_hline(yintercept = -1, colour = "grey") +
-  geom_point(shape = 21) +
-  theme_bw() +
-  labs(x = "ddPCR copy number", y = "PanSolid fold change",
-       title = "PTEN results") +
-  scale_y_continuous(breaks = c(seq(-30, 2, by = 1))) +
-  coord_cartesian(xlim = c(0, 2))
-
-cdkn2a_ps_plot
-
-pten_ps_plot
-
-```
 
 {{< pagebreak >}}
 
@@ -1515,8 +1376,6 @@ coverage fluctuation to pass the fold change cutoff for deletions."
 
 The theoretical limit of detection for a heterozygous deletion is 50%, and 
 for a homozygous deletion it is 25% (@sec-methods-fold-change).
-
-
 
 ## Quality control
 
