@@ -112,8 +112,6 @@ data_folderpath <- config::get("data_folderpath")
 #| label: thresholds
 #| include: FALSE
 
-ddpcr_copy_number_threshold <- 1.5
-
 deletion_fc_threshold_theoretical <- pred_fc(tumour_cpc = 1, 
                                              ncc = 50, dir = "loss",
                                              digits = 3)
@@ -131,15 +129,15 @@ noise_qc_threshold <- 0.7
 #| warning: FALSE
 #| include: FALSE
 
-#source(here("scripts/del_val_collate_wgs_htmls.R"))
+# source(here("scripts/del_val_collate_wgs_htmls.R"))
 
-#source(here("scripts/del_val_collate_ddpcr_csvs.R"))
+# source(here("scripts/del_val_collate_ddpcr_csvs.R"))
 
 # source(here("scripts/del_val_collate_pansolid_results.R"))
 
 # source(here("scripts/del_val_get_patient_info.R"))
 
-# source(here("scripts/dev/nf2_loh_samples.R"))
+# source(here("scripts/del_val_get_nf2_loh_results.R"))
 
 source(here("scripts/del_val_load_processed_data.R"))
 
@@ -242,13 +240,15 @@ chromosome 17p [@bendavid2020].
 
 ## Target genes
 
-The aim of this validation is to detect deletions in `r length(del_genes$gene)`
-genes on the PanSolid enrichment (Supplementary Information, @tbl-deletion-gene-targets). These genes were
-selected due to the presence on the NHS Genomic Test Directory.
-There was a
-particular focus on *CDKN2A*, *CDKN2B* and *PTEN*, as these deletions are
-frequently found in glioblastoma samples, which comprised the main tumour type
-in the testing cohort.
+The aim of this validation is to detect deletions in 
+`r length(unique(del_val_collated_del_genes$gene))`
+genes on the PanSolid QIAseq enrichment (Supplementary Information,
+@tbl-deletion-gene-targets). These genes were
+selected based on the specifications of the 
+[NHS Genomic Test Directory for Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/).
+There was a particular focus on *CDKN2A*, *CDKN2B* and *PTEN*, as these 
+deletions are frequently found in glioblastoma samples, which comprised the
+main tumour type in the testing cohort.
 
 ### *CDKN2A* and *CDKN2B*
 
@@ -281,9 +281,9 @@ been reported [@jensen2022].
 ### *PTEN*
 
 The *PTEN* gene is deleted in many different cancer types [@alvarezgarcia2019].
-Germline mutations in *PTEN* cause PTEN hamartoma tumor syndrome [@yehia2020].
-Germline deletions in PTEN can either encompass the whole gene or include only
-certain exons [@zhou2003]. 
+Germline mutations in *PTEN* cause PTEN hamartoma tumor syndrome [@yehia2020],
+and germline deletions in PTEN can either encompass the whole gene or 
+include only certain exons [@zhou2003]. 
 
 ## Detection of gene deletions
 
@@ -344,7 +344,7 @@ methods have been developed to attempt to correct for this bias [@teo2012].
 
 - **Formalin fixation:** the process of fixing tumour samples in formalin
 chemically modifies DNA, leading to shorter DNA fragments and non-uniform 
-sequencing coverage [@stiert2024]. 
+sequencing coverage [@steiert2023]. 
 
 ### Approaches
 
@@ -377,20 +377,18 @@ Other approaches which have shown promise for solving the challenges of purity,
 ploidy and heterogeneity deconvolution include multiple tumour sequencing 
 [@zaccaria2020] and single-cell genome sequencing [@baslan2020]. However, these 
 techniques are expensive and experimental, and consequently have not yet been
-clinically implemented. 
-
-Notably, the WHO does not specify a technology for CNV detection in their
-guidelines, which reflects the diversity of approaches used in clinical 
+clinically implemented. Notably, the WHO guidelines do not specify a technology 
+for CNV detection, which reflects the diversity of approaches used in clinical 
 laboratories [@neill2020].
 
 ## Loss of heterozygosity
 
 Loss of heterozygosity (LOH) at mismatch repair (MMR) gene loci has been 
-identified as a pathogenic mechanism in colorectal cancer (@melcher2007). 
+identified as a pathogenic mechanism in colorectal cancer [@melcher2007]. 
 This LOH is frequently copy-neutral, with the allele containing a pathogenic
 sequence variant being copied in the repair of the damaged wild-type allele. 
 LOH in colorectal cancer may be identified using SNP arrays 
-(@melcher2007, @melcher2011), PCR fragment analysis (@guerts-giele2014) and 
+[@melcher2007; @melcher2011], PCR fragment analysis [@guerts-giele2014] and 
 next generation sequencing.
 
 LOH detection was required for the following genes: *MSH2*, *MSH6*, *MLH1*,
