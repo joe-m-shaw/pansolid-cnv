@@ -127,6 +127,24 @@ source(here("scripts/del_val_load_processed_data.R"))
 ```
 
 ```{r}
+#| label: thresholds
+#| include: FALSE
+
+ddpcr_copy_number_threshold <- 1.5
+
+deletion_fc_threshold_theoretical <- pred_fc(tumour_cpc = 1, 
+                                             ncc = 50, dir = "loss",
+                                             digits = 3)
+
+deletion_fc_threshold <- -1.25
+
+percent_138x_qc_threshold <- 75
+
+noise_qc_threshold <- 0.7
+
+```
+
+```{r}
 #| label: targets
 #| include: FALSE
 #| warning: FALSE
@@ -476,18 +494,6 @@ fold_change_df <- data.frame(ncc = seq(0, 100, by = 0.1)) |>
 
 ```
 
-```{r}
-#| label: fold-change-threshold
-#| include: FALSE
-
-deletion_fc_threshold_theoretical <- pred_fc(tumour_cpc = 1, 
-                                             ncc = 50, dir = "loss",
-                                             digits = 3)
-
-deletion_fc_threshold <- -1.25
-
-```
-
 The threshold was set at `r round(deletion_fc_threshold,2)`, which is the fold 
 change for a sample with a heterozygous deletion at 50% neoplastic cell content. 
 This would be an overall copy number of 1.5.
@@ -713,16 +719,6 @@ S:/central shared/Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/validat
 ## Overall results
 
 ```{r}
-#| label: quality-thresholds
-#| include: FALSE
-
-percent_138x_qc_threshold <- 75
-
-noise_qc_threshold <- 0.7
-
-```
-
-```{r}
 #| label: overall-results
 #| include: FALSE
 
@@ -744,6 +740,19 @@ Of these, `r nrow(results_passing_qc)` replicates had noise and coverage metrics
 which were of acceptable quality.
 
 ## Comparison to whole genome sequencing
+
+```{r}
+#| label: chrom-gene-tbl
+#| include: FALSE
+
+chrom_gene_tbl <- del_val_wgs_html_cnvs |> 
+  filter(gene %in% del_val_collated_del_genes$gene) |> 
+  select(chromosome, gene) |> 
+  distinct() |> 
+  mutate(chrom_num = parse_number(chromosome)) |> 
+  arrange(chrom_num)
+
+```
 
 ```{r}
 #| label: join-pansolid-and-wgs-results
@@ -799,12 +808,14 @@ wgs_results_for_pansolid_comparison <- wgs_cnvs_with_ids |>
 pansolid_vs_wgs <- pansolid_results_for_wgs_comparison |> 
   left_join(wgs_results_for_pansolid_comparison,
             join_by(nhsno == nhsno, gene == gene),
-            relationship = "one-to-one")
+            relationship = "one-to-one") |> 
+  left_join(chrom_gene_tbl |> 
+              select(gene, chrom_num), by = "gene")
 
 ```
 
 The deletion results for `r length(unique(pansolid_vs_wgs$gene))` genes 
-on x autosomes were
+on `r length(unique(chrom_gene_tbl$chrom_num))` autosomes were
 compared between the PanSolid CLC pipeline and the WGS pipeline for 
 `r length(unique(pansolid_vs_wgs$labno.x))` from
 `r length(unique(pansolid_vs_wgs$nhsno))` patients. To avoid double-counting,
@@ -887,7 +898,19 @@ pansolid_vs_wgs_overall_counts <- pansolid_vs_wgs_overall_summary |>
 #| fig-cap: "PanSolid vs WGS by gene"
 #| echo: FALSE
 
-# Add bar plot of outcomes
+fig_pansolid_wgs_counts_plot <- pansolid_vs_wgs_outcomes |> 
+  group_by(chrom_num, gene, outcome) |> 
+  count() |> 
+  ggplot(aes(x = reorder(gene, chrom_num), y = n)) +
+  geom_col(aes(fill = chrom_num)) +
+  facet_wrap(~outcome, nrow = 4) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom") +
+  labs(x = "", y = "Results") +
+  scale_y_continuous(breaks = c(0, 10, 20))
+
+fig_pansolid_wgs_counts_plot
 
 ```
 
@@ -906,6 +929,32 @@ knitr::kable(pansolid_vs_wgs_overall_counts)
 #| echo: FALSE
 
 knitr::kable(pansolid_vs_wgs_overall_metrics)
+
+```
+
+```{r}
+#| label: fig-copy-number-vs-fold-change
+#| fig-cap: "Copy number vs fold change"
+#| echo: FALSE
+
+fig_copy_number_vs_fold_change <- pansolid_vs_wgs_outcomes |> 
+  mutate(cnv_copy_number = case_when(
+    is.na(cnv_copy_number) ~2,
+    TRUE ~cnv_copy_number
+  )) |> 
+  ggplot(aes(x = cnv_copy_number, 
+                                     y = min_region_fold_change)) +
+  annotate('rect', 
+           xmin = 0, xmax = 10, ymin = -1, ymax = 1, 
+           fill='grey', alpha = 0.5) +
+  scale_x_continuous(breaks = seq(0, 10, by = 1)) +
+  geom_jitter(shape = 21, width = 0.1) +
+  theme_bw() +
+  geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
+  scale_y_continuous(breaks = c(seq(-20, 5, by = 5), deletion_fc_threshold)) +
+  labs(x = "WGS copy number", y = "PanSolid minimum fold change")
+
+fig_copy_number_vs_fold_change
 
 ```
 
@@ -972,7 +1021,6 @@ kable(wgs_del_cnvs_summary)
 
 ```
 
-
 ## Comparison to ddPCR
 
 ddPCR was performed for the *PTEN* and *CDKN2A* genes for all 25 normal control 
@@ -991,14 +1039,6 @@ qs_normals <- read_csv(file = paste0(data_folderpath,
                                      "controls/qiasymphony_controls.csv"),
                        col_types = "c")
 
-ps_results <- read_csv(file = paste0(data_folderpath,
-                                     "validation/DOC6567_deletions/",
-                                     "processed/",
-                                     "pansolid_ngs_cnvs.csv"))
-
-ddpcr_copy_number_threshold <- 1.5
-
-pansolid_fold_change_threshold <- -1.33
 
 ```
 
