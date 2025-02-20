@@ -101,9 +101,28 @@ library(foldchanger)
 
 source(here("functions/gene_table_functions.R"))
 source(here("functions/test_metric_functions.R"))
+source(here("functions/uom_functions.R"))
 source(here("functions/extract_pansolid_cnv_coordinates.R"))
 
 data_folderpath <- config::get("data_folderpath")
+
+```
+
+```{r}
+#| label: thresholds
+#| include: FALSE
+
+ddpcr_copy_number_threshold <- 1.5
+
+deletion_fc_threshold_theoretical <- pred_fc(tumour_cpc = 1, 
+                                             ncc = 50, dir = "loss",
+                                             digits = 3)
+
+deletion_fc_threshold <- -1.25
+
+percent_138x_qc_threshold <- 75
+
+noise_qc_threshold <- 0.7
 
 ```
 
@@ -124,23 +143,11 @@ data_folderpath <- config::get("data_folderpath")
 
 source(here("scripts/del_val_load_processed_data.R"))
 
-```
-
-```{r}
-#| label: thresholds
-#| include: FALSE
-
-ddpcr_copy_number_threshold <- 1.5
-
-deletion_fc_threshold_theoretical <- pred_fc(tumour_cpc = 1, 
-                                             ncc = 50, dir = "loss",
-                                             digits = 3)
-
-deletion_fc_threshold <- -1.25
-
-percent_138x_qc_threshold <- 75
-
-noise_qc_threshold <- 0.7
+del_val_collated_del_genes <- del_val_collated_del_genes |> 
+  mutate(pansolid_result = case_when(
+    min_region_fold_change <= deletion_fc_threshold ~"deletion",
+    min_region_fold_change > deletion_fc_threshold ~"no deletion"
+  ))
 
 ```
 
@@ -1050,14 +1057,10 @@ ddpcr_data_mod <- del_val_ddpcr_collated |>
 #| label: compare-ddpcr-pansolid
 #| include: FALSE
 
-pansolid_vs_ddpcr <-  ddpcr_data_mod |> 
+pansolid_vs_ddpcr <- ddpcr_data_mod |> 
   left_join(del_val_collated_del_genes, 
             join_by("sample" == "labno", "gene" == "gene")) |> 
-  mutate(pansolid_result = case_when(
-    min_region_fold_change <= deletion_fc_threshold ~"deletion",
-    min_region_fold_change > deletion_fc_threshold ~"no deletion"
-  ),
-  sub_category = case_when(
+  mutate(sub_category = case_when(
     category != "normal control" ~paste0(category, " ", pansolid_result),
     TRUE ~category
   ),
@@ -1306,7 +1309,8 @@ repeat_schedule <- tibble(
 Intra-run variation (repeatability) and inter-run variation (reproducibility) 
 were investigated for 3 samples using the testing structure shown in. 
 
-Sample 24017319 had a homozygous *CDKN2A* deletion and a heterozygous *PTEN* deletion, whilst sample 24020998 and sample 24027774 did not have deletions.
+Sample 24017319 had a homozygous *CDKN2A* deletion and a heterozygous *PTEN* 
+deletion, whilst sample 24020998 and sample 24027774 did not have deletions.
 
 ```{r}
 #| label: tbl-repeat-schedule
@@ -1319,58 +1323,161 @@ knitr::kable(repeat_schedule)
 
 ```{r}
 #| include: FALSE
-#| eval: FALSE
+
+initial_replicates <- c("24017319_WS141734", 
+                        "24027774_WS142076",
+                        "24020998_WS141045")
 
 inter_run_replicates <- c(
   # 24017319
-  "24017319_WS141734", "24017319a_WS144291", "24017319_WS144364",
+  "24017319a_WS144291", "24017319_WS144364",
   # 24027774
-  "24027774_WS142076", "24027774a_WS144291", "24027774_WS144364",
+  "24027774a_WS144291", "24027774_WS144364",
   # 24020998
-  "24020998_WS141045", "24020998a_WS144291", "24020998_WS144364")
+  "24020998a_WS144291", "24020998_WS144364")
 
 intra_run_replicates <- c(
   # 24017319
   "24017319a_WS144291", "24017319b_WS144291", "24017319c_WS144291",
+  
   # 24027774
   "24027774a_WS144291", "24027774b_WS144291", "24027774c_WS144291",
   # 24020998
   "24020998a_WS144291", "24020998b_WS144291", "24020998c_WS144291"
 )
 
-all_replicates <- c(inter_run_replicates, intra_run_replicates)
+all_replicates <- unique(c(initial_replicates, inter_run_replicates,
+                    intra_run_replicates))
 
-repeat_data <- del_val_pansolid_ngs_collated |> 
-  mutate(labno_suffix_worksheet = paste0(labno, suffix, "_", worksheet)) |> 
+stopifnot(length(all_replicates) == 15)
+
+repeat_data <- del_gene_results_with_ids |> 
   filter(labno_suffix_worksheet %in% all_replicates) |> 
-  select(graining, labno, worksheet, labno_suffix_worksheet, gene, fold_change_adjusted) 
+  mutate(fold_change_uom = case_when(
+    min_region_fold_change >= 1 ~-1 / min_region_fold_change,
+    TRUE ~min_region_fold_change))
 
-repeat_data |> 
-  filter(labno == "24020998") |> 
-  ggplot(aes(x = labno_suffix_worksheet, y = fold_change_adjusted)) +
-  geom_col(aes(fill = gene), position = "dodge") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  labs(x = "", y = "Fold Change") +
-  facet_wrap(~graining)
-
-
+repeat_data_passing_qc <- repeat_data |> 
+  filter(stdev_noise <= noise_qc_threshold &
+           percent_138x >= percent_138x_qc_threshold)
 
 ```
 
+Of the `r length(unique(repeat_data$labno_suffix_worksheet))` replicates,
+`r length(unique(repeat_data_passing_qc$labno_suffix_worksheet))` had quality
+metrics which passed the quality thresholds.
 
 ### Uncertainty of measurement
 
 The uncertainty of measurement will be greater for fold changes detected for 
 deletions rather than amplifications because the two equations differ. The 
-deletions equation is more sensitive to variation
+deletions equation is more sensitive to variation.
 
-"The fact that the same percent-wise change in coverage (copy number) leads 
-to a higher fold change for deletions than for amplifications means that given 
-the same amplification and deletion fold change cutoff there is a higher risk 
-of calling false positive deletions than amplifications - it takes less 
-coverage fluctuation to pass the fold change cutoff for deletions." 
-[@qiagen2023]
+For the calculation, fold changes greater than 1 were converted to the loss 
+equation.
+
+```{r}
+#| label: calculate-uom
+#| include: FALSE
+
+inter_sd_table <- group_sd(repeat_data |> 
+                             filter(labno_suffix_worksheet %in% c(inter_run_replicates,
+                                                                  initial_replicates)),
+                           labno, gene, fold_change_uom)
+
+intra_sd_table <- group_sd(repeat_data |> 
+                             filter(labno_suffix_worksheet %in% intra_run_replicates),
+                           labno, gene, fold_change_uom)
+  
+all_sd_table <- group_sd(repeat_data, labno, gene, fold_change_uom)
+  
+intra_sd <- round(pool_sd(intra_sd_table), 3)
+  
+inter_sd <- round(pool_sd(inter_sd_table), 3)
+  
+all_sd <- round(pool_sd(all_sd_table), 3)
+  
+del_uom <- define_uom(max(inter_sd, intra_sd, all_sd), 2)
+
+```
+
+```{r}
+#| label: tbl-uom
+#| tbl-cap: "Standard deviation and uncertainty of measurement"
+#| echo: FALSE
+
+tbl_uom <- tribble(
+    ~"Metric", ~"Value",
+    "Standard deviation (intra-run)", intra_sd,
+    "Standard deviation (inter-run)", inter_sd,
+    "Standard deviation (intra and inter run)", all_sd,
+    "95% Uncertainty of Measurement", del_uom)
+
+knitr::kable(tbl_uom)
+
+```
+
+```{r}
+#| label: repeat-plot-function
+#| include: FALSE
+
+draw_repeat_plot <- function(df = repeat_data, labno) {
+  
+  plot <- df |> 
+    filter(labno == {{ labno }}) |> 
+    ggplot(aes(x = labno_suffix_worksheet, y = fold_change_uom)) +
+    geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
+    geom_point(shape = 21, aes(fill = pansolid_result)) +
+    scale_fill_manual(values = c("red", "white")) +
+    theme_bw() +
+    theme(axis.text.x = element_blank()) +
+    scale_y_continuous(limits = c(-3.5, 0), breaks = seq(-3, 0, by = 1)) +
+    facet_wrap(~gene) +
+    labs(x = "Replicate", y = "Fold change (loss equation)",
+         title = as.character(labno), fill = "PanSolid result")
+  
+  return(plot)
+  
+}
+
+```
+
+```{r}
+#| label: fig-repeatability-24017319
+#| fig-cap: "24017319 repeatability results"
+#| echo: FALSE
+
+fig_repeatability_24017319 <- draw_repeat_plot(df = repeat_data,
+                 labno = "24017319")
+
+fig_repeatability_24017319
+
+```
+
+
+```{r}
+#| label: fig-repeatability-24027774
+#| fig-cap: "24027774 repeatability results"
+#| echo: FALSE
+
+fig_repeatability_24027774 <- draw_repeat_plot(df = repeat_data,
+                 labno = "24027774")
+
+fig_repeatability_24027774
+
+```
+
+```{r}
+#| label: fig-repeatability-24020998
+#| fig-cap: "24020998 repeatability results"
+#| echo: FALSE
+
+fig_repeatability_24020998 <- draw_repeat_plot(df = repeat_data,
+                 labno = "24020998")
+
+fig_repeatability_24020998
+
+```
 
 ## Limit of detection
 
@@ -1455,6 +1562,15 @@ normal levels [@baker2020; ahrendsen2022].
 ## Resolution
 
 Not all CNVs will impact the whole gene.
+
+## Uncertainty of Measurement
+
+"The fact that the same percent-wise change in coverage (copy number) leads 
+to a higher fold change for deletions than for amplifications means that given 
+the same amplification and deletion fold change cutoff there is a higher risk 
+of calling false positive deletions than amplifications - it takes less 
+coverage fluctuation to pass the fold change cutoff for deletions." 
+[@qiagen2023]
 
 ## Quality control
 
