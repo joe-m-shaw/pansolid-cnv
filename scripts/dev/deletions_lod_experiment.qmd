@@ -8,53 +8,55 @@ editor: visual
 The aim is to perform a limit of detection experiment to assess the ability of 
 the PanSolid CLC pipeline to identify mono-allelic and bi-allelic deletions.
 
-This is trickier than for the amplifications validation, because it's hard
-to find a pure sample with a deletion. Instead, I've chosen a sample with
+This is trickier than for the amplifications validation, because it's hard to 
+find a pure sample with a deletion. Instead, I've chosen a sample with 
 mono-allelic and bi-allelic deletions and a high NCC. The plan is that by 
-mixing this sample into a sample which doesn't have deletions, I can mimic
+mixing this sample into a sample which doesn't have deletions, I can mimic 
 the effect of different levels of normal tissue vs cancer tissue.
+
+This experiment was performed on WS150454.
 
 # "Tumour" sample: 24026628
 
 This sample is from a glioma.
 
 Whole genome sequencing was performed for this patient on sample 24028153 
-(R24-0QQJ, pathology block NB24-400). WGS detected a 
-ploidy state of 2 and calculated the neoplastic cell content (NCC) as 84%.
+(R24-0QQJ, pathology block NB24-400). WGS detected a ploidy state of 2 and 
+calculated the neoplastic cell content (NCC) as 84%.
 
-WGS detected a biallelic deletion of CDKN2A and a loss of most of chromosome 10,
-giving a monoallelic deletion of PTEN.
+WGS detected a biallelic deletion of CDKN2A and a loss of most of chromosome 
+10, giving a monoallelic deletion of PTEN.
 
 DNA was extracted on sample 24026628 (R24-0PE8, pathology block NB24-400-1A) 
 via the QIAsymphony method. 24026628 was tested on PanSolid on WS146523 with 
 these results:
 
-- CDKN2A fold change: -4.6
-- PTEN fold change: -1.5
+-   CDKN2A fold change: -4.6
+-   PTEN fold change: -1.5
 
-# "Normal" sample: 24053299 
+# "Normal" sample: 24053299
 
 This sample is from an inflammatory myofibroblastic tumour.
 
 Whole genome sequencing was performed for this patient on sample 24057373 
-(R24-1H6C, pathology block 24:H2972U). WGS detected a ploidy state of 1.9 and
-could not calculate the NCC as there was a high incidence of somatic variants
-with variant allele frequencies below 6% (implying very low or absent NCC
-in the sample).
+(R24-1H6C, pathology block 24:H2972U). WGS detected a 
+ploidy state of 1.9 and could not calculate the NCC as there was a high 
+incidence of somatic variants with variant allele frequencies below 6% 
+(implying very low or absent NCC in the sample).
 
-Only 3 copy number variants were detected, on chromosomes 2, 6 and 14.
+Only 3 copy number variants were detected, on chromosomes 2, 6 and 14. 
+CDKN2A and PTEN copy number variants were not detected.
 
-DNA was extracted on sample 24053299 (R24-1DFU, pathology block 24:H2972) via the
-QIAsymphony method. 24053299 was tested on PanSolid on WS145901 with no CNVs
-detected.
+DNA was extracted on sample 24053299 (R24-1DFU, pathology block 24:H2972) 
+via the QIAsymphony method. 24053299 was tested on PanSolid on WS145901 
+with no CNVs detected.
 
-- CDKNA fold change: -1.18
-- PTEN fold change: -1.18
+-   CDKNA fold change: -1.18
+-   PTEN fold change: -1.18
 
 ```{r}
 #| label: lod-calculations
 #| include: TRUE
-#| echo: FALSE
 #| message: FALSE
 
 library(tidyverse)
@@ -99,14 +101,29 @@ lod_df <- data.frame(
      vol_24053299 = round(vol_24053299, 1),
      vol_water = final_vol - (vol_24026628 + vol_24053299),
     ) |> 
-  janitor::adorn_totals()
+  mutate(total_volume_check = vol_24026628 + vol_24053299 + vol_water,
+         total_concentration_check = round(((vol_24026628 * dna_conc_24026628) +
+           (vol_24053299 * dna_conc_24053299)) / total_volume_check, 1)) |> 
+  select(-ng_from_24053299)
 
-knitr::kable(lod_df)
+std_df <- data.frame(
+  final_ncc = c(84, 0), 
+  ng_from_24026628 = c(final_ng, 0),
+  ng_from_24053299 = c(0, final_ng)) |> 
+  mutate(
+      vol_24026628 = round(ng_from_24026628 / dna_conc_24026628, 1),
+      vol_24053299 = round(ng_from_24053299 / dna_conc_24053299, 1),
+      vol_water = round(final_vol - (vol_24026628 + vol_24053299),1),
+      total_volume_check = vol_24026628 + vol_24053299 + vol_water,
+      total_concentration_check = round(((vol_24026628 * dna_conc_24026628) +
+        (vol_24053299 * dna_conc_24053299)) / (total_volume_check), 1))
 
-# For tumour
-(20*6)/50
+write_csv(lod_df, paste0(config::get("data_folderpath"),
+                        "validation/DOC6567_deletions/limit_of_detection/",
+                        "lod_df.csv"))
 
-# For normal
-(20*6)/24.4
+write_csv(std_df, paste0(config::get("data_folderpath"),
+                        "validation/DOC6567_deletions/limit_of_detection/",
+                        "std_df.csv"))
 
 ```
