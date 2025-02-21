@@ -7,9 +7,13 @@ library(tidyverse)
 
 # Functions ---------------------------------------------------------------
 
+message("Sourcing functions")
+
 source(here("functions/pansolid_cnv_excel_functions.R"))
 
 # Filepaths ---------------------------------------------------------------
+
+message("Finding filepaths")
 
 pansolid_files <- list.files(path = paste0(config::get("data_folderpath"),
                                            "validation/DOC6567_deletions/raw/",
@@ -19,6 +23,8 @@ pansolid_files <- list.files(path = paste0(config::get("data_folderpath"),
                         pattern  = "Annotated.*.xlsx")
 
 # LOH results -------------------------------------------------------------
+
+message("Collating LOH results")
 
 collated_loh <- pansolid_files |> 
   map(\(pansolid_files) read_loh_table(filepath = pansolid_files)) |> 
@@ -31,11 +37,17 @@ stopifnot(setequal(unique(collated_loh$gene),
 
 stopifnot(anyNA.data.frame(collated_loh) == FALSE)
 
+message(paste0(length(pansolid_files), " LOH results collated"))
+
 # CNV results -------------------------------------------------------------
+
+message("Collating CNV results")
 
 file_cnv_tbl_list <- pansolid_files |> 
   map(\(pansolid_files) extract_cnv_tbls(pansolid_files, 
                                          sheet_regex = "CNVs_"))
+
+message(paste0(length(pansolid_files), " CNV results collated"))
 
 collated_stdev <- map(file_cnv_tbl_list, ~ .x[["stdev"]]) |> 
   list_rbind()
@@ -61,6 +73,8 @@ collated_sig_cnvs <- map(file_cnv_tbl_list, ~ .x[["sig_cnvs"]]) |>
   list_rbind()
 
 # Export collated data ----------------------------------------------------
+
+message("Exporting data")
 
 export_del_val_data <- function(df, df_name) {
   
