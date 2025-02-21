@@ -91,7 +91,7 @@ pansolid_worksheet_details <- dna_db_worksheets |>
 
 del_val_sample_patient_info <- patient_info_extraction_method |> 
   select(labno, firstname, surname, nhsno, dob, date_sample_received,
-         years_at_sample_receipt, tissue, tissue_type, ncc,
+         years_at_sample_receipt, tissue, tissue_type, pathno, ncc,
          extraction_method, extraction_batch_fk, comments)
 
 write_csv(x = del_val_sample_patient_info,
