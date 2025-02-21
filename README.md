@@ -20,7 +20,7 @@ The scripts folder contains scripts that process, collate and reformat the raw d
 
 ### tests
 
-Automated tests for functions.
+Automated tests for functions. Where functions are designed to identify patient names within filenames, I have created example files using the names of characters from novels by Leo Tolstoy (Anna Karenina, Pierre Bezukhov etc).
 
 ### vignettes
 

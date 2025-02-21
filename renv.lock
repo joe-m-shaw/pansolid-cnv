@@ -248,6 +248,16 @@
       "Repository": "CRAN",
       "Hash": "8f4a384e19dccd8c65356dc096847b76"
     },
+    "brio": {
+      "Package": "brio",
+      "Version": "1.1.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R"
+      ],
+      "Hash": "c1ee497a6d999947c2c224ae46799b1a"
+    },
     "broom": {
       "Package": "broom",
       "Version": "1.0.6",
@@ -431,6 +441,16 @@
       "Repository": "CRAN",
       "Hash": "5d8225445acb167abf7797de48b2ee3c"
     },
+    "config": {
+      "Package": "config",
+      "Version": "0.3.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "yaml"
+      ],
+      "Hash": "8b7222e9d9eb5178eea545c0c4d33fc2"
+    },
     "conflicted": {
       "Package": "conflicted",
       "Version": "1.2.0",
@@ -551,6 +571,21 @@
         "utils"
       ],
       "Hash": "99b79fcbd6c4d1ce087f5c5c758b384f"
+    },
+    "diffobj": {
+      "Package": "diffobj",
+      "Version": "0.3.5",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "crayon",
+        "methods",
+        "stats",
+        "tools",
+        "utils"
+      ],
+      "Hash": "bcaa8b95f8d7d01a5dedfd959ce88ab8"
     },
     "digest": {
       "Package": "digest",
@@ -737,6 +772,19 @@
       ],
       "Hash": "b10ea358275721a0e90080d4a55a1a38"
     },
+    "foldchanger": {
+      "Package": "foldchanger",
+      "Version": "0.0.0.9000",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "foldchanger",
+      "RemoteUsername": "joe-m-shaw",
+      "RemotePkgRef": "joe-m-shaw/foldchanger",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "e0d0b437949ea4fcd2414e85ebb49a1c8feceb77",
+      "Hash": "2d77427a826c002e5abffd7a6c2eef40"
+    },
     "fontBitstreamVera": {
       "Package": "fontBitstreamVera",
       "Version": "0.1.1",
@@ -799,14 +847,14 @@
     },
     "fs": {
       "Package": "fs",
-      "Version": "1.6.4",
+      "Version": "1.6.5",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "R",
         "methods"
       ],
-      "Hash": "15aeb8c27f5ea5161f9f6a641fafd93a"
+      "Hash": "7f48af39fa27711ea5fbd183b399920d"
     },
     "gargle": {
       "Package": "gargle",
@@ -948,6 +996,18 @@
         "ggplot2"
       ],
       "Hash": "a57f0f5dbcfd0d77ad4ff33032f5dc79"
+    },
+    "ggvenn": {
+      "Package": "ggvenn",
+      "Version": "0.1.10",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "dplyr",
+        "ggplot2",
+        "grid"
+      ],
+      "Hash": "76c1d0fc86099be703106f11ba755520"
     },
     "glue": {
       "Package": "glue",
@@ -1642,6 +1702,13 @@
       ],
       "Hash": "ceb5c2a59ba33d42d051285a3e8a5118"
     },
+    "praise": {
+      "Package": "praise",
+      "Version": "1.0.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "a555924add98c99d2f411e37e7d25e9f"
+    },
     "prettyunits": {
       "Package": "prettyunits",
       "Version": "1.2.0",
@@ -2180,6 +2247,35 @@
       ],
       "Hash": "213b6b8ed5afbf934843e6c3b090d418"
     },
+    "testthat": {
+      "Package": "testthat",
+      "Version": "3.2.1.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "R6",
+        "brio",
+        "callr",
+        "cli",
+        "desc",
+        "digest",
+        "evaluate",
+        "jsonlite",
+        "lifecycle",
+        "magrittr",
+        "methods",
+        "pkgload",
+        "praise",
+        "processx",
+        "ps",
+        "rlang",
+        "utils",
+        "waldo",
+        "withr"
+      ],
+      "Hash": "3f6e7e5e2220856ff865e4834766bf2b"
+    },
     "textshaping": {
       "Package": "textshaping",
       "Version": "0.4.0",
@@ -2403,6 +2499,21 @@
         "withr"
       ],
       "Hash": "390f9315bc0025be03012054103d227c"
+    },
+    "waldo": {
+      "Package": "waldo",
+      "Version": "0.6.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "cli",
+        "diffobj",
+        "glue",
+        "methods",
+        "rlang"
+      ],
+      "Hash": "52f574062a7b66e56926988c3fbdb3b7"
     },
     "withr": {
       "Package": "withr",

@@ -1,4 +1,3 @@
-
 library(testthat)
 
 test_that("parse_filename handles original filename format",{
@@ -88,5 +87,71 @@ test_that("parse_filename handles new format with panel and without patient name
   
   expect_equal(parse_filename(x, 4),
                "S14")
+  
+})
+
+test_that("filename_to_df handles filename input", {
+  
+  x <- "Annotated_v2aM7_MELA_PS_WS123456_12345678_AnnaKARENINA.xlsx"
+  
+  expected_df <- data.frame(
+    "worksheet" = c("WS123456"),
+    "labno" = c("12345678"),
+    "suffix" = c(""),
+    "patient_name" = c("AnnaKARENINA"),
+    "labno_suffix" = c("12345678"),
+    "labno_suffix_worksheet" = c("12345678_WS123456")
+  )
+  
+  expect_equal(filename_to_df(x),
+               expected_df)
+  
+})
+
+test_that("filename_to_df handles filepath input", {
+  
+  s_drive_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
+  
+  ws_path <- "WS123456/v2aM7_MELA_PS/"
+  
+  file <- "Annotated_v2aM7_MELA_PS_WS123456_12345678_AnnaKARENINA.xlsx"
+  
+  filepath <- paste0(s_drive_path, ws_path, file)
+  
+  expected_df <- data.frame(
+    "worksheet" = c("WS123456"),
+    "labno" = c("12345678"),
+    "suffix" = c(""),
+    "patient_name" = c("AnnaKARENINA"),
+    "labno_suffix" = c("12345678"),
+    "labno_suffix_worksheet" = c("12345678_WS123456")
+  )
+  
+  expect_equal(filename_to_df(filepath),
+               expected_df)
+  
+})
+
+test_that("filename_to_df handles edge cases with low DNA numbers", {
+  
+  s_drive_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
+  
+  ws_path <- "WS141272/v2R215_CDH1_PS/"
+  
+  file <- "Annotated_WS141272_088727_IvanILYICH.xlsx"
+  
+  filepath <- paste0(s_drive_path, ws_path, file)
+  
+  expected_df <- data.frame(
+    "worksheet" = c("WS141272"),
+    "labno" = c("088727"),
+    "suffix" = c(""),
+    "patient_name" = c("IvanILYICH"),
+    "labno_suffix" = c("088727"),
+    "labno_suffix_worksheet" = c("088727_WS141272")
+  )
+  
+  expect_equal(filename_to_df(filepath),
+               expected_df)
   
 })

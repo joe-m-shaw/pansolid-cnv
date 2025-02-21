@@ -4,73 +4,98 @@
 
 library(here)
 library(tidyverse)
-library(readxl)
-library(janitor)
 
 # Functions ---------------------------------------------------------------
 
-source(here("functions/clc_raw_excel_functions.R"))
-source(here("functions/pansolid_excel_functions.R"))
+message("Sourcing functions")
+
+source(here("functions/pansolid_cnv_excel_functions.R"))
 
 # Filepaths ---------------------------------------------------------------
 
-data_folder <- config::get("data_filepath")
+message("Finding filepaths")
 
-bio_cnv_folder <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Deletions/"
-
-# Load data ---------------------------------------------------------------
-
-del_files <- list.files(path = bio_cnv_folder,
-                        recursive = FALSE,
+pansolid_files <- list.files(path = paste0(config::get("data_folderpath"),
+                                           "validation/DOC6567_deletions/raw/",
+                                           "pansolid_ngs/annotated_files/"),
+                        recursive = TRUE,
                         full.names = TRUE,
-                        pattern  = "TSG\\s\\(Deleted\\).*.xlsx")
+                        pattern  = "Annotated.*.xlsx")
 
-all_coarse_targets <- del_files |> 
-  map(\(del_files) read_all_clc_targets(del_files, "Coarse Targets")) |> 
+# LOH results -------------------------------------------------------------
+
+message("Collating LOH results")
+
+collated_loh <- pansolid_files |> 
+  map(\(pansolid_files) read_loh_table(filepath = pansolid_files)) |> 
+  list_rbind() 
+
+stopifnot(length(pansolid_files) * 7 == nrow(collated_loh))
+
+stopifnot(setequal(unique(collated_loh$gene), 
+          c("MSH2", "MSH6", "MLH1", "PMS2", "LZTR1", "SMARCB1", "NF2")))
+
+stopifnot(anyNA.data.frame(collated_loh) == FALSE)
+
+message(paste0(length(pansolid_files), " LOH results collated"))
+
+# CNV results -------------------------------------------------------------
+
+message("Collating CNV results")
+
+file_cnv_tbl_list <- pansolid_files |> 
+  map(\(pansolid_files) extract_cnv_tbls(pansolid_files, 
+                                         sheet_regex = "CNVs_"))
+
+message(paste0(length(pansolid_files), " CNV results collated"))
+
+collated_stdev <- map(file_cnv_tbl_list, ~ .x[["stdev"]]) |> 
   list_rbind()
 
-if(length(del_files) * 6174 != nrow(all_coarse_targets)){
-  stop("Collated data has different number of rows than predicted")
-}
+stopifnot(length(setdiff(collated_stdev$filepath, pansolid_files)) == 0)
 
-all_fine_targets <- del_files |> 
-  map(\(del_files) read_all_clc_targets(del_files, "Fine Targets")) |> 
+collated_138x <- map(file_cnv_tbl_list, ~ .x[["percent_138x"]]) |> 
   list_rbind()
 
-if(length(del_files) * 6174 != nrow(all_fine_targets)){
-  stop("Collated data has different number of rows than predicted")
+stopifnot(length(setdiff(collated_138x$filepath, pansolid_files)) == 0)
+
+collated_del_genes <- map(file_cnv_tbl_list, ~ .x[["del_genes"]]) |> 
+  list_rbind()
+
+stopifnot(nrow(collated_del_genes) == length(pansolid_files) * 37)
+
+collated_amp_genes <- map(file_cnv_tbl_list, ~ .x[["amp_genes"]]) |> 
+  list_rbind()
+
+stopifnot(nrow(collated_amp_genes) == length(pansolid_files) * 9)
+
+collated_sig_cnvs <- map(file_cnv_tbl_list, ~ .x[["sig_cnvs"]]) |> 
+  list_rbind()
+
+# Export collated data ----------------------------------------------------
+
+message("Exporting data")
+
+export_del_val_data <- function(df, df_name) {
+  
+  filepath = paste0(config::get("data_folderpath"),
+                    "validation/",
+                    "DOC6567_deletions/processed/", 
+                    "del_val_", 
+                    df_name,
+                    ".csv")
+  
+  write_csv(df, filepath)
+  
 }
 
-all_targets <- rbind(all_coarse_targets, all_fine_targets)
+df_list <- list(
+  "collated_loh" = collated_loh,
+  "collated_stdev" = collated_stdev,
+  "collated_138x" = collated_138x,
+  "collated_amp_genes" = collated_amp_genes,
+  "collated_del_genes" = collated_del_genes,
+  "collated_sig_cnvs" = collated_sig_cnvs
+)
 
-stopifnot(nrow(all_targets) == ((6174*2)*length(del_files)))
-
-stopifnot(anyNA.data.frame(x = all_targets |> 
-                   select(-c(regional_consequence, 
-                             regional_effect_size, comments))) == FALSE)
-
-write_csv(all_targets, file = paste0(data_folder,
-                                     "validation/DOC6567_deletions/",
-                                     "processed/",
-                                     "del_val_pansolid_targets_collated.csv"))
-
-coarse_df <- del_files |> 
-  map(\(del_files) read_del_raw_excel(filepath = del_files,
-                                    sheet_no = 1)) |> 
-  list_rbind() |> 
-  mutate(graining = "coarse") |> 
-  relocate(graining)
-
-fine_df <- del_files |> 
-  map(\(del_files) read_del_raw_excel(filepath = del_files,
-                                      sheet_no = 2)) |> 
-  list_rbind() |> 
-  mutate(graining = "fine") |> 
-  relocate(graining)
-
-pansolid_ngs_cnvs <- rbind(coarse_df, fine_df)
-
-write_csv(pansolid_ngs_cnvs, file = paste0(data_folder,
-                                           "validation/DOC6567_deletions/",
-                                           "processed/",
-                                           "del_val_pansolid_ngs_collated.csv"))
+imap(df_list, export_del_val_data)

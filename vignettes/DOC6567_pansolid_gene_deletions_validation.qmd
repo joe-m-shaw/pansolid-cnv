@@ -97,12 +97,12 @@ library(here)
 library(janitor)
 library(readxl)
 library(patchwork)
+library(foldchanger)
 
 source(here("functions/gene_table_functions.R"))
 source(here("functions/test_metric_functions.R"))
+source(here("functions/uom_functions.R"))
 source(here("functions/extract_pansolid_cnv_coordinates.R"))
-
-data_folder <- config::get("data_filepath")
 
 ```
 
@@ -111,15 +111,43 @@ data_folder <- config::get("data_filepath")
 #| warning: FALSE
 #| include: FALSE
 
-#source(here("scripts/del_val_collate_wgs_htmls.R"))
+# source(here("scripts/del_val_collate_wgs_htmls.R"))
 
-#source(here("scripts/del_val_collate_ddpcr_csvs.R"))
+# source(here("scripts/del_val_collate_ddpcr_csvs.R"))
 
 # source(here("scripts/del_val_collate_pansolid_results.R"))
 
 # source(here("scripts/del_val_get_patient_info.R"))
 
+# source(here("scripts/del_val_get_nf2_loh_results.R"))
+
+# rm(list=ls())
+
 source(here("scripts/del_val_load_processed_data.R"))
+
+del_val_collated_del_genes <- del_val_collated_del_genes |> 
+  mutate(pansolid_result = case_when(
+    min_region_fold_change <= deletion_fc_threshold ~"deletion",
+    min_region_fold_change > deletion_fc_threshold ~"no deletion"
+  ))
+
+```
+
+```{r}
+#| label: thresholds-and-folderpath
+#| include: FALSE
+
+data_folderpath <- config::get("data_folderpath")
+
+deletion_fc_threshold_theoretical <- pred_fc(tumour_cpc = 1, 
+                                             ncc = 50, dir = "loss",
+                                             digits = 3)
+
+deletion_fc_threshold <- -1.25
+
+percent_138x_qc_threshold <- 75
+
+noise_qc_threshold <- 0.7
 
 ```
 
@@ -128,7 +156,7 @@ source(here("scripts/del_val_load_processed_data.R"))
 #| include: FALSE
 #| warning: FALSE
 
-target_df <- read_csv(paste0(data_folder,
+target_df <- read_csv(paste0(data_folderpath,
                              "validation/DOC6283_amplifications/bed_files/",
                              "PanSolidv2_GRCh38_noalt_BED.csv")) |> 
   clean_names() |> 
@@ -144,7 +172,7 @@ target_df_with_coordinates <- extract_pansolid_cnv_coordinates(target_df,
   mutate(target_size_bp = abs(end-start))
 
 del_genes <- read_excel(paste0(
-  data_folder,
+  data_folderpath,
   "validation/DOC6567_deletions/gene_lists/",
   "2024_12_20_deletion_gene_list.xlsx"
 )) |> 
@@ -166,6 +194,7 @@ gene_target_counts <- pansolid_target_loci |>
          "Gene" = single_locus) 
 
 ```
+
 # Purpose
 
 The purpose of this document is to describe the validation of detection of
@@ -201,7 +230,7 @@ leading to the amplification of expression from proto-oncogenes (addressed in
 [DOC6283]{custom-style="Strong"}) and the reduction or ablation of expression
 from tumour suppressor genes (TSGs) (addressed in this validation document).
 Inactivation of TSGs can occur by multiple methods including sequence variants,
-gene deletion, copy-neutral loss of heterozygosity and epigenetic silencing.
+gene deletion, copy-neutral loss of heterozygosity (LOH) and epigenetic silencing.
 The physical loss of a TSG copy from the genome can occur via a focal deletion
 of the gene locus, or as part of a much larger chromosomal change, such as
 aneuploidy for a whole chromosome or chromosome arm. The loss of expression
@@ -209,17 +238,40 @@ from a TSG leads to cancer development via a recessive mechanism, requiring two
 events to inactivate both TSG alleles [@knudson1971]. One example is the highly
 conserved *TP53* gene [@levine2020], which is most commonly inactivated by a
 missense variant on one allele and a loss of the other allele through loss of
-chromosome 17p [@bendavid2020].
+chromosome 17p [@bendavid2020]. Gene deletions can occur in somatic tissues, or
+may be found in a patient's germline, which increases the likelihood of 
+developing cancer. For example, germline deletions in the DNA mis-match repair
+(MMR)  genes *MLH1*, *MSH2*, *MSH6* and *PMS2* cause an increased risk of 
+colorectal cancer, referred to as Lynch syndrome, whilst deletions in the 
+*NF2* gene cause *NF2*-related Schwannomatosis [@hadfield2010].
+Therefore, when a deleterious TSG variant, such as a deletion, is 
+detected in tumour sample, reflex testing of lymphocyte DNA can identify if the
+variant is present in the patient's germline, which would warrant 
+screening for future cancer development.
+
+## Loss of heterozygosity
+
+During cancer development, DNA damage to a particular allele may be repaired
+by copying the other allele, leading to copy-neutral LOH. If the allele used
+for the repair contains a deleterious variant, the genotype of the cell changes
+from being heterozygous for the variant to being homozygous. The development
+of copy-neutral LOH represents the "second-hit" within the two-hit model of 
+cancer development. Clinically, detection of copy-neutral LOH within a tumour
+can be helpful when no germline variant has been found, as it provides further 
+evidence that the cancer has arisen sporadically, rather than a germline 
+predisposition has not been detected.
 
 ## Target genes
 
-The aim of this validation is to detect deletions in `r length(del_genes$gene)`
-genes on the PanSolid enrichment (Supplementary Information, @tbl-deletion-gene-targets). These genes were
-selected due to the presence on the NHS Genomic Test Directory.
-There was a
-particular focus on *CDKN2A*, *CDKN2B* and *PTEN*, as these deletions are
-frequently found in glioblastoma samples, which comprised the main tumour type
-in the testing cohort.
+The aim of this validation is to detect deletions in 
+`r length(unique(del_val_collated_del_genes$gene))`
+genes on the PanSolid QIAseq enrichment (Supplementary Information,
+@tbl-deletion-gene-targets). These genes were
+selected based on the specifications of the 
+[NHS Genomic Test Directory for Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/).
+There was a particular focus on *CDKN2A*, *CDKN2B* and *PTEN*, as these 
+deletions are frequently found in glioblastoma samples, which comprised the
+main tumour type in the testing cohort.
 
 ### *CDKN2A* and *CDKN2B*
 
@@ -252,9 +304,9 @@ been reported [@jensen2022].
 ### *PTEN*
 
 The *PTEN* gene is deleted in many different cancer types [@alvarezgarcia2019].
-Germline mutations in *PTEN* cause PTEN hamartoma tumor syndrome [@yehia2020].
-Germline deletions in PTEN can either encompass the whole gene or include only
-certain exons [@zhou2003]. 
+Germline mutations in *PTEN* cause PTEN hamartoma tumor syndrome [@yehia2020],
+and germline deletions in PTEN can either encompass the whole gene or 
+include only certain exons [@zhou2003]. 
 
 ## Detection of gene deletions
 
@@ -263,7 +315,8 @@ fluorescence in-situ hybridisation (FISH). These cytogenetic techniques can
 view cancers at a single-cell resolution. Over the last 25 years, there has
 been increasing development of molecular methods for detection of somatic CNVs,
 including deletions, beginning with array comparative genome hybridisation
-(CGH) and SNP-microarrays [@das2013], before progressing to Illumina short-read
+(CGH) and SNP-microarrays [@das2013; @spence2022], before progressing to 
+Illumina short-read
 next generation sequencing (NGS) of gene-panels [@conroy2021; glodzik2023], 
 exomes [@zare2017] and genomes [@yi2023; sonsinsky2024]. The majority of NGS 
 approaches use a depth-of-coverage approach:
@@ -314,7 +367,7 @@ methods have been developed to attempt to correct for this bias [@teo2012].
 
 - **Formalin fixation:** the process of fixing tumour samples in formalin
 chemically modifies DNA, leading to shorter DNA fragments and non-uniform 
-sequencing coverage [@stiert2024]. 
+sequencing coverage [@steiert2023]. 
 
 ### Approaches
 
@@ -347,33 +400,23 @@ Other approaches which have shown promise for solving the challenges of purity,
 ploidy and heterogeneity deconvolution include multiple tumour sequencing 
 [@zaccaria2020] and single-cell genome sequencing [@baslan2020]. However, these 
 techniques are expensive and experimental, and consequently have not yet been
-clinically implemented. 
-
-Notably, the WHO does not specify a technology for CNV detection in their
-guidelines, which reflects the diversity of approaches used in clinical 
+clinically implemented. Notably, the WHO guidelines do not specify a technology 
+for CNV detection, which reflects the diversity of approaches used in clinical 
 laboratories [@neill2020].
-
-## Loss of heterozygosity
-
-Loss of heterozygosity (LOH) at mismatch repair (MMR) gene loci has been 
-identified as a pathogenic mechanism in colorectal cancer (@melcher2007). 
-This LOH is frequently copy-neutral, with the allele containing a pathogenic
-sequence variant being copied in the repair of the damaged wild-type allele. 
-LOH in colorectal cancer may be identified using SNP arrays 
-(@melcher2007, @melcher2011), PCR fragment analysis (@guerts-giele2014) and 
-next generation sequencing.
 
 ## Requirements
 
 The requirements for this new method are as follows:
 
-1. **Results:** the test should provide clear results for the 
-`r length(del_genes$gene)` deletion genes.
+1. **Results:** the test should provide clear results for the presence of 
+whole-gene deletion in the `r length(del_genes$gene)` specified genes. The test
+should also provide results for the ploidy status of the following genes:
+*MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*.
 
 2. **Analytical validity:** the test should have a defined sensitivity and 
-specificity for these genes, calculated by comparison with orthogonal methods.
+specificity, calculated by comparison with orthogonal methods.
 
-3. **Dosage accuracy:** it should be show how accurate the test is at detecting 
+3. **Dosage accuracy:** it should be shown how accurate the test is at detecting 
 heterozygous and homozygous deletions, in samples with a range of NCC values.
 
 4. **Quality control:** the test should have clear quality control thresholds
@@ -395,41 +438,30 @@ deletions by laboratory staff.
 
 # Methodology
 
-## Samples
-
-7 WGS samples from amplifications validation
-10 WGS samples newly run
-29 samples to be tested with ddPCR
-
-Only 1 sample had a germline finding in a targeted gene on WGS.
-
-Ploidy ranged from x to y and NCC ranged from a to b.
-
-## DNA extraction
-
 ## Next generation sequencing
 
-Samples were processed on the PanSolid version 2 enrichment and sequenced on an
-Illumina Novaseq.
-
-### PanSolid panel
-
-The PanSolid panel is a QIAseq enrichment containing primers for
-`r nrow(target_df)` genomic targets. 
+Samples were processed on the PanSolid version 2 enrichment () and sequenced on an
+Illumina Novaseq. The PanSolid panel is a QIAseq enrichment containing primers
+for `r nrow(target_df)` genomic targets. 
 `r nrow(target_df[target_df$target_type == "gene target",])` targets lie within
 specific genes related to cancer, and a further 
  `r nrow(target_df[target_df$target_type == "genomic backbone",])`
 targets provide a genomic backbone for LOH and ploidy calling.
 
-## Bioinformatics Pipeline
+## PanSolid CLC bioinformatics pipeline
 
 A bioinformatics pipeline was built in the CLC Genomics Workbench v23 (Qiagen).
+The details of the pipeline are described in DOC and DOC. The graining level for
+each gene was set based on the number of targets present within the gene. The 
+version of the PanSolid CLC pipeline tested in this validation was PanSolid 
+Workflow v2.4.
 
-### Control cohort
+### Deletion fold change threshold {#sec-methods-fold-change}
 
-### Graining level
-
-### Fold change {#sec-methods-fold-change}
+The PanSolid CLC pipeline calculates the "fold change" of a copy number region in
+comparison the results from a cohort of normal controls (described in ERBB2).
+Two separate equations are used for calculating the fold change of copy number
+gains [@eq-fold-change-gain] and copy number losses [@eq-fold-change-loss].
 
 $$
 FCgain = CNsample / CNnormal
@@ -443,57 +475,43 @@ $$ {#eq-fold-change-loss}
 #| label: fold-change
 #| include: FALSE
 
-ref_sample_copies <- 200
-
-calculate_deletion_fold_change <- function(tcc_percent, sample_target_copies_per_tumour_cell) {
-  
-  tcc_fraction <- tcc_percent / 100
-  
-  sample_target_copies_in_tumour_cells <- (100 * tcc_fraction) * sample_target_copies_per_tumour_cell
-  
-  sample_target_copies_in_normal_cells <- (100 * (1-tcc_fraction)) * 2
-  
-  sample_total_target_copies <- sample_target_copies_in_tumour_cells + sample_target_copies_in_normal_cells
-  
-  fold_change <- -1 * (ref_sample_copies / sample_total_target_copies) 
-  
-  return(fold_change)
-  
-}
-
 fold_change_df <- data.frame(ncc = seq(0, 100, by = 0.1)) |> 
-  mutate(fold_change_normal = calculate_deletion_fold_change(
-      tcc_percent = ncc,
-      sample_target_copies_per_tumour_cell = 2),
-    fold_change_het_del = calculate_deletion_fold_change(
-      tcc_percent = ncc,
-      sample_target_copies_per_tumour_cell = 1),
-    fold_change_hom_del = calculate_deletion_fold_change(
-       tcc_percent = ncc,
-       sample_target_copies_per_tumour_cell = 0)) |> 
+  mutate(fold_change_normal = pred_fc(tumour_cpc = 2,
+                                      ncc = ncc,
+                                      dir = "loss",
+                                      digits = 3),
+         fold_change_het_del = pred_fc(tumour_cpc = 1,
+                                       ncc = ncc,
+                                       dir = "loss",
+                                       digits = 3),
+         fold_change_hom_del = pred_fc(tumour_cpc = 0,
+                                       ncc = ncc,
+                                       dir = "loss",
+                                       digits = 3)) |> 
   pivot_longer(cols = -ncc,
                names_to = "del_state",
                values_to = "fold_change")
 
-```
-
-```{r}
-#| label: fold-change-threshold
-#| include: FALSE
-
-deletion_fc_threshold <- calculate_deletion_fold_change(50, 1)
 
 ```
 
-The threshold was set at `r round(deletion_fc_threshold,2)`, which is the fold 
-change for a sample with a heterozygous deletion at 50% neoplastic cell content. 
-This would be an overall copy number of 1.5.
+The NCC of a sample and the number of gene copies per cell both impact the total
+measured fold change and copy number of a sample, with fold change providing a 
+greater distinction between homozygous and heterozygous deletions, as shown in 
+@fig-fold-change-vs-ncc and @ fig-fold-change-vs-cn. 
+Initially, the fold change threshold 
+was set at
+`r round(deletion_fc_threshold_theoretical,2)`
+as this was the predicted fold change for a sample with a heterozygous deletion 
+at 50% NCC. Following initial testing of samples, this was modified to
+`r deletion_fc_threshold`.
 
 ```{r}
-#| label: fold-change-plot
+#| label: fig-fold-change-vs-ncc
+#| fig-cap: "Fold change vs neoplastic cell content"
 #| echo: FALSE
 
-fold_change_plot <- ggplot(fold_change_df, aes(x = ncc, y = fold_change)) +
+fig_fold_change_vs_ncc <- ggplot(fold_change_df, aes(x = ncc, y = fold_change)) +
   geom_line(aes(colour = del_state), linewidth = 1) +
   scale_colour_manual(values = c( "#999999", "#999999", "#999999")) +
   coord_cartesian(ylim = c(-5, 0)) +
@@ -503,14 +521,21 @@ fold_change_plot <- ggplot(fold_change_df, aes(x = ncc, y = fold_change)) +
   scale_x_continuous(breaks = seq(0, 100, by = 10)) +
   theme_bw() +
   theme(legend.position = "blank") +
-  labs(y = "Fold change", x = "Neoplastic cell content",
+  labs(y = "Fold change (loss equation)", x = "Neoplastic cell content",
        colour = "") +
   geom_hline(yintercept = round(deletion_fc_threshold,2), linetype = "dashed") +
   annotate("text", x = 65, y = -4.5, label = "Homozyous \n deletion") +
   annotate("text", x = 90, y = -2.5, label = "Heterozygous \n deletion") +
   annotate("text", x = 90, y = -0.5, label = "Normal")
 
-fold_change_plot
+fig_fold_change_vs_ncc
+
+```
+
+```{r}
+#| label: fig-fold-change-vs-cn
+#| fig-cap: "Fold change vs copy number"
+#| echo: FALSE
 
 copy_number_df <- data.frame(ncc = seq(0, 100, by = 1)) |> 
   # Imagine for 100 cells
@@ -521,27 +546,37 @@ copy_number_df <- data.frame(ncc = seq(0, 100, by = 1)) |>
                names_to = "del_state",
                values_to = "copy_number")
 
-copy_number_plot <- ggplot(copy_number_df, aes(x = ncc, y = copy_number)) +
+fig_fold_change_vs_cn <- ggplot(copy_number_df, aes(x = ncc, y = copy_number)) +
   geom_line(aes(colour = del_state), linewidth = 1) +
   scale_colour_manual(values = c( "#999999", "#999999", "#999999")) +
   scale_x_continuous(breaks = seq(0, 100, by = 10)) +
   theme_bw() +
   theme(legend.position = "blank") +
-  labs(y = "Copy number", x = "Neoplastic cell content",
+  labs(y = "Overall copy number", x = "Neoplastic cell content",
        colour = "") +
   annotate("text", x = 75, y = 0.2, label = "Homozyous \n deletion") +
   annotate("text", x = 90, y = 0.8, label = "Heterozygous \n deletion") +
-  annotate("text", x = 90, y = 1.8, label = "Normal") +
-  geom_hline(yintercept = 1.5, linetype = "dashed") 
+  annotate("text", x = 90, y = 1.8, label = "Normal") 
 
-copy_number_plot
+fig_fold_change_vs_cn
 
 ```
 
-### Signal-adjusted noise
+### Quality control
 
-The signal-adjusted noise metric was developed during the *ERBB2* validation and
-is described in detail in DOCxxxx.
+The signal-adjusted noise quality control metric was developed during 
+the *ERBB2* validation and is described in detail in DOCxxxx. In addition,
+the percentage of the panel BED targets covered at 138X or higher was used as
+a further quality metric. A threshold of 75% was set for this metric following
+*in silico* downsampling experiments performed for 
+[INC9967]{custom-style="Strong"}.
+
+### Ploidy and LOH detection
+
+Ploidy status of copy number segments was predicted using the CLC
+"Detect Regional Ploidy" tool with the "Region-level Ploidy Track". This uses
+a HMM to predict ploidy based on SNP and coverage data, which 
+is influenced by @beroukhim2006.
 
 ### Variant frequency
 
@@ -552,46 +587,18 @@ filtered according to the following criteria:
 1) The variant was in a Genome In A Bottle high-confidence region
 2) The variant had a frequency greater than 4%
 
-This variant frequency is different to the B allele frequency (BAF) which is
-used in WGS analysis. The BAF shows the frequency of the allele present in
-the reference genome versus the alternate allele. Bases are given an arbitrary 
-hierarchy: A < T < G < C.
-
-When the reference base is higher in the hierarchy to the alternate base, BAF
-is defined as:
-
-$$
-BAF = (AltCount / (RefCount + AltCount))
-$$ {#eq-baf-1}
-
-When the reference bases is lower in the hierarchy to the alternate base, BAF
-is defined as:
-
-$$
-BAF = 1 - (AltCount / (RefCount + AltCount))
-$$ {#eq-baf-2}
-
-Equations taken from [Illumina website](https://help.dragen.illumina.com/product-guides/dragen-v4.3/dragen-dna-pipeline/small-variant-calling/baf-output)
-
-### Ploidy
-
-Ploidy status was predicted using the "Detect Regional Ploidy" tool. This uses
-a Hidden Markov Model to predict ploidy based on SNP and coverage data, which 
-is influenced by @beroukhim2006.
-
-### Pipeline version
-
-The version of the PanSolid CLC pipeline tested in this validation was PanSolid 
-Workflow v2.4.
-
 ### Visualisation
 
-A new visualisation was developed to include deletions and LOH.
+A new visualisation of the pipeline results was developed to include deletions 
+and ploidy predictions. Genomic regions are coloured by ploidy status.
 
-## Whole genome sequencing
 
-Additional samples were added to the existing cohort reported in 
-[DOC6283]{custom-style="Strong"}. 
+
+
+
+## Orthogonal testing
+
+### Whole genome sequencing
 
 Samples were tested by whole genome sequencing (WGS) within the NHS Genomic
 Medicine Service [@sosinsky2024]. WGS was performed by Illumina Laboratory 
@@ -599,50 +606,36 @@ Services in Cambridge
 on paired blood and fresh frozen tumour samples. Bioinformatic analysis was
 performed by Genomics England, and HTML reports were downloaded from the 
 Genomics
-England [clinical interpretation portal](https://cipapi.genomicsengland.nhs.uk/interpretationportal/gms/).
+England [clinical interpretation portal](https://cipapi.genomicsengland.nhs.uk/interpretationportal/gms/). The
+samples included in this validation are comprised of those previously tested as
+part of the validation of amplification detection 
+[DOC6283]{custom-style="Strong"}, plus additional samples with specific gene
+deletions detected on WGS.
 
-### Genomics England Pipeline
-
-Within the pipeline, tumour ploidy and chromosome count are calculated by the
-Canvas algorithm [@roller2016]. Canvas also
+Within the Genomics England WGS pipeline, tumour ploidy and chromosome 
+count are calculated by the Canvas algorithm [@roller2016]. Canvas also
 detects somatic CNVs and LOH using sample read-depth and allele ratios, and reports
 them as GAIN, LOSS or LOH in the HTML report. Structural variants are detected
 using the Manta algorithm [@chen2016] and included as DEL or DUP in the HTML
-report. 
-
-Whilst Canvas predicts tumour purity, the tumour purity stated on the 
+report. Whilst Canvas predicts tumour purity, the tumour purity stated on the 
 final HTML report is predicted using the Ccube package [@yuan2018]. Ccube 
 predicts NCC from variant fractions, using a probabilistic model to account for 
 two important challenges: not all cancer cells may contain a variant, and cancer
 cells may not be diploid.
 
-```{r}
-#| label: pipeline-metrics
-#| echo: FALSE
+### Droplet digital PCR
 
-pipeline_metric_tbl <- tribble(
-  ~"",         ~"PanSolid NGS", ~"Whole genome sequencing",
-  "Sample(s)",   "FFPE tumour sample",   "Paired fresh frozen tumour sample and blood sample for germline DNA",
-  "Library preparation", "QIAseq panel enrichment", "Whole genome amplification",
-  "CNV caller",  "QIAgen CLC Genomics Workbench", "Germline CNVs: DRAGEN CNV; Somatic CNVs: Canvas and Manta",
-  "NCC calculated", "No", "Yes - by Canvas and Ccube"
-)
-
-knitr::kable(pipeline_metric_tbl)
-
-```
-
-## Droplet digital PCR
-
-ddPCR assays were designed for the *CDKN2A* and *PTEN* genes. ddPCR was 
-performed on a BioRad QX200 system with 20ng DNA input. The ddPCR
+Droplet digitsl PCR (ddPCR) assays were designed for the *CDKN2A* and 
+*PTEN* genes. ddPCR was performed on a BioRad QX200 system with 20ng DNA input.
+The ddPCR
 assays were validated on WS146103 and samples were tested on WS146462 and 
 WS146463. The ddPCR assays for *CDKN2A* exon 3 and *PTEN* exon 1 were used.
 The same ddPCR mix volumes and thermocycling conditions were used as for the 
-previous amplifications validation, and are detailed in the Supplementary 
+previous validation of amplification detection, and are detailed in 
+the Supplementary 
 Information of [DOC6283]{custom-style="Strong"}.
 
-## Loss of heterozgosity
+### Loss of heterozgosity
 
 ```{r}
 #| label: nf2-markers
@@ -657,7 +650,8 @@ nf2_loh_markers <- tribble(
 ) |> 
   mutate(amplicon_size_bp = abs(grch38_start - grch38_end))
 
-nf2_marker_mb <- round((max(nf2_loh_markers$grch38_end) - min(nf2_loh_markers$grch38_start)) / 10^6, 1)
+nf2_marker_mb <- round((max(nf2_loh_markers$grch38_end) - 
+                          min(nf2_loh_markers$grch38_start)) / 10^6, 1)
 
 nf2_loh_targets <- target_df_with_coordinates |> 
   filter(chromosome == "22") |> 
@@ -666,18 +660,17 @@ nf2_loh_targets <- target_df_with_coordinates |>
 
 ```
 
-4 dinucleotide microsatellite repeat markers (D22S275, NF2CA3, NF2intron10 and
-D22S268) on chromosome 22 are used to assess loss of heterozygosity (LOH) for 
-the *NF2* gene with fluorescence-PCR analysed on an ABI-3130 analyser 
+DNA samples with results from PCR microsatellite testing of *NF2* were used to
+validate the ability of the PanSolid CLC pipeline to detect regions of LOH. At 
+the North West GLH, LOH testing for *NF2* is performed by targeting 4 dinucleotide 
+microsatellite repeat markers (D22S275, NF2CA3, NF2intron10 and
+D22S268) on chromosome 22. The fluorescence-labelled PCR prodcuts for paired
+DNA samples from tumour and blood are analysed on an ABI-3130 analyser 
 ([LP 000 069: Neurofibromatosis type 2 (NF2): Standard Operating
-Procedure]{custom-style="Strong"}). Testing was performed on paired tumour and
-blood DNA.
-
-These markers span `r nf2_marker_mb` Mb of chromosome 22, the same region 
-contains `r nrow(nf2_loh_targets)` targets on PanSolid v2.
-
-We used these samples as proof-of-concept that the PanSolid pipeline can 
-identify regions of LOH.
+Procedure]{custom-style="Strong"}). A relative loss of peak height greater than 
+30% between tumour DNA and blood DNA is used to classify 
+"significant LOH" [@wallace2004]. Results for the NF2 LOH PCR assays were 
+extracted from the DNA Database.
 
 ```{r}
 #| label: tbl-nf2-markers
@@ -689,11 +682,10 @@ kable(nf2_loh_markers)
 
 ## Validation analysis
 
-Analysis was performed in R version 4.4.1. This validation document is written in
+Analysis was performed in R version 4.4.1 [@rcore2024] using multiple packages 
+including the tidyverse [@wickham2019]. This validation document is written in
 Quarto [@allaire2024] and is saved in a public Github repository:
 [https://github.com/joe-m-shaw/pansolid_cnv_validation/tree/main/vignettes](https://github.com/joe-m-shaw/pansolid_cnv_validation/tree/main/vignettes)
-
-## Data locations
 
 All data analysed in this validation is saved at this file location:
 
@@ -709,14 +701,241 @@ S:/central shared/Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/validat
 #| label: overall-results
 #| include: FALSE
 
+noise_and_138x <- del_val_collated_stdev |> 
+  inner_join(del_val_collated_138x |> 
+               select(filepath, percent_138x),
+             by = "filepath")
 
-str(del_val_pansolid_ngs_collated)
-
+results_passing_qc <- noise_and_138x |> 
+  filter(stdev_noise <= noise_qc_threshold &
+           percent_138x >= percent_138x_qc_threshold)
 
 ```
 
+In total, `r nrow(noise_and_138x)` replicates from 
+`r length(unique(noise_and_138x$labno))` DNA samples were tested on the PanSolid
+enrichment and analysed with the PanSolid CLC pipeline.
+Of these, `r nrow(results_passing_qc)` replicates had noise and coverage metrics
+which were of acceptable quality.
+
 ## Comparison to whole genome sequencing
 
+```{r}
+#| label: chrom-gene-tbl
+#| include: FALSE
+
+chrom_gene_tbl <- del_val_wgs_html_cnvs |> 
+  filter(gene %in% del_val_collated_del_genes$gene) |> 
+  select(chromosome, gene) |> 
+  distinct() |> 
+  mutate(chrom_num = parse_number(chromosome)) |> 
+  arrange(chrom_num)
+
+```
+
+```{r}
+#| label: join-pansolid-and-wgs-results
+#| include: FALSE
+
+del_gene_results_with_ids <- del_val_collated_del_genes |> 
+  left_join(del_val_sample_patient_info, by = "labno",
+            relationship = "many-to-one") |> 
+  left_join(del_val_collated_138x |> 
+               select(filepath, percent_138x),
+            by = "filepath") |> 
+  left_join(del_val_collated_stdev |> 
+              select(filepath, stdev_noise),
+            by = "filepath")
+
+wgs_cnvs_with_ids <- del_val_wgs_html_cnvs |> 
+  left_join(del_val_wgs_html_ids,
+            by = "filepath",
+            relationship = "many-to-one")
+
+patients_with_qiasymphony_extractions <- del_val_sample_patient_info |> 
+  filter(extraction_method == "QIAsymphony")
+
+pansolid_results_for_wgs_comparison <- del_gene_results_with_ids |> 
+  filter(stdev_noise <= noise_qc_threshold &
+           percent_138x >= percent_138x_qc_threshold) |> 
+  filter(nhsno %in% del_val_wgs_html_ids$nhsno) |> 
+  filter(
+    (nhsno %in% patients_with_qiasymphony_extractions$nhsno &
+    extraction_method == "QIAsymphony") |
+      (!nhsno %in% patients_with_qiasymphony_extractions$nhsno)) |> 
+  filter(!labno %in% c(
+    "23025733",                # Remove sample on Cobas extraction
+    "24030946")) |>   # These patients have 2 QIAsymphony extractions
+  # This sample was repeated for repeatability
+  filter((labno != "24017319" & worksheet != "WS144364"))
+  
+pansolid_patients_for_wgs_comparison <- pansolid_results_for_wgs_comparison |> 
+  distinct(nhsno, firstname, surname, labno)
+
+stopifnot(anyDuplicated(pansolid_patients_for_wgs_comparison$nhsno) == 0)
+
+pansolid_samples_for_wgs_comparison <- pansolid_results_for_wgs_comparison |> 
+  distinct(labno, worksheet)
+
+stopifnot(anyDuplicated(pansolid_samples_for_wgs_comparison$labno) == 0)
+
+wgs_results_for_pansolid_comparison <- wgs_cnvs_with_ids |> 
+  mutate(labno_gene = str_c(labno, "_", gene)) |> 
+  # Restrict to one result per gene per labno
+  filter(!duplicated(labno_gene))
+
+pansolid_vs_wgs <- pansolid_results_for_wgs_comparison |> 
+  left_join(wgs_results_for_pansolid_comparison,
+            join_by(nhsno == nhsno, gene == gene),
+            relationship = "one-to-one") |> 
+  left_join(chrom_gene_tbl |> 
+              select(gene, chrom_num), by = "gene")
+
+```
+
+The deletion results for `r length(unique(pansolid_vs_wgs$gene))` genes 
+on `r length(unique(chrom_gene_tbl$chrom_num))` autosomes were
+compared between the PanSolid CLC pipeline and the WGS pipeline for 
+`r length(unique(pansolid_vs_wgs$labno.x))` from
+`r length(unique(pansolid_vs_wgs$nhsno))` patients. To avoid double-counting,
+samples where DNA was tested following multiple extraction methods 
+had a single QIAsymphony extraction 
+selected for the comparison. If a QIAsymphony extraction was not available, then
+DNA from fresh frozen tissue was used instead. Results were only compared when
+the noise and coverage metrics were above the quality control thresholds.
+
+```{r}
+#| label: compare-pansolid-to-wgs-results
+#| include: FALSE
+
+pansolid_vs_wgs_outcomes <- pansolid_vs_wgs |> 
+  mutate(
+    wgs_result = case_when(
+      cnv_class %in% c("DEL", "LOSS") ~"Deletion detected",
+      !cnv_class %in% c("DEL", "LOSS") |
+        is.na(cnv_class) ~"No deletion detected"),
+    
+    outcome = case_when(
+    
+    min_region_fold_change <= deletion_fc_threshold &
+      wgs_result == "Deletion detected" ~"true_positive",
+    
+    min_region_fold_change > deletion_fc_threshold &
+      wgs_result == "No deletion detected" ~"true_negative",
+    
+    min_region_fold_change <= deletion_fc_threshold &
+      wgs_result == "No deletion detected" ~"false_positive",
+    
+    min_region_fold_change > deletion_fc_threshold &
+      wgs_result == "Deletion detected" ~"false_negative"),
+    
+    outcome = factor(outcome, levels = c("true_positive",     # Order for 
+                                         "false_positive",    # epiR::epi.tests
+                                         "false_negative",    # dat argument
+                                         "true_negative"
+                                         )))
+
+stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome) == FALSE)
+
+pansolid_vs_wgs_per_gene_summary <- pansolid_vs_wgs_outcomes |> 
+  group_by(gene, outcome) |> 
+  count() |> 
+  pivot_wider(id_cols = c(gene),
+              names_from = outcome,
+              values_from = n,
+              values_fill = 0,
+              names_expand = TRUE)
+
+pansolid_vs_wgs_overall_summary <- pansolid_vs_wgs_outcomes |> 
+  group_by(outcome) |> 
+  count() |> 
+  arrange(outcome)
+
+pansolid_vs_wgs_overall_metrics <- get_epir_metrics(outcome_vector =
+                                                      pansolid_vs_wgs_overall_summary$n)
+
+
+pansolid_vs_wgs_overall_counts <- pansolid_vs_wgs_overall_summary |> 
+  pivot_wider(id_cols = ,
+              names_from = outcome,
+              values_from = n,
+              values_fill = 0,
+              names_expand = TRUE) |> 
+  mutate("Sample loci" = true_positive + true_negative + false_negative +
+                         false_positive) |> 
+  rename(`True negatives` = true_negative,
+         `True positives` = true_positive,
+         `False negatives` = false_negative,
+         `False positives` = false_positive) |> 
+  select("Sample loci", `True negatives`, `True positives`, `False negatives`,
+         `False positives`)
+
+```
+
+```{r}
+#| label: fig-pansolid-wgs-counts-plot
+#| fig-cap: "PanSolid vs WGS by gene"
+#| echo: FALSE
+
+fig_pansolid_wgs_counts_plot <- pansolid_vs_wgs_outcomes |> 
+  group_by(chrom_num, gene, outcome) |> 
+  count() |> 
+  ggplot(aes(x = reorder(gene, chrom_num), y = n)) +
+  geom_col(aes(fill = chrom_num)) +
+  facet_wrap(~outcome, nrow = 4) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom") +
+  labs(x = "", y = "Results") +
+  scale_y_continuous(breaks = c(0, 10, 20))
+
+fig_pansolid_wgs_counts_plot
+
+```
+
+```{r}
+#| label: tbl-pansolid-wgs-gene-summary
+#| tbl-cap: "PanSolid vs WGS gene summary"
+#| echo: FALSE
+
+knitr::kable(pansolid_vs_wgs_overall_counts)
+
+```
+
+```{r}
+#| label: tbl-pansolid-wgs-metrics
+#| tbl-cap: "PanSolid vs WGS metrics"
+#| echo: FALSE
+
+knitr::kable(pansolid_vs_wgs_overall_metrics)
+
+```
+
+```{r}
+#| label: fig-copy-number-vs-fold-change
+#| fig-cap: "Copy number vs fold change"
+#| echo: FALSE
+
+fig_copy_number_vs_fold_change <- pansolid_vs_wgs_outcomes |> 
+  mutate(cnv_copy_number = case_when(
+    is.na(cnv_copy_number) ~2,
+    TRUE ~cnv_copy_number
+  )) |> 
+  ggplot(aes(x = cnv_copy_number, 
+                                     y = min_region_fold_change)) +
+  annotate('rect', 
+           xmin = 0, xmax = 10, ymin = -1, ymax = 1, 
+           fill='grey', alpha = 0.5) +
+  scale_x_continuous(breaks = seq(0, 10, by = 1)) +
+  geom_jitter(shape = 21, width = 0.1) +
+  theme_bw() +
+  geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
+  scale_y_continuous(breaks = c(seq(-20, 5, by = 5), deletion_fc_threshold)) +
+  labs(x = "WGS copy number", y = "PanSolid minimum fold change")
+
+fig_copy_number_vs_fold_change
+
+```
 
 ### Homozygous losses
 
@@ -730,20 +949,16 @@ Every example of a PTEN CN0 loss detected on WGS was detected on PanSolid.
 
 ### Germline loss
 
-
-
 ### Ploidy
 
 Comparison plot of ploidy estimates from PanSolid and WGS.
-
-
 
 ```{r}
 #| label: wgs-deletions
 #| eval: FALSE
 #| include: FALSE
 
-del_genes <- read_csv(file = paste0(data_folder,
+del_genes <- read_csv(file = paste0(data_folderpath,
                                    "validation/DOC6567_deletions/gene_lists/",
                                    "pansolid_deletion_gene_list.csv"))
 
@@ -785,299 +1000,271 @@ kable(wgs_del_cnvs_summary)
 
 ```
 
-
 ## Comparison to ddPCR
-
-ddPCR was performed for the *PTEN* and *CDKN2A* genes for all 25 normal control 
-samples and 29 patient samples.
-
-*PTEN* has a pseudogene, *PTENP1*, on chromosome 9, which could have influenced
-the results.
 
 ```{r}
 #| label: load-ddpcr-data
-#| eval: FALSE
 #| include: FALSE
 
-qs_normals <- read_csv(file = paste0(data_folder,
+qs_normals <- read_csv(file = paste0(data_folderpath,
                                      "validation/DOC6283_amplifications/",
                                      "controls/qiasymphony_controls.csv"),
                        col_types = "c")
 
-ps_results <- read_csv(file = paste0(data_folder,
-                                     "validation/DOC6567_deletions/",
-                                     "processed/",
-                                     "pansolid_ngs_cnvs.csv"))
-
-ddpcr_copy_number_threshold <- 1.5
-
-pansolid_fold_change_threshold <- -1.33
-
-```
-
-```{r}
-#| label: cdkn2a-results
-#| eval: FALSE
-#| include: FALSE
-
-cdkn2a_ddpcr_results <- ddpcr_data |> 
-  filter(worksheet == "WS146462") |> 
+ddpcr_data_mod <- del_val_ddpcr_collated |> 
   filter(sample != "NTC") |> 
   filter(target_type == "Ch1Unknown") |> 
   mutate(category = case_when(
     sample %in% qs_normals$labno ~"normal control",
     TRUE ~"patient"
-  )) |> 
-  left_join(ps_results, join_by("sample" == "labno",
-                                "")) |> 
-  mutate(ddpcr_result = case_when(
-    cnv < ddpcr_copy_number_threshold ~"deletion",
-    cnv >= ddpcr_copy_number_threshold ~"normal"
+  ))
+
+
+```
+
+```{r}
+#| label: compare-ddpcr-pansolid
+#| include: FALSE
+
+pansolid_vs_ddpcr <- ddpcr_data_mod |> 
+  left_join(del_val_collated_del_genes, 
+            join_by("sample" == "labno", "gene" == "gene")) |> 
+  mutate(sub_category = case_when(
+    category != "normal control" ~paste0(category, " ", pansolid_result),
+    TRUE ~category
   ),
-  pansolid_result = case_when(
-    cdkn2a_fold_change <= pansolid_fold_change_threshold ~"deletion",
-    cdkn2a_fold_change > pansolid_fold_change_threshold ~"normal"),
-  outcome = case_when(
-    ddpcr_result == "deletion" & pansolid_result == "deletion" ~"PanSolid deletion; ddPCR deletion",
-    ddpcr_result == "normal" & pansolid_result == "deletion" ~"PanSolid deletion; ddPCR normal",
-    ddpcr_result == "normal" & pansolid_result == "normal" ~"PanSolid normal; ddPCR normal",
-    ddpcr_result == "deletion" & pansolid_result == "normal" ~"PanSolid normal; ddPCR deletion"))
-
-cdkn2a_patient_results <- cdkn2a_ddpcr_results |> 
-  filter(category != "normal control") |> 
-  filter(!is.na(outcome))
-
-cdkn2a_result_summary <- cdkn2a_patient_results |> 
-  count(outcome) |> 
-  arrange(desc(n)) |> 
-  rename(samples = n)
-
-cdkn2a_metrics <- get_epir_metrics(outcome_vector = c(17, 0, 2, 10))
-
-discrepant_strings <- c("PanSolid deletion; ddPCR normal", "PanSolid normal; ddPCR deletion")
-
-discrepant_cdkn2a <- cdkn2a_ddpcr_results |> 
-  filter(outcome %in% discrepant_strings) |> 
-  select(sample, cnv, ch1_ch2_2, ch1_ch2_3, cdkn2a_fold_change, pansolid_result)
-
-```
-
-
-```{r}
-#| label: pten-results
-#| eval: FALSE
-#| include: FALSE
-
-pten_ddpcr_results <- ddpcr_data |>
-  filter(worksheet == "WS146463") |> 
-  filter(sample != "NTC") |> 
-  filter(target_type == "Ch1Unknown") |> 
-  mutate(category = case_when(
-    sample %in% qs_normals$labno ~"normal control",
-    TRUE ~"patient"
-  )) |> 
-  left_join(ps_results, join_by("sample" == "labno")) |> 
-  mutate(ddpcr_result = case_when(
-    cnv < ddpcr_copy_number_threshold ~"deletion",
-    cnv >= ddpcr_copy_number_threshold ~"normal"
+  sub_category = factor(sub_category,
+                        levels = c("normal control",
+                                   "patient no deletion",
+                                   "patient deletion",
+                                   "patient NA")),
+  ddpcr_result = case_when(
+    cnv >= 1.4 ~"no deletion",
+    cnv < 1.4 & cnv > 1.1 ~"uncertain",
+    cnv <= 1.1 ~"deletion"
   ),
-  pansolid_result = case_when(
-    pten_fold_change <= pansolid_fold_change_threshold ~"deletion",
-    pten_fold_change > pansolid_fold_change_threshold ~"normal"),
+  ddpcr_result = factor(ddpcr_result, levels = c("no deletion",
+                                                 "uncertain",
+                                                 "deletion")),
   outcome = case_when(
-    ddpcr_result == "deletion" & pansolid_result == "deletion" ~"PanSolid deletion; ddPCR deletion",
-    ddpcr_result == "normal" & pansolid_result == "deletion" ~"PanSolid deletion; ddPCR normal",
-    ddpcr_result == "normal" & pansolid_result == "normal" ~"PanSolid normal; ddPCR normal",
-    ddpcr_result == "deletion" & pansolid_result == "normal" ~"PanSolid normal; ddPCR deletion"))
-
-pten_patient_results <- pten_ddpcr_results |> 
-  filter(category != "normal control") |> 
-  filter(!is.na(outcome))
-
-pten_result_summary <- pten_patient_results |> 
-  count(outcome) |> 
-  arrange(desc(n)) |> 
-  rename(samples = n)
-
-pten_metrics <- get_epir_metrics(outcome_vector = c(8, 5, 2, 12))
-
-discrepant_pten <- pten_ddpcr_results |> 
-  filter(outcome %in% discrepant_strings) |> 
-  select(sample, cnv, ch1_ch2_2, ch1_ch2_3, pten_fold_change, pansolid_result)
+    pansolid_result == "deletion" &
+      ddpcr_result == "deletion" ~"true_positive",
+    pansolid_result == "no deletion" &
+      ddpcr_result == "no deletion" ~"true_negative",
+    pansolid_result == "deletion" &
+      ddpcr_result == "no deletion" ~"false_positive",
+    pansolid_result == "no deletion" &
+      ddpcr_result == "deletion" ~"false_negative",
+    TRUE ~"no result"
+  ),
+  outcome = factor(outcome, levels = c("true_positive",
+                                       "false_positive",
+                                       "false_negative",
+                                       "true_negative",
+                                       "no result")))
 
 ```
 
-```{r}
-#| label: fig-cdkn2a-ddpcr-results
-#| eval: FALSE
-#| include: FALSE
-#| fig-width: 6
+ddPCR was performed for the *PTEN* and *CDKN2A* genes for all 25 normal control 
+samples and 29 patient samples.
 
-cdkn2a_normal_plot <- cdkn2a_ddpcr_results |> 
-  filter(category == "normal control") |> 
-  ggplot(aes(x = reorder(sample, desc(cnv)), y = cnv)) +
-  geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
-  geom_point(shape = 21, fill = "white") +
+```{r}
+#| label: fig-ddpcr-pansolid-outcomes
+#| fig-cap: "PanSolid results vs ddPCR"
+#| echo: FALSE
+
+fig_ddpcr_pansolid_outcomes <- pansolid_vs_ddpcr |> 
+  filter(sub_category != "patient NA") |> 
+  ggplot(aes(x = sub_category, y = cnv)) +
+  geom_hline(yintercept = 1.1, linetype = "dashed") +
+  geom_hline(yintercept = 1.4, linetype = "dashed") +
+  geom_jitter(shape = 21, width = 0.1, aes(fill = ddpcr_result)) +
+  scale_fill_manual(values = c("white", "grey", "red")) +
+  facet_wrap(~gene) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle= 90),
-        legend.position = "bottom") +
-  labs(x = "", y = "ddPCR copy number",
-       title = "CDKN2A normal control results") +
-  ylim(0, 6) +
-  geom_hline(yintercept = 1.5, linetype = "dashed")
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "PanSolid result", y = "ddPCR copy number",
+       fill = "ddPCR result")
 
-cdkn2a_patient_plot <- cdkn2a_ddpcr_results |> 
-  filter(category == "patient") |> 
-  ggplot(aes(x = reorder(sample, desc(cnv)), y = cnv)) +
-  geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
-  geom_point(shape = 21, fill = "white") +
+fig_ddpcr_pansolid_outcomes
+
+```
+
+```{r}
+#| label: fig-pansolid-fold-change-vs-ddpcr
+#| fig-cap: "PanSolid fold change vs ddPCR"
+#| echo: FALSE
+
+fig_pansolid_fold_change_vs_ddpcr <- pansolid_vs_ddpcr |> 
+  filter(category == "patient" &
+           !is.na(min_region_fold_change)) |> 
+  ggplot(aes(x = cnv, y = min_region_fold_change)) +
+  geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
+  geom_vline(xintercept = 1.1, linetype = "dashed") +
+  geom_vline(xintercept = 1.4, linetype = "dashed") +
+  geom_point(shape = 21, aes(fill = pansolid_result)) +
+  scale_fill_manual(values = c("red", "white")) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle= 90),
-        legend.position = "bottom") +
-  labs(x = "", y = "",
-       title = "CDKN2A patient results") +
-  ylim(0, 6) +
-  geom_hline(yintercept = 1.5, linetype = "dashed")
+  theme(legend.position = "bottom") +
+  facet_wrap(~gene) +
+  labs(x = "ddPCR copy number", y = "PanSolid minimum fold change",
+       fill = "PanSolid result") +
+  ggpubr::stat_cor(method = "pearson", label.x = 1.5, label.y = -20)
 
-cdkn2a_comb_plot <- cdkn2a_normal_plot + cdkn2a_patient_plot +
-  plot_layout(nrow = 1)
-
-cdkn2a_comb_plot
+fig_pansolid_fold_change_vs_ddpcr
 
 ```
 
 ```{r}
-#| label: fig-pten-ddpcr-results
-#| eval: FALSE
-#| include: FALSE
-#| fig-width: 6
+#| label: tbl-pansolid-ddpcr-metrics
+#| echo: FALSE
 
-pten_normal_plot <- pten_ddpcr_results |> 
-  filter(category == "normal control") |> 
-  ggplot(aes(x = reorder(sample, desc(cnv)), y = cnv)) +
-  geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
-  geom_point(shape = 21, fill = "white") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = "bottom") +
-  labs(x = "", y = "ddPCR copy number",
-       title = "PTEN normal control results") +
-  ylim(0, 5) +
-  geom_hline(yintercept = 1.5, linetype = "dashed")
+pansolid_ddpcr_summary <- pansolid_vs_ddpcr |> 
+  filter(outcome != "no result") |> 
+  group_by(outcome) |> 
+  count() |> 
+  arrange(outcome)
 
-pten_patient_plot <- pten_ddpcr_results |> 
-  filter(category == "patient") |> 
-  ggplot(aes(x = reorder(sample, desc(cnv)), y = cnv)) +
-  geom_errorbar(aes(ymin = poisson_cnv_min, ymax = poisson_cnv_max)) +
-  geom_point(shape = 21, fill = "white") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = "bottom") +
-  labs(x = "", y = "",
-       title = "PTEN patient results") +
-  ylim(0, 5) +
-  geom_hline(yintercept = 1.5, linetype = "dashed")
+pansolid_vs_ddpcr_metrics <- get_epir_metrics(outcome_vector =
+                                                      pansolid_ddpcr_summary$n)
 
-pten_comb_plot <- pten_normal_plot + pten_patient_plot +
-  plot_layout(nrow = 1)
-
-pten_comb_plot
+knitr::kable(pansolid_vs_ddpcr_metrics)
 
 ```
 
-{{< pagebreak >}}
-
-```{r}
-#| label: tbl-cdkn2a-results
-#| tbl-cap: "CDKN2A results"
-#| eval: FALSE
-#| include: FALSE
-
-kable(cdkn2a_result_summary)
-
-```
-
-```{r}
-#| label: tbl-cdkn2a-metrics
-#| tbl-cap: "CDKN2A metrics"
-#| eval: FALSE
-#| include: FALSE
-
-kable(cdkn2a_metrics)
-
-```
-
-{{< pagebreak >}}
-
-```{r}
-#| label: tbl-pten-results
-#| tbl-cap: "PTEN results"
-#| eval: FALSE
-#| include: FALSE
-
-kable(pten_result_summary)
-
-```
-
-```{r}
-#| label: tbl-pten-metrics
-#| tbl-cap: "PTEN metrics"
-#| eval: FALSE
-#| include: FALSE
-
-kable(pten_metrics)
-
-```
-
-```{r}
-#| label: fig-ddpcr-vs-pansolid
-#| fig-height: 7
-#| eval: FALSE
-#| include: FALSE
-
-cdkn2a_ps_plot <- cdkn2a_ddpcr_results |> 
-    filter(!is.na(cdkn2a_ddpcr_results$cdkn2a_fold_change)) |> 
-  ggplot(aes(x = cnv, y = cdkn2a_fold_change)) +
-  geom_hline(yintercept = pansolid_fold_change_threshold, linetype = "dashed") +
-  geom_vline(xintercept = ddpcr_copy_number_threshold, linetype = "dashed") +
-    annotate('rect', xmin = -1, xmax = 3, ymin = -1, 
-           ymax = 1, fill='white') +
-  geom_hline(yintercept = 1, colour = "grey") +
-  geom_hline(yintercept = -1, colour = "grey") +
-  geom_point(shape = 21) +
-  theme_bw() +
-  labs(x = "ddPCR copy number", y = "PanSolid fold change",
-       title = "CDK2NA results") +
-  scale_y_continuous(breaks = c(seq(-22, 2, by = 1))) +
-  coord_cartesian(xlim = c(0, 2))
-
-pten_ps_plot <- pten_ddpcr_results |> 
-    filter(!is.na(pten_ddpcr_results$pten_fold_change)) |> 
-  ggplot(aes(x = cnv, y = pten_fold_change)) +
-  geom_hline(yintercept = pansolid_fold_change_threshold, linetype = "dashed") +
-  geom_vline(xintercept = ddpcr_copy_number_threshold, linetype = "dashed") +
-    annotate('rect', xmin = -1, xmax = 3, ymin = -1, 
-           ymax = 1, fill='white') +
-  geom_hline(yintercept = 1, colour = "grey") +
-  geom_hline(yintercept = -1, colour = "grey") +
-  geom_point(shape = 21) +
-  theme_bw() +
-  labs(x = "ddPCR copy number", y = "PanSolid fold change",
-       title = "PTEN results") +
-  scale_y_continuous(breaks = c(seq(-30, 2, by = 1))) +
-  coord_cartesian(xlim = c(0, 2))
-
-cdkn2a_ps_plot
-
-pten_ps_plot
-
-```
 
 {{< pagebreak >}}
 
 ## Comparison to LOH testing
 
+```{r}
+#| label: loh-pcr-data
+#| include: FALSE
 
+nf2_fragpcr_results <- read_csv(file = paste0(data_folderpath,
+                                              "validation/DOC6567_deletions/",
+                                              "raw/nf2_loh/",
+                                              "nf2_loh_dna_db_results.csv"),
+                                col_types = "ccccccdddddcd") |> 
+  rename(pcr_median_loh = median_loh,
+         pcr_loh = loh_outcome)
+
+nf2_loh_comparison <- del_val_collated_loh |> 
+  filter(gene == "NF2") |> 
+  inner_join(nf2_fragpcr_results, by = "labno") |> 
+  left_join(del_val_collated_stdev |> 
+              select(labno, stdev_noise), by = "labno",
+            relationship = "one-to-one") |> 
+  left_join(del_val_collated_138x |> 
+              select(labno, percent_138x), by = "labno",
+            relationship = "one-to-one") |> 
+  left_join(del_val_collated_del_genes |> 
+              filter(gene == "NF2") |> 
+              select(labno, min_region_fold_change, 
+                     max_region_fold_change),
+            by = "labno",
+            relationship = "one-to-one") |> 
+  mutate(
+    category = case_when(
+      loh_status %in% c("Yes", "Yes, No") &
+        pcr_loh == "Significant LOH" ~"true_pos",
+      loh_status == "No" &
+        pcr_loh == "No significant LOH" ~"true_neg",
+      loh_status %in% c("Yes", "Yes, No") &
+        pcr_loh == "No significant LOH" ~"false_pos",
+      loh_status == "No" &
+        pcr_loh == "Significant LOH" ~"false_neg"),
+    
+    outcome = case_when(
+      category %in% c("true_pos", "true_neg") ~"Agree",
+      category %in% c("false_pos", "false_neg") ~"Disagree"
+    ))
+
+```
+
+These *NF2* markers span `r nf2_marker_mb` Mb of chromosome 22, the same region 
+contains `r nrow(nf2_loh_targets)` targets on PanSolid v2.
+
+We used these samples as proof-of-concept that the PanSolid pipeline can 
+identify regions of LOH.
+
+The outputs of the PanSolid CLC ploidy caller for the *NF2* gene were
+compared to the results from *NF2* dinucleotide marker PCR LOH testing for
+`rnrow(nf2_loh_comparison)` samples. The results for the initial comparison are
+shown in @tbl-nf2-initial-results and @tbl-nf2-initial-metrics.
+
+```{r}
+#| label: tbl-nf2-initial-results
+#| tbl-cap: "PanSolid NGS vs NF2 LOH PCR results"
+#| echo: FALSE
+
+tbl_nf2_initial_results <- nf2_loh_comparison |> 
+  group_by(ploidy_state, loh_status, pcr_loh, outcome) |> 
+  count() |> 
+  arrange(desc(n)) |> 
+  janitor::adorn_totals() |> 
+  rename("CLC ploidy state" = ploidy_state,
+         "CLC LOH status" = loh_status,
+         "NF2 PCR result" = pcr_loh,
+         "Outcome" = outcome,
+         "Samples" = n)
+
+knitr::kable(tbl_nf2_initial_results)
+
+```
+
+```{r}
+#| label: tbl-nf2-initial-metrics
+#| tbl-cap: "PanSolid NGS vs NF2 LOH PCR metrics"
+#| echo: FALSE
+
+tbl_nf2_initial_metrics <- get_epir_metrics(c(
+  nrow(nf2_loh_comparison[nf2_loh_comparison$category == "true_pos", ]),
+  nrow(nf2_loh_comparison[nf2_loh_comparison$category == "false_pos", ]),
+  nrow(nf2_loh_comparison[nf2_loh_comparison$category == "false_neg", ]),
+  nrow(nf2_loh_comparison[nf2_loh_comparison$category == "true_neg", ])))
+
+knitr::kable(tbl_nf2_initial_metrics)
+
+```
+
+```{r}
+#| label: tbl-nf2-results-with-qc
+#| tbl-cap: "PanSolid NGS vs NF2 LOH PCR results with quality filters"
+#| echo: FALSE
+
+nf2_loh_comparison_with_qc <- nf2_loh_comparison |> 
+  filter(percent_138x >= 75 & stdev_noise <= 0.7)
+
+tbl_nf2_results_with_qc <- nf2_loh_comparison_with_qc |> 
+  group_by(ploidy_state, loh_status, pcr_loh, outcome) |> 
+  count() |> 
+  arrange(desc(n)) |> 
+  janitor::adorn_totals() |> 
+  rename("CLC ploidy state" = ploidy_state,
+         "CLC LOH status" = loh_status,
+         "NF2 PCR result" = pcr_loh,
+         "Outcome" = outcome,
+         "Samples" = n)
+
+knitr::kable(tbl_nf2_results_with_qc)
+
+```
+
+```{r}
+#| label: tbl-nf2-metrics-with-qc
+#| tbl-cap: "PanSolid NGS vs NF2 LOH PCR metrics with quality filters"
+#| echo: FALSE
+
+tbl_nf2_metrics_with_qc <- get_epir_metrics(c(
+  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$category == "true_pos", ]),
+  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$category == "false_pos", ]),
+  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$category == "false_neg", ]),
+  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$category == "true_neg", ])))
+
+knitr::kable(tbl_nf2_metrics_with_qc)
+
+```
 
 ## Repeat testing
 
@@ -1095,77 +1282,185 @@ repeat_schedule <- tibble(
 ```
 
 Intra-run variation (repeatability) and inter-run variation (reproducibility) 
-were investigated for 3 samples using the testing structure shown in @tbl-repeat-schedule. 
+were investigated for 3 samples using the testing structure shown in. 
 
-Sample 24017319 had a homozygous *CDKN2A* deletion and a heterozygous *PTEN* deletion, whilst sample 24020998 and sample 24027774 did not have deletions.
+Sample 24017319 had a homozygous *CDKN2A* deletion and a heterozygous *PTEN* 
+deletion, whilst sample 24020998 and sample 24027774 did not have deletions.
 
 ```{r}
 #| label: tbl-repeat-schedule
 #| tbl-cap: "Repeat testing"
 #| include: FALSE
 
-kable(repeat_schedule)
+knitr::kable(repeat_schedule)
 
 ```
 
 ```{r}
 #| include: FALSE
 
+initial_replicates <- c("24017319_WS141734", 
+                        "24027774_WS142076",
+                        "24020998_WS141045")
+
 inter_run_replicates <- c(
   # 24017319
-  "24017319_WS141734", "24017319a_WS144291", "24017319_WS144364",
+  "24017319a_WS144291", "24017319_WS144364",
   # 24027774
-  "24027774_WS142076", "24027774a_WS144291", "24027774_WS144364",
+  "24027774a_WS144291", "24027774_WS144364",
   # 24020998
-  "24020998_WS141045", "24020998a_WS144291", "24020998_WS144364")
+  "24020998a_WS144291", "24020998_WS144364")
 
 intra_run_replicates <- c(
   # 24017319
   "24017319a_WS144291", "24017319b_WS144291", "24017319c_WS144291",
+  
   # 24027774
   "24027774a_WS144291", "24027774b_WS144291", "24027774c_WS144291",
   # 24020998
   "24020998a_WS144291", "24020998b_WS144291", "24020998c_WS144291"
 )
 
-all_replicates <- c(inter_run_replicates, intra_run_replicates)
+all_replicates <- unique(c(initial_replicates, inter_run_replicates,
+                    intra_run_replicates))
 
-repeat_data <- del_val_pansolid_ngs_collated |> 
-  mutate(labno_suffix_worksheet = paste0(labno, suffix, "_", worksheet)) |> 
+stopifnot(length(all_replicates) == 15)
+
+repeat_data <- del_gene_results_with_ids |> 
   filter(labno_suffix_worksheet %in% all_replicates) |> 
-  select(graining, labno, worksheet, labno_suffix_worksheet, gene, fold_change_adjusted) 
+  mutate(fold_change_uom = case_when(
+    min_region_fold_change >= 1 ~-1 / min_region_fold_change,
+    TRUE ~min_region_fold_change))
 
-repeat_data |> 
-  filter(labno == "24020998") |> 
-  ggplot(aes(x = labno_suffix_worksheet, y = fold_change_adjusted)) +
-  geom_col(aes(fill = gene), position = "dodge") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  labs(x = "", y = "Fold Change") +
-  facet_wrap(~graining)
-
-
+repeat_data_passing_qc <- repeat_data |> 
+  filter(stdev_noise <= noise_qc_threshold &
+           percent_138x >= percent_138x_qc_threshold)
 
 ```
 
+Of the `r length(unique(repeat_data$labno_suffix_worksheet))` replicates,
+`r length(unique(repeat_data_passing_qc$labno_suffix_worksheet))` had quality
+metrics which passed the quality thresholds.
 
 ### Uncertainty of measurement
 
 The uncertainty of measurement will be greater for fold changes detected for 
 deletions rather than amplifications because the two equations differ. The 
-deletions equation is more sensitive to variation
+deletions equation is more sensitive to variation.
 
-"The fact that the same percent-wise change in coverage (copy number) leads 
-to a higher fold change for deletions than for amplifications means that given 
-the same amplification and deletion fold change cutoff there is a higher risk 
-of calling false positive deletions than amplifications - it takes less 
-coverage fluctuation to pass the fold change cutoff for deletions." 
-[@qiagen2023]
+For the calculation, fold changes greater than 1 were converted to the loss 
+equation.
+
+```{r}
+#| label: calculate-uom
+#| include: FALSE
+
+inter_sd_table <- group_sd(repeat_data |> 
+                             filter(labno_suffix_worksheet %in% c(inter_run_replicates,
+                                                                  initial_replicates)),
+                           labno, gene, fold_change_uom)
+
+intra_sd_table <- group_sd(repeat_data |> 
+                             filter(labno_suffix_worksheet %in% intra_run_replicates),
+                           labno, gene, fold_change_uom)
+  
+all_sd_table <- group_sd(repeat_data, labno, gene, fold_change_uom)
+  
+intra_sd <- round(pool_sd(intra_sd_table), 3)
+  
+inter_sd <- round(pool_sd(inter_sd_table), 3)
+  
+all_sd <- round(pool_sd(all_sd_table), 3)
+  
+del_uom <- define_uom(max(inter_sd, intra_sd, all_sd), 2)
+
+```
+
+```{r}
+#| label: tbl-uom
+#| tbl-cap: "Standard deviation and uncertainty of measurement"
+#| echo: FALSE
+
+tbl_uom <- tribble(
+    ~"Metric", ~"Value",
+    "Standard deviation (intra-run)", intra_sd,
+    "Standard deviation (inter-run)", inter_sd,
+    "Standard deviation (intra and inter run)", all_sd,
+    "95% Uncertainty of Measurement", del_uom)
+
+knitr::kable(tbl_uom)
+
+```
+
+```{r}
+#| label: repeat-plot-function
+#| include: FALSE
+
+draw_repeat_plot <- function(df = repeat_data, labno) {
+  
+  plot <- df |> 
+    filter(labno == {{ labno }}) |> 
+    ggplot(aes(x = labno_suffix_worksheet, y = fold_change_uom)) +
+    geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
+    geom_point(shape = 21, aes(fill = pansolid_result)) +
+    scale_fill_manual(values = c("red", "white")) +
+    theme_bw() +
+    theme(axis.text.x = element_blank()) +
+    scale_y_continuous(limits = c(-3.5, 0), breaks = seq(-3, 0, by = 1)) +
+    facet_wrap(~gene) +
+    labs(x = "Replicate", y = "Fold change (loss equation)",
+         title = as.character(labno), fill = "PanSolid result")
+  
+  return(plot)
+  
+}
+
+```
+
+```{r}
+#| label: fig-repeatability-24017319
+#| fig-cap: "24017319 repeatability results"
+#| echo: FALSE
+
+fig_repeatability_24017319 <- draw_repeat_plot(df = repeat_data,
+                 labno = "24017319")
+
+fig_repeatability_24017319
+
+```
+
+
+```{r}
+#| label: fig-repeatability-24027774
+#| fig-cap: "24027774 repeatability results"
+#| echo: FALSE
+
+fig_repeatability_24027774 <- draw_repeat_plot(df = repeat_data,
+                 labno = "24027774")
+
+fig_repeatability_24027774
+
+```
+
+```{r}
+#| label: fig-repeatability-24020998
+#| fig-cap: "24020998 repeatability results"
+#| echo: FALSE
+
+fig_repeatability_24020998 <- draw_repeat_plot(df = repeat_data,
+                 labno = "24020998")
+
+fig_repeatability_24020998
+
+```
 
 ## Limit of detection
 
 The theoretical limit of detection for a heterozygous deletion is 50%, and 
 for a homozygous deletion it is 25% (@sec-methods-fold-change).
+
+A limit of detection experiment was prepared on WS150454. Dilutions were run on
+PanSolid workshet WSxxxx.
 
 ## Quality control
 
@@ -1175,6 +1470,11 @@ coarse and fine settings (examples: 23011114, 24030364, 23032153).
 There are also cases where PanSolid detects a copy number of 1 not present 
 on WGS (24043023, 23013975), which is particularly apparent when the percentage 
 coverage at 138X is low (24042074).
+
+## Germline deletions
+
+24067827 - germline MSH2 exonic deletion detected. Also detected in 25001806
+(same patient)
 
 {{< pagebreak >}}
 
@@ -1196,6 +1496,8 @@ Loss of chromosome 22 is commonly seen in meningiomas [@neill2020]
 
 ## Comparison to WGS
 
+Only 1 sample had a germline finding in a targeted gene on WGS.
+
 @glodzik2023 compared FFPE tumour-only analysis to WGS and reported sensitivity
 and specificity of 95% and 91%.
 
@@ -1204,6 +1506,23 @@ detection of SVs and CNVs is yet to be determined."
 
 WGS uses far more data than PanSolid - try to find the number of SNPs used for
 both.
+
+```{r}
+#| label: pipeline-metrics
+#| echo: FALSE
+
+pipeline_metric_tbl <- tribble(
+  ~"",         ~"PanSolid NGS", ~"Whole genome sequencing",
+  "Sample(s)",   "FFPE tumour sample",   "Paired fresh frozen tumour sample and blood sample for germline DNA",
+  "Library preparation", "QIAseq panel enrichment", "Whole genome amplification",
+  "CNV caller",  "QIAgen CLC Genomics Workbench", "Germline CNVs: DRAGEN CNV; Somatic CNVs: Canvas and Manta",
+  "NCC calculated", "No", "Yes - by Canvas and Ccube"
+)
+
+knitr::kable(pipeline_metric_tbl)
+
+```
+
 
 ## Ploidy estimation
 
@@ -1241,6 +1560,24 @@ normal levels [@baker2020; ahrendsen2022].
 
 Not all CNVs will impact the whole gene.
 
+## Comparison to PCR LOH testing
+
+LOH in colorectal cancer may be identified using SNP arrays 
+[@melcher2007; @melcher2011], PCR fragment analysis [@guerts-giele2014] and 
+next generation sequencing.
+
+Copy neutral LOH at MMR gene loci is a frequent pathogenic mechanism in 
+colorectal cancer [@melcher2007]. 
+
+## Uncertainty of Measurement
+
+"The fact that the same percent-wise change in coverage (copy number) leads 
+to a higher fold change for deletions than for amplifications means that given 
+the same amplification and deletion fold change cutoff there is a higher risk 
+of calling false positive deletions than amplifications - it takes less 
+coverage fluctuation to pass the fold change cutoff for deletions." 
+[@qiagen2023]
+
 ## Quality control
 
 Compare to waviness and MAPD metrics used for microarrays.
@@ -1249,10 +1586,10 @@ Compare to waviness and MAPD metrics used for microarrays.
 
 Compare to FoundationOne, TruSight 500 and other tumour-only NGS assays.
 
-Foundation One [@milbury2022]
-Bespoke [@chandramohan2022]
-GenomicsEngland [@genomicsengland2019]
-Tempus @beaubier2018
+Foundation One [milbury2022]
+Bespoke [chandramohan2022]
+GenomicsEngland [genomicsengland2019]
+Tempus beaubier2018
 
 ## Extrapolation to other genes
 
@@ -1279,6 +1616,15 @@ LOH calls will be limited.
 The total target regions specified in the PanSolid BED file sum to 
 `r round(pansolid_bed_bp/1000, 1)` kilobases, which is 
 `r round((pansolid_bed_bp / haploid_genome_bp)*100, 2)`% of the human genome.
+
+A small intragenic region of copy neutral LOH could be missed.
+
+Limit of detection is impacted by multiple variables.
+
+We are focussing on whole gene deletions - we cannot define sensitivity for 
+every kind of partial gene deletion.
+
+LOH calling: PanSolid doesn't have the same targets as the Merged panel.
 
 # Review of test requirements
 

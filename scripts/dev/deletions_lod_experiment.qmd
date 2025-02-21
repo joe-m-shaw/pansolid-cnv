@@ -1,0 +1,129 @@
+---
+title: "Deletions Limit of Detection"
+author: "Joe Shaw"
+format: pdf
+editor: visual
+---
+
+The aim is to perform a limit of detection experiment to assess the ability of 
+the PanSolid CLC pipeline to identify mono-allelic and bi-allelic deletions.
+
+This is trickier than for the amplifications validation, because it's hard to 
+find a pure sample with a deletion. Instead, I've chosen a sample with 
+mono-allelic and bi-allelic deletions and a high NCC. The plan is that by 
+mixing this sample into a sample which doesn't have deletions, I can mimic 
+the effect of different levels of normal tissue vs cancer tissue.
+
+This experiment was performed on WS150454.
+
+# "Tumour" sample: 24026628
+
+This sample is from a glioma.
+
+Whole genome sequencing was performed for this patient on sample 24028153 
+(R24-0QQJ, pathology block NB24-400). WGS detected a ploidy state of 2 and 
+calculated the neoplastic cell content (NCC) as 84%.
+
+WGS detected a biallelic deletion of CDKN2A and a loss of most of chromosome 
+10, giving a monoallelic deletion of PTEN.
+
+DNA was extracted on sample 24026628 (R24-0PE8, pathology block NB24-400-1A) 
+via the QIAsymphony method. 24026628 was tested on PanSolid on WS146523 with 
+these results:
+
+-   CDKN2A fold change: -4.6
+-   PTEN fold change: -1.5
+
+# "Normal" sample: 24053299
+
+This sample is from an inflammatory myofibroblastic tumour.
+
+Whole genome sequencing was performed for this patient on sample 24057373 
+(R24-1H6C, pathology block 24:H2972U). WGS detected a 
+ploidy state of 1.9 and could not calculate the NCC as there was a high 
+incidence of somatic variants with variant allele frequencies below 6% 
+(implying very low or absent NCC in the sample).
+
+Only 3 copy number variants were detected, on chromosomes 2, 6 and 14. 
+CDKN2A and PTEN copy number variants were not detected.
+
+DNA was extracted on sample 24053299 (R24-1DFU, pathology block 24:H2972) 
+via the QIAsymphony method. 24053299 was tested on PanSolid on WS145901 
+with no CNVs detected.
+
+-   CDKNA fold change: -1.18
+-   PTEN fold change: -1.18
+
+```{r}
+#| label: lod-calculations
+#| include: TRUE
+#| message: FALSE
+
+library(tidyverse)
+
+ncc_24026628 <- 84
+
+dna_conc_24026628 <- 50
+
+# Concentration (ng/ul) of tumour DNA within 24026628
+tumour_conc_24026628 <- dna_conc_24026628 * (ncc_24026628/100)
+
+# Concentration (ng/ul) of stromal (normal tissue) DNA within 24026628
+stroma_conc_24026628 <- dna_conc_24026628 - tumour_conc_24026628
+
+stopifnot(stroma_conc_24026628 + tumour_conc_24026628 == dna_conc_24026628)
+
+dna_conc_24053299 <- 24.4
+
+final_conc <- 6
+
+final_vol <- 20
+
+final_ng <- final_conc * final_vol
+
+lod_df <- data.frame(
+  # Final desired proportion of tumour DNA in the mixture
+  final_ncc = c(60, 40, 20)) |> 
+  mutate(
+    # DNA (ng) from tumour cells
+    ng_from_tumour = final_ng * (final_ncc/100),
+    # DNA (ng) from normal tissue
+    ng_from_normal = final_ng - ng_from_tumour,
+    # Volume of sample 24026628 (which is 84% tumour, 16% normal)
+    vol_24026628 = ng_from_tumour / tumour_conc_24026628,
+    # DNA (ng) from sample 24053299 (which we assume is 100% normal)
+    ng_from_24053299 = ng_from_normal - 
+      (vol_24026628 * stroma_conc_24026628),
+    # Volume from sample 24053299 (which we assume is 100% normal)
+    vol_24053299 = ng_from_24053299 / dna_conc_24053299,
+    # Round to 1 decimal place for easier pipetting
+     vol_24026628 = round(vol_24026628, 1),
+     vol_24053299 = round(vol_24053299, 1),
+     vol_water = final_vol - (vol_24026628 + vol_24053299),
+    ) |> 
+  mutate(total_volume_check = vol_24026628 + vol_24053299 + vol_water,
+         total_concentration_check = round(((vol_24026628 * dna_conc_24026628) +
+           (vol_24053299 * dna_conc_24053299)) / total_volume_check, 1)) |> 
+  select(-ng_from_24053299)
+
+std_df <- data.frame(
+  final_ncc = c(84, 0), 
+  ng_from_24026628 = c(final_ng, 0),
+  ng_from_24053299 = c(0, final_ng)) |> 
+  mutate(
+      vol_24026628 = round(ng_from_24026628 / dna_conc_24026628, 1),
+      vol_24053299 = round(ng_from_24053299 / dna_conc_24053299, 1),
+      vol_water = round(final_vol - (vol_24026628 + vol_24053299),1),
+      total_volume_check = vol_24026628 + vol_24053299 + vol_water,
+      total_concentration_check = round(((vol_24026628 * dna_conc_24026628) +
+        (vol_24053299 * dna_conc_24053299)) / (total_volume_check), 1))
+
+write_csv(lod_df, paste0(config::get("data_folderpath"),
+                        "validation/DOC6567_deletions/limit_of_detection/",
+                        "lod_df.csv"))
+
+write_csv(std_df, paste0(config::get("data_folderpath"),
+                        "validation/DOC6567_deletions/limit_of_detection/",
+                        "std_df.csv"))
+
+```

@@ -8,13 +8,13 @@ library(here)
 
 # Functions and filepaths -----------------------------------------------------------
 
-data_folder <- config::get("data_filepath")
+data_folderpath <- config::get("data_folderpath")
 
 source(here("functions/pansolid_excel_functions.R"))
 
 # S drive filepaths -----------------------------------------------------------------
 
-pansolidv2_worksheets <- read_excel(paste0(data_folder,
+pansolidv2_worksheets <- read_excel(paste0(data_folderpath,
                                            "live_service/pansolid_live_service_worksheets.xlsx"))
 
 message("PanSolid worksheet list read")
@@ -58,13 +58,13 @@ if (anyNA(s_drive_file_df)) {
 message("Sample filepaths compiled")
 
 write_csv(s_drive_file_df, 
-          paste0(data_folder, "live_service/collated/",
+          paste0(data_folderpath, "live_service/collated/",
                  "pansolidv2_sample_worksheet_panel_information.csv"))
 
 # Single folder filepaths -----------------------------------------------------------
 
 single_folder_file_df <- tibble(
-  filepath = unlist(list.files(paste0(data_folder, "live_service/raw/"),
+  filepath = unlist(list.files(paste0(data_folderpath, "live_service/raw/"),
                                full.names = TRUE))) |> 
   mutate(filename = str_extract(string = filepath, 
                                 pattern = str_replace(string = pansolidv2_excel_regex, 
@@ -101,7 +101,7 @@ new_files <- s_drive_file_df |>
 if (nrow(new_files) > 0) {
   
   file.copy(from = new_files$filepath, 
-            to = paste0(data_folder, "live_service/raw/"))
+            to = paste0(data_folderpath, "live_service/raw/"))
   
   message(paste0("Copying ", nrow(new_files), " new files to raw_data folder"))
   
@@ -110,7 +110,7 @@ if (nrow(new_files) > 0) {
 # Get new single folder filepaths ---------------------------------------------------
 
 single_folder_file_df <- tibble(
-  filepath = unlist(list.files(paste0(data_folder, "live_service/raw/"),
+  filepath = unlist(list.files(paste0(data_folderpath, "live_service/raw/"),
                                full.names = TRUE))) |> 
   mutate(filename = str_extract(string = filepath, 
                                 pattern = str_replace(string = pansolidv2_excel_regex, 
@@ -159,7 +159,7 @@ new_percent_138_collated <- new_file_paths |>
 
 # Load previously collated data -----------------------------------------------------
 
-amp_gene_results <- read_csv(str_c(data_folder, "live_service/collated/",
+amp_gene_results <- read_csv(str_c(data_folderpath, "live_service/collated/",
                                    "/live_service_amp_gene_results_collated.csv"),
                              col_types = list(
                                worksheet = col_character(),
@@ -174,7 +174,7 @@ amp_gene_results <- read_csv(str_c(data_folder, "live_service/collated/",
                                min_region_fold_change = col_double()
                              ))
 
-std_dev_results <- read_csv(str_c(data_folder, "live_service/collated/", 
+std_dev_results <- read_csv(str_c(data_folderpath, "live_service/collated/", 
                                   "/live_service_std_dev_results_collated.csv"),
                             col_types = list(
                               worksheet = col_character(),
@@ -187,7 +187,7 @@ std_dev_results <- read_csv(str_c(data_folder, "live_service/collated/",
                               st_dev_signal_adjusted_log2_ratios = col_double()
                             ))
 
-percent_138_results <- read_csv(str_c(data_folder, "live_service/collated/", 
+percent_138_results <- read_csv(str_c(data_folderpath, "live_service/collated/", 
                                       "/live_service_percent_138_results_collated.csv"),
                                 col_types = list(
                                   worksheet = col_character(),
@@ -200,7 +200,7 @@ percent_138_results <- read_csv(str_c(data_folder, "live_service/collated/",
                                   percent_whole_panel_covered_at_138x = col_double()
                                 ))
 
-pos_cnv_results <- read_csv(str_c(data_folder, "live_service/collated/", 
+pos_cnv_results <- read_csv(str_c(data_folderpath, "live_service/collated/", 
                                   "/live_service_pos_cnv_results_collated.csv"),
                             col_types = list(
                               worksheet = col_character(),
@@ -286,7 +286,7 @@ if(all(nrow(new_amp_gene_collated) > 0,
 # Each PanSolid worksheet should have 48 samples on
 expected_file_number <- (length(unique(pansolidv2_worksheets$worksheet)) * 48)
 
-file_number <- length(list.files(paste0(data_folder, "live_service/raw/"), 
+file_number <- length(list.files(paste0(data_folderpath, "live_service/raw/"), 
                                  pattern = ".xlsx"))
 
 message(str_c("Check: ", expected_file_number, " files predicted and ",
@@ -295,28 +295,28 @@ message(str_c("Check: ", expected_file_number, " files predicted and ",
 # Archive previous collated data ----------------------------------------------------
 
 write.csv(amp_gene_results,
-          paste0(data_folder, "live_service/collated/archive/",
+          paste0(data_folderpath, "live_service/collated/archive/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
                            "live_service_amp_gene_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(std_dev_results,
-          paste0(data_folder, "live_service/collated/archive/",
+          paste0(data_folderpath, "live_service/collated/archive/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
                            "live_service_std_dev_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(pos_cnv_results,
-          paste0(data_folder, "live_service/collated/archive/",
+          paste0(data_folderpath, "live_service/collated/archive/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
                            "live_service_pos_cnv_results_collated.csv"),
           row.names = FALSE)
 
 write.csv(percent_138_results,
-          paste0(data_folder, "live_service/collated/archive/",
+          paste0(data_folderpath, "live_service/collated/archive/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
                            "live_service_percent_138_results_collated.csv"),
@@ -325,17 +325,17 @@ write.csv(percent_138_results,
 # Save updated collated data --------------------------------------------------------
 
 write_csv(amp_gene_results_updated,
-          paste0(data_folder, "live_service/collated/",
+          paste0(data_folderpath, "live_service/collated/",
                            "live_service_amp_gene_results_collated.csv"))
 
 write_csv(std_dev_results_updated,
-          paste0(data_folder, "live_service/collated/",
+          paste0(data_folderpath, "live_service/collated/",
                            "live_service_std_dev_results_collated.csv"))
 
 write_csv(pos_cnv_results_updated,
-          paste0(data_folder, "live_service/collated/",
+          paste0(data_folderpath, "live_service/collated/",
                            "live_service_pos_cnv_results_collated.csv"))
 
 write_csv(percent_138_results_updated,
-          paste0(data_folder, "live_service/collated/",
+          paste0(data_folderpath, "live_service/collated/",
                            "live_service_percent_138_results_collated.csv"))

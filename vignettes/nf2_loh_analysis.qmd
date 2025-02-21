@@ -1,0 +1,297 @@
+---
+title: "NF2 Loss of Heterozygosity Comparison Analysis"
+author: "Joe Shaw"
+format: pdf
+editor: visual
+date: today
+date-format: "DD-MM-YYYY"
+---
+
+# Introduction
+
+This is a comparison of the results from the PanSolid CLC regional ploidy detection tool with the results from PCR-based loss of heterozygosity (LOH) testing for the *NF2* gene.
+
+```{r}
+#| label: packages-and-functions
+#| include: FALSE
+
+library(tidyverse)
+library(here)
+library(epiR)
+
+source(here("functions/pansolid_cnv_excel_functions.R"))
+
+```
+
+# Methods
+
+PanSolid results were extracted from the "LOH\_" tab of the new PanSolid Excel format.
+
+```{r}
+#| label: pansolid-results
+#| include: FALSE
+
+bio_cnv_path <- paste0("S:/central shared/Genetics/NGS/Bioinformatics/",
+                       "1_Pan-solid-Cancer/CNV/Deletions/Jan2025_withLOH/",
+                       "v4_withoutNormalisation_MergeSize5_TF200/")
+
+nf1_folder <- paste0(bio_cnv_path, "v2NF1_PS")
+
+schwann_folder <- paste0(bio_cnv_path, "v2SchwannAll_PS")
+
+nf1_excels <- list.files(path = nf1_folder,
+                             pattern = "Annotated_.*.xlsx",
+                             full.names = TRUE)
+
+schwann_excels <- list.files(path = schwann_folder,
+                             pattern = "Annotated_.*.xlsx",
+                             full.names = TRUE)
+
+loh_excels <- c(schwann_excels, nf1_excels)
+
+loh_collated <- loh_excels |> 
+  map(\(loh_excels) read_loh_table(filepath = loh_excels)) |> 
+  list_rbind() |> 
+  rename(clc_ploidy = ploidy_state,
+         clc_loh = loh_status)
+
+file_cnv_tbl_list <- loh_excels |> 
+  map(\(loh_excels) extract_cnv_tbls(loh_excels, sheet_regex = "CNVs_"))
+
+collated_stdev <- map(file_cnv_tbl_list, ~ .x[["stdev"]]) |> 
+  list_rbind()
+
+collated_138x <- map(file_cnv_tbl_list, ~ .x[["percent_138x"]]) |> 
+  list_rbind()
+
+collated_del_genes <- map(file_cnv_tbl_list, ~ .x[["del_genes"]]) |> 
+  list_rbind()
+
+```
+
+PanSolid results are saved here:
+
+"S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Deletions" "/Jan2025_withLOH/v4_withoutNormalisation_MergeSize5_TF200/v2SchwannAll_PS"
+
+Dinucleotide marker PCR results for NF2 were taken from the DNA Database. The percentage of LOH for each marker was extracted from the comments field. If any marker had LOH greater or equal to 30%, then the result for the sample was coded as "significant LOH".
+
+```{r}
+#| label: pcr-results
+#| include: FALSE
+
+data_filepath <- config::get("data_folderpath")
+
+nf2_fragpcr_results <- read_csv(file = paste0(data_filepath,
+                                              "validation/DOC6567_deletions/",
+                                              "raw/nf2_loh/",
+                                              "nf2_loh_dna_db_results.csv"),
+                                col_types = "ccccccdddddcd") |> 
+  rename(pcr_median_loh = median_loh,
+         pcr_loh = loh_outcome)
+
+```
+
+```{r}
+#| label: compare-results
+#| include: FALSE
+
+compare_results <- loh_collated |> 
+  filter(gene == "NF2") |> 
+  inner_join(nf2_fragpcr_results, by = "labno") |> 
+  left_join(collated_stdev |> 
+              select(labno, stdev_noise), by = "labno",
+            relationship = "one-to-one") |> 
+  left_join(collated_138x |> 
+              select(labno, percent_138x), by = "labno",
+            relationship = "one-to-one") |> 
+  left_join(collated_del_genes |> 
+              filter(gene == "NF2") |> 
+              select(labno, min_region_fold_change, max_region_fold_change),
+            by = "labno",
+            relationship = "one-to-one") |> 
+  mutate(
+    category = case_when(
+      clc_loh %in% c("Yes", "Yes, No") &
+        pcr_loh == "Significant LOH" ~"true_pos",
+      clc_loh == "No" &
+        pcr_loh == "No significant LOH" ~"true_neg",
+      clc_loh %in% c("Yes", "Yes, No") &
+        pcr_loh == "No significant LOH" ~"false_pos",
+      clc_loh == "No" &
+        pcr_loh == "Significant LOH" ~"false_neg"),
+    
+    outcome = case_when(
+      category %in% c("true_pos", "true_neg") ~"Agree",
+      category %in% c("false_pos", "false_neg") ~"Disagree"
+    ))
+
+```
+
+{{< pagebreak >}}
+
+# Results
+
+## Results without quality filtering
+
+Here are the initial results from a direct comparison of the PanSolid CLC *NF2* LOH results with the PCR LOH results, with no filtering by quality.
+
+```{r}
+#| label: tbl-initial-comparison
+#| tbl-cap: "Overall result comparison without quality filtering"
+#| echo: FALSE
+
+initial_comparison <- compare_results |> 
+  group_by(clc_ploidy, clc_loh, pcr_loh, outcome) |> 
+  count() |> 
+  arrange(desc(n)) |> 
+  janitor::adorn_totals()
+
+knitr::kable(initial_comparison)
+
+```
+
+{{< pagebreak >}}
+
+## Results with quality filtering
+
+```{r}
+#| label: tbl-comparison-with-qc
+#| tbl-cap: "Comparison with quality filtering: noise <= 0.7 
+#| and percent 138X coverage >= 75%"
+#| echo: FALSE
+
+compare_results_with_qc <- compare_results |> 
+  filter(percent_138x >= 75 & stdev_noise <= 0.7) 
+
+comparison_with_qc <- compare_results_with_qc |> 
+  group_by(clc_ploidy, clc_loh, pcr_loh, outcome) |> 
+  count() |> 
+  arrange(desc(n)) |> 
+  janitor::adorn_totals()
+
+knitr::kable(comparison_with_qc)
+
+```
+
+```{r}
+#| label: tbl-comparison-percentages
+#| tbl-cap: "Percentage agreement of comparison with quality-filtering"
+#| echo: FALSE
+
+comparison_percentages <- comparison_with_qc |> 
+  filter(clc_ploidy != "Total") |> 
+  group_by(outcome) |> 
+  summarise(n = sum(n)) |> 
+  mutate(percent = round((n / sum(n)) * 100, 1)) |> 
+  janitor::adorn_totals()
+
+knitr::kable(comparison_percentages)
+
+```
+
+```{r}
+#| label: tbl-discrepant-results
+#| tbl-cap: "Samples with discrepant results after quality filtering"
+#| echo: FALSE
+
+discrepant_results <- compare_results_with_qc |> 
+  filter(outcome == "Disagree") |> 
+  select(labno, clc_ploidy, 
+         clc_loh, pcr_loh, outcome)
+
+knitr::kable(discrepant_results)
+
+```
+
+I've checked the SNP tracks and log2 tracks in the HTML files for 24028507,\
+24031557 and 24044746: in each sample the pattern seems to be a mono-allelic deletion, which is in agreement with the *NF2* PCR results.
+
+{{< pagebreak >}}
+
+## Metrics
+
+```{r}
+#| label: tbl-metrics
+#| tbl-cap: "Comparison metrics for PanSolid CLC with quality filtering"
+#| echo: FALSE
+
+true_pos <- nrow(compare_results_with_qc[compare_results_with_qc$category == "true_pos", ])
+
+true_neg <- nrow(compare_results_with_qc[compare_results_with_qc$category == "true_neg", ])
+
+false_neg <- nrow(compare_results_with_qc[compare_results_with_qc$category == "false_neg", ])
+
+false_pos <- nrow(compare_results_with_qc[compare_results_with_qc$category == "false_pos", ])
+
+epi_test_list <- epi.tests(c(true_pos, false_pos, false_neg, true_neg),
+               digits = 2)
+
+epi_test_se_spe <- epi_test_list$detail |> 
+  filter(statistic %in% c("se", "sp")) |> 
+  mutate("Percentage (95% CI)" = paste0(round(est*100, 1), " % (",
+                                        round(lower*100, 1),
+                                        "-",
+                                        round(upper*100, 1),
+                                        ")"),
+         "Statistic" = case_when(
+           statistic == "sp" ~"Specificity",
+           statistic == "se" ~"Sensitivity"
+         )) |> 
+  select("Statistic", "Percentage (95% CI)")
+
+knitr::kable(epi_test_se_spe)
+
+```
+
+If we assume that a scientist inspecting the SNP track would spot the calls of "bi-allelic deletion" which look more like mono-allelic deletions, then the metrics look like this:
+
+```{r}
+#| label: tbl-revised-metrics
+#| tbl-cap: "Revised comparison metrics"
+#| echo: FALSE
+
+epi_test_list2 <- epi.tests(c(true_pos+3, false_pos, false_neg-3, true_neg))
+
+epi_test_se_spe2 <- epi_test_list2$detail |> 
+  filter(statistic %in% c("se", "sp")) |> 
+  mutate("Percentage (95% CI)" = paste0(round(est*100, 1), " % (",
+                                        round(lower*100, 1),
+                                        "-",
+                                        round(upper*100, 1),
+                                        ")"),
+         "Statistic" = case_when(
+           statistic == "sp" ~"Specificity",
+           statistic == "se" ~"Sensitivity"
+         )) |> 
+  select("Statistic", "Percentage (95% CI)")
+
+knitr::kable(epi_test_se_spe2)
+
+```
+
+## Other observations
+
+**Occasionally the ploidy caller and the deletion caller disagree.** Example: 24054295 - ploidy caller says copy neutral LOH whilst deletion table has fold change of -1.26.
+
+**The ploidy caller may call copy neutral LOH when the results look more like a deletion.** Examples: 24025435 and 24023289.
+
+**24031162 has an intragenic NF2 deletion called on a background of copy neutral LOH.** The NF2 fragment PCR for this sample identified LOH, but the report states that no mutation could be found - potentially this deletion was missed on previous testing.
+
+# Conclusions
+
+The PanSolid CLC pipeline has good concordance for LOH analysis with *NF2* dinucleotide marker PCR analysis.
+
+When quality thresholds are applied (noise \<= 0.7 and percent coverage at 138X \>= 75%), there are only 3 discrepant results.
+
+The discrepant samples would be classified as deletions based on scientific judgement, which would give the PanSolid CLC pipeline 100% sensitivity and specificity in comparison with *NF2* fragment PCR.
+
+```{r}
+#| label: export-results
+#| include: FALSE
+
+write_csv(compare_results,
+          file = paste0(data_filepath,
+                        "validation/DOC6567_deletions/processed/",
+                        "nf2_loh_result_comparison.csv"))
+
+```
