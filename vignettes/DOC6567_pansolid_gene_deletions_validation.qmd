@@ -9,6 +9,7 @@ toc-title: "Table of Contents"
 bibliography: pansolid_cnv_references.bib
 csl: vancouver.csl
 fig-align: "left"
+fig-wdith: 6
 ---
 
 {{< pagebreak >}}
@@ -103,6 +104,7 @@ source(here("functions/gene_table_functions.R"))
 source(here("functions/test_metric_functions.R"))
 source(here("functions/uom_functions.R"))
 source(here("functions/extract_pansolid_cnv_coordinates.R"))
+source(here("functions/cnv_plot_functions.R"))
 
 ```
 
@@ -125,12 +127,6 @@ source(here("functions/extract_pansolid_cnv_coordinates.R"))
 
 source(here("scripts/del_val_load_processed_data.R"))
 
-del_val_collated_del_genes <- del_val_collated_del_genes |> 
-  mutate(pansolid_result = case_when(
-    min_region_fold_change <= deletion_fc_threshold ~"deletion",
-    min_region_fold_change > deletion_fc_threshold ~"no deletion"
-  ))
-
 ```
 
 ```{r}
@@ -148,6 +144,12 @@ deletion_fc_threshold <- -1.25
 percent_138x_qc_threshold <- 75
 
 noise_qc_threshold <- 0.7
+
+del_val_collated_del_genes <- del_val_collated_del_genes |> 
+  mutate(pansolid_result = case_when(
+    min_region_fold_change <= deletion_fc_threshold ~"deletion",
+    min_region_fold_change > deletion_fc_threshold ~"no deletion"
+  ))
 
 ```
 
@@ -404,6 +406,16 @@ clinically implemented. Notably, the WHO guidelines do not specify a technology
 for CNV detection, which reflects the diversity of approaches used in clinical 
 laboratories [@neill2020].
 
+## Detection of loss of heterozygosity and ploidy
+
+
+
+LOH in colorectal cancer may be identified using SNP arrays 
+[@melcher2007; @melcher2011], PCR fragment analysis [@guerts-giele2014] and 
+next generation sequencing. NGS is an attractive testing modality for LOH, as
+it 
+
+
 ## Requirements
 
 The requirements for this new method are as follows:
@@ -440,7 +452,8 @@ deletions by laboratory staff.
 
 ## Next generation sequencing
 
-Samples were processed on the PanSolid version 2 enrichment () and sequenced on an
+Samples were processed on the PanSolid version 2 enrichment (CDHS-48608Z-11752)
+and sequenced on an
 Illumina Novaseq. The PanSolid panel is a QIAseq enrichment containing primers
 for `r nrow(target_df)` genomic targets. 
 `r nrow(target_df[target_df$target_type == "gene target",])` targets lie within
@@ -765,7 +778,8 @@ pansolid_results_for_wgs_comparison <- del_gene_results_with_ids |>
       (!nhsno %in% patients_with_qiasymphony_extractions$nhsno)) |> 
   filter(!labno %in% c(
     "23025733",                # Remove sample on Cobas extraction
-    "24030946")) |>   # These patients have 2 QIAsymphony extractions
+    "24030946",                # These patients have 2 QIAsymphony extractions
+    "24018922")) |>           # This sample is from a different path block
   # This sample was repeated for repeatability
   filter((labno != "24017319" & worksheet != "WS144364"))
   
@@ -875,9 +889,15 @@ pansolid_vs_wgs_overall_counts <- pansolid_vs_wgs_overall_summary |>
 ```{r}
 #| label: fig-pansolid-wgs-counts-plot
 #| fig-cap: "PanSolid vs WGS by gene"
+#| fig-height: 7
+#| fig-width: 6
 #| echo: FALSE
 
 fig_pansolid_wgs_counts_plot <- pansolid_vs_wgs_outcomes |> 
+  mutate(outcome = factor(outcome, levels = c("true_negative",
+                                              "true_positive",
+                                              "false_negative",
+                                              "false_positive"))) |> 
   group_by(chrom_num, gene, outcome) |> 
   count() |> 
   ggplot(aes(x = reorder(gene, chrom_num), y = n)) +
@@ -939,66 +959,134 @@ fig_copy_number_vs_fold_change
 
 ### Homozygous losses
 
-Every example of a CDKN2A/B CN0 loss detected on WGS was detected on PanSolid, 
-with one exception (24033015) although this was low confidence (LC-9) on WGS, 
-with 50% NCC and a tetraploid tumour.
-
-Every example of a PTEN CN0 loss detected on WGS was detected on PanSolid.
-
-### Heterozygous losses
-
-### Germline loss
-
-### Ploidy
-
-Comparison plot of ploidy estimates from PanSolid and WGS.
-
 ```{r}
-#| label: wgs-deletions
-#| eval: FALSE
+#| label: hom-losses
 #| include: FALSE
 
-del_genes <- read_csv(file = paste0(data_folderpath,
-                                   "validation/DOC6567_deletions/gene_lists/",
-                                   "pansolid_deletion_gene_list.csv"))
-
-wgs_cnvs_with_ids <- del_val_wgs_html_cnvs |> 
-  left_join(del_val_wgs_html_ids, by = "filepath",
-            relationship = "many-to-one")
-
-pansolid_with_ids <- del_val_pansolid_ngs_collated |> 
-  left_join(del_val_sample_patient_info |> 
-              select(labno, firstname, surname, nhsno, pathno), by = "labno")
-
-wgs_pansolid_nhs_nos <- intersect(wgs_cnvs_with_ids$nhsno,
-                                  pansolid_with_ids$nhsno)
-
-wgs_del_cnvs <- wgs_cnvs_with_ids |> 
-  filter(cnv_class %in% c("LOSS", "DEL")) |> 
-  filter(gene %in% del_genes$gene)
-
-coarse_pansolid_vs_wgs <- pansolid_with_ids |> 
-  filter(graining == "coarse" & nhsno %in% wgs_pansolid_nhs_nos) |> 
-  full_join(wgs_del_cnvs, by = c("nhsno", "gene")) |> 
-  select(labno.x, labno.y, firstname, surname, pathno, wgs_pathno,
-         gene, cnv_region, fold_change_adjusted, cnv_class, cnv_copy_number)
-
-fine_pansolid_vs_wgs <- pansolid_with_ids |> 
-  filter(graining == "fine" & nhsno %in% wgs_pansolid_nhs_nos) |> 
-  full_join(wgs_del_cnvs, by = c("nhsno", "gene")) |> 
-  select(labno.x, labno.y, firstname, surname, pathno, wgs_pathno,
-         gene, cnv_region, fold_change_adjusted, cnv_class, cnv_copy_number)
+wgs_hom_loss <- pansolid_vs_wgs_outcomes |> 
+  filter(cnv_copy_number == 0)
 
 ```
 
-```{r}
-#| label: tbl-wgs-deletions
-#| eval: FALSE
-#| include: FALSE
+There were `r nrow(wgs_hom_loss)` examples of genes with copy number 0 detected
+on WGS. These deletions were in the *PTEN*, *CDKN2A* and *CDKN2B* genes.
+`r nrow(wgs_hom_loss[wgs_hom_loss$outcome == "true_positive",])` cases were
+detected as deletions on PanSolid, 
+with NCCs as low was
+`r min(wgs_hom_loss$calculated_tumour_content)`,
+whilst the remaining
+`r nrow(wgs_hom_loss[wgs_hom_loss$outcome == "false_negative",])` cases were
+false negatives.
 
-kable(wgs_del_cnvs_summary)
+Both false negative calls are for intragenic deletions which might be
+detected on the fine setting.
+
+```{r}
+#| label: hom-loss-false-negatives
+#| echo: FALSE
+
+hom_loss_false_negatives <- wgs_hom_loss |> 
+  filter(outcome != "true_positive") |> 
+  select(labno.x, gene, min_region_fold_change, cnv_copy_number, outcome)
+
+kable(hom_loss_false_negatives)
 
 ```
+
+### Heterozygous losses: false positives
+
+```{r}
+#| label: false-positives
+#| include: FALSE
+
+false_pos_ploidy_corrected <- pansolid_vs_wgs_outcomes |> 
+  filter(outcome == "false_positive") |>
+  mutate(relative_copy_number = cnv_copy_number - calculated_overall_ploidy)
+
+pseudo_false_pos <- false_pos_ploidy_corrected |> 
+  filter(relative_copy_number < -0.8) |> 
+  select(labno.x,
+         gene, min_region_fold_change,
+         cnv_class, 
+         cnv_copy_number,
+         calculated_overall_ploidy,
+         relative_copy_number)
+
+other_false_pos <- false_pos_ploidy_corrected |> 
+  filter(!relative_copy_number < -0.8 | is.na(relative_copy_number)) |> 
+  select(labno.x, firstname, surname, wgs_p_no, wgs_pathno,
+         chrom_num, gene, min_region_fold_change,
+         cnv_class, 
+         cnv_copy_number,
+         calculated_overall_ploidy,
+         relative_copy_number)
+
+```
+
+Of the `r nrow(false_pos_ploidy_corrected)` false positive results, 
+there are multiple cases where there has been a relative
+chromosome loss in a non-diploid genome. When the absolute WGS copy number is 
+corrected to reflect the relative copy number of the gene, the results from 
+PanSolid agree for `r nrow(pseudo_false_pos)` samples.
+
+If these results are instead treated as true positives, the metrics can be
+updated.
+
+```{r}
+#| label: updated-metrics
+#| echo: FALSE
+
+updated_metrics <- get_epir_metrics(outcome_vector = c(79 + nrow(pseudo_false_pos), 
+                                    59 - nrow(pseudo_false_pos), 10, 592))
+
+
+kable(updated_metrics)
+
+```
+
+Of the false positive results that remained after ploidy correction, fold changes
+varied from `r round(min(other_false_pos$min_region_fold_change), 2)` to
+`r round(max(other_false_pos$min_region_fold_change), 2)`. 
+This means that any deletion calls should be part of larger chromosome losses, 
+which should be checked against the SNP track.
+
+The idea was we optimised the fold change threshold to have higher sensitivity 
+and lower sensitivity - false negatives are more problematic than false 
+positives, because false positives should be identifiable by an analyst 
+inspecting the SNP track.
+
+Manually checking through the remaining false positives, I found that most could
+easily be identified as diploid by checking the SNP track. This means that in
+clinical practice, these false positives would be identified with appropriate
+training and not reported.
+
+### Heterozygous losses: false negatives
+
+Of the false negative heterozygous losses, 9/12 were for cases with 
+NCCs below 40%.
+
+```{r}
+#| label: false-negatives
+#| echo: FALSE
+
+false_negatives <- pansolid_vs_wgs_outcomes |> 
+  filter(outcome == "false_negative" &
+           cnv_copy_number == 1) |> 
+  select(labno.x,
+         chrom_num, gene, min_region_fold_change,
+         cnv_copy_number,
+         calculated_overall_ploidy,
+         calculated_tumour_content
+         ) |> 
+  arrange(labno.x)
+
+kable(false_negatives)
+
+```
+
+Manually checking through the false negatives showed that the chromosome losses
+could be seen in the SNP track, it's just that the fold change was not quite
+negative enough for the CNV caller to call a deletion.
 
 ## Comparison to ddPCR
 
@@ -1561,10 +1649,6 @@ normal levels [@baker2020; ahrendsen2022].
 Not all CNVs will impact the whole gene.
 
 ## Comparison to PCR LOH testing
-
-LOH in colorectal cancer may be identified using SNP arrays 
-[@melcher2007; @melcher2011], PCR fragment analysis [@guerts-giele2014] and 
-next generation sequencing.
 
 Copy neutral LOH at MMR gene loci is a frequent pathogenic mechanism in 
 colorectal cancer [@melcher2007]. 
