@@ -16,7 +16,15 @@ get_sheetname <- function(filepath, sheet_regex = "Amplifications_") {
   #' @returns The name of the sheet as a string
   #' @export
   #'
-  #' @examples get_sheetname()
+  #' @examples 
+  #' 
+  #' subfolder <- "validation/DOC6567_deletions/test_data/"
+  #' 
+  #' path <- paste0(config::get("data_folderpath"), subfolder)
+  #' 
+  #' files <- list.files(path, pattern = "*.xlsx", full.names = TRUE)
+  #' 
+  #' get_sheetname(files[2])
 
   sheets <- readxl::excel_sheets(filepath)
   
@@ -42,8 +50,8 @@ read_cnv_sheet <- function(filepath, sheet_regex = "Amplifications_") {
   #' 
   #' The new PanSolid CLC Excel output includes 5 information tables on the
   #' same tab. `read_cnv_sheet` reads the entire sheet as one table, which 
-  #' allows individual tables to be subsequently extracted without the file
-  #' being read multiple times. 
+  #' allows individual tables to be subsequently extracted 
+  #' using `extract_cnv_tbls` without the file being read multiple times. 
   #'
   #' @param filepath Full file path to an Excel file
   #' @param sheet_regex Regular expression for sheet name matching
@@ -78,7 +86,7 @@ find_match <- function(input_sheet, input_col, match_string) {
   #' @returns The numeric position of the string match within the column
   #' @export
   #'
-  #' @examples
+  #' @examples find_match(input_sheet, "a", "Amplification genes")
   
   output <- match(match_string, input_sheet[[ input_col ]])
   
@@ -388,7 +396,7 @@ read_loh_table <- function(filepath, sheet_regex = "LOH_",
   loh_table <- readxl::read_xlsx(path = filepath, 
                                  sheet = get_sheetname(filepath,
                                                        sheet_regex = sheet_regex),
-                                 n_max = 7,
+                                 n_max = length(loh_genes),
                                  col_types = c("text", "text","text", 
                                                "text", "text")) |> 
     janitor::clean_names()

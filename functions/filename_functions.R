@@ -18,8 +18,8 @@ parse_filename <- function(input_file, input_group) {
     (\d{5,8})             # Lab number
     (a|b|c|d|)            # Suffix
     _
-    ([:alnum:]{2,30})     # Patient name - alphanumeric characters only
-    (.*.xlsx|.xlsx)               # Variable ending                      
+    ([:alnum:]{2,30})     # Patient name (or alphanumeric identifier)
+    (.*.xlsx|.xlsx)       # Variable ending                      
     ]",
     comments = TRUE)
   
@@ -34,9 +34,9 @@ filename_to_df <- function(file) {
   
   #' Convert PanSolid results Excel filename identifiers to a dataframe
   #'
-  #' @param file The filename
+  #' @param file The filename of full filepath
   #'
-  #' @return A dataframe
+  #' @return A dataframe of patient filename identifiers
   #'
   #' @examples filename <- "Annotated_WS123456_12345678a_JoeShaw.xlsx"
   #' 
@@ -66,7 +66,7 @@ add_identifiers <- function(file, tbl) {
   #'
   #' @examples filename <- "Annotated_WS123456_12345678a_JoeShaw.xlsx"
   #' 
-  #' data <- data.frame(gene = c("ERBB2"), dq = c(2))
+  #' data <- data.frame(gene = c("ERBB2"), dosage = c(2))
   #' 
   #' data_with_ids <- add_identifiers(file = filename, tbl = data)
   
