@@ -9,9 +9,7 @@ date-format: "DD-MM-YYYY"
 
 # Introduction
 
-This is a comparison of the results from the PanSolid CLC regional ploidy 
-detection tool with the results from PCR-based loss of heterozygosity (LOH) 
-testing for the *NF2* gene.
+This is a comparison of the results from the PanSolid CLC regional ploidy detection tool with the results from PCR-based loss of heterozygosity (LOH) testing for the *NF2* gene.
 
 ```{r}
 #| label: packages-and-functions
@@ -27,8 +25,7 @@ source(here("functions/pansolid_cnv_excel_functions.R"))
 
 # Methods
 
-PanSolid results were extracted from the "LOH_" tab of the new PanSolid Excel
-format.
+PanSolid results were extracted from the "LOH\_" tab of the new PanSolid Excel format.
 
 ```{r}
 #| label: pansolid-results
@@ -74,19 +71,15 @@ collated_del_genes <- map(file_cnv_tbl_list, ~ .x[["del_genes"]]) |>
 
 PanSolid results are saved here:
 
-"S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Deletions"
-"/Jan2025_withLOH/v4_withoutNormalisation_MergeSize5_TF200/v2SchwannAll_PS"
+"S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Deletions" "/Jan2025_withLOH/v4_withoutNormalisation_MergeSize5_TF200/v2SchwannAll_PS"
 
-Dinucleotide marker PCR results for NF2 were taken from the DNA Database. 
-The percentage of LOH for each marker was extracted from the comments field. If
-any marker had LOH greater or equal to 30%, then the result for the sample
-was coded as "significant LOH".
+Dinucleotide marker PCR results for NF2 were taken from the DNA Database. The percentage of LOH for each marker was extracted from the comments field. If any marker had LOH greater or equal to 30%, then the result for the sample was coded as "significant LOH".
 
 ```{r}
 #| label: pcr-results
 #| include: FALSE
 
-data_filepath <- config::get("data_filepath")
+data_filepath <- config::get("data_folderpath")
 
 nf2_fragpcr_results <- read_csv(file = paste0(data_filepath,
                                               "validation/DOC6567_deletions/",
@@ -140,8 +133,7 @@ compare_results <- loh_collated |>
 
 ## Results without quality filtering
 
-Here are the initial results from a direct comparison of the PanSolid CLC
-*NF2* LOH results with the PCR LOH results, with no filtering by quality.
+Here are the initial results from a direct comparison of the PanSolid CLC *NF2* LOH results with the PCR LOH results, with no filtering by quality.
 
 ```{r}
 #| label: tbl-initial-comparison
@@ -181,7 +173,6 @@ knitr::kable(comparison_with_qc)
 
 ```
 
-
 ```{r}
 #| label: tbl-comparison-percentages
 #| tbl-cap: "Percentage agreement of comparison with quality-filtering"
@@ -212,9 +203,8 @@ knitr::kable(discrepant_results)
 
 ```
 
-I've checked the SNP tracks and log2 tracks in the HTML files for 24028507,  
-24031557 and 24044746: in each sample the pattern seems to be a mono-allelic 
-deletion, which is in agreement with the *NF2* PCR results.
+I've checked the SNP tracks and log2 tracks in the HTML files for 24028507,\
+24031557 and 24044746: in each sample the pattern seems to be a mono-allelic deletion, which is in agreement with the *NF2* PCR results.
 
 {{< pagebreak >}}
 
@@ -253,9 +243,7 @@ knitr::kable(epi_test_se_spe)
 
 ```
 
-If we assume that a scientist inspecting the SNP track would spot the calls
-of "bi-allelic deletion" which look more like mono-allelic deletions, then 
-the metrics look like this:
+If we assume that a scientist inspecting the SNP track would spot the calls of "bi-allelic deletion" which look more like mono-allelic deletions, then the metrics look like this:
 
 ```{r}
 #| label: tbl-revised-metrics
@@ -281,32 +269,21 @@ knitr::kable(epi_test_se_spe2)
 
 ```
 
-
 ## Other observations
 
-**Occasionally the ploidy caller and the deletion caller disagree.** Example:
-24054295 - ploidy caller says copy neutral LOH whilst deletion table has 
-fold change of -1.26. 
+**Occasionally the ploidy caller and the deletion caller disagree.** Example: 24054295 - ploidy caller says copy neutral LOH whilst deletion table has fold change of -1.26.
 
-**The ploidy caller may call copy neutral LOH when the results look more like
-a deletion.** Examples: 24025435 and 24023289.
+**The ploidy caller may call copy neutral LOH when the results look more like a deletion.** Examples: 24025435 and 24023289.
 
-**24031162 has an intragenic NF2 deletion called on a background of 
-copy neutral LOH.** The NF2 fragment PCR for this sample identified LOH, but the
-report states that no mutation could be found - potentially this deletion was
-missed on previous testing.
+**24031162 has an intragenic NF2 deletion called on a background of copy neutral LOH.** The NF2 fragment PCR for this sample identified LOH, but the report states that no mutation could be found - potentially this deletion was missed on previous testing.
 
 # Conclusions
 
-The PanSolid CLC pipeline has good concordance for LOH analysis with *NF2*
-dinucleotide marker PCR analysis.
+The PanSolid CLC pipeline has good concordance for LOH analysis with *NF2* dinucleotide marker PCR analysis.
 
-When quality thresholds are applied (noise <= 0.7 and percent coverage at 
-138X >= 75%), there are only 3 discrepant results.
+When quality thresholds are applied (noise \<= 0.7 and percent coverage at 138X \>= 75%), there are only 3 discrepant results.
 
-The discrepant samples would be classified as deletions based
-on scientific judgement, which would give the PanSolid CLC pipeline 
-100% sensitivity and specificity in comparison with *NF2* fragment PCR.
+The discrepant samples would be classified as deletions based on scientific judgement, which would give the PanSolid CLC pipeline 100% sensitivity and specificity in comparison with *NF2* fragment PCR.
 
 ```{r}
 #| label: export-results
@@ -318,4 +295,3 @@ write_csv(compare_results,
                         "nf2_loh_result_comparison.csv"))
 
 ```
-
