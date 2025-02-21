@@ -104,24 +104,6 @@ source(here("functions/test_metric_functions.R"))
 source(here("functions/uom_functions.R"))
 source(here("functions/extract_pansolid_cnv_coordinates.R"))
 
-data_folderpath <- config::get("data_folderpath")
-
-```
-
-```{r}
-#| label: thresholds
-#| include: FALSE
-
-deletion_fc_threshold_theoretical <- pred_fc(tumour_cpc = 1, 
-                                             ncc = 50, dir = "loss",
-                                             digits = 3)
-
-deletion_fc_threshold <- -1.25
-
-percent_138x_qc_threshold <- 75
-
-noise_qc_threshold <- 0.7
-
 ```
 
 ```{r}
@@ -139,6 +121,8 @@ noise_qc_threshold <- 0.7
 
 # source(here("scripts/del_val_get_nf2_loh_results.R"))
 
+# rm(list=ls())
+
 source(here("scripts/del_val_load_processed_data.R"))
 
 del_val_collated_del_genes <- del_val_collated_del_genes |> 
@@ -146,6 +130,24 @@ del_val_collated_del_genes <- del_val_collated_del_genes |>
     min_region_fold_change <= deletion_fc_threshold ~"deletion",
     min_region_fold_change > deletion_fc_threshold ~"no deletion"
   ))
+
+```
+
+```{r}
+#| label: thresholds-and-folderpath
+#| include: FALSE
+
+data_folderpath <- config::get("data_folderpath")
+
+deletion_fc_threshold_theoretical <- pred_fc(tumour_cpc = 1, 
+                                             ncc = 50, dir = "loss",
+                                             digits = 3)
+
+deletion_fc_threshold <- -1.25
+
+percent_138x_qc_threshold <- 75
+
+noise_qc_threshold <- 0.7
 
 ```
 
@@ -569,6 +571,13 @@ a further quality metric. A threshold of 75% was set for this metric following
 *in silico* downsampling experiments performed for 
 [INC9967]{custom-style="Strong"}.
 
+### Ploidy and LOH detection
+
+Ploidy status of copy number segments was predicted using the CLC
+"Detect Regional Ploidy" tool with the "Region-level Ploidy Track". This uses
+a HMM to predict ploidy based on SNP and coverage data, which 
+is influenced by @beroukhim2006.
+
 ### Variant frequency
 
 To produce a visualisation of allele frequency across the genome, the read depth
@@ -577,13 +586,6 @@ filtered according to the following criteria:
 
 1) The variant was in a Genome In A Bottle high-confidence region
 2) The variant had a frequency greater than 4%
-
-### Ploidy and LOH detection
-
-Ploidy status of copy number segments was predicted using the CLC
-"Detect Regional Ploidy" tool with the "Region-level Ploidy Track". This uses
-a HMM to predict ploidy based on SNP and coverage data, which 
-is influenced by @beroukhim2006.
 
 ### Visualisation
 
@@ -610,7 +612,8 @@ part of the validation of amplification detection
 [DOC6283]{custom-style="Strong"}, plus additional samples with specific gene
 deletions detected on WGS.
 
-Within the Genomics England WGS pipeline, tumour ploidy and chromosome count are calculated by the Canvas algorithm [@roller2016]. Canvas also
+Within the Genomics England WGS pipeline, tumour ploidy and chromosome 
+count are calculated by the Canvas algorithm [@roller2016]. Canvas also
 detects somatic CNVs and LOH using sample read-depth and allele ratios, and reports
 them as GAIN, LOSS or LOH in the HTML report. Structural variants are detected
 using the Manta algorithm [@chen2016] and included as DEL or DUP in the HTML
@@ -647,7 +650,8 @@ nf2_loh_markers <- tribble(
 ) |> 
   mutate(amplicon_size_bp = abs(grch38_start - grch38_end))
 
-nf2_marker_mb <- round((max(nf2_loh_markers$grch38_end) - min(nf2_loh_markers$grch38_start)) / 10^6, 1)
+nf2_marker_mb <- round((max(nf2_loh_markers$grch38_end) - 
+                          min(nf2_loh_markers$grch38_start)) / 10^6, 1)
 
 nf2_loh_targets <- target_df_with_coordinates |> 
   filter(chromosome == "22") |> 
