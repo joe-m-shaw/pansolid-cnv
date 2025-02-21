@@ -1,4 +1,3 @@
-
 library(testthat)
 
 test_datapath <- paste0(config::get("data_folderpath"),
@@ -25,7 +24,7 @@ test_that("get_sheetnames fails when sheet name is absent", {
   
 })
 
-test_that("get_sheetnames fail when sheet name is not unique", {
+test_that("get_sheetnames fails when sheet name is not unique", {
   
   expect_error(get_sheetname(test_filepath, sheet_regex = "Hotspots"),
                "Sheet name must be unique")
@@ -209,6 +208,29 @@ test_that("find_del_genes loads table correctly", {
   )
 
   expect_equal(find_del_genes(test_sheet),
+               tribble_expected)
+  
+})
+
+# read_loh_table
+
+test_that("read_loh_table loads table correctly", {
+  
+  tribble_expected <- tibble::tribble(
+    ~chrom,	~gene,	~ploidy_state,	~loh_status,	~no_targets_in_ploidy_region,
+    "2",	"MSH2",	"Normal diploid",	"No",	"94",
+    "2",	"MSH6",	"Normal diploid",	"No",	"94",
+    "3",	"MLH1",	"Normal diploid",	"No",	"238",
+    "7",	"PMS2",	"Normal diploid",	"No",	"109",
+    "22",	"LZTR1",	"Uniparental disomy",	"Yes",	"81",
+    "22",	"SMARCB1",	"Uniparental disomy",	"Yes",	"81",
+    "22",	"NF2",	"Deletion",	"Yes",	"39"
+  )
+  
+  loh_excel <- paste0(test_datapath,
+                      "Annotated_v2SchwannAll_PS_WS142092_24025435_AndreyBOLKONSKY.xlsx")
+  
+  expect_equal(read_loh_table(loh_excel)[,8:12],
                tribble_expected)
   
 })

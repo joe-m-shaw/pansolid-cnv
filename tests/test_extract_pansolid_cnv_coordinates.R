@@ -1,4 +1,3 @@
-
 library(testthat)
 
 test_that("extract_pansolid_cnv_coordinates handles standard format", {
