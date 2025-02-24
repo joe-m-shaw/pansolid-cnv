@@ -648,7 +648,7 @@ previous validation of amplification detection, and are detailed in
 the Supplementary 
 Information of [DOC6283]{custom-style="Strong"}.
 
-### Loss of heterozgosity
+### PCR loss of heterozgosity testing: *NF2*
 
 ```{r}
 #| label: nf2-markers
@@ -692,6 +692,12 @@ extracted from the DNA Database.
 kable(nf2_loh_markers)
 
 ```
+
+### NGS loss of heterozygosity testing: *MLH1*, *MSH2* and *MSH6*
+
+4 samples previously tested on the "Core" QIAseq panel for LOH in the  
+*MLH1*, *MSH2* and *MSH6* genes were tested using the PanSolid enrichment on 
+WS150529.
 
 ## Validation analysis
 
@@ -1039,7 +1045,6 @@ updated.
 updated_metrics <- get_epir_metrics(outcome_vector = c(79 + nrow(pseudo_false_pos), 
                                     59 - nrow(pseudo_false_pos), 10, 592))
 
-
 kable(updated_metrics)
 
 ```
@@ -1160,6 +1165,7 @@ samples and 29 patient samples.
 #| label: fig-ddpcr-pansolid-outcomes
 #| fig-cap: "PanSolid results vs ddPCR"
 #| echo: FALSE
+#| fig-width: 6
 
 fig_ddpcr_pansolid_outcomes <- pansolid_vs_ddpcr |> 
   filter(sub_category != "patient NA") |> 
@@ -1182,6 +1188,7 @@ fig_ddpcr_pansolid_outcomes
 #| label: fig-pansolid-fold-change-vs-ddpcr
 #| fig-cap: "PanSolid fold change vs ddPCR"
 #| echo: FALSE
+#| fig-width: 6
 
 fig_pansolid_fold_change_vs_ddpcr <- pansolid_vs_ddpcr |> 
   filter(category == "patient" &
@@ -1223,7 +1230,7 @@ knitr::kable(pansolid_vs_ddpcr_metrics)
 
 {{< pagebreak >}}
 
-## Comparison to LOH testing
+## Comparison to *NF2* PCR LOH testing
 
 ```{r}
 #| label: loh-pcr-data
@@ -1253,20 +1260,28 @@ nf2_loh_comparison <- del_val_collated_loh |>
             by = "labno",
             relationship = "one-to-one") |> 
   mutate(
-    category = case_when(
-      loh_status %in% c("Yes", "Yes, No") &
-        pcr_loh == "Significant LOH" ~"true_pos",
-      loh_status == "No" &
-        pcr_loh == "No significant LOH" ~"true_neg",
-      loh_status %in% c("Yes", "Yes, No") &
-        pcr_loh == "No significant LOH" ~"false_pos",
-      loh_status == "No" &
-        pcr_loh == "Significant LOH" ~"false_neg"),
-    
     outcome = case_when(
-      category %in% c("true_pos", "true_neg") ~"Agree",
-      category %in% c("false_pos", "false_neg") ~"Disagree"
+      loh_status %in% c("Yes", "Yes, No") &
+        pcr_loh == "Significant LOH" ~"true_positive",
+      loh_status == "No" &
+        pcr_loh == "No significant LOH" ~"true_negative",
+      loh_status %in% c("Yes", "Yes, No") &
+        pcr_loh == "No significant LOH" ~"false_positive",
+      loh_status == "No" &
+        pcr_loh == "Significant LOH" ~"false_negative"),
+    
+    outcome = factor(outcome, levels = c("true_positive",
+                                           "false_positive",
+                                           "false_negative",
+                                           "true_negative")),
+    
+    final_outcome = case_when(
+      outcome %in% c("true_positive", "true_negative") ~"Agree",
+      outcome %in% c("false_positive", "false_negative") ~"Disagree"
     ))
+
+nf2_loh_comparison_with_qc <- nf2_loh_comparison |> 
+  filter(percent_138x >= 75 & stdev_noise <= 0.7)
 
 ```
 
@@ -1276,63 +1291,26 @@ contains `r nrow(nf2_loh_targets)` targets on PanSolid v2.
 We used these samples as proof-of-concept that the PanSolid pipeline can 
 identify regions of LOH.
 
-The outputs of the PanSolid CLC ploidy caller for the *NF2* gene were
-compared to the results from *NF2* dinucleotide marker PCR LOH testing for
-`rnrow(nf2_loh_comparison)` samples. The results for the initial comparison are
-shown in @tbl-nf2-initial-results and @tbl-nf2-initial-metrics.
-
-```{r}
-#| label: tbl-nf2-initial-results
-#| tbl-cap: "PanSolid NGS vs NF2 LOH PCR results"
-#| echo: FALSE
-
-tbl_nf2_initial_results <- nf2_loh_comparison |> 
-  group_by(ploidy_state, loh_status, pcr_loh, outcome) |> 
-  count() |> 
-  arrange(desc(n)) |> 
-  janitor::adorn_totals() |> 
-  rename("CLC ploidy state" = ploidy_state,
-         "CLC LOH status" = loh_status,
-         "NF2 PCR result" = pcr_loh,
-         "Outcome" = outcome,
-         "Samples" = n)
-
-knitr::kable(tbl_nf2_initial_results)
-
-```
-
-```{r}
-#| label: tbl-nf2-initial-metrics
-#| tbl-cap: "PanSolid NGS vs NF2 LOH PCR metrics"
-#| echo: FALSE
-
-tbl_nf2_initial_metrics <- get_epir_metrics(c(
-  nrow(nf2_loh_comparison[nf2_loh_comparison$category == "true_pos", ]),
-  nrow(nf2_loh_comparison[nf2_loh_comparison$category == "false_pos", ]),
-  nrow(nf2_loh_comparison[nf2_loh_comparison$category == "false_neg", ]),
-  nrow(nf2_loh_comparison[nf2_loh_comparison$category == "true_neg", ])))
-
-knitr::kable(tbl_nf2_initial_metrics)
-
-```
+`r nrow(nf2_loh_comparison)` samples were tested on both the PanSolid CNV and 
+NF2 PCR LOH methods. Of these, `r nrow(nf2_loh_comparison_with_qc)` samples 
+passed both NGS quality thresholds, and outputs of the PanSolid CLC ploidy 
+caller for the *NF2* gene were compared to the results from *NF2* dinucleotide 
+marker PCR LOH testing for these samples. 
 
 ```{r}
 #| label: tbl-nf2-results-with-qc
 #| tbl-cap: "PanSolid NGS vs NF2 LOH PCR results with quality filters"
 #| echo: FALSE
 
-nf2_loh_comparison_with_qc <- nf2_loh_comparison |> 
-  filter(percent_138x >= 75 & stdev_noise <= 0.7)
-
 tbl_nf2_results_with_qc <- nf2_loh_comparison_with_qc |> 
-  group_by(ploidy_state, loh_status, pcr_loh, outcome) |> 
+  group_by(ploidy_state, loh_status, pcr_loh, final_outcome) |> 
   count() |> 
   arrange(desc(n)) |> 
   janitor::adorn_totals() |> 
   rename("CLC ploidy state" = ploidy_state,
          "CLC LOH status" = loh_status,
          "NF2 PCR result" = pcr_loh,
-         "Outcome" = outcome,
+         "Outcome" = final_outcome,
          "Samples" = n)
 
 knitr::kable(tbl_nf2_results_with_qc)
@@ -1345,14 +1323,34 @@ knitr::kable(tbl_nf2_results_with_qc)
 #| echo: FALSE
 
 tbl_nf2_metrics_with_qc <- get_epir_metrics(c(
-  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$category == "true_pos", ]),
-  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$category == "false_pos", ]),
-  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$category == "false_neg", ]),
-  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$category == "true_neg", ])))
+  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$outcome == "true_positive", ]),
+  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$outcome == "false_positive", ]),
+  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$outcome == "false_negative", ]),
+  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$outcome == "true_negative", ])))
 
 knitr::kable(tbl_nf2_metrics_with_qc)
 
 ```
+
+```{r}
+#| label: nf2-discrepant-results
+#| echo: FALSE
+
+nf2_loh_discrepant_results <- nf2_loh_comparison_with_qc |> 
+  filter(final_outcome == "Disagree") |> 
+  select(labno, ploidy_state, 
+         loh_status, pcr_loh, final_outcome)
+
+knitr::kable(nf2_loh_discrepant_results)
+
+```
+
+
+Show that the QC thresholds were appropriate
+
+## Comparison to *MLH1*, *MSH2* and *MSH6* NGS LOH testing
+
+
 
 ## Repeat testing
 
@@ -1430,8 +1428,6 @@ Of the `r length(unique(repeat_data$labno_suffix_worksheet))` replicates,
 `r length(unique(repeat_data_passing_qc$labno_suffix_worksheet))` had quality
 metrics which passed the quality thresholds.
 
-### Uncertainty of measurement
-
 The uncertainty of measurement will be greater for fold changes detected for 
 deletions rather than amplifications because the two equations differ. The 
 deletions equation is more sensitive to variation.
@@ -1493,7 +1489,8 @@ draw_repeat_plot <- function(df = repeat_data, labno) {
     geom_point(shape = 21, aes(fill = pansolid_result)) +
     scale_fill_manual(values = c("red", "white")) +
     theme_bw() +
-    theme(axis.text.x = element_blank()) +
+    theme(axis.text.x = element_blank(),
+          legend.position = "bottom") +
     scale_y_continuous(limits = c(-3.5, 0), breaks = seq(-3, 0, by = 1)) +
     facet_wrap(~gene) +
     labs(x = "Replicate", y = "Fold change (loss equation)",
@@ -1509,6 +1506,8 @@ draw_repeat_plot <- function(df = repeat_data, labno) {
 #| label: fig-repeatability-24017319
 #| fig-cap: "24017319 repeatability results"
 #| echo: FALSE
+#| fig-width: 6
+#| fig-height: 7
 
 fig_repeatability_24017319 <- draw_repeat_plot(df = repeat_data,
                  labno = "24017319")
@@ -1522,6 +1521,8 @@ fig_repeatability_24017319
 #| label: fig-repeatability-24027774
 #| fig-cap: "24027774 repeatability results"
 #| echo: FALSE
+#| fig-width: 6
+#| fig-height: 7
 
 fig_repeatability_24027774 <- draw_repeat_plot(df = repeat_data,
                  labno = "24027774")
@@ -1534,6 +1535,8 @@ fig_repeatability_24027774
 #| label: fig-repeatability-24020998
 #| fig-cap: "24020998 repeatability results"
 #| echo: FALSE
+#| fig-width: 6
+#| fig-height: 7
 
 fig_repeatability_24020998 <- draw_repeat_plot(df = repeat_data,
                  labno = "24020998")
