@@ -103,5 +103,3 @@ write_csv(x = pansolid_worksheet_details,
           file = paste0(config::get("data_folderpath"), 
                         "validation/DOC6567_deletions/processed/", 
                         "del_val_pansolid_worksheet_details.csv"))
-
-rm(list=ls())
