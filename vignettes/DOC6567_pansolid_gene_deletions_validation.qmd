@@ -278,9 +278,34 @@ main tumour type in the testing cohort.
 ### *CDKN2A* and *CDKN2B*
 
 The *CDKN2A* and *CDKN2B* genes are adjacent to each other on chromosome 9,
-separated by roughly 20 kilobases (kb). The p14ARF protein product of *CDKN2A*
+separated by roughly 20 kilobases (kb). The *CDKN2A* gene encodes 2 key
+transcripts which produce two separate proteins: p16INK4a and p14ARF 
+[@quelle1995] (@tbl-cdkn2a-details).
+
+
+The p14ARF protein product of *CDKN2A*
 plays an important role in cell growth regulation, and deletion of *CDKN2A* 
 contributes to tumour proliferation [@appay2019]. 
+
+
+```{r}
+#| label: tbl-cdkn2a-details
+#| tbl-cap: "CDKN2A and CDKN2B details"
+#| echo: FALSE
+
+tbl_cdkna_details <- tibble::tribble(
+  ~"Gene",	~"Ensembl", ~"Refseq", 	~"Coordinates (GRCh38)", ~start	, ~end, ~"Protein", ~"PanSolid targets",
+  "CDKN2A",	"ENST00000304494.10",	"NM_000077.5",	"21967752-21974857",	21967752,	21974857,	"p16INK4a",	5,
+  "CDKN2A",	"ENST00000579755.2",	"NM_058195.4"	, "21967752-21994392",	21967752,	21994392,	"p14ARF",	14,
+  "CDKN2B",	"ENST00000276925.7",	"NM_004936.4",	"22002903-22009305",	22002903,	22009305,	"p15INK4B",	2) |> 
+  mutate(length_kb = round(abs(end-start)/1000, 1)) |> 
+  select(-c(start, end)) |> 
+  relocate(length_kb, .after = "Coordinates (GRCh38)") |> 
+  rename("Legnth (kb)" = length_kb)
+
+kable(tbl_cdkna_details)
+
+```
 
 Due to their proximity, *CDKN2A* and *CDKN2B* are frequently deleted together,
 and this co-deletion of these loci may be abbreviated to *CDKN2A/B*. However
@@ -298,10 +323,15 @@ leukaemia, showing deletions ranging from 24 kb to 34 Megabases (Mb).
 @hamid2019 analysed *CDKN2A* deletions reported on the COSMIC
 database and calculated a median deletion length of 1.2 Mb.
 
-Germline *CDKN2A* mutations increase predisposition to melanoma [@toussi2020], 
+Germline *CDKN2A* mutations increase predisposition to melanoma 
+[@toussi2020; @ming2020], 
 whilst a single publication links germline mutations in *CDKN2B* to renal cell
-carcinoma [@jafri2015]. Germline deletions of both *CDKN2A* and *CDKN2B* have
-been reported [@jensen2022].
+carcinoma [@jafri2015]. 
+
+1a
+
+Germline deletions spanning both *CDKN2A* and
+*CDKN2B* have been reported [@jensen2022].
 
 ### *PTEN*
 
@@ -785,9 +815,14 @@ pansolid_results_for_wgs_comparison <- del_gene_results_with_ids |>
   filter(!labno %in% c(
     "23025733",                # Remove sample on Cobas extraction
     "24030946",                # These patients have 2 QIAsymphony extractions
-    "24018922")) |>           # This sample is from a different path block
+    "24018922",                # This sample is from a different path block
+    "24033015"                 # Also from a different path block - see note
+    )) |>                      # on iGene
   # This sample was repeated for repeatability
-  filter((labno != "24017319" & worksheet != "WS144364"))
+  filter((labno != "24017319" & worksheet != "WS144364")) |> 
+  filter((labno != "24053299" & worksheet != "WS150529")) |> 
+  filter(!labno_suffix %in% c("24026628a", "24026628b", "24026628c",
+                              "24026628d"))
   
 pansolid_patients_for_wgs_comparison <- pansolid_results_for_wgs_comparison |> 
   distinct(nhsno, firstname, surname, labno)
@@ -950,9 +985,9 @@ fig_copy_number_vs_fold_change <- pansolid_vs_wgs_outcomes |>
   ggplot(aes(x = cnv_copy_number, 
                                      y = min_region_fold_change)) +
   annotate('rect', 
-           xmin = 0, xmax = 10, ymin = -1, ymax = 1, 
+           xmin = 0, xmax = 9, ymin = -1, ymax = 1, 
            fill='grey', alpha = 0.5) +
-  scale_x_continuous(breaks = seq(0, 10, by = 1)) +
+  scale_x_continuous(breaks = seq(0, 9, by = 1)) +
   geom_jitter(shape = 21, width = 0.1) +
   theme_bw() +
   geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
@@ -963,7 +998,7 @@ fig_copy_number_vs_fold_change
 
 ```
 
-### Homozygous losses
+### Homozygous losses: false negatives
 
 ```{r}
 #| label: hom-losses
@@ -993,11 +1028,16 @@ detected on the fine setting.
 
 hom_loss_false_negatives <- wgs_hom_loss |> 
   filter(outcome != "true_positive") |> 
-  select(labno.x, gene, min_region_fold_change, cnv_copy_number, outcome)
+  select(labno.x, gene, min_region_fold_change, cnv_copy_number, chromosome,
+         cnv_start, cnv_end) |> 
+  mutate(cnv_length = abs(cnv_end-cnv_start))
 
 kable(hom_loss_false_negatives)
 
 ```
+
+24048159 has only 8 targets deleted, hence it was not called on fine.
+WGS found a germline CDKN2A deletion - R24-1C6B-1.
 
 ### Heterozygous losses: false positives
 
@@ -1092,6 +1132,159 @@ kable(false_negatives)
 Manually checking through the false negatives showed that the chromosome losses
 could be seen in the SNP track, it's just that the fold change was not quite
 negative enough for the CNV caller to call a deletion.
+
+{{< pagebreak >}}
+
+## CDKN2A results
+
+```{r}
+#| label: fig-cdkn2a-results
+#| echo: FALSE
+#| fig-width: 6
+#| fig-height: 9
+
+sig_cnvs_with_qc <- del_val_collated_sig_cnvs |> 
+  left_join(del_val_collated_138x |> 
+              select(filepath, percent_138x),
+            by = "filepath") |> 
+  left_join(del_val_collated_stdev |> 
+              select(filepath, stdev_noise), 
+            by = "filepath")
+
+sig_cnvs_passing_qc <- sig_cnvs_with_qc |> 
+  filter(stdev_noise <= noise_qc_threshold &
+           percent_138x >= percent_138x_qc_threshold)
+
+cdkn2a_pass_qc <- sig_cnvs_passing_qc |> 
+  filter(gene %in% c("CDKN2A", "CDKN2B")) |> 
+  arrange(desc(start)) |> 
+  mutate(labno_start = str_c(labno, "_", no_targets))
+
+cdkn2a_pass_qc_factors <- cdkn2a_pass_qc |> 
+  mutate(labno_factor = factor(labno_start, levels = unique(labno_start)))
+
+cdkn2a_buffer <- 20000
+
+NM_000077_start <- 21967752
+
+NM_000077_end <- 21974857
+
+NM_058195_end <- 21994392
+
+cdkn2a_labno_plot <- ggplot(cdkn2a_pass_qc_factors, 
+                            aes(x = start,
+                                y = labno_factor,
+                                colour = fold_change)) +
+    theme_bw() +
+    theme(axis.text.x = element_blank()) +
+    geom_segment(aes(x = start, xend = end, 
+                     y = labno_factor, yend = labno_factor),
+                 linewidth = 2) +
+    scale_colour_gradient(low = "#FF9999", 
+                          high = "#660000", 
+                          limits = c(min(cdkn2a_pass_qc_factors$fold_change),
+                                     max(cdkn2a_pass_qc_factors$fold_change)),
+                          n.breaks = 4) +
+    scale_x_continuous(breaks = get_cnv_plot_x_breaks(interval = 10000,
+                                           plot_xmin = 21967752-cdkn2a_buffer,
+                                           plot_xmax = 22002903+cdkn2a_buffer),
+                       minor_breaks = NULL) +
+    labs(
+      y = "Sample CNV call",
+      x = "",
+      colour = "Fold change") +
+  coord_cartesian(xlim = c(21967752-cdkn2a_buffer, 22002903+cdkn2a_buffer)) +
+  geom_vline(xintercept = NM_000077_start, linetype = "dashed") +
+  geom_vline(xintercept = NM_000077_end, linetype = "dashed") +
+  geom_vline(xintercept = NM_058195_end, linetype = "dashed")
+
+cdkn2a_exon_plot <- make_exon_plot(plot_xmin = 21967752-cdkn2a_buffer,
+                                   plot_xmax = 22002903+cdkn2a_buffer,
+                                   chromosome = "9",
+                                   interval = 10000)
+
+cdkn2a_targets <- target_df_with_coordinates |> 
+  filter(chromosome == "9") |> 
+  filter(start > 21967752-cdkn2a_buffer &
+           end < 22002903+cdkn2a_buffer) |> 
+  mutate(y_value = "Targets")
+
+cdkn2a_target_plot <- ggplot(cdkn2a_targets, aes(x = start, y = y_value)) +
+  geom_jitter(shape = 21) +
+    theme_bw() +
+    theme(axis.text.x = element_blank()) +
+  labs (x = "", y = "")
+
+
+grch38_primers <- readr::read_csv(file = paste0(config::get("data_folderpath"),
+                                                  "validation/DOC6283_amplifications/primers/", 
+                                           "CDHS-40079Z-11284.primer3_Converted.csv"),
+                             show_col_types = FALSE) |> 
+    janitor::clean_names()
+  
+grch38_primer_coordinates <- extract_pansolid_cnv_coordinates(df = grch38_primers,
+                                                       cnv_coord_col = region)
+
+
+grch38_primer_coordinates |> 
+  filter(chromosome == "9") |> 
+  filter(start > 21967752-cdkn2a_buffer &
+           end < 22002903+cdkn2a_buffer) |>  view()
+
+cdkn2a_primer_plot <- make_primer_plot(plot_xmin = 21967752-cdkn2a_buffer,
+                                   plot_xmax = 22002903+cdkn2a_buffer,
+                                   chromosome = "9",
+                                   interval = 10000)
+
+(cdkn2a_labno_plot / cdkn2a_primer_plot / cdkn2a_target_plot / cdkn2a_exon_plot) +
+    plot_layout(
+      heights = c(10, 1, 1, 2)
+    )
+
+```
+
+{{< pagebreak >}}
+
+## PTEN results
+
+```{r}
+#| label: fig-pten-results
+#| echo: FALSE
+#| fig-width: 6
+#| fig-height: 9
+
+pten_pass_qc <- sig_cnvs_passing_qc |> 
+  filter(gene == "PTEN") |> 
+  arrange(desc(start), labno) 
+
+pten_pass_qc_factors <- pten_pass_qc |> 
+  mutate(labno_factor = factor(labno, levels = unique(labno)))
+
+pten_buffer <- 40000
+
+pten_labno_plot <- make_labno_cnv_plot(df = pten_pass_qc_factors,
+                                         yaxis = labno_factor,
+                    gene = "PTEN", interval = 10000)
+
+pten_zoom <- pten_labno_plot[[4]] +
+  coord_cartesian(xlim = c(87863625-pten_buffer, 87971930+pten_buffer))
+
+pten_exon_plot <- make_exon_plot(plot_xmin = 87863625-pten_buffer,
+                                   plot_xmax = 87971930+pten_buffer,
+                                   chromosome = "10",
+                                   interval = 10000)
+
+pten_primer_plot <- make_primer_plot(plot_xmin = 87863625-pten_buffer,
+                                   plot_xmax = 87971930+pten_buffer,
+                                   chromosome = "10",
+                                   interval = 10000)
+
+(pten_zoom / pten_primer_plot / pten_exon_plot) +
+    plot_layout(
+      heights = c(10, 1, 2)
+    )
+
+```
 
 ## Comparison to ddPCR
 
@@ -1348,9 +1541,11 @@ knitr::kable(nf2_loh_discrepant_results)
 
 Show that the QC thresholds were appropriate
 
+24054282 image.
+
+
+
 ## Comparison to *MLH1*, *MSH2* and *MSH6* NGS LOH testing
-
-
 
 ## Repeat testing
 
@@ -1564,8 +1759,9 @@ coverage at 138X is low (24042074).
 
 ## Germline deletions
 
-24067827 - germline MSH2 exonic deletion detected. Also detected in 25001806
-(same patient)
+24067827 - germline MSH2 exonic deletion detected, 13 targets (R24-1SXE). 
+Also detected  in 25001806 (same patient).
+Patient has a germline MSH2 Exon 1 to Exon 7 deletion - see report R24-1HBV-1.
 
 {{< pagebreak >}}
 
@@ -1712,6 +1908,9 @@ We are focussing on whole gene deletions - we cannot define sensitivity for
 every kind of partial gene deletion.
 
 LOH calling: PanSolid doesn't have the same targets as the Merged panel.
+
+Some of the repeat testing data was below the 2 QC metrics - this is because
+the data was collected prior to the thresholds being decided on.
 
 # Review of test requirements
 
