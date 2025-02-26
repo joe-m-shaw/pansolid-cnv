@@ -105,6 +105,7 @@ source(here("functions/test_metric_functions.R"))
 source(here("functions/uom_functions.R"))
 source(here("functions/extract_pansolid_cnv_coordinates.R"))
 source(here("functions/cnv_plot_functions.R"))
+source(here("functions/transcript_functions.R"))
 
 ```
 
@@ -280,10 +281,7 @@ main tumour type in the testing cohort.
 The *CDKN2A* and *CDKN2B* genes are adjacent to each other on chromosome 9,
 separated by roughly 20 kilobases (kb). The *CDKN2A* gene encodes 2 key
 transcripts which produce two separate proteins: p16INK4a and p14ARF 
-[@quelle1995] (@tbl-cdkn2a-details).
-
-
-The p14ARF protein product of *CDKN2A*
+[@quelle1995] (@tbl-cdkn2a-details). The p14ARF protein product of *CDKN2A*
 plays an important role in cell growth regulation, and deletion of *CDKN2A* 
 contributes to tumour proliferation [@appay2019]. 
 
@@ -307,6 +305,102 @@ kable(tbl_cdkna_details)
 
 ```
 
+```{r}
+#| label: cdkn2a-transcript-tbl
+#| include: FALSE
+
+transcript_folder <- paste0(config::get("data_folderpath"),
+                                        "validation/DOC6567_deletions/transcripts/")
+
+transcript_files <- list.files(transcript_folder, full.names = TRUE)
+
+cdkn2ab_df <- transcript_files |> 
+  map(\(transcript_files) read_ensembl_exon_table(transcript_files)) |> 
+  list_rbind()
+
+cdkn2ab_df_mod <- cdkn2ab_df |> 
+  mutate(
+    gene = case_when(
+      transcript == "ENST00000304494" ~"CDKN2A",
+      transcript == "ENST00000579755" ~"CDKN2A",
+      transcript == "ENST00000276925" ~"CDKN2B"
+    ),
+    refseq = case_when(
+      transcript == "ENST00000304494" ~"NM_000077.5",
+      transcript == "ENST00000579755" ~"NM_058195.4",
+      transcript == "ENST00000276925" ~"NM_004936.4"
+    ),
+    refseq = factor(refseq, levels = c("NM_004936.4",
+                                       "NM_058195.4",
+                                       "NM_000077.5",
+                                       "Gene")),
+    exon_char = case_when(
+      transcript == "ENST00000304494" & exon == 1 ~"1a",
+      transcript == "ENST00000579755" & exon == 1 ~"1b",
+      TRUE ~as.character(exon)
+    ))
+
+```
+
+```{r}
+#| label: fig-cdkn2a-locus
+#| fig-cap: "The CDKN2A/B locus"
+#| fig-width: 6
+#| echo: FALSE
+
+cdkn2a_plot_buffer <- 10000
+
+cdkn2a_plot_start <- 21967752 - cdkn2a_plot_buffer
+
+cdkn2a_plot_end <- 22009305 + cdkn2a_plot_buffer
+
+cdkn2a_targets <- target_df_with_coordinates |> 
+  filter(chromosome == "9") |> 
+  filter(start > cdkn2a_plot_start &
+           end < cdkn2a_plot_end) |> 
+  mutate(y_value = "Targets")
+
+cdkn2a_target_plot <- ggplot(cdkn2a_targets, aes(x = start, y = y_value)) +
+  geom_point(shape = 21, size = 3) +
+  theme_bw() +
+  labs (x = "GRCh38 coordinates (chr9)", y = "") +
+  scale_x_continuous(limits = c(cdkn2a_plot_start, cdkn2a_plot_end))
+
+cdkn2a_transcripts_plot <- ggplot(cdkn2ab_df_mod, aes(x = start, y = refseq,
+                           label = exon_char)) +
+  geom_segment(aes(x = start, xend = end,
+                   y = refseq, yend = refseq),
+               linewidth = 4) +
+  # Lines to connect gene exons
+  geom_segment(aes(
+    x = 21974857, xend = 21967752,
+    y = "NM_000077.5", yend = "NM_000077.5")) +
+  geom_segment(aes(
+    x = 21994392, xend = 21967752,
+    y = "NM_058195.4", yend = "NM_058195.4")) +
+  geom_segment(aes(
+    x = 22002903, xend = 22009305,
+    y = "NM_004936.4", yend = "NM_004936.4")) +
+  geom_label(nudge_y = 0.4) +
+  theme_bw() +
+  labs(y = "", x = "") +
+  theme(axis.text.x = element_blank()) +
+  scale_x_continuous(limits = c(cdkn2a_plot_start, cdkn2a_plot_end)) +
+  geom_text(x = 21980000, y = "Gene",
+            label = "CDKN2A") +
+  geom_text(x = 22005000, y = "Gene",
+            label = "CDKN2B") +
+  scale_y_discrete(drop = FALSE)
+
+fig_cdkn2a_locus <- (cdkn2a_transcripts_plot / cdkn2a_target_plot) +
+  plot_layout(
+    heights = c(3, 1)
+  )
+
+fig_cdkn2a_locus
+
+```
+
 Due to their proximity, *CDKN2A* and *CDKN2B* are frequently deleted together,
 and this co-deletion of these loci may be abbreviated to *CDKN2A/B*. However
 there are less common cases where only one gene is deleted. For example, 
@@ -326,11 +420,7 @@ database and calculated a median deletion length of 1.2 Mb.
 Germline *CDKN2A* mutations increase predisposition to melanoma 
 [@toussi2020; @ming2020], 
 whilst a single publication links germline mutations in *CDKN2B* to renal cell
-carcinoma [@jafri2015]. 
-
-1a
-
-Germline deletions spanning both *CDKN2A* and
+carcinoma [@jafri2015]. Germline deletions spanning both *CDKN2A* and
 *CDKN2B* have been reported [@jensen2022].
 
 ### *PTEN*
@@ -1161,15 +1251,17 @@ cdkn2a_pass_qc <- sig_cnvs_passing_qc |>
   mutate(labno_start = str_c(labno, "_", no_targets))
 
 cdkn2a_pass_qc_factors <- cdkn2a_pass_qc |> 
-  mutate(labno_factor = factor(labno_start, levels = unique(labno_start)))
-
-cdkn2a_buffer <- 20000
+  mutate(labno_factor = factor(labno, levels = unique(labno)))
 
 NM_000077_start <- 21967752
 
 NM_000077_end <- 21974857
 
 NM_058195_end <- 21994392
+
+NM_004396_start <- 22009305
+
+NM_004396_end <- 22002903
 
 cdkn2a_labno_plot <- ggplot(cdkn2a_pass_qc_factors, 
                             aes(x = start,
@@ -1180,65 +1272,26 @@ cdkn2a_labno_plot <- ggplot(cdkn2a_pass_qc_factors,
     geom_segment(aes(x = start, xend = end, 
                      y = labno_factor, yend = labno_factor),
                  linewidth = 2) +
-    scale_colour_gradient(low = "#FF9999", 
-                          high = "#660000", 
+    scale_colour_gradient(high = "#FF9999", 
+                          low = "#660000", 
                           limits = c(min(cdkn2a_pass_qc_factors$fold_change),
                                      max(cdkn2a_pass_qc_factors$fold_change)),
                           n.breaks = 4) +
-    scale_x_continuous(breaks = get_cnv_plot_x_breaks(interval = 10000,
-                                           plot_xmin = 21967752-cdkn2a_buffer,
-                                           plot_xmax = 22002903+cdkn2a_buffer),
-                       minor_breaks = NULL) +
     labs(
       y = "Sample CNV call",
       x = "",
       colour = "Fold change") +
-  coord_cartesian(xlim = c(21967752-cdkn2a_buffer, 22002903+cdkn2a_buffer)) +
+  coord_cartesian(xlim = c(cdkn2a_plot_start, cdkn2a_plot_end)) +
   geom_vline(xintercept = NM_000077_start, linetype = "dashed") +
   geom_vline(xintercept = NM_000077_end, linetype = "dashed") +
-  geom_vline(xintercept = NM_058195_end, linetype = "dashed")
-
-cdkn2a_exon_plot <- make_exon_plot(plot_xmin = 21967752-cdkn2a_buffer,
-                                   plot_xmax = 22002903+cdkn2a_buffer,
-                                   chromosome = "9",
-                                   interval = 10000)
-
-cdkn2a_targets <- target_df_with_coordinates |> 
-  filter(chromosome == "9") |> 
-  filter(start > 21967752-cdkn2a_buffer &
-           end < 22002903+cdkn2a_buffer) |> 
-  mutate(y_value = "Targets")
-
-cdkn2a_target_plot <- ggplot(cdkn2a_targets, aes(x = start, y = y_value)) +
-  geom_jitter(shape = 21) +
-    theme_bw() +
-    theme(axis.text.x = element_blank()) +
-  labs (x = "", y = "")
+  geom_vline(xintercept = NM_058195_end, linetype = "dashed") +
+  geom_vline(xintercept = NM_004396_start, linetype = "dashed") +
+  geom_vline(xintercept = NM_004396_end, linetype = "dashed")
 
 
-grch38_primers <- readr::read_csv(file = paste0(config::get("data_folderpath"),
-                                                  "validation/DOC6283_amplifications/primers/", 
-                                           "CDHS-40079Z-11284.primer3_Converted.csv"),
-                             show_col_types = FALSE) |> 
-    janitor::clean_names()
-  
-grch38_primer_coordinates <- extract_pansolid_cnv_coordinates(df = grch38_primers,
-                                                       cnv_coord_col = region)
-
-
-grch38_primer_coordinates |> 
-  filter(chromosome == "9") |> 
-  filter(start > 21967752-cdkn2a_buffer &
-           end < 22002903+cdkn2a_buffer) |>  view()
-
-cdkn2a_primer_plot <- make_primer_plot(plot_xmin = 21967752-cdkn2a_buffer,
-                                   plot_xmax = 22002903+cdkn2a_buffer,
-                                   chromosome = "9",
-                                   interval = 10000)
-
-(cdkn2a_labno_plot / cdkn2a_primer_plot / cdkn2a_target_plot / cdkn2a_exon_plot) +
+(cdkn2a_labno_plot / cdkn2a_transcripts_plot / cdkn2a_target_plot) +
     plot_layout(
-      heights = c(10, 1, 1, 2)
+      heights = c(10, 3, 1)
     )
 
 ```
