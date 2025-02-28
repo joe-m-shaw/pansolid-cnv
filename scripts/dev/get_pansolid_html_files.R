@@ -7,12 +7,16 @@ library(here)
 
 # Functions and filepaths -----------------------------------------------------------
 
-data_folder <- config::get("data_filepath")
+data_folder <- config::get("data_folderpath")
 
 # S drive filepaths -----------------------------------------------------------------
 
+html_ws_df <- read_csv(paste0(data_folder, 
+                              "live_service/",
+                              "pansolid_html_worksheets.csv"))
+
 # Modify this list with the worksheets you want to check
-worksheet_list <- list("WS148844", "WS148900")
+worksheet_list <- html_ws_df$worksheet
 
 get_html_filepaths <- function(
     repository_path = "S:/central shared/Genetics/Repository/WorksheetAnalysedData/",
