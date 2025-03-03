@@ -136,6 +136,9 @@ source(here("scripts/del_val_load_processed_data.R"))
 
 data_folderpath <- config::get("data_folderpath")
 
+image_folderpath <- paste0(data_folderpath,
+                           "validation/DOC6567_deletions/images/")
+
 deletion_fc_threshold_theoretical <- pred_fc(tumour_cpc = 1, 
                                              ncc = 50, dir = "loss",
                                              digits = 3)
@@ -720,14 +723,28 @@ filtered according to the following criteria:
 1) The variant was in a Genome In A Bottle high-confidence region
 2) The variant had a frequency greater than 4%
 
+{{< pagebreak >}}
+
 ### Visualisation
 
 A new visualisation of the pipeline results was developed to include deletions 
 and ploidy predictions. Genomic regions are coloured by ploidy status.
 
+```{r}
+#| label: visualisation-image
+#| include: FALSE
 
+path_24021613 <- paste0(image_folderpath,
+                        "24021613_visualisation.png")
 
+caption_24021613 <- "The new visualisation for the results of the PanSolid
+CLC pipeline (sample 24021613, WS146523)."
 
+```
+
+![`r caption_24021613`](`r path_24021613`){#fig-24021613-visualisation height=7in}
+
+{{< pagebreak >}}
 
 ## Orthogonal testing
 
@@ -1314,9 +1331,6 @@ gains (@fig-24062632-haploid-false-negative).
 #| label: wgs-false-neg-image-ploidy
 #| include: FALSE
 
-image_folderpath <- paste0(data_folderpath,
-                           "validation/DOC6567_deletions/images/")
-
 path_24062632 <- paste0(image_folderpath,
                         "24062632_haploid_false_negative.png")
 
@@ -1630,6 +1644,25 @@ caller for the *NF2* gene were compared to the results from *NF2* dinucleotide
 marker PCR LOH testing for these samples. 
 
 ```{r}
+#| label: nf2-loh-image
+#| include: FALSE
+
+path_24054282 <- paste0(image_folderpath,
+                        "24054282_nf2_loh.png")
+
+caption_24054282 <- "Results for sample 24054282 tested on both PanSolid NGS
+ (top panel) and fragment PCR for *NF2* LOH. PanSolid NGS identified copy neutral
+LOH for chromosome 22, with a clear disruption of the sample SNP profile
+ (black arrows). This was confirmed by 3 dinucleotide markers on the fragment
+PCR which showed a reduction of signal for a single allele in the tumour DNA 
+(blue traces) versus the DNA from blood (red traces). Fragment PCR was 
+uninformative for marker D22S268, hence these results are not shown."
+
+```
+
+![`r caption_24054282`](`r path_24054282`){#fig-24054282-nf2-loh height=5in}
+
+```{r}
 #| label: tbl-nf2-results-with-qc
 #| tbl-cap: "PanSolid NGS vs NF2 LOH PCR results with quality filters"
 #| echo: FALSE
@@ -1664,6 +1697,10 @@ knitr::kable(tbl_nf2_metrics_with_qc)
 
 ```
 
+### Discrepant results
+
+
+
 ```{r}
 #| label: nf2-discrepant-results
 #| echo: FALSE
@@ -1677,12 +1714,22 @@ knitr::kable(nf2_loh_discrepant_results)
 
 ```
 
+```{r}
+#| label: loh-false-negative-image
+#| include: FALSE
 
-Show that the QC thresholds were appropriate
+path_24044746 <- paste0(image_folderpath,
+                        "24044746_loh_false_negative.png")
 
-24054282_nf2_loh.png
+caption_24044746 <- "For this sample the ploidy caller categorised chromosome 
+22 as a region of “bi-allelic deletion”, without LOH (see table inset), whilst 
+*NF2* fragment PCR for the same sample showed significant LOH. The whole genome
+plot showed a clear deletion of 22q, and a deletion of NF2 was reported by 
+the PanSolid CNV caller."
 
+```
 
+![`r caption_24044746`](`r path_24044746`){#fig-24044746-loh-false-negative height=5in}
 
 ## Comparison to *MLH1*, *MSH2* and *MSH6* NGS LOH testing
 
@@ -2037,12 +2084,6 @@ There are also cases where PanSolid detects a copy number of 1 not present
 on WGS (24043023, 23013975), which is particularly apparent when the percentage 
 coverage at 138X is low (24042074).
 
-## Germline deletions
-
-24067827 - germline MSH2 exonic deletion detected, 13 targets (R24-1SXE). 
-Also detected  in 25001806 (same patient).
-Patient has a germline MSH2 Exon 1 to Exon 7 deletion - see report R24-1HBV-1.
-
 {{< pagebreak >}}
 
 # Discussion
@@ -2293,7 +2334,20 @@ knitr::kable(ddpcr_primer_tbl)
 
 ```
 
+```{r}
+#| label: ddpcr-images
+#| include: FALSE
+
+path_cdkn2a_ddpcr <- paste0(image_folderpath,
+                            "ddpcr_cdkn2a.png")
+
+path_pten_ddpcr <- paste0(image_folderpath,
+                          "ddpcr_pten.png")
+
+```
+
+!["CDKN2A ddPCR"](`r path_cdkn2a_ddpcr`){#fig-ddpcr-cdkn2a}
+
+!["PTEN ddPCR"](`r path_pten_ddpcr`){#fig-ddpcr-pten}
 
 ## Supplementary plots
-
-
