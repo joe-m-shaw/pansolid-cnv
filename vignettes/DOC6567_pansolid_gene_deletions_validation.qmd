@@ -1458,7 +1458,6 @@ ddpcr_data_mod <- del_val_ddpcr_collated |>
     TRUE ~"patient"
   ))
 
-
 ```
 
 ```{r}
@@ -1466,7 +1465,13 @@ ddpcr_data_mod <- del_val_ddpcr_collated |>
 #| include: FALSE
 
 pansolid_vs_ddpcr <- ddpcr_data_mod |> 
-  left_join(del_val_collated_del_genes, 
+  left_join(del_val_collated_del_genes |> 
+              mutate(labno = case_when(
+                # Change to the numbers for fresh frozen DNA, 
+                # which was used for ddPCR
+                labno == "24025211" & gene %in% c("CDKN2A", "PTEN") ~"24027848",
+                labno == "24030951" & gene %in% c("CDKN2A", "PTEN") ~"23018367",
+                TRUE ~labno)), 
             join_by("sample" == "labno", "gene" == "gene")) |> 
   mutate(sub_category = case_when(
     category != "normal control" ~paste0(category, " ", pansolid_result),
@@ -1475,15 +1480,12 @@ pansolid_vs_ddpcr <- ddpcr_data_mod |>
   sub_category = factor(sub_category,
                         levels = c("normal control",
                                    "patient no deletion",
-                                   "patient deletion",
-                                   "patient NA")),
+                                   "patient deletion")),
   ddpcr_result = case_when(
     cnv >= 1.4 ~"no deletion",
-    cnv < 1.4 & cnv > 1.1 ~"uncertain",
-    cnv <= 1.1 ~"deletion"
+    cnv <= 1.4 ~"deletion"
   ),
   ddpcr_result = factor(ddpcr_result, levels = c("no deletion",
-                                                 "uncertain",
                                                  "deletion")),
   outcome = case_when(
     pansolid_result == "deletion" &
@@ -1502,10 +1504,45 @@ pansolid_vs_ddpcr <- ddpcr_data_mod |>
                                        "true_negative",
                                        "no result")))
 
+ddpcr_sample_summary <- pansolid_vs_ddpcr |> 
+  group_by(sub_category) |> 
+  summarise(samples = length(unique(sample))) |> 
+  janitor::adorn_totals()
+
+control_ddpcr_results_cdkn2a <- pansolid_vs_ddpcr |> 
+  filter(sub_category == "normal control" & gene == "CDKN2A") |> 
+  arrange(cnv) |> 
+  select(sample, cnv)
+
+control_ddpcr_results_pten <- pansolid_vs_ddpcr |> 
+  filter(sub_category == "normal control" & gene == "PTEN")
+
 ```
 
-ddPCR was performed for the *PTEN* and *CDKN2A* genes for all 25 normal control 
-samples and 29 patient samples.
+ddPCR was performed for the *PTEN* and *CDKN2A* genes for all 
+`r ddpcr_sample_summary[1,2]`
+samples used
+in the normal control pool by the PanSolid CLC pipeline, and for 
+
+29 samples from
+the validation cohort. The ddPCR assays targeted the 3rd exon of *CDKN2A*, which
+is present in both the NM_000077.5 and NM_058195.4 transcripts
+(@fig-cdkn2a-locus), and the first exon *PTEN*.
+
+There was wide variation in the copy numbers determined within the control 
+cohort, ranging from 
+`r round(min(control_ddpcr_results_cdkn2a$cnv), 1)`-
+`r round(max(control_ddpcr_results_cdkn2a$cnv), 1)`
+(mean `r round(median(control_ddpcr_results_cdkn2a$cnv), 1)`) for *CDKN2A*, 
+and from
+`r round(min(control_ddpcr_results_pten$cnv), 1)`-
+`r round(max(control_ddpcr_results_pten$cnv), 1)`
+(median `r round(median(control_ddpcr_results_pten$cnv), 1)`) for *PTEN*.
+
+One control sample (24012073) had a ddPCR copy number of 1.06.
+
+A threshold of 1.4 was used for the categorisation of results as normal or 
+deleted.
 
 ```{r}
 #| label: fig-ddpcr-pansolid-outcomes
@@ -1514,14 +1551,14 @@ samples and 29 patient samples.
 #| fig-width: 6
 
 fig_ddpcr_pansolid_outcomes <- pansolid_vs_ddpcr |> 
-  filter(sub_category != "patient NA") |> 
   ggplot(aes(x = sub_category, y = cnv)) +
-  geom_hline(yintercept = 1.1, linetype = "dashed") +
   geom_hline(yintercept = 1.4, linetype = "dashed") +
-  geom_jitter(shape = 21, width = 0.1, aes(fill = ddpcr_result)) +
-  scale_fill_manual(values = c("white", "grey", "red")) +
+  geom_jitter(shape = 21, width = 0.1) +
   facet_wrap(~gene) +
   theme_bw() +
+  scale_y_continuous(limits = c(0, 5),
+                     breaks = c(0, 1, 1.4, 2, 3, 4, 5),
+                     minor_breaks = FALSE) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "PanSolid result", y = "ddPCR copy number",
        fill = "ddPCR result")
@@ -1541,16 +1578,15 @@ fig_pansolid_fold_change_vs_ddpcr <- pansolid_vs_ddpcr |>
            !is.na(min_region_fold_change)) |> 
   ggplot(aes(x = cnv, y = min_region_fold_change)) +
   geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
-  geom_vline(xintercept = 1.1, linetype = "dashed") +
   geom_vline(xintercept = 1.4, linetype = "dashed") +
-  geom_point(shape = 21, aes(fill = pansolid_result)) +
-  scale_fill_manual(values = c("red", "white")) +
+  geom_point(shape = 21) +
   theme_bw() +
   theme(legend.position = "bottom") +
   facet_wrap(~gene) +
   labs(x = "ddPCR copy number", y = "PanSolid minimum fold change",
        fill = "PanSolid result") +
-  ggpubr::stat_cor(method = "pearson", label.x = 1.5, label.y = -20)
+  ggpubr::stat_cor(method = "pearson", label.x = 1.25, label.y = -20) +
+  coord_cartesian(ylim = c(-30, 5))
 
 fig_pansolid_fold_change_vs_ddpcr
 
@@ -1564,7 +1600,8 @@ pansolid_ddpcr_summary <- pansolid_vs_ddpcr |>
   filter(outcome != "no result") |> 
   group_by(outcome) |> 
   count() |> 
-  arrange(outcome)
+  arrange(outcome) |> 
+  janitor::adorn_totals()
 
 pansolid_vs_ddpcr_metrics <- get_epir_metrics(outcome_vector =
                                                       pansolid_ddpcr_summary$n)
@@ -1573,6 +1610,8 @@ knitr::kable(pansolid_vs_ddpcr_metrics)
 
 ```
 
+The sample with a germline deletion of CDKN2A (24048159) had a deletion detected
+by ddPCR (ddPCR copy number: 0.25).
 
 {{< pagebreak >}}
 
@@ -1749,15 +1788,17 @@ repeat_schedule <- tibble(
 ```
 
 Intra-run variation (repeatability) and inter-run variation (reproducibility) 
-were investigated for 3 samples using the testing structure shown in. 
-
-Sample 24017319 had a homozygous *CDKN2A* deletion and a heterozygous *PTEN* 
-deletion, whilst sample 24020998 and sample 24027774 did not have deletions.
+were investigated for 3 samples (24017319, 24027774 and 24020998) using the 
+testing structure shown in @tbl-repeat-schedule. These same samples were used
+for the repeatability experiment in the validation of gene amplification
+detection ([DOC6283]{custom-style="Strong"}). Sample 24017319 had a 
+homozygous *CDKN2A* deletion and a heterozygous *PTEN* deletion, whilst 
+sample 24020998 and sample 24027774 did not have deletions.
 
 ```{r}
 #| label: tbl-repeat-schedule
 #| tbl-cap: "Repeat testing"
-#| include: FALSE
+#| echo: FALSE
 
 knitr::kable(repeat_schedule)
 
@@ -1809,17 +1850,6 @@ repeat_data_passing_qc <- repeat_data |>
 
 ```
 
-Of the `r length(unique(repeat_data$labno_suffix_worksheet))` replicates,
-`r length(unique(repeat_data_passing_qc$labno_suffix_worksheet))` had quality
-metrics which passed the quality thresholds.
-
-The uncertainty of measurement will be greater for fold changes detected for 
-deletions rather than amplifications because the two equations differ. The 
-deletions equation is more sensitive to variation.
-
-For the calculation, fold changes greater than 1 were converted to the loss 
-equation.
-
 ```{r}
 #| label: calculate-uom
 #| include: FALSE
@@ -1840,10 +1870,21 @@ intra_sd <- round(pool_sd(intra_sd_table), 3)
 inter_sd <- round(pool_sd(inter_sd_table), 3)
   
 all_sd <- round(pool_sd(all_sd_table), 3)
+
+max_sd <- max(inter_sd, intra_sd, all_sd)
   
-del_uom <- define_uom(max(inter_sd, intra_sd, all_sd), 2)
+del_uom <- define_uom(max_sd, 2)
 
 ```
+
+Of the `r length(unique(repeat_data$labno_suffix_worksheet))` replicates,
+`r length(unique(repeat_data_passing_qc$labno_suffix_worksheet))` had quality
+metrics which passed the quality thresholds. For the calculation, fold changes 
+greater than 1 were converted to the loss equation. The standard deviations and
+uncertainty of measurement were calculated (@tbl-uom), demonstrating that for 
+this dataset, a fold change measurement below -1 has an uncertainty of 
+measurement of ±`r del_uom` (± 2 x `r round(max_sd, 1)`) at a confidence level
+of 95%.
 
 ```{r}
 #| label: tbl-uom
@@ -1870,6 +1911,10 @@ draw_repeat_plot <- function(df = repeat_data, labno) {
   plot <- df |> 
     filter(labno == {{ labno }}) |> 
     ggplot(aes(x = labno_suffix_worksheet, y = fold_change_uom)) +
+    annotate('rect', xmin = 0, xmax = 6, 
+             ymin = deletion_fc_threshold - del_uom, 
+             ymax = deletion_fc_threshold + del_uom,
+             fill='grey') +
     geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
     geom_point(aes(fill = pansolid_result,
                    shape = pass_qc)) +
@@ -1943,9 +1988,8 @@ fresh frozen tissue was tested on WGS (24028153, R24-0QQJ).
 The second sample
 was an inflammatory myofibroblastic tumour (24053299) with no copy number changes
 detected on chromosomes 9 or 10 on WGS (24057373, R24-1H6C). WGS detected overall 
-genome ploidies of 2 and 1.9, respectively. 
-
-WGS for 24026628 detected an NCC of 84%, and DNA mixes were prepared to simulate
+genome ploidies of 2 and 1.9, respectively. WGS for 24026628 detected an NCC 
+of 84%, and DNA mixes were prepared to simulate
 additional NCC states of 60%, 40% and 20%, accounting for the 16% proportion 
 of DNA from normal cells in the original undiluted sample.
 
@@ -2075,6 +2119,50 @@ chr10_lod_plot
   
 ```
 
+```{r}
+#| label: lod-dot-plots
+#| eval: FALSE
+#| include: FALSE
+
+lod_gene_results <- del_val_collated_del_genes |> 
+  filter(labno_suffix %in% c("24026628a", "24026628b", "24026628c",
+                             "24026628d", "24053299") &
+           worksheet %in% c("WS150465", "WS145901")) |> 
+  mutate(id = case_when(
+    labno_suffix == "24026628a" ~"84% NCC; 100% glioma sample",
+    labno_suffix == "24026628b" ~"60% NCC; 71% glioma sample",
+    labno_suffix == "24026628c" ~"40% NCC; 53% glioma sample",
+    labno_suffix == "24026628d" ~"20% NCC; 24% glioma sample",
+    labno_suffix == "24053299" ~"0% NCC; 0% glioma sample"
+  ),
+  id = factor(id, levels = c("84% NCC; 100% glioma sample",
+                                    "60% NCC; 71% glioma sample", 
+                                    "40% NCC; 53% glioma sample", 
+                                    "20% NCC; 24% glioma sample", 
+                                   "0% NCC; 0% glioma sample")))
+
+lod_gene_results |> 
+  filter(gene %in% c("CDKN2A", "CDKN2B")) |> 
+  ggplot(aes(x = id, y = min_region_fold_change)) +
+  geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
+  geom_point(shape = 21,size = 3) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(~gene) +
+  labs(x = "", y = "Fold change") 
+
+lod_gene_results |> 
+  filter(gene %in% c("PTCH1", "PTEN", "FGFR2", "SUFU", "BMPR1A")) |> 
+  ggplot(aes(x = id, y = min_region_fold_change)) +
+  geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
+  geom_point(shape = 21,size = 3) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(~gene) +
+  labs(x = "", y = "Fold change") 
+
+```
+
 ## Quality control
 
 Signal-adjusted noise above 0.7 leads to false positive deletion calls on both 
@@ -2083,6 +2171,8 @@ coarse and fine settings (examples: 23011114, 24030364, 23032153).
 There are also cases where PanSolid detects a copy number of 1 not present 
 on WGS (24043023, 23013975), which is particularly apparent when the percentage 
 coverage at 138X is low (24042074).
+
+### Potential DNA contamination
 
 {{< pagebreak >}}
 
@@ -2185,12 +2275,20 @@ colorectal cancer [@melcher2007].
 
 ## Uncertainty of Measurement
 
+The uncertainty of measurement will be greater for fold changes detected for 
+deletions rather than amplifications because the two equations differ. The 
+deletions equation is more sensitive to variation.
+
 "The fact that the same percent-wise change in coverage (copy number) leads 
 to a higher fold change for deletions than for amplifications means that given 
 the same amplification and deletion fold change cutoff there is a higher risk 
 of calling false positive deletions than amplifications - it takes less 
 coverage fluctuation to pass the fold change cutoff for deletions." 
 [@qiagen2023]
+
+The repeatability tests were performed before the quality metric of above 
+95% for coverage was decided on. Hence the uncertainty of measurement value 
+may be an overestimate of the real value.
 
 ## Limit of detection
 
@@ -2314,7 +2412,6 @@ kable(gene_target_counts)
 
 ## Sample details
 
-
 ## ddPCR details
 
 ```{r}
@@ -2326,7 +2423,7 @@ ddpcr_primer_tbl <- tribble(
   ~`Primer name`, ~`Sequence (5'-3')`,
   "dCDKN2A_Ex3_1F", "TGTAAAACGACGGCCAGTCACTTCACACGGTCTCGCACTGGGTCCTACAGGGCCACAACTG",
   "dCDKN2A_Ex3_1R", "AAACTACGAAAGCGGGGTGG",
-  "dPTEN_Ex1_2F", "TGTAAAACGACGGCCAGTCACTTCACACGGTCTCGCACTGGCCATTTCCATCCTGCAGAAGAAGC",
+  "dPTEN_Ex1_2F",   "TGTAAAACGACGGCCAGTCACTTCACACGGTCTCGCACTGGCCATTTCCATCCTGCAGAAGAAGC",
   "dPTEN_Ex1_2R", "GATGATGGCTGTCATGTCTGGG"
 )
 
