@@ -893,12 +893,14 @@ Of these, `r nrow(results_passing_qc)` replicates had noise and coverage metrics
 which were of acceptable quality.
 
 There was a clear relationship between the size of the detected deletions and
-their fold changes (@fig-cnv-size-distribution); 
-all regions with fold changes below -3 were less than 7 Megabases in length.
+their fold changes (@fig-cnv-size-distribution); shorter focal deletions had
+lower fold change values, consistent with homozygous losses. All regions with 
+ fold changes below -3 were less than 7 Megabases in length.
 
 `r nrow(sig_cnvs_passing_qc)` regions with fold changes lower than the 
-`r deletion_fc_threshold` threshold were detected. Deletions were detected in all 
-`r length(unique(del_val_collated_del_genes$gene))` genes 
+`r deletion_fc_threshold` threshold involving a target gene were detected. 
+Deletions were detected in all 
+`r length(unique(del_val_collated_del_genes$gene))` target genes 
 (@fig-cnv-gene-frequency), with fold changes 
 ranging from 
 `r max(sig_cnvs_passing_qc$fold_change)` to
@@ -906,11 +908,9 @@ ranging from
 `r round(min(sig_cnvs_passing_qc$cnv_length)/1000,1)` kilobases to 
 `r round(max(sig_cnvs_passing_qc$cnv_length)/1000000,1)` Megabases. 
 In `r intragenic_region_changes` (`r intragenic_region_percent`%) results, 
-there was more than one fold change
-region detected within a gene.
+there was more than one fold change region detected within a gene.
 
-The three
-genes with the most detected deletions were *PTEN*, *CDKN2A* and *PTEN*.
+The three genes with the most detected deletions were *PTEN*, *CDKN2A* and *PTEN*.
 
 ```{r}
 #| label: fig-cnv-size-distribution
@@ -928,7 +928,8 @@ fig_cnv_size_distribution <- sig_cnvs_passing_qc |>
                      breaks = c(0, deletion_fc_threshold,
                                 -10, -20, -30)) +
   labs(x = "CNV length (Megabases)", y = "Fold change",
-       title = "Deletion results for all genes")
+       title = "Deletion results for all genes",
+       subtitle = "Data from results passing quality control thresholds")
 
 fig_cnv_size_distribution
 
@@ -947,7 +948,9 @@ fig_cnv_gene_frequency <- sig_cnvs_passing_qc |>
   geom_col() +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90)) +
-  labs(x = "", y = "Number of deletions")
+  labs(x = "", y = "Number of deletions",
+       title = "Frequencies of deletions in target genes",
+       subtitle = "Data from results passing quality control thresholds")
 
 fig_cnv_gene_frequency
 
@@ -1280,7 +1283,9 @@ fig_copy_number_vs_fold_change
 
 ```
 
-### Discrepant results
+{{< pagebreak >}}
+
+### False negative results
 
 ```{r}
 #| label: discrepant-results
@@ -1290,46 +1295,72 @@ pansolid_wgs_discrepant_results <- pansolid_vs_wgs_outcomes |>
   mutate(relative_copy_number = cnv_copy_number - calculated_overall_ploidy) |> 
   filter(outcome %in% c("false_negative", "false_positive"))
 
-```
-
-In total, there were 
-`r nrow(pansolid_wgs_discrepant_results)` results which were discrepant between
-PanSolid and WGS.
-
-```{r}
-#| label: wgs-false-negatives
-#| include: FALSE
-
 pansolid_wgs_false_neg <- pansolid_wgs_discrepant_results |> 
   filter(outcome == "false_negative") 
 
 ```
 
-Out of `r nrow(pansolid_wgs_false_neg)` false negative results,
+In total, there were 
+`r nrow(pansolid_wgs_discrepant_results)` results which were discrepant between
+PanSolid and WGS. Out of `r nrow(pansolid_wgs_false_neg)` false negative results,
 `r nrow(pansolid_wgs_false_neg[pansolid_wgs_false_neg$labno.x == "24062632",])`
-were for a single sample (24062632) which was haploid.
-
-Other false negative results:
-
-**2302648**1: 4 calls are on chromosome 10, the ploidy caller identified a loss of 
-10 for this sample. Calculated tumour content is 33.9%.
-
-**23013975**: MUTYH, 1p loss, also called on ploidy caller.
-
-**23024575**: FGFR2 and SUFU, other genes on chr10 were called as losses for this 
-sample, and the fold changes for FGFR2 and SUFU are borderline.
+were for a single sample (24062632) which WGS identified as haploid. As the 
+majority of the genome was lost, the PanSolid CLC pipeline measured dosage from
+this baseline, leading to an inversion of the results from WGS: deleted regions
+were detected as normal dosage, and normal dosage regions were detected as 
+gains (@fig-24062632-haploid-false-negative).
 
 ```{r}
+#| label: wgs-false-neg-image-ploidy
 #| include: FALSE
 
-pansolid_wgs_false_neg |> 
-  filter(labno.x != "24062632") |> 
-  select(labno.x, chromosome, gene, min_region_fold_change, pansolid_result,
-         cnv_copy_number, calculated_overall_ploidy, relative_copy_number,
-         outcome, calculated_tumour_content, confidence_support,
-         filepath.x) 
+image_folderpath <- paste0(data_folderpath,
+                           "validation/DOC6567_deletions/images/")
+
+path_24062632 <- paste0(image_folderpath,
+                        "24062632_haploid_false_negative.png")
+
+caption_24062632 <- "WGS for this tumour sample showed a haploid genome 
+(ploidy: 1.2, NCC: 78.6%) with diploid copy number of chromosomes 5, 7, 13, 
+16, 19 and 20. Conversely, on PanSolid NGS performed on an FFPE sample for the
+same tumour, these chromosomes are classified as gains, with the rest of the 
+genome classified as copy-neutral LOH by the ploidy caller. This leads to
+false negative results for the genes on these chromosomes."
 
 ```
+
+![`r caption_24062632`](`r path_24062632`){#fig-24062632-haploid-false-negative height=5in}
+
+{{< pagebreak >}}
+
+The remaining false negative results were reviewed. For each case, there was 
+clear evidence of a loss event in each gene region when the dosage (log2) results
+were viewed with the SNP track results and ploidy caller. In certain cases,
+some genes had been correctly identified as having loss of dosage due to a 
+whole chromosome loss, whilst other genes on the same chromosome had fold 
+changes just above the threshold for identifying deletions 
+(@fig-23024575-false-negative).
+
+```{r}
+#| label: wgs-false-neg-image
+#| include: FALSE
+
+path_23024575 <- paste0(image_folderpath,
+                        "23024575_false_negative.png")
+
+caption_23024575 <- "WGS for this sample shows a loss of chromosome 10. On 
+PanSolid, the CLC ploidy caller also detects this loss and deletions are 
+detected in *BMPR1A* and *PTEN*. However, *FGFR2* and *SUFU*, also on 
+chromosome 10, are not identified as deletions on PanSolid, as they have 
+fold changes of -1.23 which are just below the fold change threshold of-1.25."
+
+```
+
+![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-negative height=5in}
+
+{{< pagebreak >}}
+
+### False positive results
 
 ```{r}
 #| label: wgs-false-positives
@@ -1344,51 +1375,53 @@ pansolid_false_pos_ploidy <- pansolid_wgs_false_pos |>
 
 ```
 
-Of the `r nrow(pansolid_wgs_false_pos)` false positive results,
-`r nrow(pansolid_false_pos_ploidy)` were from samples where there was a relative
-chromosome loss in a non-diploid genome.
-
-Other false positive results:
-
-**24030962**: has SNP profile of potential DNA contamination. Sample from fresh 
-frozen (23033921) doesn't have these false positives.
-
-**24035920**: this sample has a ploidy of 2.55 and several chromosomes have gains, 
-which may explain the deletion calls on PanSolid.
-
-**24048159**: PanSolid deletion calls are not consistent with the SNP profile 
-(normal diploid).
-
-**24030951**; PanSolid deletion calls are not consistent with the SNP profile 
-(normal diploid).
-
-### Ploidy
-
-WGS samples with different ploidy statuses were deliberately tested, ranging 
-from
-`r min(del_val_wgs_html_ids$calculated_overall_ploidy)` to 
-`r max(del_val_wgs_html_ids$calculated_overall_ploidy)`.
+Just as a proportion of false negative results were due to a sample with a low
+tumour ploidy, of the `r nrow(pansolid_wgs_false_pos)` false positive results,
+`r nrow(pansolid_false_pos_ploidy)` were from samples where increased ploidy was
+detected on WGS (@fig-24045841-false-positive-hexaploid).
 
 ```{r}
-#| label: tbl-wgs-ploidy
-#| tbl-cap: "Non-diploid WGS samples"
-#| echo: FALSE
+#| label: wgs-false-pos-image-ploidy
+#| include: FALSE
 
-tbl_wgs_non_diploid <- del_val_wgs_html_ids |> 
-  filter(calculated_overall_ploidy < 1.5 |
-           calculated_overall_ploidy > 2.5) |> 
-  select(labno, calculated_overall_ploidy, calculated_chromosome_count,
-         calculated_tumour_content) |> 
-  arrange(desc(calculated_overall_ploidy)) |> 
-  rename("Lab number" = labno,
-         "WGS calculated ploidy" = calculated_overall_ploidy,
-         "WGS calculated chromosome count" = 
-           calculated_chromosome_count,
-         "WGS calculated NCC" = calculated_tumour_content)
+path_24045841 <- paste0(image_folderpath,
+                        "24045841_false_positive_hexaploid.png")
 
-kable(tbl_wgs_non_diploid)
+caption_24045841 <- "WGS for this tumour sample showed a hexaploid genome 
+(ploidy: 5.49, NCC: 56.7%). Several chromosomes, including 8, 10 and 13 
+(black arrows), have copy numbers of 3-4 and have a low relative dosage 
+comparative to the overall ploidy (black dashed line). PanSolid NGS, 
+performed on an FFPE sample from the same tumour block, detects these 
+relative losses as deletions for 4 target genes (chr8: FGFR1; chr10: PTEN; 
+chr13: BRCA2 and RB1), which are subsequently classed as false positives."
 
 ```
+
+![`r caption_24045841`](`r path_24045841`){#fig-24045841-false-positive-hexaploid height=5in}
+
+{{< pagebreak >}}
+
+The remaining false positives were reviewed. For each case, the deletion call
+contrasted with the information available from the SNP track, indicating that
+the target gene was actually present in a normal diploid state. And example for 
+the *MUTYH* gene is shown in @fig-24030951-false-positive.
+
+```{r}
+#| label: wgs-false-pos-image
+#| include: FALSE
+
+path_24030951 <- paste0(image_folderpath,
+                        "24030951_false_positive.png")
+
+caption_24030951 <- "For this sample, PanSolid NGS identified a deletion in 
+the MUTYH gene on chromosome 1 (black arrow, fold change -1.28). However, 
+the ploidy caller and SNP profile at the MUTYH locus both indicate a normal 
+diploid result. WGS on DNA from fresh frozen tissue from the same pathology 
+block did not detect a deletion in MUTYH. 
+"
+```
+
+![`r caption_24030951`](`r path_24030951`){#fig-24030951-false-positive height=5in}
 
 {{< pagebreak >}}
 
