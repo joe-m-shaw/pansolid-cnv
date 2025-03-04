@@ -239,7 +239,13 @@ Inactivation of TSGs can occur by multiple methods including sequence variants,
 gene deletion, copy-neutral loss of heterozygosity (LOH) and epigenetic silencing.
 The physical loss of a TSG copy from the genome can occur via a focal deletion
 of the gene locus, or as part of a much larger chromosomal change, such as
-aneuploidy for a whole chromosome or chromosome arm. The loss of expression
+aneuploidy for a whole chromosome or chromosome arm. Certain cancers have
+specific recurrent aneuploidies leading to TSG loss, such as monosomy of 
+chromosome 10 in glioblastoma [@boström1998] leading to
+loss of *PTEN*, and monosomy of chromosome 22 in meningioma [@neill2020]
+leading to loss of *NF2*.
+
+The loss of expression 
 from a TSG leads to cancer development via a recessive mechanism, requiring two
 events to inactivate both TSG alleles [@knudson1971]. One example is the highly
 conserved *TP53* gene [@levine2020], which is most commonly inactivated by a
@@ -531,13 +537,10 @@ laboratories [@neill2020].
 
 ## Detection of loss of heterozygosity and ploidy
 
-
-
 LOH in colorectal cancer may be identified using SNP arrays 
 [@melcher2007; @melcher2011], PCR fragment analysis [@guerts-giele2014] and 
 next generation sequencing. NGS is an attractive testing modality for LOH, as
 it 
-
 
 ## Requirements
 
@@ -590,9 +593,10 @@ A bioinformatics pipeline was built in the CLC Genomics Workbench v23 (Qiagen).
 The details of the pipeline are described in DOC and DOC. The graining level for
 each gene was set based on the number of targets present within the gene. The 
 version of the PanSolid CLC pipeline tested in this validation was PanSolid 
-Workflow v2.4.
+Workflow v2.4. Broadly speaking, the pipeline includes two different 
+components for detection of copy number and ploidy.
 
-### Deletion fold change threshold {#sec-methods-fold-change}
+### CNV detection by fold change {#sec-methods-fold-change}
 
 The PanSolid CLC pipeline calculates the "fold change" of a copy number region in
 comparison the results from a cohort of normal controls (described in ERBB2).
@@ -698,23 +702,34 @@ fig_fold_change_vs_cn
 
 ```
 
-### Quality control
-
-The signal-adjusted noise quality control metric was developed during 
-the *ERBB2* validation and is described in detail in DOCxxxx. In addition,
-the percentage of the panel BED targets covered at 138X or higher was used as
-a further quality metric. A threshold of 75% was set for this metric following
-*in silico* downsampling experiments performed for 
-[INC9967]{custom-style="Strong"}.
-
 ### Ploidy and LOH detection
 
 Ploidy status of copy number segments was predicted using the CLC
 "Detect Regional Ploidy" tool with the "Region-level Ploidy Track". This uses
 a HMM to predict ploidy based on SNP and coverage data, which 
-is influenced by @beroukhim2006.
+is influenced by @beroukhim2006. The different ploidy states categorised by the
+ploidy caller are summarised in @tbl-clc-ploidy-states
+which is reproduced from the 
+[Qiagen CLC manual](https://resources.qiagenbioinformatics.com/manuals/biomedicalgenomicsanalysis/2400/index.php?manual=Detect_Regional_Ploidy.html).
 
-### Variant frequency
+```{r}
+#| label: tbl-clc-ploidy-states
+#| tbl-cap: "CLC ploidy states"
+#| echo: FALSE
+
+tbl_clc_ploidy_states <- tribble(
+  ~State, ~`Allele ratio`, ~`Copy number`, ~`LOH status`,
+  "Normal diploid", "1:1", "2", "No",
+  "Deletion", "0:1", "1", "Yes (deletion LOH)",
+  "Bi-allelic deletion", "0:0", "0", "No",
+  "Uniparental disomy", "0:2", "2", "Yes (copy-neutral LOH)",
+  "Duplication", "1:2", "3", "No",
+  "Whole genome duplication", "2:2", "4", "No"
+)
+
+kable(tbl_clc_ploidy_states)
+
+```
 
 To produce a visualisation of allele frequency across the genome, the read depth
 frequencies of variants in the sequenced sample were used. The variants were
@@ -745,6 +760,15 @@ CLC pipeline (sample 24021613, WS146523)."
 ![`r caption_24021613`](`r path_24021613`){#fig-24021613-visualisation height=7in}
 
 {{< pagebreak >}}
+
+### Quality control
+
+The signal-adjusted noise quality control metric was developed during 
+the *ERBB2* validation and is described in detail in DOCxxxx. In addition,
+the percentage of the panel BED targets covered at 138X or higher was used as
+a further quality metric. A threshold of 75% was set for this metric following
+*in silico* downsampling experiments performed for 
+[INC9967]{custom-style="Strong"}.
 
 ## Orthogonal testing
 
@@ -1081,7 +1105,114 @@ pten_primer_plot <- make_primer_plot(plot_xmin = 87863625-pten_buffer,
 
 ## Ploidy caller results
 
+```{r}
+#| label: ploidy-summary
+#| include: FALSE
 
+loh_split <- del_val_collated_loh |> 
+  select(labno, labno_suffix_worksheet, gene, ploidy_state, loh_status,
+         no_targets_in_ploidy_region) |> 
+  mutate(ploidy_state_split = strsplit(ploidy_state, split = ",\\s"),
+         loh_status_split = strsplit(loh_status, split = ",\\s"),
+         no_targets_split = strsplit(no_targets_in_ploidy_region, 
+                                     split = ",\\s")) |> 
+  filter(!(labno_suffix_worksheet %in% c("24038351_WS143668",
+                                         "24026628b_WS150465",
+                                         "24027774a_WS144291",
+                                         "24026628c_WS150465",
+                                         "24026628d_WS150465") &
+           gene == "PMS2")) |> 
+  unnest(cols = c(ploidy_state_split, loh_status_split, no_targets_split)) |> 
+  mutate(no_targets_split = as.numeric(no_targets_split))
+
+```
+
+Ploidy caller results for the 6 genes ranged from
+`r min(loh_split$no_targets_split)`-
+`r max(loh_split$no_targets_split)` targets (median
+`r median(loh_split$no_targets_split)`).
+
+```{r}
+#| label: ploidy-summary-2
+#| include: FALSE
+
+
+loh_with_qc <- del_val_collated_loh |> 
+  left_join(del_val_collated_stdev |> 
+              select(filepath, stdev_noise), by = "filepath",
+            relationship = "many-to-one") |> 
+  left_join(del_val_collated_138x |> 
+              select(filepath, percent_138x), by = "filepath",
+            relationship = "many-to-one") |> 
+  filter(stdev_noise <= noise_qc_threshold &
+           percent_138x >= percent_138x_qc_threshold) |> 
+  mutate(bracket_call = str_extract(string = ploidy_state,
+                                    pattern = "^\\(\\d{1},\\d{1}\\)$"))
+
+loh_single_statuses <- c("Normal diploid", "Deletion",
+                  "Whole genome duplication", "Uniparental disomy",
+                  "Duplication", "Bi-allelic deletion",
+                  "(0,3)", "(0,4)", "(2,4)", "(1,3)", "(2,3)")
+
+ploidy_caller_summary <- loh_with_qc |> 
+  mutate(loh_category = case_when(
+    ploidy_state %in% loh_single_statuses ~ploidy_state,
+    !ploidy_state %in% loh_single_statuses ~"Mutliple calls"),
+    loh_category = factor(loh_category, 
+                          levels = c("Mutliple calls",
+                            "(1,3)", "(2,3)", 
+                            "(0,3)", "(0,4)", "(2,4)", 
+                            "Whole genome duplication",
+                            "Duplication",
+                            "Bi-allelic deletion",
+                             "Deletion",
+                            "Uniparental disomy",
+                            "Normal diploid")),
+    status_category = case_when(
+      loh_status %in% c("Yes", "No") ~loh_status,
+      !loh_status %in% c("Yes", "No") ~"Multiple statuses"
+    ),
+    status_category = factor(status_category, 
+                             levels = c("Yes", "No",
+                                        "Multiple statuses"))) |> 
+  group_by(gene, status_category, loh_category) |> 
+  count()
+
+```
+
+```{r}
+#| label: ploidy-plot
+#| echo: FALSE
+
+ploidy_plot <- ggplot(ploidy_caller_summary, aes(x = n,
+                                  y = loh_category,
+                                  fill = status_category
+                                  )) +
+  geom_col(colour = "black") +
+  scale_fill_manual(values = c("red", "white", "grey")) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  facet_wrap(~gene, nrow = 2) +
+  labs(x = "", y = "", fill = "LOH status")
+
+ploidy_plot
+
+loh_split |> 
+  group_by(gene, ploidy_state_split, loh_status_split) |> 
+  count() |> 
+  ggplot(aes(x = n,
+                      y = ploidy_state_split,
+                      fill = loh_status_split)) +
+  geom_col(colour = "black") +
+  scale_fill_manual(values = c("red", "white")) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  facet_wrap(~gene, nrow = 2) +
+  labs(x = "", y = "", fill = "LOH status")
+
+
+
+```
 
 ## Comparison to whole genome sequencing
 
@@ -1458,6 +1589,40 @@ block did not detect a deletion in MUTYH.
 ![`r caption_24030951`](`r path_24030951`){#fig-24030951-false-positive height=5in}
 
 {{< pagebreak >}}
+
+### Ploidy status comparison
+
+```{r}
+#| label: pansolid-loh-vs-wgs
+#| include: FALSE
+
+pansolid_loh_for_wgs_comp <- loh_with_qc |> 
+  left_join(del_val_sample_patient_info |> 
+              select(labno, nhsno, extraction_method),
+            by = "labno") |> 
+  filter(nhsno %in% del_val_wgs_html_ids$nhsno) |> 
+  filter(
+    (nhsno %in% patients_with_qiasymphony_extractions$nhsno &
+    extraction_method == "QIAsymphony") |
+      (!nhsno %in% patients_with_qiasymphony_extractions$nhsno)) |> 
+  filter(!labno %in% c(
+    "23025733",                # Remove sample on Cobas extraction
+    "24030946",                # These patients have 2 QIAsymphony extractions
+    "24018922",                # This sample is from a different path block
+    "24033015"                 # Also from a different path block - see note
+    )) |>                      # on iGene
+  # This sample was repeated for repeatability
+  filter((labno != "24017319" & worksheet != "WS144364")) |> 
+  filter((labno != "24053299" & worksheet != "WS150529")) |> 
+  filter(!labno_suffix %in% c("24026628a", "24026628b", "24026628c",
+                              "24026628d"))
+
+pansolid_loh_vs_wgs <- pansolid_loh_for_wgs_comp |> 
+  left_join(wgs_results_for_pansolid_comparison,
+            join_by(nhsno == nhsno, gene == gene),
+            relationship = "one-to-one")
+
+```
 
 ## Comparison to ddPCR
 
@@ -1936,6 +2101,8 @@ del_uom <- define_uom(max_sd, 2)
 
 ```
 
+### Repeatability: CNV detection
+
 Of the `r length(unique(repeat_data$labno_suffix_worksheet))` replicates,
 `r length(unique(repeat_data_passing_qc$labno_suffix_worksheet))` had quality
 metrics which passed the quality thresholds. For the calculation, fold changes 
@@ -2033,6 +2200,44 @@ fig_repeatability_24020998 <- draw_repeat_plot(df = repeat_data,
                  labno = "24020998")
 
 fig_repeatability_24020998
+
+```
+
+### Repeatability: ploidy status detection
+
+```{r}
+#| label: loh-repeatability
+#| include: FALSE
+#| eval: FALSE
+
+loh_data_with_qc <- del_val_collated_loh |> 
+  left_join(del_val_collated_138x |> 
+               select(filepath, percent_138x),
+            by = "filepath") |> 
+  left_join(del_val_collated_stdev |> 
+              select(filepath, stdev_noise),
+            by = "filepath") |> 
+  mutate(pass_qc = case_when(
+    stdev_noise <= noise_qc_threshold &
+      percent_138x >= percent_138x_qc_threshold ~"Yes",
+    stdev_noise > noise_qc_threshold |
+      percent_138x < percent_138x_qc_threshold ~"No"))
+
+ploidy_repeat_data <- loh_data_with_qc |> 
+  filter(labno_suffix_worksheet %in% all_replicates)
+
+ploidy_repeat_data |> 
+  filter(labno == "24017319") |> 
+  select(worksheet, labno_suffix, gene, ploidy_state, loh_status, 
+         no_targets_in_ploidy_region) |> 
+    arrange(gene) |>  view()
+
+loh_data_with_qc |> 
+  filter(labno == "24017319") |>
+  ggplot(aes(x = labno_suffix_worksheet, y = loh_status)) +
+  geom_point(aes(shape = pass_qc)) +
+  scale_shape_manual(values = c(21, 22)) +
+  facet_wrap(~gene)
 
 ```
 
