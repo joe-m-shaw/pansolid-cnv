@@ -263,6 +263,9 @@ screening for future cancer development.
 
 ## Loss of heterozygosity
 
+LOH is an attribute of particular ploidy states. A ploidy state is a 
+particular combination of copy number states for different alleles.
+
 During cancer development, DNA damage to a particular allele may be repaired
 by copying the other allele, leading to copy-neutral LOH. If the allele used
 for the repair contains a deleterious variant, the genotype of the cell changes
@@ -595,6 +598,17 @@ each gene was set based on the number of targets present within the gene. The
 version of the PanSolid CLC pipeline tested in this validation was PanSolid 
 Workflow v2.4. Broadly speaking, the pipeline includes two different 
 components for detection of copy number and ploidy.
+
+```{r}
+#| label: clc-pipline-diagram
+#| include: FALSE
+
+path_clc_pipeline <- paste0(image_folderpath,
+                            "clc_pipeline.png")
+
+```
+
+![CLC pipeline](`r path_clc_pipeline`){#fig-clc-pipeline}
 
 ### CNV detection by fold change {#sec-methods-fold-change}
 
@@ -2485,12 +2499,14 @@ more time and is more expensive.
 #| tbl-cap: "Bioinformatic pipeline details"
 #| echo: FALSE
 
-pipeline_metric_tbl <- tribble(
+pipeline_metric_tbl <- tibble::tribble(
   ~"",         ~"PanSolid NGS", ~"Whole genome sequencing",
   "Sample(s)",   "FFPE tumour sample",   "Paired fresh frozen tumour sample and blood sample for germline DNA",
   "Library preparation", "QIAseq panel enrichment", "Whole genome amplification",
-  "CNV caller",  "QIAgen CLC Genomics Workbench", "Germline CNVs: DRAGEN CNV; Somatic CNVs: Canvas and Manta",
-  "NCC calculated", "No", "Yes - by Canvas and Ccube"
+  "Pipeline software", "QIAgen CLC Genomics Workbench", "Bespoke",
+  "CNV caller",  "CNV Detection Tool", "Germline CNVs: DRAGEN CNV; Somatic CNVs: Canvas and Manta",
+  "Ploidy caller", "Regional Ploidy Tool", "Canvas",
+  "NCC calculated", "Yes - by Regional Ploidy Tool", "Yes - by Canvas and Ccube"
 )
 
 knitr::kable(pipeline_metric_tbl)
