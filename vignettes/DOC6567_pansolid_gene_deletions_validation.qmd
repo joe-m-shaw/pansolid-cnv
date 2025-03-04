@@ -851,7 +851,7 @@ S:/central shared/Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/validat
 
 # Results
 
-## Overall results
+## CNV caller results
 
 ```{r}
 #| label: overall-results
@@ -973,7 +973,7 @@ fig_cnv_gene_frequency
 
 ```
 
-## CDKN2A results
+### CDKN2A results
 
 The deletions detected at the *CKDN2A/B* on chromosome 9p are shown in
 @fig-cdkn2a-results. The majority of CNVs included both the *CDKN2A* and
@@ -1038,7 +1038,7 @@ cdkn2a_labno_plot <- ggplot(cdkn2a_pass_qc_factors,
 
 {{< pagebreak >}}
 
-## PTEN results
+### PTEN results
 
 ```{r}
 #| label: fig-pten-results
@@ -1078,6 +1078,10 @@ pten_primer_plot <- make_primer_plot(plot_xmin = 87863625-pten_buffer,
     )
 
 ```
+
+## Ploidy caller results
+
+
 
 ## Comparison to whole genome sequencing
 
@@ -1788,6 +1792,45 @@ the PanSolid CNV caller."
 
 ## Comparison to *MLH1*, *MSH2* and *MSH6* NGS LOH testing
 
+DNA from 4 colorectal cancer samples was also tested on the PanSolid enrichment.
+These DNA samples had previously tested at the North West GLH on the 
+tumour Lynch (tLynch) panel of the QIAseq Merged
+enrichment using a Microsoft Excel-based method for LOH detection
+(described in DOC3339) in the MMR genes *MLH1*,
+*MSH2* and *MSH6*. The results are shown in @tbl-pansolid-vs-merged.
+
+```{r}
+#| label: tbl-pansolid-vs-merged
+#| tbl-cap: "PanSolid MMR gene results"
+#| echo: FALSE
+
+merged_tlynch_results <- read_excel(path = paste0(data_folderpath,
+                                             "validation/DOC6567_deletions/",
+                                             "raw/qiaseq_merged/",
+                                             "qiaseq_merged_tlynch_results.xlsx"),
+                               col_types = c("text", "text", "text", 
+                                             "text", "text"))
+
+pansolid_vs_merged <- del_val_collated_loh |> 
+  inner_join(merged_tlynch_results,
+             join_by("labno" == "labno",
+                     "gene" == "gene"))
+
+tbl_pansolid_vs_merged <- pansolid_vs_merged |> 
+  select(labno, gene, ploidy_state, loh_status, 
+         merged_result) |> 
+  mutate(gene = factor(gene, levels = c("MLH1", "MSH2", "MSH6"))) |> 
+  arrange(labno, gene) |> 
+  rename(`DNA number` = labno,
+         `Gene` = gene,
+         `CLC ploidy state` = ploidy_state,
+         `PanSolid LOH status` = loh_status,
+         `Merged LOH status` = merged_result)
+
+kable(tbl_pansolid_vs_merged)
+
+```
+
 ## Repeat testing
 
 ```{r}
@@ -2387,39 +2430,6 @@ kable(tbl_pansolid_cnv_metrics)
 
 # Review of test requirements
 
-1. **Results:** the test should provide clear results for the 
-`r length(del_genes$gene)` deletion genes.
-
-The 
-
-2. **Analytical validity:** the test should have a defined sensitivity and 
-specificity for these genes, calculated by comparison with orthogonal methods.
-
-
-3. **Dosage accuracy:** it should be show how accurate the test is at detecting 
-heterozygous and homozygous deletions, in samples with a range of NCC values.
-
-
-
-4. **Quality control:** the test should have clear quality control thresholds
-for deciding when the test results should be reported and when the test has 
-failed.
-
-
-
-5. **Variability:** the test should have defined intra-run variation 
-(repeatability) and inter-run variability (reproducibility) for detection of 
-deletions. Analysis of this variation should then be used to derive the 
-uncertainty of measurement for the test.
-
-
-
-6 **Visualisation:** the results should be presented in a clear and visual 
-manner.
-
-7 **Analysis:** there should be a clear procedure for analysis for gene 
-deletions by laboratory staff.
-
 # Requirements for clinical implementation
 
 Analysts must check the HTML and SNP track for any detected deletion calls. 
@@ -2434,6 +2444,8 @@ This is to ensure that false positive results are caught before reporting.
 ::: {#refs}
 :::
 
+{{< pagebreak >}}
+
 # Supplementary Information
 
 ## Panel details
@@ -2446,8 +2458,6 @@ This is to ensure that false positive results are caught before reporting.
 kable(gene_target_counts)
 
 ```
-
-## Sample details
 
 ## ddPCR details
 
@@ -2483,5 +2493,3 @@ path_pten_ddpcr <- paste0(image_folderpath,
 !["CDKN2A ddPCR"](`r path_cdkn2a_ddpcr`){#fig-ddpcr-cdkn2a}
 
 !["PTEN ddPCR"](`r path_pten_ddpcr`){#fig-ddpcr-pten}
-
-## Supplementary plots
