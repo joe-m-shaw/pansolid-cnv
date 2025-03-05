@@ -612,7 +612,7 @@ deletions by laboratory staff.
 
 ## Samples
 
-The different types of tumour represented in the validation cohort are shown in .
+The different types of tumour represented in the validation cohort are shown.
 
 ```{r}
 #| label: tbl-cancer-types
@@ -657,13 +657,18 @@ kable(tbl_cns_cancer_types)
 ## Next generation sequencing
 
 Samples were processed on the PanSolid version 2 enrichment (CDHS-48608Z-11752)
-and sequenced on an
+and sequenced with 2 x 150bp paired-end sequencing on an
 Illumina Novaseq. The PanSolid panel is a QIAseq enrichment containing primers
 for `r nrow(target_df)` genomic targets. 
 `r nrow(target_df[target_df$target_type == "gene target",])` targets lie within
 specific genes related to cancer, and a further 
  `r nrow(target_df[target_df$target_type == "genomic backbone",])`
-targets provide a genomic backbone for ploidy state prediction.
+targets provide a genomic backbone for ploidy state prediction. Samples were
+tested on `r length(unique(del_val_pansolid_worksheet_details$pcrid))` 
+worksheets between 
+`r format.Date(x = min(del_val_pansolid_worksheet_details$date), format = "%B %Y")`
+and
+`r format.Date(x = max(del_val_pansolid_worksheet_details$date), format = "%B %Y")`.
 
 ## PanSolid CLC bioinformatics pipeline
 
