@@ -610,6 +610,50 @@ deletions by laboratory staff.
 
 # Methodology
 
+## Samples
+
+The different types of tumour represented in the validation cohort are shown in .
+
+```{r}
+#| label: tbl-cancer-types
+#| tbl-cap: "Validation cohort cancer types"
+#| echo: FALSE
+
+cancer_types_tested <- del_val_sample_cancer_types |> 
+  filter(labno %in% del_val_collated_stdev$labno &
+           # Remove seracare synthetic control
+           labno != "24039973") 
+
+tbl_cancer_types <- cancer_types_tested |> 
+  group_by(cancer_group) |> 
+  count() |> 
+  arrange(desc(n)) |> 
+  rename(`Cancer type` = cancer_group,
+         `Samples` = n) |>
+  adorn_totals()
+
+kable(tbl_cancer_types)
+
+```
+
+```{r}
+#| label: tbl-cns-cancer-types
+#| tbl-cap: "Central nervous system tumours"
+#| echo: FALSE
+
+tbl_cns_cancer_types <- cancer_types_tested |>
+  filter(cancer_group == "Central nervous system") |> 
+  group_by(cancer) |> 
+  count() |> 
+  arrange(desc(n)) |> 
+  rename(`Cancer type` = cancer,
+         `Samples` = n) |>
+  adorn_totals()
+
+kable(tbl_cns_cancer_types)
+
+```
+
 ## Next generation sequencing
 
 Samples were processed on the PanSolid version 2 enrichment (CDHS-48608Z-11752)
@@ -923,7 +967,8 @@ sig_cnvs_with_qc <- del_val_collated_sig_cnvs |>
             by = "filepath") |> 
   left_join(del_val_collated_stdev |> 
               select(filepath, stdev_noise), 
-            by = "filepath")
+            by = "filepath") |> 
+  left_join(del_val_sample_cancer_types, by = "labno")
 
 sig_cnvs_passing_qc <- sig_cnvs_with_qc |> 
   filter(stdev_noise <= noise_qc_threshold &
@@ -938,7 +983,9 @@ del_gene_results_with_ids <- del_val_collated_del_genes |>
             by = "filepath") |> 
   left_join(del_val_collated_stdev |> 
               select(filepath, stdev_noise),
-            by = "filepath") 
+            by = "filepath") |> 
+  left_join(del_val_sample_cancer_types,
+            by = "labno")
 
 del_gene_cnv_spans <- del_gene_results_with_ids |> 
   filter(stdev_noise <= noise_qc_threshold &
@@ -958,7 +1005,7 @@ In total, `r nrow(noise_and_138x)` replicates from
 `r length(unique(noise_and_138x$labno))` DNA samples were tested on the PanSolid
 enrichment and analysed with the PanSolid CLC pipeline.
 Of these, `r nrow(results_passing_qc)` replicates had noise and coverage metrics
-which were of acceptable quality.
+which were of acceptable quality. 
 
 There was a clear relationship between the size of the detected deletions and
 their fold changes (@fig-cnv-size-distribution); shorter focal deletions had
@@ -1011,8 +1058,8 @@ fig_cnv_gene_frequency <- sig_cnvs_passing_qc |>
   group_by(gene, consequence) |> 
   count() |> 
   arrange(desc(n)) |>  
-  ggplot(aes(x = reorder(gene, desc(n)), y = n,
-             )) +
+  ggplot(aes(x = reorder(gene, desc(n)), 
+             y = n)) +
   geom_col() +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90)) +
@@ -1191,7 +1238,8 @@ In
 results 
 (`r round(nrow(multiple_loh_calls) / nrow(del_val_collated_loh_mod)*100, 1)`%)
 there were multiple ploidy
-states predicted within the same gene.
+states predicted within the same gene. @fig-ploidy-caller-results shows the
+frequency of different ploidy state predictions across the 6 genes.
 
 ```{r}
 #| label: fig-ploidy-caller-results
@@ -2504,6 +2552,8 @@ SNP-array analysis mistakenly reported a loss of chromosome 10, due to
 the relative dosage of chromosome 10 versus the rest the polyploid genome.
 
 
+Differences in ploidy also led to false negatives on the amplifications validation
+
 ```{r}
 #| label: tbl-pipeline-metrics
 #| tbl-cap: "Bioinformatic pipeline details"
@@ -2542,6 +2592,7 @@ and specificity of 95% and 91%.
 
 Sensitivity was highest for homozygous deletions, and lower for het losses. This
 was also observed in the ddPCR results.
+93.8 and 95.9% sensitivity and specificity on ddPCR for amplifications.
 
 This is to be expected, due to the very small difference between a het loss and 
 a normal result. The fold change loss equation is designed to make this 
@@ -2552,7 +2603,9 @@ the range of technical noise.
 
 The uncertainty of measurement of the fold change metric for deleted regions
 was calculated as ±`r del_uom` at 95% confidence. Notably, this value is 
-greater than the value of 0.17 calculated for amplifications (DOC6283).
+slightly higher than the value of 0.17 calculated for amplifications (DOC6283),
+and a proportion of gene results had different CNV statuses (deletion vs
+normal) on different replicates.
 
 This is because the scale of measured change is very different: amplification 
 detection looks for changes between the normal range of 2-10 copies and an 
@@ -2665,6 +2718,8 @@ kable(tbl_pansolid_cnv_metrics)
 
 Analysts must check the HTML and SNP track for any detected deletion calls. 
 This is to ensure that false positive results are caught before reporting.
+
+NCC levels of 20% or greater are required.
 
 # Conclusion
 
