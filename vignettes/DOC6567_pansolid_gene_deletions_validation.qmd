@@ -1,5 +1,6 @@
 ---
-title: "DOC6567: Validation of Detecting Deletions with the PanSolid CLC pipeline"
+title: "DOC6567: Validation of Detecting Somatic Gene Deletions and Ploidy States 
+with the PanSolid CLC pipeline"
 format: 
   docx:
     reference-doc: north_west_glh_document_template.docx
@@ -204,17 +205,19 @@ gene_target_counts <- pansolid_target_loci |>
 # Purpose
 
 The purpose of this document is to describe the validation of detection of
-somatic gene deletions on the PanSolid v2 QIAseq panel using the PanSolid CLC
-pipeline at the North West Genomic Laboratory Hub (GLH).
+somatic gene deletions and ploidy states
+on the PanSolid v2 QIAseq panel using the PanSolid CLC 
+pipeline (v2.4) at the North West Genomic Laboratory Hub (GLH).
 
 # Introduction
 
 This validation is the final part of the project to validate copy number
-variants (CNVs) on the PanSolid enrichment panel.
+variants (CNVs) on the PanSolid enrichment panel, and builds on the previous
+validations described in @tbl-previous-validations.
 
 ```{r}
 #| label: tbl-previous-validations
-#| tbl-cap: "Previous validations of the PanSolid enrichment and pipeline"
+#| tbl-cap: "Validations of the PanSolid enrichment and pipeline"
 #| echo: FALSE
 
 prev_validation_table <- tribble(
@@ -222,35 +225,91 @@ prev_validation_table <- tribble(
   "Detection of single nucleotide variants and indel variants", "DOC6024 v1", "July 2023",
   "Verification of PanSolid enrichment version 2", "DOC6024 v3", "April 2024",
   "Detection of amplifications in *ERBB2*", "DOC6260", "April 2024",
-  "Detection of amplifications in 8 additional genes", "DOC6283", "November 2024"
+  "Detection of amplifications in 8 additional genes", "DOC6283", "November 2024",
+  "Detection of gene deletions and ploidy states", "DOC6567", "March 2025"
 )
 
 kable(prev_validation_table)
 
 ```
 
-## Gene deletions
+Currently, detection of gene deletions and loss of heterozygosity (LOH) is 
+performed on the "Core" and "Merged" QIAseq primer enrichments for different
+tumour types. By validating detection of these variants on the PanSolid 
+enrichment, this project aims to replace these enrichments with 
+PanSolid and streamline testing of solid tumours at the 
+North West GLH.
+
+## Gene deletions and ploidy states
 
 Somatic copy number changes are a common pathogenic mechanism in cancers [@li2020],
 leading to the amplification of expression from proto-oncogenes (addressed in
+[DOC6260]{custom-style="Strong"} and 
 [DOC6283]{custom-style="Strong"}) and the reduction or ablation of expression
 from tumour suppressor genes (TSGs) (addressed in this validation document).
-Inactivation of TSGs can occur by multiple methods including sequence variants,
-gene deletion, copy-neutral loss of heterozygosity (LOH) and epigenetic silencing.
-The physical loss of a TSG copy from the genome can occur via a focal deletion
-of the gene locus, or as part of a much larger chromosomal change, such as
+The loss of expression from a TSG leads to cancer development via a recessive
+two-hit mechanism, requiring two
+events to inactivate both TSG alleles [@knudson1971]. 
+
+Loss of TSG expression can occur through the physical loss of a TSG copy from 
+the genome, which make be due to a focal deletion
+of the gene locus or as part of a much larger chromosomal change, such as
 aneuploidy for a whole chromosome or chromosome arm. Certain cancers have
 specific recurrent aneuploidies leading to TSG loss, such as monosomy of 
 chromosome 10 in glioblastoma [@boström1998] leading to
 loss of *PTEN*, and monosomy of chromosome 22 in meningioma [@neill2020]
-leading to loss of *NF2*.
+leading to loss of *NF2*. Different combinations of allelic copy numbers at the
+gene, chromosome or whole genome level are described as different 
+ploidy states (@tbl-clc-ploidy-states).
 
-The loss of expression 
-from a TSG leads to cancer development via a recessive mechanism, requiring two
-events to inactivate both TSG alleles [@knudson1971]. One example is the highly
-conserved *TP53* gene [@levine2020], which is most commonly inactivated by a
-missense variant on one allele and a loss of the other allele through loss of
-chromosome 17p [@bendavid2020]. Gene deletions can occur in somatic tissues, or
+Other mechanisms of loss of TSG expression include 
+pathogenic sequence variants, epigenetic silencing, different types of CNV such as 
+duplications [@li2020], and copy-neutral loss of heterozygosity (LOH).
+Copy-neutral LOH arises when a cell repairs DNA damage to a particular allele 
+of a gene by copying the other allele.
+If the allele used
+for the repair contains a deleterious variant, such as a pathogenic sequence 
+variant or a gene deletion, the genotype of the cell changes
+from being heterozygous for the variant to being homozygous. Copy-neutral LOH
+is a frequent pathogenic mechanism in multiple cancer types, including
+colorectal cancer [@melcher2007], and is similar but distinct from the copy-loss
+LOH which accompanies a gene deletion. In this way, LOH is an attribute of 
+particular ploidy states, as shown in @tbl-clc-ploidy-states,
+which is reproduced from the 
+[Qiagen CLC manual](https://resources.qiagenbioinformatics.com/manuals/biomedicalgenomicsanalysis/2400/index.php?manual=Detect_Regional_Ploidy.html).
+
+```{r}
+#| label: tbl-clc-ploidy-states
+#| tbl-cap: "Ploidy states"
+#| echo: FALSE
+
+tbl_clc_ploidy_states <- tribble(
+  ~State, ~`Allele ratio`, ~`Copy number`, ~`LOH`,
+  "Normal diploid", "1:1", "2", "No",
+  "Deletion", "0:1", "1", "Yes (copy-loss LOH)",
+  "Bi-allelic deletion", "0:0", "0", "No",
+  "Uniparental disomy", "0:2", "2", "Yes (copy-neutral LOH)",
+  "Duplication", "1:2", "3", "No",
+  "Whole genome duplication", "2:2", "4", "No"
+)
+
+kable(tbl_clc_ploidy_states)
+
+```
+
+Different mechanisms of loss of TSG expression can combine within the same
+cell to cause cancer. One example is the common inactivation of the 
+*TP53* gene through a
+missense variant on one allele and a mono-allelic loss of
+chromosome 17p on the other allele [@bendavid2020; @levine2020]. 
+Conversely, a gene loss may be due to a 
+homozygous event, such as the recurrent focal bi-allelic deletion of 
+the *CDKN2A* and *CDKN2B* genes in
+central nervous system tumours [@louis2021].
+
+## Germline variants
+
+Gene deletions can occur in somatic tissues, or
 may be found in a patient's germline, which increases the likelihood of 
 developing cancer. For example, germline deletions in the DNA mis-match repair
 (MMR)  genes *MLH1*, *MSH2*, *MSH6* and *PMS2* cause an increased risk of 
@@ -259,28 +318,17 @@ colorectal cancer, referred to as Lynch syndrome, whilst deletions in the
 Therefore, when a deleterious TSG variant, such as a deletion, is 
 detected in tumour sample, reflex testing of lymphocyte DNA can identify if the
 variant is present in the patient's germline, which would warrant 
-screening for future cancer development.
-
-## Loss of heterozygosity
-
-LOH is an attribute of particular ploidy states. A ploidy state is a 
-particular combination of copy number states for different alleles.
-
-During cancer development, DNA damage to a particular allele may be repaired
-by copying the other allele, leading to copy-neutral LOH. If the allele used
-for the repair contains a deleterious variant, the genotype of the cell changes
-from being heterozygous for the variant to being homozygous. The development
-of copy-neutral LOH represents the "second-hit" within the two-hit model of 
-cancer development. Clinically, detection of copy-neutral LOH within a tumour
+screening for future cancer development. In addition, detection of copy-neutral 
+LOH at a TSG locus within a tumour
 can be helpful when no germline variant has been found, as it provides further 
-evidence that the cancer has arisen sporadically, rather than a germline 
-predisposition has not been detected.
+evidence that the cancer has arisen sporadically, rather than through an
+undetected germline predisposition.
 
 ## Target genes
 
 The aim of this validation is to detect deletions in 
 `r length(unique(del_val_collated_del_genes$gene))`
-genes on the PanSolid QIAseq enrichment (Supplementary Information,
+TSGs on the PanSolid QIAseq enrichment (Supplementary Information,
 @tbl-deletion-gene-targets). These genes were
 selected based on the specifications of the 
 [NHS Genomic Test Directory for Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/).
@@ -296,7 +344,6 @@ transcripts which produce two separate proteins: p16INK4a and p14ARF
 [@quelle1995] (@tbl-cdkn2a-details). The p14ARF protein product of *CDKN2A*
 plays an important role in cell growth regulation, and deletion of *CDKN2A* 
 contributes to tumour proliferation [@appay2019]. 
-
 
 ```{r}
 #| label: tbl-cdkn2a-details
@@ -442,17 +489,17 @@ Germline mutations in *PTEN* cause PTEN hamartoma tumor syndrome [@yehia2020],
 and germline deletions in PTEN can either encompass the whole gene or 
 include only certain exons [@zhou2003]. 
 
-## Detection of gene deletions
+## Detection of gene deletions and ploidy states
 
 Somatic deletions were originally characterised using karyotyping and
 fluorescence in-situ hybridisation (FISH). These cytogenetic techniques can
 view cancers at a single-cell resolution. Over the last 25 years, there has
-been increasing development of molecular methods for detection of somatic CNVs,
-including deletions, beginning with array comparative genome hybridisation
+been increasing development of molecular methods for detection of somatic CNVs
+and ploidy states, beginning with array comparative genome hybridisation
 (CGH) and SNP-microarrays [@das2013; @spence2022], before progressing to 
 Illumina short-read
-next generation sequencing (NGS) of gene-panels [@conroy2021; glodzik2023], 
-exomes [@zare2017] and genomes [@yi2023; sonsinsky2024]. The majority of NGS 
+next generation sequencing (NGS) of gene-panels [@conroy2021; @glodzik2023], 
+exomes [@zare2017] and genomes [@yi2023; @sonsinsky2024]. The majority of NGS 
 approaches use a depth-of-coverage approach:
 the number of sequencing reads mapping to a locus is used to infer the copy
 number of that locus within the sample. This approach was based on initial
@@ -478,12 +525,7 @@ signal of somatic variation.
 chromosome complement to become polyploid. Polyploidy arises across many
 different cancer types, usually arising after mitotic replication without
 cytokinesis, known as endoreplication, which multiplies the genome within a
-single cell [@conway2024]. Assuming that the tumour has a diploid chromosome
-complement can lead to incorrect copy number prediction when polyploidy is
-present. For example @gardina2008 report several tetraploid glioblastoma
-samples with chromosome 10 trisomy. When ploidy was not accounted for,
-SNP-array analysis mistakenly reported a loss of chromosome 10, due to 
-the relative dosage of chromosome 10 versus the rest the polyploid genome.
+single cell [@conway2024].
 
 - **Intra-tumoural heterogeneity:** cancers are composed  of diverse
 populations of cells, in which copy number changes may only found in specific
@@ -506,31 +548,22 @@ sequencing coverage [@steiert2023].
 ### Approaches
 
 Purity, ploidy and intratumoural heterogeneity create a problem: the analysis 
-method must take data from a bulk-sequenced sample and attempt to separate out 
+method must take data from a bulk-sequenced sample and attempt to separate out,
+or "deconvolute", 
 the underlying genomic complexity [@gao2020; @chandramohan2022]. A pragmatic 
 approach is to combine sequence dosage (log2 ratio) and allele-frequency 
-analysis (allelic ratio or B-allele frequency), which was 
+analysis, which was 
 first introduced by combining array CGH and SNP-arrays [@zhao2004; @vanloo2010; 
 @gardina2008] and has since been adopted for NGS approaches [@carter2012]. These
 approaches frequently employ Hidden Markov Models (HMMs): statistical models
-which use raw data to select the most likely copy number state from a series of
+which use raw data to select the most likely copy number and ploidy state 
+from a series of
 possible states [@seiser2014].
 
 NGS analysis can be performed on a tumour sample ("tumour-only") or paired tumour 
 and germline samples, with paired analysis having the advantage of being able 
-to distinguish between somatic and germline variants [@jones2015]. Paired 
-analysis also differs in its approach to ploidy calculations. One example is the
-Canvas algorithm developed by Illumina for paired tumour-normal CNV calling
-[@roller2016]. Canvas takes the coverage and MAF values for a tumour sample and
-compares them to the predicted coverage and MAF values for multiple combinations
-of tumour purity, ploidy and heterogeneity. The combination with the smallest 
-deviation from the actual results is accepted as the likely purity, ploidy and
-heterogeneity state of the tumour, and then used for calculating copy number.
-The process of comparing the actual to predicted results was optimised using
-a cohort of tumour-normal samples with known ploidy and purity values
-(@roller2016, supplementary information, page 17).
-
-Other approaches which have shown promise for solving the challenges of purity, 
+to distinguish between somatic and germline variants [@jones2015]. Other 
+approaches which have shown promise for solving the challenges of purity, 
 ploidy and heterogeneity deconvolution include multiple tumour sequencing 
 [@zaccaria2020] and single-cell genome sequencing [@baslan2020]. However, these 
 techniques are expensive and experimental, and consequently have not yet been
@@ -538,20 +571,14 @@ clinically implemented. Notably, the WHO guidelines do not specify a technology
 for CNV detection, which reflects the diversity of approaches used in clinical 
 laboratories [@neill2020].
 
-## Detection of loss of heterozygosity and ploidy
-
-LOH in colorectal cancer may be identified using SNP arrays 
-[@melcher2007; @melcher2011], PCR fragment analysis [@guerts-giele2014] and 
-next generation sequencing. NGS is an attractive testing modality for LOH, as
-it 
-
 ## Requirements
 
 The requirements for this new method are as follows:
 
 1. **Results:** the test should provide clear results for the presence of 
-whole-gene deletion in the `r length(del_genes$gene)` specified genes. The test
-should also provide results for the ploidy status of the following genes:
+whole-gene deletion in the `r length(del_genes$gene)` specified TSGs. The test
+should also provide results for the ploidy state, including copy-neutral
+LOH, of the following genes:
 *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*.
 
 2. **Analytical validity:** the test should have a defined sensitivity and 
@@ -569,10 +596,10 @@ failed.
 deletions. Analysis of this variation should then be used to derive the 
 uncertainty of measurement for the test.
 
-6 **Visualisation:** the results should be presented in a clear and visual 
+6. **Visualisation:** the results should be presented in a clear and visual 
 manner.
 
-7 **Analysis:** there should be a clear procedure for analysis for gene 
+7. **Analysis:** there should be a clear procedure for analysis for gene 
 deletions by laboratory staff.
 
 {{< pagebreak >}}
@@ -588,12 +615,14 @@ for `r nrow(target_df)` genomic targets.
 `r nrow(target_df[target_df$target_type == "gene target",])` targets lie within
 specific genes related to cancer, and a further 
  `r nrow(target_df[target_df$target_type == "genomic backbone",])`
-targets provide a genomic backbone for LOH and ploidy calling.
+targets provide a genomic backbone for ploidy state prediction.
 
 ## PanSolid CLC bioinformatics pipeline
 
 A bioinformatics pipeline was built in the CLC Genomics Workbench v23 (Qiagen).
-The details of the pipeline are described in DOC and DOC. The graining level for
+The details of the pipeline are described in 
+[DOC6260]{custom-style="Strong"} and [DOC6283]{custom-style="Strong"}.
+The graining level for
 each gene was set based on the number of targets present within the gene. The 
 version of the PanSolid CLC pipeline tested in this validation was PanSolid 
 Workflow v2.4. Broadly speaking, the pipeline includes two different 
@@ -610,7 +639,7 @@ path_clc_pipeline <- paste0(image_folderpath,
 
 ![CLC pipeline](`r path_clc_pipeline`){#fig-clc-pipeline}
 
-### CNV detection by fold change {#sec-methods-fold-change}
+### Deletion detection by fold change {#sec-methods-fold-change}
 
 The PanSolid CLC pipeline calculates the "fold change" of a copy number region in
 comparison the results from a cohort of normal controls (described in ERBB2).
@@ -652,7 +681,7 @@ fold_change_df <- data.frame(ncc = seq(0, 100, by = 0.1)) |>
 The NCC of a sample and the number of gene copies per cell both impact the total
 measured fold change and copy number of a sample, with fold change providing a 
 greater distinction between homozygous and heterozygous deletions, as shown in 
-@fig-fold-change-vs-ncc and @ fig-fold-change-vs-cn. 
+@fig-fold-change-vs-ncc and @fig-fold-change-vs-cn. 
 Initially, the fold change threshold 
 was set at
 `r round(deletion_fc_threshold_theoretical,2)`
@@ -716,34 +745,13 @@ fig_fold_change_vs_cn
 
 ```
 
-### Ploidy and LOH detection
+### Ploidy state detection
 
 Ploidy status of copy number segments was predicted using the CLC
 "Detect Regional Ploidy" tool with the "Region-level Ploidy Track". This uses
 a HMM to predict ploidy based on SNP and coverage data, which 
 is influenced by @beroukhim2006. The different ploidy states categorised by the
-ploidy caller are summarised in @tbl-clc-ploidy-states
-which is reproduced from the 
-[Qiagen CLC manual](https://resources.qiagenbioinformatics.com/manuals/biomedicalgenomicsanalysis/2400/index.php?manual=Detect_Regional_Ploidy.html).
-
-```{r}
-#| label: tbl-clc-ploidy-states
-#| tbl-cap: "CLC ploidy states"
-#| echo: FALSE
-
-tbl_clc_ploidy_states <- tribble(
-  ~State, ~`Allele ratio`, ~`Copy number`, ~`LOH status`,
-  "Normal diploid", "1:1", "2", "No",
-  "Deletion", "0:1", "1", "Yes (deletion LOH)",
-  "Bi-allelic deletion", "0:0", "0", "No",
-  "Uniparental disomy", "0:2", "2", "Yes (copy-neutral LOH)",
-  "Duplication", "1:2", "3", "No",
-  "Whole genome duplication", "2:2", "4", "No"
-)
-
-kable(tbl_clc_ploidy_states)
-
-```
+ploidy caller are summarised in @tbl-clc-ploidy-states. 
 
 To produce a visualisation of allele frequency across the genome, the read depth
 frequencies of variants in the sequenced sample were used. The variants were
@@ -778,7 +786,8 @@ CLC pipeline (sample 24021613, WS146523)."
 ### Quality control
 
 The signal-adjusted noise quality control metric was developed during 
-the *ERBB2* validation and is described in detail in DOCxxxx. In addition,
+the *ERBB2* validation and is described in detail in 
+[DOC6260]{custom-style="Strong"}. In addition,
 the percentage of the panel BED targets covered at 138X or higher was used as
 a further quality metric. A threshold of 75% was set for this metric following
 *in silico* downsampling experiments performed for 
@@ -806,10 +815,7 @@ detects somatic CNVs and LOH using sample read-depth and allele ratios, and repo
 them as GAIN, LOSS or LOH in the HTML report. Structural variants are detected
 using the Manta algorithm [@chen2016] and included as DEL or DUP in the HTML
 report. Whilst Canvas predicts tumour purity, the tumour purity stated on the 
-final HTML report is predicted using the Ccube package [@yuan2018]. Ccube 
-predicts NCC from variant fractions, using a probabilistic model to account for 
-two important challenges: not all cancer cells may contain a variant, and cancer
-cells may not be diploid.
+final HTML report is predicted using the Ccube package [@yuan2018]. 
 
 ### Droplet digital PCR
 
@@ -849,10 +855,12 @@ nf2_loh_targets <- target_df_with_coordinates |>
 ```
 
 DNA samples with results from PCR microsatellite testing of *NF2* were used to
-validate the ability of the PanSolid CLC pipeline to detect regions of LOH. At 
+validate the ability of the CLC Detect Regional Ploidy Tool to detect regions of 
+copy-loss and copy-neutral LOH. At 
 the North West GLH, LOH testing for *NF2* is performed by targeting 4 dinucleotide 
 microsatellite repeat markers (D22S275, NF2CA3, NF2intron10 and
-D22S268) on chromosome 22. The fluorescence-labelled PCR prodcuts for paired
+D22S268) on chromosome 22 (@tbl-nf2-markers). The fluorescence-labelled PCR 
+prodcuts for paired
 DNA samples from tumour and blood are analysed on an ABI-3130 analyser 
 ([LP 000 069: Neurofibromatosis type 2 (NF2): Standard Operating
 Procedure]{custom-style="Strong"}). A relative loss of peak height greater than 
@@ -862,6 +870,7 @@ extracted from the DNA Database.
 
 ```{r}
 #| label: tbl-nf2-markers
+#| tbl-cap: "NF2 LOH dinucleotide markers"
 #| echo: FALSE
 
 kable(nf2_loh_markers)
@@ -870,7 +879,7 @@ kable(nf2_loh_markers)
 
 ### NGS loss of heterozygosity testing: *MLH1*, *MSH2* and *MSH6*
 
-4 samples previously tested on the "Core" QIAseq panel for LOH in the  
+4 samples previously tested on the "Merged" QIAseq panel for LOH in the  
 *MLH1*, *MSH2* and *MSH6* genes were tested using the PanSolid enrichment on 
 WS150529.
 
@@ -2493,6 +2502,26 @@ but did not identify genes as being deleted. WGS has the advantage of using
 paired blood:tumour analysis which permits more
 accurate ploidy calling in comparison to targeted NGS approaches, but WGS takes
 more time and is more expensive.
+
+Paired 
+analysis also differs in its approach to ploidy calculations. One example is the
+Canvas algorithm developed by Illumina for paired tumour-normal CNV calling
+[@roller2016]. Canvas takes the coverage and MAF values for a tumour sample and
+compares them to the predicted coverage and MAF values for multiple combinations
+of tumour purity, ploidy and heterogeneity. The combination with the smallest 
+deviation from the actual results is accepted as the likely purity, ploidy and
+heterogeneity state of the tumour, and then used for calculating copy number.
+The process of comparing the actual to predicted results was optimised using
+a cohort of tumour-normal samples with known ploidy and purity values
+(@roller2016, supplementary information, page 17).
+
+Assuming that the tumour has a diploid chromosome
+complement can lead to incorrect copy number prediction when polyploidy is
+present. For example @gardina2008 report several tetraploid glioblastoma
+samples with chromosome 10 trisomy. When ploidy was not accounted for,
+SNP-array analysis mistakenly reported a loss of chromosome 10, due to 
+the relative dosage of chromosome 10 versus the rest the polyploid genome.
+
 
 ```{r}
 #| label: tbl-pipeline-metrics
