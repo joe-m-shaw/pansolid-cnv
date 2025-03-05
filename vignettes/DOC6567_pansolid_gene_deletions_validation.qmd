@@ -331,8 +331,12 @@ The aim of this validation is to detect deletions in
 TSGs on the PanSolid QIAseq enrichment (Supplementary Information,
 @tbl-deletion-gene-targets). These genes were
 selected based on the specifications of the 
-[NHS Genomic Test Directory for Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/).
-There was a particular focus on *CDKN2A*, *CDKN2B* and *PTEN*, as these 
+[NHS Genomic Test Directory for Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/). Ploidy state was determined for 6 genes involved with inherited 
+predisposition to colorectal tumours (*MSH2*, *MSH6*, *MLH1* and *PMS2*) and
+Schwannomas (*LZTR1*, *SMARCB1* and *NF2*).
+
+For gene deletions there was a particular focus on *CDKN2A*, *CDKN2B* 
+and *PTEN*, as these 
 deletions are frequently found in glioblastoma samples, which comprised the
 main tumour type in the testing cohort.
 
@@ -1129,60 +1133,42 @@ pten_primer_plot <- make_primer_plot(plot_xmin = 87863625-pten_buffer,
 ## Ploidy caller results
 
 ```{r}
-#| label: ploidy-summary
+#| label: tidy-ploidy-data
 #| include: FALSE
 
-loh_split <- del_val_collated_loh |> 
-  select(labno, labno_suffix_worksheet, gene, ploidy_state, loh_status,
-         no_targets_in_ploidy_region) |> 
-  mutate(ploidy_state_split = strsplit(ploidy_state, split = ",\\s"),
-         loh_status_split = strsplit(loh_status, split = ",\\s"),
-         no_targets_split = strsplit(no_targets_in_ploidy_region, 
-                                     split = ",\\s")) |> 
-  filter(!(labno_suffix_worksheet %in% c("24038351_WS143668",
-                                         "24026628b_WS150465",
-                                         "24027774a_WS144291",
-                                         "24026628c_WS150465",
-                                         "24026628d_WS150465") &
-           gene == "PMS2")) |> 
-  unnest(cols = c(ploidy_state_split, loh_status_split, no_targets_split)) |> 
-  mutate(no_targets_split = as.numeric(no_targets_split))
-
-```
-
-Ploidy caller results for the 6 genes ranged from
-`r min(loh_split$no_targets_split)`-
-`r max(loh_split$no_targets_split)` targets (median
-`r median(loh_split$no_targets_split)`).
-
-```{r}
-#| label: ploidy-summary-2
-#| include: FALSE
-
-
-loh_with_qc <- del_val_collated_loh |> 
+del_val_collated_loh_mod <- del_val_collated_loh |> 
   left_join(del_val_collated_stdev |> 
               select(filepath, stdev_noise), by = "filepath",
             relationship = "many-to-one") |> 
   left_join(del_val_collated_138x |> 
               select(filepath, percent_138x), by = "filepath",
             relationship = "many-to-one") |> 
+  # Remove samples where DNA was deliberately mixed
+  filter(!labno_suffix %in% c("24026628b", "24026628c", "24026628d")) |> 
   filter(stdev_noise <= noise_qc_threshold &
            percent_138x >= percent_138x_qc_threshold) |> 
-  mutate(bracket_call = str_extract(string = ploidy_state,
-                                    pattern = "^\\(\\d{1},\\d{1}\\)$"))
+  # Fix LOH status instances to allow unnest later
+  mutate(
+    ploidy_states_count  = str_count(string = ploidy_state, ",\\s") + 1,
+    loh_status_fixed = case_when(
+    (labno_suffix_worksheet == "24038351_WS143668" & gene == "PMS2") ~"No, Yes, Yes",
+    labno_suffix_worksheet == "24027774a_WS144291" & gene == "PMS2" ~"No, Yes, No",
+    labno_suffix_worksheet == "24022883_WS141364" & gene == "PMS2" ~"No, No",
+    TRUE ~loh_status),
+    
+    ploidy_state_split = strsplit(ploidy_state, split = ",\\s"),
+         loh_status_split = strsplit(loh_status_fixed, split = ",\\s"),
+         no_targets_split = strsplit(no_targets_in_ploidy_region, 
+                                     split = ",\\s")) 
 
-loh_single_statuses <- c("Normal diploid", "Deletion",
-                  "Whole genome duplication", "Uniparental disomy",
-                  "Duplication", "Bi-allelic deletion",
-                  "(0,3)", "(0,4)", "(2,4)", "(1,3)", "(2,3)")
+multiple_loh_calls <- del_val_collated_loh_mod |> 
+  filter(ploidy_states_count > 1)
 
-ploidy_caller_summary <- loh_with_qc |> 
-  mutate(loh_category = case_when(
-    ploidy_state %in% loh_single_statuses ~ploidy_state,
-    !ploidy_state %in% loh_single_statuses ~"Mutliple calls"),
-    loh_category = factor(loh_category, 
-                          levels = c("Mutliple calls",
+del_val_collated_loh_split <- del_val_collated_loh_mod |> 
+  unnest(cols = c(ploidy_state_split, loh_status_split, no_targets_split)) |> 
+  mutate(no_targets_split = as.numeric(no_targets_split),
+         ploidy_state_factor = factor(ploidy_state_split, 
+                          levels = c(
                             "(1,3)", "(2,3)", 
                             "(0,3)", "(0,4)", "(2,4)", 
                             "Whole genome duplication",
@@ -1190,50 +1176,44 @@ ploidy_caller_summary <- loh_with_qc |>
                             "Bi-allelic deletion",
                              "Deletion",
                             "Uniparental disomy",
-                            "Normal diploid")),
-    status_category = case_when(
-      loh_status %in% c("Yes", "No") ~loh_status,
-      !loh_status %in% c("Yes", "No") ~"Multiple statuses"
-    ),
-    status_category = factor(status_category, 
-                             levels = c("Yes", "No",
-                                        "Multiple statuses"))) |> 
-  group_by(gene, status_category, loh_category) |> 
-  count()
+                            "Normal diploid")))
 
 ```
 
+Of the results passing quality control, ploidy caller regions involving the 
+6 genes ranged from 
+`r min(del_val_collated_loh_split$no_targets_split)`-
+`r max(del_val_collated_loh_split$no_targets_split)` targets in length (median
+`r median(del_val_collated_loh_split$no_targets_split)`). 
+In 
+`r nrow(multiple_loh_calls)` out of 
+`r nrow(del_val_collated_loh_mod)` 
+results 
+(`r round(nrow(multiple_loh_calls) / nrow(del_val_collated_loh_mod)*100, 1)`%)
+there were multiple ploidy
+states predicted within the same gene.
+
 ```{r}
-#| label: ploidy-plot
+#| label: fig-ploidy-caller-results
+#| fig-cap: "Ploidy caller results"
+#| fig-width: 6
 #| echo: FALSE
 
-ploidy_plot <- ggplot(ploidy_caller_summary, aes(x = n,
-                                  y = loh_category,
-                                  fill = status_category
-                                  )) +
-  geom_col(colour = "black") +
-  scale_fill_manual(values = c("red", "white", "grey")) +
-  theme_bw() +
-  theme(legend.position = "bottom") +
-  facet_wrap(~gene, nrow = 2) +
-  labs(x = "", y = "", fill = "LOH status")
-
-ploidy_plot
-
-loh_split |> 
-  group_by(gene, ploidy_state_split, loh_status_split) |> 
+fig_ploidy_caller_results <- del_val_collated_loh_split |> 
+  mutate(gene_factor = factor(gene, levels = c(
+    "MLH1", "MSH2", "MSH6", "PMS2", "LZTR1", "SMARCB1", "NF2"))) |> 
+  group_by(gene_factor, loh_status_split, ploidy_state_factor) |> 
   count() |> 
-  ggplot(aes(x = n,
-                      y = ploidy_state_split,
-                      fill = loh_status_split)) +
+  ggplot(aes(x = n, y = ploidy_state_factor,
+             fill = loh_status_split)) +
   geom_col(colour = "black") +
-  scale_fill_manual(values = c("red", "white")) +
+  scale_fill_manual(values = c("white", "red")) +
   theme_bw() +
   theme(legend.position = "bottom") +
-  facet_wrap(~gene, nrow = 2) +
-  labs(x = "", y = "", fill = "LOH status")
+  facet_wrap(~gene_factor, nrow = 2) +
+  labs(x = "Number of results", y = "", fill = "LOH status")
 
-
+fig_ploidy_caller_results
 
 ```
 
@@ -1617,6 +1597,7 @@ block did not detect a deletion in MUTYH.
 
 ```{r}
 #| label: pansolid-loh-vs-wgs
+#| eval: FALSE
 #| include: FALSE
 
 pansolid_loh_for_wgs_comp <- loh_with_qc |> 
