@@ -120,3 +120,13 @@ del_val_collated_stdev <- read_csv(paste0(
                 list(
                   "stdev_noise" = col_double()
                 )))
+
+del_val_sample_cancer_types <- read_csv(paste0(
+  del_val_processed_folder,
+  "del_val_sample_cancer_types.csv"),
+  col_types = list(
+    "labno" = col_character(),
+    "comments" = col_character(),
+    "cancer" = col_character(),
+    "cancer_group" = col_character()
+  ))

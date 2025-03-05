@@ -38,7 +38,7 @@ sample_labnos <- unique(c(del_val_collated_stdev$labno,
 patient_info <- sample_tbl |> 
   filter(labno %in% sample_labnos) |> 
   select(labno, firstname, surname, dob, date_in, tissue, nhsno, pathno,
-         comments) |> 
+         concentration, comments) |> 
   collect() |> 
   mutate(dob = as_date(substr(dob, start = 1, stop = 10),
                        format = "%Y-%m-%d"),
@@ -92,7 +92,7 @@ pansolid_worksheet_details <- dna_db_worksheets |>
 del_val_sample_patient_info <- patient_info_extraction_method |> 
   select(labno, firstname, surname, nhsno, dob, date_sample_received,
          years_at_sample_receipt, tissue, tissue_type, pathno, ncc,
-         extraction_method, extraction_batch_fk, comments)
+         extraction_method, extraction_batch_fk, concentration, comments)
 
 write_csv(x = del_val_sample_patient_info,
           file = paste0(config::get("data_folderpath"), 
