@@ -832,8 +832,6 @@ a HMM to predict ploidy based on SNP and coverage data, which
 is influenced by @beroukhim2006. The different ploidy states categorised by the
 ploidy caller are summarised in @tbl-clc-ploidy-states. 
 
-{{< pagebreak >}}
-
 ### Visualisation
 
 A new visualisation of the pipeline results was developed to include deletions 
@@ -854,7 +852,7 @@ path_24021613 <- paste0(image_folderpath,
                         "24021613_visualisation.png")
 
 caption_24021613 <- "The new visualisation for the results of the PanSolid
-CLC pipeline (sample 24021613, WS146523)."
+CLC pipeline (sample 24021613, WS146523, panel v2PANSOLID)."
 
 ```
 
@@ -896,7 +894,7 @@ final HTML report is predicted using the Ccube package [@yuan2018].
 
 ### Droplet digital PCR
 
-Droplet digitsl PCR (ddPCR) assays were designed for the *CDKN2A* and 
+Droplet digital PCR (ddPCR) assays were designed for the *CDKN2A* and 
 *PTEN* genes. ddPCR was performed on a BioRad QX200 system at the North West
 GLH with 20ng DNA input per well.
 The ddPCR
@@ -1479,7 +1477,7 @@ The overall results are shown in @tbl-pansolid-wgs-gene-summary, and the results
 for each gene are shown in @fig-pansolid-wgs-counts-plot. For the results where
 both PanSolid and WGS identified deletions, which were coded as true positives,
 the NCC calculated by the WGS pipeline varied from 
-`r max(pansolid_vs_wgs_true_pos$ccube_ncc)`% to as low as
+`r max(pansolid_vs_wgs_true_pos$ccube_ncc)`% to 
 `r min(pansolid_vs_wgs_true_pos$ccube_ncc)`%.
 
 ```{r}
@@ -1494,7 +1492,7 @@ knitr::kable(pansolid_vs_wgs_overall_counts)
 ```{r}
 #| label: fig-pansolid-wgs-counts-plot
 #| fig-cap: "PanSolid vs WGS by gene. Genes are ordered by chromosome number."
-#| fig-height: 7
+#| fig-height: 8
 #| fig-width: 6
 #| echo: FALSE
 
@@ -1541,7 +1539,8 @@ There was a clear relationship between the fold change measured by the PanSolid
 pipeline and the overall gene copy number from WGS
 (@fig-copy-number-vs-fold-change). All biallelic gene deletions with copy 
 numbers of 0 on WGS were detected as deletions by PanSolid, except for a 
-germline *CDKN2A* deletion in sample 24048159, which only impacted the *CDKN2A*
+germline *CDKN2A* deletion in sample 24048159 (panel: v2PANSOLID), which only
+impacted the *CDKN2A*
 NM_000077.5 transcript. This deletion is expected to be detected when the
 pipeline graining level for *CDKN2A* is changed to "fine".
 
@@ -1594,7 +1593,8 @@ In total, there were
 `r nrow(pansolid_wgs_discrepant_results)` results which were discrepant between
 PanSolid and WGS. Out of `r nrow(pansolid_wgs_false_neg)` false negative results,
 `r false_negatives_due_to_ploidy`
-were for a single sample (24062632) which WGS identified as haploid. As the 
+were for a single sample (24062632, panel: v2PANSOLID)
+which WGS identified as haploid. As the 
 majority of the genome was lost, the PanSolid CLC pipeline measured dosage from
 this baseline, leading to an inversion of the results from WGS: deleted regions
 were detected as normal dosage, and normal dosage regions were detected as 
@@ -1610,7 +1610,8 @@ path_24062632 <- paste0(image_folderpath,
 caption_24062632 <- "WGS for this tumour sample showed a haploid genome 
 (ploidy: 1.2, NCC: 78.6%) with diploid copy number of chromosomes 5, 7, 13, 
 16, 19 and 20. Conversely, on PanSolid NGS performed on an FFPE sample for the
-same tumour, these chromosomes are classified as gains, with the rest of the 
+same tumour (24062632, panel: v2PANSOLID) these chromosomes are 
+classified as gains, with the rest of the 
 genome classified as copy-neutral LOH by the ploidy caller. This leads to
 false negative results for the genes on these chromosomes."
 
@@ -1638,7 +1639,8 @@ path_23024575 <- paste0(image_folderpath,
 caption_23024575 <- "WGS for this sample shows a loss of chromosome 10. On 
 PanSolid, the CLC ploidy caller also detects this loss and deletions are 
 detected in *BMPR1A* and *PTEN*. However, *FGFR2* and *SUFU*, also on 
-chromosome 10, are not identified as deletions on PanSolid, as they have 
+chromosome 10, are not identified as deletions on PanSolid 
+(23024575 WS141565, panel: v2PANSOLID) as they have 
 fold changes of -1.23 which are just below the fold change threshold of-1.25."
 
 ```
@@ -1680,7 +1682,8 @@ caption_24045841 <- "WGS for this tumour sample showed a hexaploid genome
 (ploidy: 5.49, NCC: 56.7%). Several chromosomes, including 8, 10 and 13 
 (black arrows), have copy numbers of 3-4 and have a low relative dosage 
 comparative to the overall ploidy (black dashed line). PanSolid NGS, 
-performed on an FFPE sample from the same tumour block, detects these 
+performed on an FFPE sample from the same tumour block
+(24042543, WS146593, panel: v2PANSOLID), detects these 
 relative losses as deletions for 4 target genes (chr8: FGFR1; chr10: PTEN; 
 chr13: BRCA2 and RB1), which are subsequently classed as false positives."
 
@@ -1702,7 +1705,8 @@ the *MUTYH* gene is shown in @fig-24030951-false-positive.
 path_24030951 <- paste0(image_folderpath,
                         "24030951_false_positive.png")
 
-caption_24030951 <- "For this sample, PanSolid NGS identified a deletion in 
+caption_24030951 <- "For this sample, PanSolid NGS 
+(24030951, WS143415, panel: v2PANSOLID) identified a deletion in 
 the MUTYH gene on chromosome 1 (black arrow, fold change -1.28). However, 
 the ploidy caller and SNP profile at the MUTYH locus both indicate a normal 
 diploid result. WGS on DNA from fresh frozen tissue from the same pathology 
@@ -2009,7 +2013,8 @@ passed both NGS quality thresholds, and outputs of the PanSolid CLC ploidy
 caller for the *NF2* gene were compared to the results from *NF2* dinucleotide 
 marker PCR LOH testing for these samples. @fig-24054282-nf2-loh shows an 
 example of copy-neutral LOH detected by both PanSolid and *NF2* PCR for a 
-Schwannoma sample (24054282). Overall, concordance was high between the two
+Schwannoma sample (24054282, panel: v2SchwannAll_PS). 
+Overall, concordance was high between the two
 methods, with only 3 results in disagreement (@tbl-nf2-results-with-qc), 
 giving a sensitivity for
 LOH detection of 87.5% (@tbl-nf2-metrics-with-qc).
@@ -2021,8 +2026,9 @@ LOH detection of 87.5% (@tbl-nf2-metrics-with-qc).
 path_24054282 <- paste0(image_folderpath,
                         "24054282_nf2_loh.png")
 
-caption_24054282 <- "Results for sample 24054282 tested on both PanSolid NGS
- (top panel) and fragment PCR for *NF2* LOH. PanSolid NGS identified copy neutral
+caption_24054282 <- "Results for sample 24054282 (v2SchwannAll_PS) tested 
+on both PanSolid NGS (top panel) and fragment PCR for *NF2* LOH. 
+PanSolid NGS identified copy neutral
 LOH for chromosome 22, with a clear disruption of the sample SNP profile
  (black arrows). This was confirmed by 3 dinucleotide markers on the fragment
 PCR which showed a reduction of signal for a single allele in the tumour DNA 
@@ -2105,7 +2111,8 @@ knitr::kable(nf2_loh_discrepant_results)
 path_24044746 <- paste0(image_folderpath,
                         "24044746_loh_false_negative.png")
 
-caption_24044746 <- "For this sample the ploidy caller categorised chromosome 
+caption_24044746 <- "For this sample (24044746, panel: v2SchwannAll_PS)
+the ploidy caller categorised chromosome 
 22 as a region of “bi-allelic deletion”, without LOH (see table inset), whilst 
 *NF2* fragment PCR for the same sample showed significant LOH. The whole genome
 plot showed a clear deletion of 22q, and a deletion of NF2 was reported by 
@@ -2183,12 +2190,13 @@ repeat_schedule <- tibble(
 ```
 
 Intra-run variation (repeatability) and inter-run variation (reproducibility) 
-were investigated for 3 samples (24017319, 24027774 and 24020998) using the 
+were investigated for 3 samples (24017319 - v2PANSOLID, 24027774 - v2M4_LUNG_PS
+and 24020998 - v2M4_LUNG_PS) using the 
 testing structure shown in @tbl-repeat-schedule. These same samples were used
 for the repeatability experiment in the validation of gene amplification
 detection ([DOC6283]{custom-style="Strong"}). Sample 24017319 had a 
-homozygous *CDKN2A* deletion and a heterozygous *PTEN* deletion, whilst 
-sample 24020998 and sample 24027774 did not have deletions.
+homozygous *CDKN2A* deletion and a heterozygous *PTEN* deletion detected on 
+WGS.
 
 ```{r}
 #| label: tbl-repeat-schedule
@@ -2356,7 +2364,7 @@ draw_repeat_plot <- function(df = repeat_data_long, labno) {
       facet_wrap(~gene) +
       labs(x = "Replicate", y = "Fold change (loss equation)",
            title = as.character(labno), fill = "PanSolid result",
-           cpation = "Shapes show whether the replicate passed quality control thresholds. Red replicates had a deletion prediction.")
+           caption = "Shapes show whether the replicate passed quality control thresholds. Red replicates had a deletion prediction.")
   
   return(plot)
   
@@ -2451,14 +2459,14 @@ DNA from two samples with WGS results was mixed
 together to simulate different levels of NCC as a limit of detection experiment. 
 Dilutions were prepared on worksheet WS150454 and tested on the PanSolid
 enrichment on WS150465.
-The first DNA sample (24026628) was
+The first DNA sample (24026628, v2PANSOLID) was
 from a glioma FFPE sample. WGS on fresh frozen tissue from the same
 pathology block (24028153, R24-0QQJ) had detected a biallelic loss of *CDKN2A*, 
 a monoallelic loss of the proximal section of chromosome 9q, and a 
 monoallelic loss of most of chromosome 10q, including the *PTEN* gene
 (@fig-lod-wgs-plots).
 The second DNA sample
-was from an inflammatory myofibroblastic tumour (24053299) 
+was from an inflammatory myofibroblastic tumour (24053299, v2PANSOLID) 
 with no copy number changes
 detected on chromosomes 9 or 10 on WGS (24058699, R24-1H6C). WGS detected overall 
 genome ploidies of 2 and 1.9 for thes two tumours, respectively. The Ccube
@@ -2878,8 +2886,9 @@ higher genome-wide ploidy states
 may not be correctly characterised (@fig-24045841-false-positive-hexaploid).
 
 - The predictions of the CNV Detection tool and the Detect Regional Ploidy tool
-may contradict each other in a limited number of cases. One example is the
-24054295
+may contradict each other in a limited number of cases. One example is the 
+*PTEN* result for 24054295 (WS146337, v2SchwannAll_PS): the CNV caller predicts
+a deletion whilst the ploidy caller predicts a normal diploid state.
 
 This validation has the following limitations:
 
