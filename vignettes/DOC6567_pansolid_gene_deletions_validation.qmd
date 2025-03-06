@@ -932,7 +932,8 @@ validate the ability of the CLC Detect Regional Ploidy tool to detect regions of
 copy-loss and copy-neutral LOH. At 
 the North West GLH, LOH testing for *NF2* is performed by targeting 4 dinucleotide 
 microsatellite repeat markers (D22S275, NF2CA3, NF2intron10 and
-D22S268) on chromosome 22 (@tbl-nf2-markers). The fluorescence-labelled PCR 
+D22S268) spanning `r nf2_marker_mb` Mb of chromosome 22 (@tbl-nf2-markers).
+The fluorescence-labelled PCR 
 prodcuts for paired
 DNA samples from tumour and blood are analysed on an ABI-3130 analyser 
 ([LP 000 069: Neurofibromatosis type 2 (NF2): Standard Operating
@@ -1814,19 +1815,23 @@ control_ddpcr_results_cdkn2a <- pansolid_vs_ddpcr |>
 control_ddpcr_results_pten <- pansolid_vs_ddpcr |> 
   filter(sub_category == "normal control" & gene == "PTEN")
 
+ddpcr_patients <- ddpcr_sample_summary[2,2] +ddpcr_sample_summary[3,2]
+
+normals_below_ddpcr_threshold <- pansolid_vs_ddpcr |> 
+  filter(sub_category == "normal control" &
+           cnv < 1.4)
+
 ```
 
 ddPCR was performed for the *PTEN* and *CDKN2A* genes for all 
 `r ddpcr_sample_summary[1,2]`
 samples used
 in the normal control pool by the PanSolid CLC pipeline, and for 
-
-29 samples from
+`r ddpcr_patients` samples from
 the validation cohort. The ddPCR assays targeted the 3rd exon of *CDKN2A*, which
 is present in both the NM_000077.5 and NM_058195.4 transcripts
-(@fig-cdkn2a-locus), and the first exon *PTEN*.
-
-There was wide variation in the copy numbers determined within the control 
+(@fig-cdkn2a-locus), and the first exon *PTEN*. There was wide variation 
+in the copy numbers determined within the control 
 cohort, ranging from 
 `r round(min(control_ddpcr_results_cdkn2a$cnv), 1)`-
 `r round(max(control_ddpcr_results_cdkn2a$cnv), 1)`
@@ -1834,12 +1839,13 @@ cohort, ranging from
 and from
 `r round(min(control_ddpcr_results_pten$cnv), 1)`-
 `r round(max(control_ddpcr_results_pten$cnv), 1)`
-(median `r round(median(control_ddpcr_results_pten$cnv), 1)`) for *PTEN*.
-
-One control sample (24012073) had a ddPCR copy number of 1.06.
-
-A threshold of 1.4 was used for the categorisation of results as normal or 
-deleted.
+(median `r round(median(control_ddpcr_results_pten$cnv), 1)`) for *PTEN*. 
+A copy number threshold of 1.4 was used for the categorisation of results as
+normal or deleted, although the *CKDN2A* copy numbers for 2 normal control 
+samples (24012050 and 24012073) fell below this threshold
+(@fig-ddpcr-pansolid-outcomes). Using this threshold, 91.4% of ddPCR and PanSolid
+results were concordant (@tbl-pansolid-ddpcr-metrics). The sample with a small
+germline deletion of CDKN2A (24048159) had a *CDKN2A* ddPCR copy number of 0.25.
 
 ```{r}
 #| label: fig-ddpcr-pansolid-outcomes
@@ -1891,6 +1897,7 @@ fig_pansolid_fold_change_vs_ddpcr
 
 ```{r}
 #| label: tbl-pansolid-ddpcr-metrics
+#| tbl-cap: "PanSolid vs ddPCR metrics"
 #| echo: FALSE
 
 pansolid_ddpcr_summary <- pansolid_vs_ddpcr |> 
@@ -1906,9 +1913,6 @@ pansolid_vs_ddpcr_metrics <- get_epir_metrics(outcome_vector =
 knitr::kable(pansolid_vs_ddpcr_metrics)
 
 ```
-
-The sample with a germline deletion of CDKN2A (24048159) had a deletion detected
-by ddPCR (ddPCR copy number: 0.25).
 
 {{< pagebreak >}}
 
@@ -1967,17 +1971,16 @@ nf2_loh_comparison_with_qc <- nf2_loh_comparison |>
 
 ```
 
-These *NF2* markers span `r nf2_marker_mb` Mb of chromosome 22, the same region 
-contains `r nrow(nf2_loh_targets)` targets on PanSolid v2.
-
-We used these samples as proof-of-concept that the PanSolid pipeline can 
-identify regions of LOH.
-
 `r nrow(nf2_loh_comparison)` samples were tested on both the PanSolid CNV and 
 NF2 PCR LOH methods. Of these, `r nrow(nf2_loh_comparison_with_qc)` samples 
 passed both NGS quality thresholds, and outputs of the PanSolid CLC ploidy 
 caller for the *NF2* gene were compared to the results from *NF2* dinucleotide 
-marker PCR LOH testing for these samples. 
+marker PCR LOH testing for these samples. @fig-24054282-nf2-loh shows an 
+example of copy-neutral LOH detected by both PanSolid and *NF2* PCR for a 
+Schwannoma sample (24054282). Overall, concordance was high between the two
+methods, with only 3 results in disagreement (@tbl-nf2-results-with-qc), 
+giving a sensitivity for
+LOH detection of 87.5% (@tbl-nf2-metrics-with-qc).
 
 ```{r}
 #| label: nf2-loh-image
@@ -2033,18 +2036,31 @@ knitr::kable(tbl_nf2_metrics_with_qc)
 
 ```
 
-### Discrepant results
+### Discrepant LOH predictions
 
-
+There were 3 samples with discrepant results on PanSolid, which are shown in 
+@tbl-nf2-discrepant-results. In each case, a bi-allelic deletion was 
+predicted by the CLC Detect Regional Ploidy tool. This led to a prediction of 
+no LOH, according to the CLC categories in @tbl-clc-ploidy-states. Manual
+inspection of the HTML file in each case showed that ploidy states of both
+"Deletion" and "Bi-allelic deletion" had been returned by the Detect Regional
+Ploidy tool for chromosome 22, whilst the SNP profile was 
+consistent with a mono-allelic chromosome 22 loss (@fig-24044746-loh-false-negative).
 
 ```{r}
-#| label: nf2-discrepant-results
+#| label: tbl-nf2-discrepant-results
+#| tbl-cap: "Discrepant LOH predictions"
 #| echo: FALSE
 
 nf2_loh_discrepant_results <- nf2_loh_comparison_with_qc |> 
   filter(final_outcome == "Disagree") |> 
   select(labno, ploidy_state, 
-         loh_status, pcr_loh, final_outcome)
+         loh_status, pcr_median_loh, pcr_loh) |> 
+  rename(`DNA number` = labno,
+         `CLC ploidy state` = ploidy_state,
+         `CLC LOH status` = loh_status,
+         `NF2 PCR median peak reduction (%)` = pcr_median_loh, 
+         `NF2 PCR result` = pcr_loh)
 
 knitr::kable(nf2_loh_discrepant_results)
 
@@ -2791,6 +2807,9 @@ fold change threshold to our validation cohort would have led to
 (`r new_threshold_del_results`/`r new_threshold_del_results + new_threshold_normal_results`)
 of all gene results being classed as deletions, which is an unacceptably 
 high rate of false positive results.
+
+We used these samples as proof-of-concept that the PanSolid pipeline can 
+identify regions of LOH.
 
 ## Limit of detection
 
