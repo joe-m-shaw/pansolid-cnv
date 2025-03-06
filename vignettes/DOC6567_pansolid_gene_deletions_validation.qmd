@@ -450,7 +450,7 @@ cdkn2a_transcripts_plot <- ggplot(cdkn2ab_df_mod, aes(x = start, y = refseq,
     y = "NM_004936.4", yend = "NM_004936.4")) +
   geom_label(nudge_y = 0.4) +
   theme_bw() +
-  labs(y = "", x = "", title = "The CDKN2A/B locus") +
+  labs(y = "", x = "") +
   theme(axis.text.x = element_blank()) +
   scale_x_continuous(limits = c(cdkn2a_plot_start, cdkn2a_plot_end)) +
   geom_text(x = 21980000, y = "Gene",
@@ -1036,28 +1036,26 @@ intragenic_region_percent <- round((intragenic_region_changes / nrow(del_gene_cn
 In total, `r nrow(noise_and_138x)` replicates from 
 `r length(unique(noise_and_138x$labno))` DNA samples were tested on the PanSolid
 enrichment and analysed with the PanSolid CLC pipeline.
-Of these, `r nrow(results_passing_qc)` replicates had noise and coverage metrics
-which were of acceptable quality. 
-
+Of these, `r nrow(results_passing_qc)` replicates had signal-adjusted noise 
+values below 0.7 and percentage coverage at 138X greater than 75%.
 There was a clear relationship between the size of the detected deletions and
 their fold changes (@fig-cnv-size-distribution); shorter focal deletions had
-lower fold change values, consistent with homozygous losses. All regions with 
- fold changes below -3 were less than 7 Megabases in length.
+lower fold change values, consistent with homozygous losses, and all regions with 
+ fold changes below -3 were less than 7 Megabases (Mb) in length.
 
-`r nrow(sig_cnvs_passing_qc)` regions with fold changes lower than the 
-`r deletion_fc_threshold` threshold involving a target gene were detected. 
+`r nrow(sig_cnvs_passing_qc)` target gene regions with fold changes lower than the 
+`r deletion_fc_threshold` threshold were detected. 
 Deletions were detected in all 
 `r length(unique(del_val_collated_del_genes$gene))` target genes 
 (@fig-cnv-gene-frequency), with fold changes 
 ranging from 
 `r max(sig_cnvs_passing_qc$fold_change)` to
 `r min(sig_cnvs_passing_qc$fold_change)`, and CNV lengths ranging from
-`r round(min(sig_cnvs_passing_qc$cnv_length)/1000,1)` kilobases to 
-`r round(max(sig_cnvs_passing_qc$cnv_length)/1000000,1)` Megabases. 
+`r round(min(sig_cnvs_passing_qc$cnv_length)/1000,1)` kb to 
+`r round(max(sig_cnvs_passing_qc$cnv_length)/1000000,1)` Mb 
 In `r intragenic_region_changes` (`r intragenic_region_percent`%) results, 
-there was more than one fold change region detected within a gene.
-
-The three genes with the most detected deletions were *PTEN*, *CDKN2A* and *PTEN*.
+there was more than one fold change region detected within a gene. The three 
+genes with the most detected deletions were *PTEN*, *CDKN2A* and *PTEN*.
 
 ```{r}
 #| label: fig-cnv-size-distribution
@@ -1103,10 +1101,11 @@ fig_cnv_gene_frequency
 
 ```
 
-### CDKN2A results
+### *CDKN2A* and *PTEN* results
 
-The deletions detected at the *CKDN2A/B* on chromosome 9p are shown in
-@fig-cdkn2a-results. The majority of CNVs included both the *CDKN2A* and
+The deletions detected at the *CKDN2A/B* locus on chromosome 9p are shown in
+@fig-cdkn2a-results, and the *PTEN* deletions detected on chromosome 10 are
+shown in @fig-pten-results. The majority of CNVs included both the *CDKN2A* and
 *CDKN2B* genes.
 
 ```{r}
@@ -1165,10 +1164,6 @@ cdkn2a_labno_plot <- ggplot(cdkn2a_pass_qc_factors,
     )
 
 ```
-
-{{< pagebreak >}}
-
-### PTEN results
 
 ```{r}
 #| label: fig-pten-results
@@ -1259,8 +1254,9 @@ del_val_collated_loh_split <- del_val_collated_loh_mod |>
 
 ```
 
-Of the results passing quality control, ploidy caller regions involving the 
-6 genes ranged from 
+Ploidy state regions impacting the  
+`r length(loh_genes)`
+target genes ranged from 
 `r min(del_val_collated_loh_split$no_targets_split)`-
 `r max(del_val_collated_loh_split$no_targets_split)` targets in length (median
 `r median(del_val_collated_loh_split$no_targets_split)`). 
@@ -1271,12 +1267,17 @@ results
 (`r round(nrow(multiple_loh_calls) / nrow(del_val_collated_loh_mod)*100, 1)`%)
 there were multiple ploidy
 states predicted within the same gene. @fig-ploidy-caller-results shows the
-frequency of different ploidy state predictions across the 6 genes.
+frequency of different ploidy state predictions across the 6 genes. Notably,
+a similar pattern of ploidy state frequencies i seen for *LZTR1*, *SMARCB1* and
+*NF2* as these genes are located closer to each other on chromosome 22q.
 
 ```{r}
 #| label: fig-ploidy-caller-results
-#| fig-cap: "Ploidy caller results"
+#| fig-cap: "Ploidy caller results. Catergories with numbers in brackets show
+#| the predicted copy number of each allele. For example, (2,4) indicates 2
+#| copies of the first allele and 4 copies of the second."
 #| fig-width: 6
+#| fig-height: 5
 #| echo: FALSE
 
 fig_ploidy_caller_results <- del_val_collated_loh_split |> 
@@ -1291,7 +1292,10 @@ fig_ploidy_caller_results <- del_val_collated_loh_split |>
   theme_bw() +
   theme(legend.position = "bottom") +
   facet_wrap(~gene_factor, nrow = 2) +
-  labs(x = "Number of results", y = "", fill = "LOH status")
+  labs(x = "Number of results", y = "", 
+       fill = "LOH status",
+       title = "Detect Regional Ploidy tool results",
+       subtitle = "Data from results passing quality thresholds")
 
 fig_ploidy_caller_results
 
