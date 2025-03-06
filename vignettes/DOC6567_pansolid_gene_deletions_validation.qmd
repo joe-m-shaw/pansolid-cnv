@@ -80,6 +80,8 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
 **PTEN**: Phosphatase and tensin homolog deleted on chromosome ten
 
+**SNP:** Single Nucleotide Polymorphism
+
 **TSG:** Tumour Suppressor Gene
 
 **WGS**: Whole Genome Sequencing
@@ -156,6 +158,8 @@ del_val_collated_del_genes <- del_val_collated_del_genes |>
     min_region_fold_change > deletion_fc_threshold ~"no deletion"
   ))
 
+loh_genes <- c("MSH2", "MSH6", "MLH1", "PMS2", "LZTR1", "SMARCB1", "NF2")
+
 ```
 
 ```{r}
@@ -206,14 +210,20 @@ gene_target_counts <- pansolid_target_loci |>
 
 The purpose of this document is to describe the validation of detection of
 somatic gene deletions and ploidy states
-on the PanSolid v2 QIAseq panel using the PanSolid CLC 
+with the PanSolid v2 QIAseq enrichment panel using the PanSolid CLC 
 pipeline (v2.4) at the North West Genomic Laboratory Hub (GLH).
 
 # Introduction
 
 This validation is the final part of the project to validate copy number
 variants (CNVs) on the PanSolid enrichment panel, and builds on the previous
-validations described in @tbl-previous-validations.
+validations described in @tbl-previous-validations. Currently, detection of 
+gene deletions and loss of heterozygosity (LOH) is 
+performed on the "Core" and "Merged" QIAseq primer enrichments for different
+tumour types. By validating detection of these variants on the PanSolid 
+enrichment, this project aims to replace these enrichments with 
+PanSolid and streamline testing of solid tumours at the 
+North West GLH.
 
 ```{r}
 #| label: tbl-previous-validations
@@ -233,13 +243,6 @@ kable(prev_validation_table)
 
 ```
 
-Currently, detection of gene deletions and loss of heterozygosity (LOH) is 
-performed on the "Core" and "Merged" QIAseq primer enrichments for different
-tumour types. By validating detection of these variants on the PanSolid 
-enrichment, this project aims to replace these enrichments with 
-PanSolid and streamline testing of solid tumours at the 
-North West GLH.
-
 ## Gene deletions and ploidy states
 
 Somatic copy number changes are a common pathogenic mechanism in cancers [@li2020],
@@ -252,7 +255,7 @@ two-hit mechanism, requiring two
 events to inactivate both TSG alleles [@knudson1971]. 
 
 Loss of TSG expression can occur through the physical loss of a TSG copy from 
-the genome, which make be due to a focal deletion
+a cell's genome, which may be due to a focal deletion
 of the gene locus or as part of a much larger chromosomal change, such as
 aneuploidy for a whole chromosome or chromosome arm. Certain cancers have
 specific recurrent aneuploidies leading to TSG loss, such as monosomy of 
@@ -264,7 +267,7 @@ ploidy states (@tbl-clc-ploidy-states).
 
 Other mechanisms of loss of TSG expression include 
 pathogenic sequence variants, epigenetic silencing, different types of CNV such as 
-duplications [@li2020], and copy-neutral loss of heterozygosity (LOH).
+duplications [@li2020], and copy-neutral LOH.
 Copy-neutral LOH arises when a cell repairs DNA damage to a particular allele 
 of a gene by copying the other allele.
 If the allele used
@@ -326,16 +329,17 @@ undetected germline predisposition.
 
 ## Target genes
 
-The aim of this validation is to detect deletions in 
+The aim of this validation was to detect deletions in 
 `r length(unique(del_val_collated_del_genes$gene))`
-TSGs on the PanSolid QIAseq enrichment (Supplementary Information,
+TSGs on the PanSolid v2 QIAseq enrichment (Supplementary Information,
 @tbl-deletion-gene-targets). These genes were
 selected based on the specifications of the 
-[NHS Genomic Test Directory for Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/). Ploidy state was determined for 6 genes involved with inherited 
+[NHS Genomic Test Directory for Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/). Ploidy state was determined for 
+`r length(loh_genes)`
+genes involved with inherited 
 predisposition to colorectal tumours (*MSH2*, *MSH6*, *MLH1* and *PMS2*) and
-Schwannomas (*LZTR1*, *SMARCB1* and *NF2*).
-
-For gene deletions there was a particular focus on *CDKN2A*, *CDKN2B* 
+Schwannomas (*LZTR1*, *SMARCB1* and *NF2*). For gene deletions there was a 
+particular focus on *CDKN2A*, *CDKN2B* 
 and *PTEN*, as these 
 deletions are frequently found in glioblastoma samples, which comprised the
 main tumour type in the testing cohort.
@@ -345,8 +349,8 @@ main tumour type in the testing cohort.
 The *CDKN2A* and *CDKN2B* genes are adjacent to each other on chromosome 9,
 separated by roughly 20 kilobases (kb). The *CDKN2A* gene encodes 2 key
 transcripts which produce two separate proteins: p16INK4a and p14ARF 
-[@quelle1995] (@tbl-cdkn2a-details). The p14ARF protein product of *CDKN2A*
-plays an important role in cell growth regulation, and deletion of *CDKN2A* 
+[@quelle1995] (@tbl-cdkn2a-details). Both proteins have
+important roles in cell growth regulation, and deletion of *CDKN2A* 
 contributes to tumour proliferation [@appay2019]. 
 
 ```{r}
@@ -446,7 +450,7 @@ cdkn2a_transcripts_plot <- ggplot(cdkn2ab_df_mod, aes(x = start, y = refseq,
     y = "NM_004936.4", yend = "NM_004936.4")) +
   geom_label(nudge_y = 0.4) +
   theme_bw() +
-  labs(y = "", x = "") +
+  labs(y = "", x = "", title = "The CDKN2A/B locus") +
   theme(axis.text.x = element_blank()) +
   scale_x_continuous(limits = c(cdkn2a_plot_start, cdkn2a_plot_end)) +
   geom_text(x = 21980000, y = "Gene",
@@ -469,17 +473,10 @@ and this co-deletion of these loci may be abbreviated to *CDKN2A/B*. However
 there are less common cases where only one gene is deleted. For example, 
 @gonzálezgil2021 reported that in 20% of acute lymphoblastic leukaemia only 
 one of *CDKN2A* or *CDKN2B* was lost. Homozygous *CDKN2A/B* deletion is
-included in the fifth edition of the World Health Organisation Classification
-of Tumours of the Central Nervous System [@louis2021]. Homozygous deletion of
-*CDKN2A* is also associated with poor prognosis in meningiomas [@sievers2020]
-and astrocytomas [@yuile2023]. 
-
-The size of deletions at the *CDKN2A/B* locus vary. @vieler2023 used optical
-genome mapping to characterise *CDKN2A/B* deletions in acute lymphoblastic
-leukaemia, showing deletions ranging from 24 kb to 34 Megabases (Mb). 
-@hamid2019 analysed *CDKN2A* deletions reported on the COSMIC
-database and calculated a median deletion length of 1.2 Mb.
-
+included in the fifth edition 
+of the World Health Organisation Classification
+of Tumours of the Central Nervous System [@louis2021], and is associated with
+poor prognosis in multiple types of brain tumour [@sievers2020; @yuile2023].
 Germline *CDKN2A* mutations increase predisposition to melanoma 
 [@toussi2020; @ming2020], 
 whilst a single publication links germline mutations in *CDKN2B* to renal cell
@@ -500,7 +497,9 @@ fluorescence in-situ hybridisation (FISH). These cytogenetic techniques can
 view cancers at a single-cell resolution. Over the last 25 years, there has
 been increasing development of molecular methods for detection of somatic CNVs
 and ploidy states, beginning with array comparative genome hybridisation
-(CGH) and SNP-microarrays [@das2013; @spence2022], before progressing to 
+(CGH) and 
+single-nucleotide polymorphism (SNP)
+microarrays [@das2013; @spence2022], before progressing to 
 Illumina short-read
 next generation sequencing (NGS) of gene-panels [@conroy2021; @glodzik2023], 
 exomes [@zare2017] and genomes [@yi2023; @sosinsky2024]. The majority of NGS 
@@ -516,7 +515,7 @@ Whilst array and NGS approaches can define genomic losses more precisely than
 previous cytogenetic techniques, they do not allow single-cell resolution.
 Instead, DNA from millions of cancer and stromal cells is homogenised and
 analysed simultaneously within the same experiment. As a result, identifying
-somatic CNVs by these methods is confounded by three biological factors:
+somatic CNVs and ploidy states by these methods is confounded by three biological factors:
 
 - **Neoplastic cell content (NCC):** the neoplastic cell content is the 
 proportion of tumour cells within a sample. NCC may also be referred to as 
@@ -555,7 +554,7 @@ Purity, ploidy and intratumoural heterogeneity create a problem: the analysis
 method must take data from a bulk-sequenced sample and attempt to separate out,
 or "deconvolute", 
 the underlying genomic complexity [@gao2020; @chandramohan2022]. A pragmatic 
-approach is to combine sequence dosage (log2 ratio) and allele-frequency 
+approach is to combine sequence dosage and allele-frequency 
 analysis, which was 
 first introduced by combining array CGH and SNP-arrays [@zhao2004; @vanloo2010; 
 @gardina2008] and has since been adopted for NGS approaches [@carter2012]. These
@@ -612,17 +611,32 @@ deletions by laboratory staff.
 
 ## Samples
 
-The different types of tumour represented in the validation cohort are shown.
-
 ```{r}
-#| label: tbl-cancer-types
-#| tbl-cap: "Validation cohort cancer types"
-#| echo: FALSE
+#| label: samples-tested
+#| include: FALSE
 
 cancer_types_tested <- del_val_sample_cancer_types |> 
   filter(labno %in% del_val_collated_stdev$labno &
            # Remove seracare synthetic control
            labno != "24039973") 
+
+samples_tested <- del_val_sample_patient_info |> 
+  filter(labno %in% del_val_collated_stdev$labno &
+           labno != "24039973") 
+
+```
+
+Tumour samples from NHS cancer patients were tested at the North West GLH
+(Manchester site) for this validation.
+The majority of DNA samples were extracted from formalin-fixed 
+paraffin-embedded (FFPE) tissue using a QIAsymphony instrument (QIAgen) 
+([DOC6251]{custom-style="Strong"}). The majority of samples were taken from
+brain tumours (@tbl-cancer-types and @tbl-cns-cancer-types).
+
+```{r}
+#| label: tbl-cancer-types
+#| tbl-cap: "Validation cohort cancer types"
+#| echo: FALSE
 
 tbl_cancer_types <- cancer_types_tested |> 
   group_by(cancer_group) |> 
@@ -658,7 +672,9 @@ kable(tbl_cns_cancer_types)
 
 Samples were processed on the PanSolid version 2 enrichment (CDHS-48608Z-11752)
 and sequenced with 2 x 150bp paired-end sequencing on an
-Illumina Novaseq. The PanSolid panel is a QIAseq enrichment containing primers
+Illumina Novaseq
+([DOC6278]{custom-style="Strong"})
+. The PanSolid panel is a QIAseq enrichment containing primers
 for `r nrow(target_df)` genomic targets. 
 `r nrow(target_df[target_df$target_type == "gene target",])` targets lie within
 specific genes related to cancer, and a further 
@@ -676,10 +692,13 @@ A bioinformatics pipeline was built in the CLC Genomics Workbench v23 (Qiagen).
 The details of the pipeline are described in 
 [DOC6260]{custom-style="Strong"} and [DOC6283]{custom-style="Strong"}.
 The graining level for
-each gene was set based on the number of targets present within the gene. The 
+each gene was set based on the number of targets present 
+within the gene (@tbl-deletion-gene-targets). 
+The 
 version of the PanSolid CLC pipeline tested in this validation was PanSolid 
 Workflow v2.4. Broadly speaking, the pipeline includes two different 
-components for detection of copy number and ploidy.
+components for detection of copy number and ploidy: the CNV Detection tool and
+the Detect Regional Ploidy tool (@fig-clc-pipeline).
 
 ```{r}
 #| label: clc-pipline-diagram
@@ -695,9 +714,10 @@ path_clc_pipeline <- paste0(image_folderpath,
 ### Deletion detection by fold change {#sec-methods-fold-change}
 
 The PanSolid CLC pipeline calculates the "fold change" of a copy number region in
-comparison the results from a cohort of normal controls (described in ERBB2).
+comparison the results from a cohort of 25 normal controls (described in 
+[DOC6260]{custom-style="Strong"}).
 Two separate equations are used for calculating the fold change of copy number
-gains [@eq-fold-change-gain] and copy number losses [@eq-fold-change-loss].
+gains ([@eq-fold-change-gain]) and copy number losses ([@eq-fold-change-loss]).
 
 $$
 FCgain = CNsample / CNnormal
@@ -806,19 +826,19 @@ a HMM to predict ploidy based on SNP and coverage data, which
 is influenced by @beroukhim2006. The different ploidy states categorised by the
 ploidy caller are summarised in @tbl-clc-ploidy-states. 
 
-To produce a visualisation of allele frequency across the genome, the read depth
-frequencies of variants in the sequenced sample were used. The variants were
-filtered according to the following criteria:
-
-1) The variant was in a Genome In A Bottle high-confidence region
-2) The variant had a frequency greater than 4%
-
 {{< pagebreak >}}
 
 ### Visualisation
 
 A new visualisation of the pipeline results was developed to include deletions 
-and ploidy predictions. Genomic regions are coloured by ploidy status.
+and ploidy predictions (@fig-24021613-visualisation). In the interactive HTML
+file (@fig-24021613-visualisation section C) the predictions of the Detect
+Regional Ploidy tool were used to colour the target log2 ratios. A SNP track was
+also added to visualise allele frequency across the genome, displaying 
+the read depth frequencies of variants filtered by the following criteria:
+
+1) The variant was in a Genome In A Bottle high-confidence region
+2) The variant had a frequency greater than 4%
 
 ```{r}
 #| label: visualisation-image
@@ -839,7 +859,7 @@ CLC pipeline (sample 24021613, WS146523)."
 ### Quality control
 
 The signal-adjusted noise quality control metric was developed during 
-the *ERBB2* validation and is described in detail in 
+the *ERBB2* amplification validation and is described in detail in 
 [DOC6260]{custom-style="Strong"}. In addition,
 the percentage of the panel BED targets covered at 138X or higher was used as
 a further quality metric. A threshold of 75% was set for this metric following
@@ -850,10 +870,13 @@ a further quality metric. A threshold of 75% was set for this metric following
 
 ### Whole genome sequencing
 
-Samples were tested by whole genome sequencing (WGS) within the NHS Genomic
-Medicine Service [@sosinsky2024]. WGS was performed by Illumina Laboratory 
-Services in Cambridge
-on paired blood and fresh frozen tumour samples. Bioinformatic analysis was
+Whole genome sequencing (WGS) was performed by Illumina Laboratory 
+Services in Cambridge as part of the NHS Genomic
+Medicine Service [@sosinsky2024]
+on paired blood and fresh frozen tumour samples. The fresh frozen samples were
+taken from tumours with matching pathology identifiers to the FFPE samples 
+tested on PanSolid.
+Bioinformatic analysis was
 performed by Genomics England, and HTML reports were downloaded from the 
 Genomics
 England [clinical interpretation portal](https://cipapi.genomicsengland.nhs.uk/interpretationportal/gms/). The
@@ -861,24 +884,20 @@ samples included in this validation are comprised of those previously tested as
 part of the validation of amplification detection 
 [DOC6283]{custom-style="Strong"}, plus additional samples with specific gene
 deletions detected on WGS.
-
 Within the Genomics England WGS pipeline, tumour ploidy and chromosome 
-count are calculated by the Canvas algorithm [@roller2016]. Canvas also
-detects somatic CNVs and LOH using sample read-depth and allele ratios, and reports
-them as GAIN, LOSS or LOH in the HTML report. Structural variants are detected
-using the Manta algorithm [@chen2016] and included as DEL or DUP in the HTML
-report. Whilst Canvas predicts tumour purity, the tumour purity stated on the 
+count were calculated by the Canvas algorithm [@roller2016].  Whilst Canvas predicts tumour purity, the tumour purity stated on the 
 final HTML report is predicted using the Ccube package [@yuan2018]. 
 
 ### Droplet digital PCR
 
 Droplet digitsl PCR (ddPCR) assays were designed for the *CDKN2A* and 
-*PTEN* genes. ddPCR was performed on a BioRad QX200 system with 20ng DNA input.
+*PTEN* genes. ddPCR was performed on a BioRad QX200 system at the North West
+GLH with 20ng DNA input per well.
 The ddPCR
 assays were validated on WS146103 and samples were tested on WS146462 and 
-WS146463. The ddPCR assays for *CDKN2A* exon 3 and *PTEN* exon 1 were used.
+WS146463.
 The same ddPCR mix volumes and thermocycling conditions were used as for the 
-previous validation of amplification detection, and are detailed in 
+previous validations of amplification detection, and are detailed in 
 the Supplementary 
 Information of [DOC6283]{custom-style="Strong"}.
 
@@ -895,7 +914,8 @@ nf2_loh_markers <- tribble(
   "NF2intron10", "22",       29670415,         29670600,
   "D22S268",     "22",       30162212,         30162464
 ) |> 
-  mutate(amplicon_size_bp = abs(grch38_start - grch38_end))
+  mutate(grch38_coord = str_c(grch38_start, "-", grch38_end),
+         amplicon_size_bp = abs(grch38_start - grch38_end))
 
 nf2_marker_mb <- round((max(nf2_loh_markers$grch38_end) - 
                           min(nf2_loh_markers$grch38_start)) / 10^6, 1)
@@ -908,7 +928,7 @@ nf2_loh_targets <- target_df_with_coordinates |>
 ```
 
 DNA samples with results from PCR microsatellite testing of *NF2* were used to
-validate the ability of the CLC Detect Regional Ploidy Tool to detect regions of 
+validate the ability of the CLC Detect Regional Ploidy tool to detect regions of 
 copy-loss and copy-neutral LOH. At 
 the North West GLH, LOH testing for *NF2* is performed by targeting 4 dinucleotide 
 microsatellite repeat markers (D22S275, NF2CA3, NF2intron10 and
@@ -926,7 +946,12 @@ extracted from the DNA Database.
 #| tbl-cap: "NF2 LOH dinucleotide markers"
 #| echo: FALSE
 
-kable(nf2_loh_markers)
+kable(nf2_loh_markers |> 
+        select(-c(grch38_start, grch38_end)) |> 
+        rename(`Marker` = marker,
+               `Chromosome` = chromosome,
+               `Coordinates (GRCh38)` = grch38_coord,
+               `Amplicon (bp)` = amplicon_size_bp))
 
 ```
 
@@ -938,14 +963,16 @@ WS150529.
 
 ## Validation analysis
 
-Analysis was performed in R version 4.4.1 [@rcore2024] using multiple packages 
-including the tidyverse [@wickham2019]. This validation document is written in
-Quarto [@allaire2024] and is saved in a public Github repository:
+All data analysis was performed in R version 4.4.1 [@rcore2024] using 
+multiple packages 
+including the tidyverse [@wickham2019]. This validation document is written and
+rendered with Quarto [@allaire2024].
+All analysis scripts are saved in a public Github repository:
 [https://github.com/joe-m-shaw/pansolid_cnv_validation/tree/main/vignettes](https://github.com/joe-m-shaw/pansolid_cnv_validation/tree/main/vignettes)
 
 All data analysed in this validation is saved at this file location:
 
-S:/central shared/Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/validation/DOC6567_deletions/
+Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/validation/DOC6567_deletions
 
 {{< pagebreak >}}
 
@@ -2674,6 +2701,13 @@ This is to be expected, due to the very small difference between a het loss and
 a normal result. The fold change loss equation is designed to make this 
 distinction more apparent, but the range of biological variation overlaps with 
 the range of technical noise.
+
+The size of deletions at the *CDKN2A/B* locus vary. @vieler2023 used optical
+genome mapping to characterise *CDKN2A/B* deletions in acute lymphoblastic
+leukaemia, showing deletions ranging from 24 kb to 34 Megabases (Mb). 
+@hamid2019 analysed *CDKN2A* deletions reported on the COSMIC
+database and calculated a median deletion length of 1.2 Mb.
+
 
 ## Uncertainty of Measurement
 
