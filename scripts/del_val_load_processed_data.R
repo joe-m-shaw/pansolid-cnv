@@ -130,3 +130,13 @@ del_val_sample_cancer_types <- read_csv(paste0(
     "cancer" = col_character(),
     "cancer_group" = col_character()
   ))
+
+del_val_pansolid_worksheet_details <- read_csv(paste0(
+  del_val_processed_folder,
+  "del_val_pansolid_worksheet_details.csv"),
+  col_types = list(
+    "pcrid" = col_double(),
+    "description" = col_character(),
+    "date" = col_datetime()
+  )
+)
