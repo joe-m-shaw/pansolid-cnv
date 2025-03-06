@@ -1254,9 +1254,7 @@ del_val_collated_loh_split <- del_val_collated_loh_mod |>
 
 ```
 
-Ploidy state regions impacting the  
-`r length(loh_genes)`
-target genes ranged from 
+Ploidy state regions impacting the  `r length(loh_genes)` target genes ranged from 
 `r min(del_val_collated_loh_split$no_targets_split)`-
 `r max(del_val_collated_loh_split$no_targets_split)` targets in length (median
 `r median(del_val_collated_loh_split$no_targets_split)`). 
@@ -1268,7 +1266,7 @@ results
 there were multiple ploidy
 states predicted within the same gene. @fig-ploidy-caller-results shows the
 frequency of different ploidy state predictions across the 6 genes. Notably,
-a similar pattern of ploidy state frequencies i seen for *LZTR1*, *SMARCB1* and
+a similar pattern of ploidy state frequencies is seen for *LZTR1*, *SMARCB1* and
 *NF2* as these genes are located closer to each other on chromosome 22q.
 
 ```{r}
@@ -1381,18 +1379,16 @@ The deletion results for `r length(unique(pansolid_vs_wgs$gene))` genes
 on `r length(unique(chrom_gene_tbl$chrom_num))` autosomes were
 compared between the PanSolid CLC pipeline and the Genomics England WGS 
 pipeline for 
-`r length(unique(pansolid_vs_wgs$labno.x))` replicates from
+`r length(unique(pansolid_vs_wgs$labno.x))` DNA replicates from
 `r length(unique(pansolid_vs_wgs$nhsno))` patients. Deletion calls from the 
 Canvas tool, notated as "LOSS" or "LOH" in the WGS results output, were 
 compared with the deletion calls from the PanSolid pipeline. No deletion 
 structural variants were detected by the Manta algorithm, notated as
 "DEL" in the WGS results output, in the target genes. The deleted regions 
 detected by Canvas ranged from 
-`r round(min(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000, 1)` kilobases to
-`r round(max(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000000, 1)` Megabases in
-length.
-
-To avoid double-counting,
+`r round(min(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000, 1)` kb to
+`r round(max(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000000, 1)` Mb in
+length. To avoid double-counting,
 samples where DNA was tested following multiple extraction methods 
 (QIAsymphony, Cobas or fresh frozen tissue)
 had a single sample of DNA extracted via the QIAsymphony method 
@@ -1429,7 +1425,8 @@ pansolid_vs_wgs_outcomes <- pansolid_vs_wgs |>
                                          "false_positive",    # epiR::epi.tests
                                          "false_negative",    # dat argument
                                          "true_negative"
-                                         )))
+                                         )),
+    ccube_ncc = parse_number(calculated_tumour_content))
 
 stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome) == FALSE)
 
@@ -1466,34 +1463,17 @@ pansolid_vs_wgs_overall_counts <- pansolid_vs_wgs_overall_summary |>
   select("Sample loci", `True negatives`, `True positives`, `False negatives`,
          `False positives`)
 
-```
-
-```{r}
-#| label: fig-pansolid-wgs-counts-plot
-#| fig-cap: "PanSolid vs WGS by gene"
-#| fig-height: 7
-#| fig-width: 6
-#| echo: FALSE
-
-fig_pansolid_wgs_counts_plot <- pansolid_vs_wgs_outcomes |> 
-  mutate(outcome = factor(outcome, levels = c("true_negative",
-                                              "true_positive",
-                                              "false_negative",
-                                              "false_positive"))) |> 
-  group_by(chrom_num, gene, outcome) |> 
-  count() |> 
-  ggplot(aes(x = reorder(gene, chrom_num), y = n)) +
-  geom_col(aes(fill = chrom_num)) +
-  facet_wrap(~outcome, nrow = 4) +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = "bottom") +
-  labs(x = "", y = "Results") +
-  scale_y_continuous(breaks = c(0, 10, 20))
-
-fig_pansolid_wgs_counts_plot
+pansolid_vs_wgs_true_pos <- pansolid_vs_wgs_outcomes |> 
+  filter(outcome == "true_positive")
 
 ```
+
+The overall results are shown in @tbl-pansolid-wgs-gene-summary, and the results
+for each gene are shown in @fig-pansolid-wgs-counts-plot. For the results where
+both PanSolid and WGS identified deletions, which were coded as true positives,
+the NCC calculated by the WGS pipeline varied from 
+`r max(pansolid_vs_wgs_true_pos$ccube_ncc)`% to as low as
+`r min(pansolid_vs_wgs_true_pos$ccube_ncc)`%.
 
 ```{r}
 #| label: tbl-pansolid-wgs-gene-summary
@@ -1505,6 +1485,43 @@ knitr::kable(pansolid_vs_wgs_overall_counts)
 ```
 
 ```{r}
+#| label: fig-pansolid-wgs-counts-plot
+#| fig-cap: "PanSolid vs WGS by gene. Genes are ordered by chromosome number."
+#| fig-height: 7
+#| fig-width: 6
+#| echo: FALSE
+
+pansolid_wgs_for_plot <- pansolid_vs_wgs_outcomes |> 
+  mutate(plot_outcome = case_when(
+    outcome == "true_positive" ~"True positives",
+    outcome == "true_negative" ~"True negatives",
+    outcome == "false_positive" ~"False positives",
+    outcome == "false_negative" ~"False negatives"),
+    
+    plot_outcome = factor(plot_outcome, levels = c("True negatives",
+                                              "True positives",
+                                              "False negatives",
+                                              "False positives")))
+
+fig_pansolid_wgs_counts_plot <- pansolid_wgs_for_plot |> 
+  group_by(chrom_num, gene, plot_outcome) |> 
+  count() |> 
+  ggplot(aes(x = reorder(gene, chrom_num), y = n)) +
+  geom_col(fill = "#3399FF", colour = "black") +
+  facet_wrap(~plot_outcome, nrow = 4, axes = "all_x") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom") +
+  labs(x = "", y = "Results",
+       title = "PanSolid vs WGS: gene level results") +
+  scale_y_continuous(breaks = c(0, 10, 20))
+
+fig_pansolid_wgs_counts_plot
+
+```
+
+
+```{r}
 #| label: tbl-pansolid-wgs-metrics
 #| tbl-cap: "PanSolid vs WGS metrics"
 #| echo: FALSE
@@ -1512,6 +1529,14 @@ knitr::kable(pansolid_vs_wgs_overall_counts)
 knitr::kable(pansolid_vs_wgs_overall_metrics)
 
 ```
+
+There was a clear relationship between the fold change measured by the PanSolid
+pipeline and the overall gene copy number from WGS
+(@fig-copy-number-vs-fold-change). All biallelic gene deletions with copy 
+numbers of 0 on WGS were detected as deletions by PanSolid, except for a 
+germline *CDKN2A* deletion in sample 24048159, which only impacted the *CDKN2A*
+NM_000077.5 transcript. This deletion is expected to be detected when the
+pipeline graining level for *CDKN2A* is changed to "fine".
 
 ```{r}
 #| label: fig-copy-number-vs-fold-change
@@ -1525,14 +1550,15 @@ fig_copy_number_vs_fold_change <- pansolid_vs_wgs_outcomes |>
   )) |> 
   ggplot(aes(x = cnv_copy_number, y = min_region_fold_change)) +
   annotate('rect', 
-           xmin = 0, xmax = 9, ymin = -1, ymax = 1, 
+           xmin = 0, xmax = 10, ymin = -1, ymax = 1, 
            fill='grey', alpha = 0.5) +
-  scale_x_continuous(breaks = seq(0, 9, by = 1)) +
+  scale_x_continuous(breaks = seq(0, 10, by = 1)) +
   geom_jitter(shape = 21, width = 0.1) +
   theme_bw() +
   geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
   scale_y_continuous(breaks = c(seq(-20, 5, by = 5), deletion_fc_threshold)) +
-  labs(x = "WGS copy number", y = "PanSolid minimum fold change")
+  labs(x = "WGS copy number", y = "PanSolid minimum fold change") +
+  ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = -10) 
 
 fig_copy_number_vs_fold_change
 
@@ -1669,15 +1695,13 @@ caption_24030951 <- "For this sample, PanSolid NGS identified a deletion in
 the MUTYH gene on chromosome 1 (black arrow, fold change -1.28). However, 
 the ploidy caller and SNP profile at the MUTYH locus both indicate a normal 
 diploid result. WGS on DNA from fresh frozen tissue from the same pathology 
-block did not detect a deletion in MUTYH. 
+block did not detect a deletion in *MUTYH*. 
 "
 ```
 
 ![`r caption_24030951`](`r path_24030951`){#fig-24030951-false-positive height=5in}
 
 {{< pagebreak >}}
-
-### Ploidy status comparison
 
 ```{r}
 #| label: pansolid-loh-vs-wgs
