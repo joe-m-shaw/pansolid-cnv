@@ -8,7 +8,7 @@ format:
 toc: true
 toc-title: "Table of Contents"
 bibliography: pansolid_cnv_references.bib
-csl: vancouver.csl
+csl: harvard-manchester-metropolitan-university.csl
 fig-align: "left"
 fig-wdith: 6
 ---
@@ -2748,7 +2748,7 @@ and 91.2%.
 There is also close overall agreement for the detection of large
 chromosomal changes, which is impressive considering that the total target 
 regions specified in the PanSolid BED file sum to 
-`r round(pansolid_bed_bp/1000, 1)` kilobases, which is only
+`r round(pansolid_bed_bp/1000, 1)` kb, which is only
 `r round((pansolid_bed_bp / haploid_genome_bp)*100, 2)`% of the human genome.
 @tbl-pipeline-metrics summarises other key differences between the two 
 approaches.
@@ -2757,13 +2757,14 @@ A key source of false positives and
 false negatives in deletion detection were discrepancies relating to 
 characterisation of ploidy. For example, a glioma sample was tested which had
 near whole-genome haploidy with normal dosage of certain chromosomes, including
-chromosome 7 (24062632). This karyotype is often observed in glioma samples,
+chromosome 7 (24062632). This karyotype is often observed in glioma samples
 [@baker2020; @ahrendsen2022] and this sample was deliberately tested to 
 understand how the PanSolid CLC pipeline would classify near-whole-genome loss
-chromosome material. PanSolid CLC identified LOH across the sample's genome, 
+of chromosome material. The PanSolid pipeline identified LOH 
+across the sample's genome, 
 but did not identify genes as being deleted. 
 
-By contrast, the Genomics England WGS pipeline uses the Canvas algorithm for 
+The Genomics England WGS pipeline uses the Canvas algorithm for 
 ploidy calling, which was was optimised using
 a cohort of tumour-normal samples with known ploidy and NCC values
 (@roller2016, supplementary information, page 17). This allows Canvas to more
@@ -2804,15 +2805,13 @@ simultaneously, which would prevent these results being reported in a clinical
 service. During the optimisation phase of the project, the fold change
 threshold was deliberately set to be permissive, with the intention that this
 would bias the pipeline towards false positives rather than false negatives.
-This also had the impact of decoupling the CNV caller from
-the ploidy caller, resulting in certain cases where the two callers may disagree
-about a region. 
 
 ## Uncertainty of Measurement
 
 The uncertainty of measurement of the fold change metric for deleted regions
 was calculated as ±`r del_uom` at 95% confidence. Notably, this value is 
-slightly higher than the value of 0.17 calculated for amplifications (DOC6283),
+slightly higher than the value of 0.17 calculated for amplifications 
+([DOC6283]{custom-style="Strong"}),
 and a proportion of gene results had different CNV statuses ("deletion" vs
 "no deletion") on different replicates.
 
@@ -2873,14 +2872,19 @@ to PCR-based (@sec-results-nf2-loh) and NGS-based methods (@sec-results-mmr-ngs)
 However, due to the spacing of SNPs within the PanSolid enrichment, a focal or
 intragenic region of copy neutral LOH could be missed.
 
-- Haploidy will not be identified as a genome-wide loss of copy dosage 
-(@fig-24062632-haploid-false-negative) and higher genome-wide ploidy states
+- Haploidy will not be identified as a genome-wide 
+loss of copy dosage (@fig-24062632-haploid-false-negative) and 
+higher genome-wide ploidy states
 may not be correctly characterised (@fig-24045841-false-positive-hexaploid).
+
+- The predictions of the CNV Detection tool and the Detect Regional Ploidy tool
+may contradict each other in a limited number of cases. One example is the
+24054295
 
 This validation has the following limitations:
 
-- The sample cohort is composed mainly of central nervous system tumours
-(@tbl-cancer-types) and hence had higher numbers of deletions
+- The sample cohort is composed mainly of central nervous system 
+tumours (@tbl-cancer-types) and hence had higher numbers of deletions
 impacting these types of cancer.
 
 - The repeatability tests were performed before the
@@ -2909,7 +2913,6 @@ kable(tbl_pansolid_cnv_metrics)
 
 ```
 
-
 # Review of test requirements
 
 The test requirements specified in @sec-requirements have been met:
@@ -2925,7 +2928,10 @@ Clear results for each gene are provided in the Excel output of the pipeline.
 **Analytical validity:** the test should have a defined sensitivity and 
 specificity, calculated by comparison with orthogonal methods.
 
-
+The PanSolid pipeline has been compared
+to WGS and ddPCR for deletion detection, and to *NF2* PCR and QIAseq NGS for 
+LOH detection. The sensitivity and specificity values for these comparisons
+are shown in @tbl-pansolid-cnv-metrics.
 
 **Dosage accuracy:** it should be shown how accurate the test is at detecting 
 heterozygous and homozygous deletions, in samples with a range of NCC values.
@@ -2970,19 +2976,19 @@ Given the findings of this validation, the PanSolid NGS pipeline for detection
 of gene deletions and ploidy states is ready for clinical implementation, with 
 the following requirements:
 
-- Any deletion calls from the PanSolid pipeline should be viewed in the HTML
+Any deletion calls from the PanSolid pipeline which are to be clinically 
+reported should be viewed in the HTML
 file to check the log2 and SNP allele-frequency profiles are consistent with a
 deletion. This is because a proportion of deletion calls are false positives
-(@sec-results-wgs-false-pos) and the technique's uncertainty of measurement
-means that there is a higher chance of incorrect predictions
+(@sec-results-wgs-false-pos).
 
-- The outputs of the Detect Regional Ploidy tool for the 
+The outputs of the Detect Regional Ploidy tool for the 
 *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2* should be checked
 for consistency against the results shown in the HTML file, in order to 
 identify the low percentage of cases where the outputs differ from 
 PCR-based LOH testing (@sec-results-discrepant-loh-predictions).
 
-- The test has a limit of detection for biallelic deletions of at least 
+The test has a limit of detection for biallelic deletions of at least 
 20% NCC (@sec-results-lod). In practice, this may be further reduced by the
 technique's uncertainty of measurement.
 
