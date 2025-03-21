@@ -100,10 +100,10 @@ new_files <- s_drive_file_df |>
 
 if (nrow(new_files) > 0) {
   
+  message(paste0("Copying ", nrow(new_files), " new files to raw_data folder"))
+  
   file.copy(from = new_files$filepath, 
             to = paste0(data_folderpath, "live_service/raw/"))
-  
-  message(paste0("Copying ", nrow(new_files), " new files to raw_data folder"))
   
 }
 
