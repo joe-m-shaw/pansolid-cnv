@@ -8,24 +8,15 @@ source(here("functions/wgs_html_functions.R"))
 
 message("Finding HTML files")
 
-wgs_amp_htmls <- list.files(path = paste0(config::get("data_folderpath"),
-                                          "validation/DOC6283_amplifications/",
-                                          "raw/wgs/"),
-                            full.names = TRUE,
-                            pattern = ".*supplementary.html")
-
-wgs_del_htmls <- list.files(path = paste0(config::get("data_folderpath"), 
+wgs_htmls <- list.files(path = paste0(config::get("data_folderpath"), 
                                           "validation/",
                                           "DOC6567_deletions/raw/wgs/"),
                             full.names = TRUE,
                             pattern = ".*supplementary.html")
 
-if(length(wgs_amp_htmls) == 0 |
-   length(wgs_del_htmls) == 0){
-  stop("No WGS HTML files present in data folders")
+if(length(wgs_htmls) == 0){
+  stop("No WGS HTML files present in data folder")
 }
-
-wgs_htmls <- c(wgs_del_htmls, wgs_amp_htmls)
 
 # Read HTML CNV data ----------------------------------------------------------------
 
