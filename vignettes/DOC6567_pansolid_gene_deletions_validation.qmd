@@ -837,9 +837,9 @@ ploidy caller are summarised in @tbl-clc-ploidy-states.
 A new visualisation of the pipeline results was developed to include deletions 
 and ploidy predictions (@fig-24021613-visualisation). In the interactive HTML
 file (@fig-24021613-visualisation section C) the predictions of the Detect
-Regional Ploidy tool were used to colour the target log2 ratios. A SNP track was
-also added to visualise allele frequency across the genome, displaying 
-the read depth frequencies of variants filtered by the following criteria:
+Regional Ploidy tool were used to colour the target log2 ratios. A visualisation
+of allele frequency was also added, displaying 
+the read depth percentages of variants filtered by the following criteria:
 
 1) The variant was in a Genome In A Bottle high-confidence region
 2) The variant had a frequency greater than 4%
@@ -879,7 +879,8 @@ Services in Cambridge as part of the NHS Genomic
 Medicine Service [@sosinsky2024]
 on paired blood and fresh frozen tumour samples. The fresh frozen samples were
 taken from tumours with matching pathology identifiers to the FFPE samples 
-tested on PanSolid.
+tested on PanSolid. Genomics England requires solid tumour samples to 
+NCC values of at least 30% with less than 20% cell necrosis.
 Bioinformatic analysis was
 performed by Genomics England, and HTML reports were downloaded from the 
 Genomics
@@ -1038,6 +1039,38 @@ intragenic_region_percent <- round((intragenic_region_changes / nrow(del_gene_cn
 
 ```
 
+```{r}
+#| label: calls-per-case
+#| include: FALSE
+
+sig_cnvs_with_qc_mod <- sig_cnvs_with_qc |> 
+  mutate(pass_qc  = case_when(
+           stdev_noise <= noise_qc_threshold &
+             percent_138x >= percent_138x_qc_threshold ~"Yes",
+           stdev_noise > noise_qc_threshold |
+             percent_138x < percent_138x_qc_threshold ~"No"),
+         pass_qc_factor = factor(pass_qc, levels = c("Yes", "No"))) 
+
+loss_count_df <- sig_cnvs_with_qc_mod |> 
+  filter(consequence != "Gain") |> 
+  group_by(labno_suffix_worksheet, labno, stdev_noise, percent_138x,
+           pass_qc_factor,
+           consequence) |> 
+  count(.drop = FALSE) |>  
+  mutate(calls = case_when(
+    consequence == "no call" & n == 1 ~0,
+    TRUE ~n
+  ))
+
+loss_count_df_qc <- loss_count_df |> 
+  filter(pass_qc_factor == "Yes")
+
+stopifnot(length(setdiff(loss_count_df_qc$labno_suffix_worksheet,
+        results_passing_qc$labno_suffix_worksheet)) == 0)
+
+```
+
+
 In total, `r nrow(noise_and_138x)` replicates from 
 `r length(unique(noise_and_138x$labno))` DNA samples were tested on the PanSolid
 enrichment and analysed with the PanSolid CLC pipeline.
@@ -1059,11 +1092,21 @@ ranging from
 `r round(min(sig_cnvs_passing_qc$cnv_length)/1000,1)` kb to 
 `r round(max(sig_cnvs_passing_qc$cnv_length)/1000000,1)` Mb 
 In `r intragenic_region_changes` (`r intragenic_region_percent`%) results, 
-there was more than one fold change region detected within a gene. The three 
-genes with the most detected deletions were *PTEN*, *CDKN2A* and *PTEN*.
+there was more than one fold change region detected within a gene. In the results
+passing the quality thresholds, the number of detected deletion regions per
+case ranged from
+`r min(loss_count_df_qc$calls)` to 
+`r max(loss_count_df_qc$calls)` (median
+`r median(loss_count_df_qc$calls)`
+).The three 
+genes with the most detected deletions were *PTEN*, *CDKN2A* and *PTEN*. This was
+likely due to ascertainment bias as these deletions are commonly detected in
+brain tumours, which comprised
+`r round((87/128)*100, 0)`% of the samples tested (@tbl-cancer-types).
 
 ```{r}
 #| label: fig-cnv-size-distribution
+#| fig-cap: "Deletion results for all genes"
 #| echo: FALSE
 
 fig_cnv_size_distribution <- sig_cnvs_passing_qc |> 
@@ -1112,6 +1155,8 @@ The deletions detected at the *CKDN2A/B* locus on chromosome 9p are shown in
 @fig-cdkn2a-results, and the *PTEN* deletions detected on chromosome 10 are
 shown in @fig-pten-results. The majority of CNVs included both the *CDKN2A* and
 *CDKN2B* genes.
+
+24026819: CDKN2A only deletion (not with CDKN2B)
 
 ```{r}
 #| label: fig-cdkn2a-results
@@ -1329,6 +1374,8 @@ wgs_cnvs_with_ids <- del_val_wgs_html_cnvs |>
             relationship = "many-to-one")
 
 patients_with_qiasymphony_extractions <- del_val_sample_patient_info |> 
+  # Remove samples with contamination
+  filter(!labno %in% c("24030962", "24030945")) |> 
   filter(extraction_method == "QIAsymphony")
 
 pansolid_results_for_wgs_comparison <- del_gene_results_with_ids |> 
@@ -1341,7 +1388,8 @@ pansolid_results_for_wgs_comparison <- del_gene_results_with_ids |>
       (!nhsno %in% patients_with_qiasymphony_extractions$nhsno)) |> 
   filter(!labno %in% c(
     "23025733",                # Remove sample on Cobas extraction
-    "24030946",                # These patients have 2 QIAsymphony extractions
+    "24030945",                # Evidence of DNA contamination
+    "24030962",                # Evidence of DNA contamination
     "24018922",                # This sample is from a different path block
     "24033015"                 # Also from a different path block - see note
     )) |>                      # on iGene
@@ -1399,20 +1447,46 @@ samples where DNA was tested following multiple extraction methods
 had a single sample of DNA extracted via the QIAsymphony method 
 selected for the comparison. If QIAsymphony-extracted DNA was not available, 
 DNA from fresh frozen tissue was used instead. Results were only compared when
-the noise and coverage metrics were above the quality control thresholds.
+the noise and coverage metrics were above the quality control thresholds. The
+CNV regions detected by the PanSolid pipeline were manually reviewed using the
+output Excel spreadsheet and the interactive HTML file to check whether each 
+CNV region appeared to be genuine. This process revealed examples of both 
+false positive and false negative CNV classifictions.
 
 ```{r}
 #| label: compare-pansolid-to-wgs-results
 #| include: FALSE
 
+sig_cnvs_for_join <- del_val_collated_sig_cnvs |> 
+  filter(!is.na(check_1)) |> 
+  distinct(labno_suffix_worksheet, gene, check_1) |> 
+  mutate(comment_present = str_detect(string = check_1,
+                                      pattern = ";"),
+        analyst_result = case_when(
+          comment_present == TRUE ~str_extract(string = check_1,
+                                      pattern = "(.*);(.*)",
+                                      group = 1),
+          comment_present == FALSE ~check_1
+        ),
+        analyst_comment = str_extract(string = check_1,
+                                      pattern = "(.*);(.*)",
+                                      group = 2))
+          
 pansolid_vs_wgs_outcomes <- pansolid_vs_wgs |> 
-  mutate(
+  left_join(sig_cnvs_for_join, 
+            join_by(labno_suffix_worksheet, gene)) |> 
+  mutate(pansolid_result_combined = case_when(
+    
+    is.na(analyst_result) ~pansolid_result,
+    !is.na(analyst_result) ~analyst_result),
+    
     wgs_result = case_when(
       cnv_class %in% c("DEL", "LOSS") ~"Deletion detected",
       !cnv_class %in% c("DEL", "LOSS") |
         is.na(cnv_class) ~"No deletion detected"),
-    
-    outcome = case_when(
+
+    # Outcome of automated pipeline analysis
+    outcome_pipeline = case_when(
     
     min_region_fold_change <= deletion_fc_threshold &
       wgs_result == "Deletion detected" ~"true_positive",
@@ -1426,66 +1500,208 @@ pansolid_vs_wgs_outcomes <- pansolid_vs_wgs |>
     min_region_fold_change > deletion_fc_threshold &
       wgs_result == "Deletion detected" ~"false_negative"),
     
-    outcome = factor(outcome, levels = c("true_positive",     # Order for 
-                                         "false_positive",    # epiR::epi.tests
-                                         "false_negative",    # dat argument
+    outcome_pipeline = factor(outcome_pipeline, levels = 
+                                c("true_positive",     # Order for 
+                                  "false_positive",    # epiR::epi.tests
+                                  "false_negative",    # dat argument
+                                  "true_negative")),
+    # Outcome of combined pipeline analysis and manual review
+    outcome_combined = case_when(
+      
+      pansolid_result_combined == "deletion" &
+        wgs_result == "Deletion detected" ~"true_positive",
+      
+      pansolid_result_combined == "no deletion" &
+        wgs_result == "No deletion detected" ~"true_negative",
+      
+      pansolid_result_combined == "deletion" &
+        wgs_result == "No deletion detected" ~"false_positive",
+      
+      pansolid_result_combined == "no deletion" &
+        wgs_result == "Deletion detected" ~"false_negative"),
+    
+    outcome_combined = factor(outcome_combined, 
+                              levels = c("true_positive",     
+                                         "false_positive",    
+                                         "false_negative",    
                                          "true_negative"
                                          )),
     ccube_ncc = parse_number(calculated_tumour_content))
 
-stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome) == FALSE)
+stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome_pipeline) == FALSE)
 
-pansolid_vs_wgs_per_gene_summary <- pansolid_vs_wgs_outcomes |> 
-  group_by(gene, outcome) |> 
+stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome_combined) == FALSE)
+
+```
+
+### False positive and false negative results
+
+In some cases, the copy number statuses provided by the PanSolid CNV caller, which
+are based on fold change, contrasted with the pattern in the SNP allele frequency
+view. For example, the PanSolid pipeline identified certain genes as being 
+deleted with fold changes slightly below the `r deletion_fc_threshold` fold change
+threshold, whilst
+SNP allele frequencies in the same region indicated a normal diploid state.
+In these cases, the deletion status of the gene was manually annotated as not having
+a deletion. These discrepancies were commonly noted in the *MUTYH*, *FGFR3* and 
+*RB1* genes. An example for 
+the *MUTYH* gene is shown in @fig-24030951-false-positive.
+
+```{r}
+#| label: wgs-false-pos-image
+#| include: FALSE
+
+path_24030951 <- paste0(image_folderpath,
+                        "24030951_false_positive.png")
+
+caption_24030951 <- "For this sample, PanSolid NGS 
+(24030951, WS143415, panel: v2PANSOLID) identified a partial deletion in 
+the MUTYH gene on chromosome 1 with a fold change of -1.28
+(highlighted in the red box). However, 
+the ploidy caller and SNP profile at the MUTYH locus both indicate a normal 
+diploid result (black arrow). WGS on DNA from fresh frozen tissue 
+from the same pathology 
+block (23018367) did not detect a deletion in *MUTYH*."
+
+```
+
+![`r caption_24030951`](`r path_24030951`){#fig-24030951-false-positive height=5in}
+
+In other cases, the reverse scenario was observed: the PanSolid pipeline 
+categorised genes as not being deleted with fold changes slightly above the
+`r deletion_fc_threshold` fold change threshold, whilst
+SNP allele frequencies indicated the loss of a large chromosomal region. An 
+example is shown in @fig-23024575-false-negative.
+
+```{r}
+#| label: wgs-false-neg-image
+#| include: FALSE
+
+path_23024575 <- paste0(image_folderpath,
+                        "23024575_false_negative.png")
+
+caption_23024575 <- "WGS for this sample shows a loss of chromosome 10. On 
+PanSolid, the CLC ploidy caller also detects this loss and deletions are 
+detected in *BMPR1A* and *PTEN*. However, *FGFR2* and *SUFU*, also on 
+chromosome 10, are not identified as deletions on PanSolid 
+(23024575 WS141565, panel: v2PANSOLID) as they have 
+fold changes of -1.23 which are just below the fold change threshold of-1.25."
+
+```
+
+![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-negative height=5in}
+
+### Haploidy and polyploidy
+
+WGS identified certain samples as having different whole genome ploidy states, 
+these samples were deliberately tested on the PanSolid pipeline. One sample
+was identified as being haploid by WGS (24062632, panel: v2PANSOLID). As the 
+majority of the genome was lost, the PanSolid CLC pipeline measured dosage from
+this baseline, leading to an inversion of the results from WGS: deleted regions
+were detected as normal dosage, and normal dosage regions were detected as 
+gains (@fig-24062632-haploid-false-negative).
+
+```{r}
+#| label: wgs-false-neg-image-ploidy
+#| include: FALSE
+
+path_24062632 <- paste0(image_folderpath,
+                        "24062632_haploid_false_negative.png")
+
+caption_24062632 <- "WGS for this tumour sample showed a haploid genome 
+(ploidy: 1.2, NCC: 78.6%) with diploid copy number of chromosomes 5, 7, 13, 
+16, 19 and 20. Conversely, on PanSolid NGS performed on an FFPE sample for the
+same tumour (24062632, panel: v2PANSOLID) these chromosomes are 
+classified as gains, with the rest of the 
+genome classified as copy-neutral LOH by the ploidy caller. This leads to
+false negative results for the genes on these chromosomes."
+
+```
+
+![`r caption_24062632`](`r path_24062632`){#fig-24062632-haploid-false-negative height=5in}
+
+Conversely, WGS detected some samples as having polyploid genomes. In these
+cases, the PanSolid pipeline identified some gene regions as deleted which 
+were not identified as deleted by WGS. This was because, whilst WGS detected
+a relative loss of dosage for these genes compared to the overall genome
+ploidy level, the absolute number of copies was 2 or above. An example is shown
+in @fig-24045841-false-positive-hexaploid.
+
+```{r}
+#| label: wgs-false-pos-image-ploidy
+#| include: FALSE
+
+path_24045841 <- paste0(image_folderpath,
+                        "24045841_false_positive_hexaploid.png")
+
+caption_24045841 <- "WGS for this tumour sample showed a hexaploid genome 
+(ploidy: 5.49, NCC: 56.7%). Several chromosomes, including 8, 10 and 13 
+(black arrows), have copy numbers of 3-4 and have a low relative dosage 
+comparative to the overall ploidy (black dashed line). PanSolid NGS, 
+performed on an FFPE sample from the same tumour block
+(24042543, WS146593, panel: v2PANSOLID), detects these 
+relative losses as deletions for 4 target genes (chr8: FGFR1; chr10: PTEN; 
+chr13: BRCA2 and RB1), which are subsequently classed as false positives."
+
+```
+
+![`r caption_24045841`](`r path_24045841`){#fig-24045841-false-positive-hexaploid height=5in}
+
+### Sensitivity and specificty 
+
+```{r}
+#| label: pansolid-wgs-sensitivity
+#| include: FALSE
+
+diploid_wgs_samples <- del_val_wgs_html_ids |> 
+  filter(calculated_overall_ploidy > 1.5 & 
+           calculated_overall_ploidy < 2.5)
+
+wgs_outcomes_pipeline <- pansolid_vs_wgs_outcomes |> 
+  group_by(outcome_pipeline) |> 
   count() |> 
-  pivot_wider(id_cols = c(gene),
-              names_from = outcome,
-              values_from = n,
-              values_fill = 0,
-              names_expand = TRUE)
+  mutate(category = "pipeline only") |> 
+  rename(outcome = outcome_pipeline)
 
-pansolid_vs_wgs_overall_summary <- pansolid_vs_wgs_outcomes |> 
-  group_by(outcome) |> 
+wgs_outcomes_combined <- pansolid_vs_wgs_outcomes |> 
+  group_by(outcome_combined) |> 
   count() |> 
-  arrange(outcome)
+  mutate(category = "pipeline with manual review") |> 
+  rename(outcome = outcome_combined)
 
-pansolid_vs_wgs_overall_metrics <- get_epir_metrics(outcome_vector =
-                                                      pansolid_vs_wgs_overall_summary$n)
+wgs_outcomes_combined_diploid <-  pansolid_vs_wgs_outcomes |> 
+  filter(nhsno %in% diploid_wgs_samples$nhsno) |> 
+  group_by(outcome_combined) |> 
+  count() |> 
+  mutate(category = "pipeline with manual review (diploid samples)") |> 
+  rename(outcome = outcome_combined)
 
-
-pansolid_vs_wgs_overall_counts <- pansolid_vs_wgs_overall_summary |> 
+wgs_outcome_table <- rbind(wgs_outcomes_pipeline,
+                           wgs_outcomes_combined,
+                           wgs_outcomes_combined_diploid) |> 
   pivot_wider(id_cols = ,
               names_from = outcome,
               values_from = n,
               values_fill = 0,
               names_expand = TRUE) |> 
-  mutate("Sample loci" = true_positive + true_negative + false_negative +
-                         false_positive) |> 
-  rename(`True negatives` = true_negative,
-         `True positives` = true_positive,
-         `False negatives` = false_negative,
-         `False positives` = false_positive) |> 
-  select("Sample loci", `True negatives`, `True positives`, `False negatives`,
-         `False positives`)
-
-pansolid_vs_wgs_true_pos <- pansolid_vs_wgs_outcomes |> 
-  filter(outcome == "true_positive")
+  mutate(
+    sensitivity = round((true_positive / (true_positive +
+                                                false_negative))*100, 1),
+    specificity = round((true_negative / (true_negative +
+                                                false_positive))*100, 1),
+    samples = (true_positive + true_negative + false_negative +
+                         false_positive) / 37) |> 
+  select(category, sensitivity, specificity, samples,
+         true_positive, true_negative, false_negative, false_positive)
 
 ```
 
-The overall results are shown in @tbl-pansolid-wgs-gene-summary, and the results
-for each gene are shown in @fig-pansolid-wgs-counts-plot. For the results where
-both PanSolid and WGS identified deletions, which were coded as true positives,
-the NCC calculated by the WGS pipeline varied from 
-`r max(pansolid_vs_wgs_true_pos$ccube_ncc)`% to 
-`r min(pansolid_vs_wgs_true_pos$ccube_ncc)`%.
-
 ```{r}
-#| label: tbl-pansolid-wgs-gene-summary
-#| tbl-cap: "PanSolid vs WGS gene summary"
+#| label: tbl-pansolid-wgs-metrics
+#| tbl-cap: "PanSolid vs WGS metrics"
 #| echo: FALSE
 
-knitr::kable(pansolid_vs_wgs_overall_counts)
+knitr::kable(wgs_outcome_table)
 
 ```
 
@@ -1498,10 +1714,10 @@ knitr::kable(pansolid_vs_wgs_overall_counts)
 
 pansolid_wgs_for_plot <- pansolid_vs_wgs_outcomes |> 
   mutate(plot_outcome = case_when(
-    outcome == "true_positive" ~"True positives",
-    outcome == "true_negative" ~"True negatives",
-    outcome == "false_positive" ~"False positives",
-    outcome == "false_negative" ~"False negatives"),
+    outcome_combined == "true_positive" ~"True positives",
+    outcome_combined == "true_negative" ~"True negatives",
+    outcome_combined == "false_positive" ~"False positives",
+    outcome_combined == "false_negative" ~"False negatives"),
     
     plot_outcome = factor(plot_outcome, levels = c("True negatives",
                                               "True positives",
@@ -1525,15 +1741,7 @@ fig_pansolid_wgs_counts_plot
 
 ```
 
-
-```{r}
-#| label: tbl-pansolid-wgs-metrics
-#| tbl-cap: "PanSolid vs WGS metrics"
-#| echo: FALSE
-
-knitr::kable(pansolid_vs_wgs_overall_metrics)
-
-```
+### Monoallelic and biallelic deletions
 
 There was a clear relationship between the fold change measured by the PanSolid
 pipeline and the overall gene copy number from WGS
@@ -1570,175 +1778,27 @@ fig_copy_number_vs_fold_change
 
 ```
 
-{{< pagebreak >}}
-
-### False negative results {#sec-results-wgs-false-negatives}
-
 ```{r}
-#| label: discrepant-results
+#| label: monoallelic-biallelic-deletion-sensitivity
+#| eval: FALSE
 #| include: FALSE
 
-pansolid_wgs_discrepant_results <- pansolid_vs_wgs_outcomes |> 
-  mutate(relative_copy_number = cnv_copy_number - calculated_overall_ploidy) |> 
-  filter(outcome %in% c("false_negative", "false_positive"))
+pansolid_vs_wgs_outcomes |> 
+  filter(cnv_copy_number == 0) |> 
+  group_by(outcome_combined) |> 
+  count() |> 
+  mutate(category = "pipeline with manual review") |> 
+  rename(outcome = outcome_combined)
 
-pansolid_wgs_false_neg <- pansolid_wgs_discrepant_results |> 
-  filter(outcome == "false_negative") 
-
-false_negatives_due_to_ploidy <- nrow(pansolid_wgs_false_neg[pansolid_wgs_false_neg$labno.x == "24062632",])
-
-```
-
-In total, there were 
-`r nrow(pansolid_wgs_discrepant_results)` results which were discrepant between
-PanSolid and WGS. Out of `r nrow(pansolid_wgs_false_neg)` false negative results,
-`r false_negatives_due_to_ploidy`
-were for a single sample (24062632, panel: v2PANSOLID)
-which WGS identified as haploid. As the 
-majority of the genome was lost, the PanSolid CLC pipeline measured dosage from
-this baseline, leading to an inversion of the results from WGS: deleted regions
-were detected as normal dosage, and normal dosage regions were detected as 
-gains (@fig-24062632-haploid-false-negative).
-
-```{r}
-#| label: wgs-false-neg-image-ploidy
-#| include: FALSE
-
-path_24062632 <- paste0(image_folderpath,
-                        "24062632_haploid_false_negative.png")
-
-caption_24062632 <- "WGS for this tumour sample showed a haploid genome 
-(ploidy: 1.2, NCC: 78.6%) with diploid copy number of chromosomes 5, 7, 13, 
-16, 19 and 20. Conversely, on PanSolid NGS performed on an FFPE sample for the
-same tumour (24062632, panel: v2PANSOLID) these chromosomes are 
-classified as gains, with the rest of the 
-genome classified as copy-neutral LOH by the ploidy caller. This leads to
-false negative results for the genes on these chromosomes."
+pansolid_vs_wgs_outcomes |> 
+  filter(cnv_copy_number == 1) |> 
+  group_by(outcome_combined) |> 
+  count() |> 
+  mutate(category = "pipeline with manual review") |> 
+  rename(outcome = outcome_combined)
 
 ```
 
-![`r caption_24062632`](`r path_24062632`){#fig-24062632-haploid-false-negative height=5in}
-
-{{< pagebreak >}}
-
-The remaining false negative results were reviewed. For each case, there was 
-clear evidence of a loss event in each gene region when the dosage (log2) results
-were viewed with the SNP track results and ploidy caller. In certain cases,
-some genes had been correctly identified as having loss of dosage due to a 
-whole chromosome loss, whilst other genes on the same chromosome had fold 
-changes just above the threshold for identifying deletions 
-(@fig-23024575-false-negative).
-
-```{r}
-#| label: wgs-false-neg-image
-#| include: FALSE
-
-path_23024575 <- paste0(image_folderpath,
-                        "23024575_false_negative.png")
-
-caption_23024575 <- "WGS for this sample shows a loss of chromosome 10. On 
-PanSolid, the CLC ploidy caller also detects this loss and deletions are 
-detected in *BMPR1A* and *PTEN*. However, *FGFR2* and *SUFU*, also on 
-chromosome 10, are not identified as deletions on PanSolid 
-(23024575 WS141565, panel: v2PANSOLID) as they have 
-fold changes of -1.23 which are just below the fold change threshold of-1.25."
-
-```
-
-![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-negative height=5in}
-
-{{< pagebreak >}}
-
-### False positive results {#sec-results-wgs-false-pos}
-
-```{r}
-#| label: wgs-false-positives
-#| include: FALSE
-
-pansolid_wgs_false_pos <- pansolid_wgs_discrepant_results |> 
-  filter(outcome == "false_positive") 
-
-pansolid_false_pos_ploidy <- pansolid_wgs_false_pos |> 
-  filter(relative_copy_number < -0.9 &
-           !is.na(relative_copy_number))
-
-false_positives_due_to_ploidy <- nrow(pansolid_false_pos_ploidy)
-
-```
-
-Just as a proportion of false negative results were due to a sample with a low
-tumour ploidy, of the `r nrow(pansolid_wgs_false_pos)` false positive results,
-`r false_positives_due_to_ploidy` were from samples where increased ploidy was
-detected on WGS (@fig-24045841-false-positive-hexaploid).
-
-```{r}
-#| label: wgs-false-pos-image-ploidy
-#| include: FALSE
-
-path_24045841 <- paste0(image_folderpath,
-                        "24045841_false_positive_hexaploid.png")
-
-caption_24045841 <- "WGS for this tumour sample showed a hexaploid genome 
-(ploidy: 5.49, NCC: 56.7%). Several chromosomes, including 8, 10 and 13 
-(black arrows), have copy numbers of 3-4 and have a low relative dosage 
-comparative to the overall ploidy (black dashed line). PanSolid NGS, 
-performed on an FFPE sample from the same tumour block
-(24042543, WS146593, panel: v2PANSOLID), detects these 
-relative losses as deletions for 4 target genes (chr8: FGFR1; chr10: PTEN; 
-chr13: BRCA2 and RB1), which are subsequently classed as false positives."
-
-```
-
-![`r caption_24045841`](`r path_24045841`){#fig-24045841-false-positive-hexaploid height=5in}
-
-{{< pagebreak >}}
-
-The remaining false positives were reviewed. For each case, the deletion call
-contrasted with the information available from the SNP track, indicating that
-the target gene was actually present in a normal diploid state. And example for 
-the *MUTYH* gene is shown in @fig-24030951-false-positive.
-
-```{r}
-#| label: wgs-false-pos-image
-#| include: FALSE
-
-path_24030951 <- paste0(image_folderpath,
-                        "24030951_false_positive.png")
-
-caption_24030951 <- "For this sample, PanSolid NGS 
-(24030951, WS143415, panel: v2PANSOLID) identified a deletion in 
-the MUTYH gene on chromosome 1 (black arrow, fold change -1.28). However, 
-the ploidy caller and SNP profile at the MUTYH locus both indicate a normal 
-diploid result. WGS on DNA from fresh frozen tissue from the same pathology 
-block did not detect a deletion in *MUTYH*. 
-"
-```
-
-![`r caption_24030951`](`r path_24030951`){#fig-24030951-false-positive height=5in}
-
-
-Removing the discrepant results for the haploid and polyploid tumours raises both
-the sensitivity and specificity for deletion detection with the PanSolid
-pipeline above 90% when compared to WGS 
-(@tbl-pansolid-vs-wgs-accounting-for-ploidy).
-
-```{r}
-#| label: tbl-pansolid-vs-wgs-accounting-for-ploidy
-#| tbl-cap: "PanSolid vs WGS accounting for ploidy"
-#| echo: FALSE
-
-new_outcome_vector <- c(94,
-                        60 - false_positives_due_to_ploidy,
-                        35 - false_negatives_due_to_ploidy,
-                        625)
-
-tbl_pansolid_vs_wgs_accounting_for_ploidy <- get_epir_metrics(outcome_vector = new_outcome_vector)
-
-kable(tbl_pansolid_vs_wgs_accounting_for_ploidy)
-
-```
-
-{{< pagebreak >}}
 
 ```{r}
 #| label: pansolid-loh-vs-wgs
@@ -1864,9 +1924,13 @@ ddPCR was performed for the *PTEN* and *CDKN2A* genes for all
 samples used
 in the normal control pool by the PanSolid CLC pipeline, and for 
 `r ddpcr_patients` samples from
-the validation cohort. The ddPCR assays targeted the 3rd exon of *CDKN2A*, which
+the validation cohort. The *CDKN2A* ddPCR assay 
+(amplicon coordinates:  GRCh38 chr9: 21,968,120-21,968,172) 
+targeted the 3rd exon of *CDKN2A*, which
 is present in both the NM_000077.5 and NM_058195.4 transcripts
-(@fig-cdkn2a-locus), and the first exon *PTEN*. There was wide variation 
+(@fig-cdkn2a-locus). The *PTEN* ddPCR assay
+(amplicon coordinates: GRCh38 chr10: 87,864,384-87,864,484)
+targeted the first exon of *PTEN*. There was wide variation 
 in the copy numbers determined within the control 
 cohort, ranging from 
 `r round(min(control_ddpcr_results_cdkn2a$cnv), 1)`-
@@ -1877,7 +1941,7 @@ and from
 `r round(max(control_ddpcr_results_pten$cnv), 1)`
 (median `r round(median(control_ddpcr_results_pten$cnv), 1)`) for *PTEN*. 
 A copy number threshold of 1.4 was used for the categorisation of results as
-normal or deleted, although the *CKDN2A* copy numbers for 2 normal control 
+normal or deleted, although the *CDKN2A* copy numbers for 2 normal control 
 samples (24012050 and 24012073) fell below this threshold
 (@fig-ddpcr-pansolid-outcomes). Using this threshold, 91.4% of ddPCR and PanSolid
 results were concordant (@tbl-pansolid-ddpcr-metrics). The sample with a small
@@ -1949,6 +2013,18 @@ pansolid_vs_ddpcr_metrics <- get_epir_metrics(outcome_vector =
 knitr::kable(pansolid_vs_ddpcr_metrics)
 
 ```
+
+24047809: 87952113..87961123 - deletion doesn't overlap with ddPCR amplicon
+
+24022883: chr10 loss but chr5 is at the same level
+
+24048581: borderline
+
+24028569: 20bp overlap between ddPCR amplicon and NGS deletion call
+
+24019905: borderline
+
+24018632: borderline - AP3B1 normal despite loss on chr5
 
 {{< pagebreak >}}
 
@@ -2501,7 +2577,7 @@ heterozygous deletion is only observed for certain genes on chromosome 10q
 
 lod_target_folder <- paste0(config::get("data_folderpath"),
                             "validation/DOC6567_deletions/raw/",
-                            "pansolid_ngs/annotated_files/v2PANSOLID/",
+                            "pansolid_ngs/v2PANSOLID/",
                             "Unannotated_Files/")
 
 ncc_84 <- read_excel(path = paste0(lod_target_folder,
@@ -2530,7 +2606,7 @@ ncc_20 <- read_excel(path = paste0(lod_target_folder,
 
 ncc_00_file <- list.files(path = paste0(config::get("data_folderpath"),
                          "validation/DOC6567_deletions/raw/",
-                          "pansolid_ngs/annotated_files/",
+                          "pansolid_ngs/",
                          "v2RMS_PS/Unannotated_Files/"),
            pattern = "Results_SNVs_Indels-WS145901_24053299.*.xlsx",
            full.names = TRUE)
@@ -2734,6 +2810,16 @@ chr10_lod_dosage_plot
 
 ```
 
+## Quality control
+
+### DNA contamination
+
+24030945
+24030962,
+24054291 - LOH still detected
+
+In each case, noise and coverage were acceptable
+
 {{< pagebreak >}}
 
 # Discussion
@@ -2901,6 +2987,10 @@ impacting these types of cancer.
 (@sec-results-repeat-testing). As a result the calculated uncertainty of 
 measurement value may be an overestimate of the true value.
 
+- An intra-control normalisation was not done.
+
+- No true positive or true negative samples were tested for *PMS2* LOH.
+
 ## Overall performance of CNV detection using PanSolid NGS 
 
 The validation of detection of deletions and ploidy status is the final 
@@ -2988,8 +3078,7 @@ the following requirements:
 Any deletion calls from the PanSolid pipeline which are to be clinically 
 reported should be viewed in the HTML
 file to check the log2 and SNP allele-frequency profiles are consistent with a
-deletion. This is because a proportion of deletion calls are false positives
-(@sec-results-wgs-false-pos).
+deletion. This is because a proportion of deletion calls are false positives.
 
 The outputs of the Detect Regional Ploidy tool for the 
 *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2* should be checked
