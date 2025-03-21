@@ -17,7 +17,7 @@ message("Finding filepaths")
 
 pansolid_files <- list.files(path = paste0(config::get("data_folderpath"),
                                            "validation/DOC6567_deletions/raw/",
-                                           "pansolid_ngs/annotated_files/"),
+                                           "pansolid_ngs/"),
                         recursive = TRUE,
                         full.names = TRUE,
                         pattern  = "Annotated.*.xlsx")
