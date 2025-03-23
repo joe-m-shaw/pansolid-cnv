@@ -377,7 +377,9 @@ extract_cnv_tbls <- function(filepath, sheet_regex = "Amplifications_") {
   
 }
 
-read_loh_table <- function(filepath, sheet_regex = "LOH_",
+read_loh_table <- function(filepath, 
+                           sheet_regex = "LOH_",
+                           sheet_range = "A1:F8",
                            loh_genes = c("MSH2", "MSH6", "MLH1",
                                          "PMS2", "LZTR1", "SMARCB1", "NF2")) {
   
@@ -396,9 +398,9 @@ read_loh_table <- function(filepath, sheet_regex = "LOH_",
   loh_table <- readxl::read_xlsx(path = filepath, 
                                  sheet = get_sheetname(filepath,
                                                        sheet_regex = sheet_regex),
-                                 n_max = length(loh_genes),
+                                 range = sheet_range,
                                  col_types = c("text", "text","text", 
-                                               "text", "text")) |> 
+                                               "text", "text", "text")) |> 
     janitor::clean_names()
   
   if(setequal(loh_table$gene, loh_genes) == FALSE){
