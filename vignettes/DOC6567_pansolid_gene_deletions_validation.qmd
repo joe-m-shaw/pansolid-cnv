@@ -158,6 +158,19 @@ del_val_collated_del_genes <- del_val_collated_del_genes |>
     min_region_fold_change > deletion_fc_threshold ~"no deletion"
   ))
 
+del_val_collated_sig_cnvs <- del_val_collated_sig_cnvs |> 
+  mutate(comment_present = str_detect(string = check_1,
+                                      pattern = ";"),
+        analyst_result = case_when(
+          comment_present == TRUE ~str_extract(string = check_1,
+                                      pattern = "(.*);(.*)",
+                                      group = 1),
+          comment_present == FALSE ~check_1
+        ),
+        analyst_comment = str_extract(string = check_1,
+                                      pattern = "(.*);(.*)",
+                                      group = 2))
+
 loh_genes <- c("MSH2", "MSH6", "MLH1", "PMS2", "LZTR1", "SMARCB1", "NF2")
 
 ```
@@ -1459,18 +1472,7 @@ false positive and false negative CNV classifictions.
 
 sig_cnvs_for_join <- del_val_collated_sig_cnvs |> 
   filter(!is.na(check_1)) |> 
-  distinct(labno_suffix_worksheet, gene, check_1) |> 
-  mutate(comment_present = str_detect(string = check_1,
-                                      pattern = ";"),
-        analyst_result = case_when(
-          comment_present == TRUE ~str_extract(string = check_1,
-                                      pattern = "(.*);(.*)",
-                                      group = 1),
-          comment_present == FALSE ~check_1
-        ),
-        analyst_comment = str_extract(string = check_1,
-                                      pattern = "(.*);(.*)",
-                                      group = 2))
+  distinct(labno_suffix_worksheet, gene, check_1, analyst_result, analyst_comment)
           
 pansolid_vs_wgs_outcomes <- pansolid_vs_wgs |> 
   left_join(sig_cnvs_for_join, 
@@ -1952,8 +1954,18 @@ pansolid_vs_ddpcr <- ddpcr_data_mod |>
                 labno == "24030951" & gene %in% c("CDKN2A", "PTEN") ~"23018367",
                 TRUE ~labno)), 
             join_by("sample" == "labno", "gene" == "gene")) |> 
-  mutate(sub_category = case_when(
-    category != "normal control" ~paste0(category, " ", pansolid_result),
+  left_join(sig_cnvs_for_join, 
+            join_by(labno_suffix_worksheet, gene)) |> 
+  mutate(
+    pansolid_result_combined = case_when(
+      is.na(analyst_result) ~pansolid_result,
+      !is.na(analyst_result) ~analyst_result),
+    # Deletion call doesn't include ddPCR assay
+    pansolid_result_combined = case_when(
+    sample == "24047809" & gene == "PTEN" ~"no deletion",
+    TRUE ~pansolid_result_combined),
+    sub_category = case_when(
+    category != "normal control" ~paste0(category, " ", pansolid_result_combined),
     TRUE ~category
   ),
   sub_category = factor(sub_category,
@@ -1967,13 +1979,13 @@ pansolid_vs_ddpcr <- ddpcr_data_mod |>
   ddpcr_result = factor(ddpcr_result, levels = c("no deletion",
                                                  "deletion")),
   outcome = case_when(
-    pansolid_result == "deletion" &
+    pansolid_result_combined == "deletion" &
       ddpcr_result == "deletion" ~"true_positive",
-    pansolid_result == "no deletion" &
+    pansolid_result_combined == "no deletion" &
       ddpcr_result == "no deletion" ~"true_negative",
-    pansolid_result == "deletion" &
+    pansolid_result_combined == "deletion" &
       ddpcr_result == "no deletion" ~"false_positive",
-    pansolid_result == "no deletion" &
+    pansolid_result_combined == "no deletion" &
       ddpcr_result == "deletion" ~"false_negative",
     TRUE ~"no result"
   ),
@@ -1981,7 +1993,8 @@ pansolid_vs_ddpcr <- ddpcr_data_mod |>
                                        "false_positive",
                                        "false_negative",
                                        "true_negative",
-                                       "no result")))
+                                       "no result"))) |> 
+  filter(sample != "24034335")
 
 ddpcr_sample_summary <- pansolid_vs_ddpcr |> 
   group_by(sub_category) |> 
@@ -2009,13 +2022,23 @@ ddPCR was performed for the *PTEN* and *CDKN2A* genes for all
 samples used
 in the normal control pool by the PanSolid CLC pipeline, and for 
 `r ddpcr_patients` samples from
-the validation cohort. The *CDKN2A* ddPCR assay 
+the validation cohort. x samples were also tested by WGS.
+The *CDKN2A* ddPCR assay 
 (amplicon coordinates:  GRCh38 chr9: 21,968,120-21,968,172) 
 targeted the 3rd exon of *CDKN2A*, which
 is present in both the NM_000077.5 and NM_058195.4 transcripts
 (@fig-cdkn2a-locus). The *PTEN* ddPCR assay
 (amplicon coordinates: GRCh38 chr10: 87,864,384-87,864,484)
-targeted the first exon of *PTEN*. There was wide variation 
+targeted the first exon of *PTEN*. One sample (24034335) was excluded from the
+analysis due to a copy number gain on chromosome 5 which spanned the locus of 
+the *AP3B1* reference gene. The *AP3B1* gene is not targeted by the PanSolid
+enrichment and is located at chr5:78000522-78294698 (GRCh38) between PanSolid
+targets "chr5:76.7Mb" and "chr5:77.7Mb". Another sample (24047809) with am
+intragenic *PTEN* deletion detected on PanSolid was coded as "no deletion" 
+because the deletion coordinates did not overlap with the coordinartes of the
+*PTEN* exon 1 ddPCR assay.
+
+There was wide variation 
 in the copy numbers determined within the control 
 cohort, ranging from 
 `r round(min(control_ddpcr_results_cdkn2a$cnv), 1)`-
@@ -2052,28 +2075,37 @@ fig_ddpcr_pansolid_outcomes <- pansolid_vs_ddpcr |>
        fill = "ddPCR result")
 
 fig_ddpcr_pansolid_outcomes
-
+  
 ```
 
 ```{r}
 #| label: fig-pansolid-fold-change-vs-ddpcr
-#| fig-cap: "PanSolid fold change vs ddPCR"
+#| fig-cap: "PanSolid fold change vs ddPCR. Grey line shows predicted fold
+#| change based on ddPCR copy number"
 #| echo: FALSE
 #| fig-width: 6
+
+ddpcr_plot_line_df <- data.frame(
+  cnv = seq(0, 3, by = 0.1)) |> 
+  mutate(fold_change = pred_fc(tumour_cpc = cnv,
+                               ncc = 100,
+                               dir = "loss"))
 
 fig_pansolid_fold_change_vs_ddpcr <- pansolid_vs_ddpcr |> 
   filter(category == "patient" &
            !is.na(min_region_fold_change)) |> 
-  ggplot(aes(x = cnv, y = min_region_fold_change)) +
-  geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
-  geom_vline(xintercept = 1.4, linetype = "dashed") +
+  mutate(fold_change = case_when(
+    min_region_fold_change <= -1 ~min_region_fold_change,
+    min_region_fold_change >= 1 ~-1 / min_region_fold_change)) |> 
+  ggplot(aes(x = cnv, y = fold_change)) +
+  geom_line(data = ddpcr_plot_line_df, colour = "grey",
+            linewidth = 1) +
   geom_point(shape = 21) +
   theme_bw() +
   theme(legend.position = "bottom") +
   facet_wrap(~gene) +
   labs(x = "ddPCR copy number", y = "PanSolid minimum fold change",
        fill = "PanSolid result") +
-  ggpubr::stat_cor(method = "pearson", label.x = 1.25, label.y = -20) +
   coord_cartesian(ylim = c(-30, 5))
 
 fig_pansolid_fold_change_vs_ddpcr
@@ -2099,17 +2131,28 @@ knitr::kable(pansolid_vs_ddpcr_metrics)
 
 ```
 
+CDKN2A:
+24037201 - normal on PanSolid, deletion on ddPCR. Could be a primer binding SNP.
+
+PTEN:
+24018632 - normal on PanSolid, deletion on ddPCR
+
 24047809: 87952113..87961123 - deletion doesn't overlap with ddPCR amplicon
 
-24022883: chr10 loss but chr5 is at the same level
+24022883: pansolid call looks like LOH, analyst would say no deletion
 
-24048581: borderline
+24048581: pansolid looks diploid, analyst would say no deletion
 
-24028569: 20bp overlap between ddPCR amplicon and NGS deletion call
+24028569: pansolid looks diploid, analyst would say no deletion
 
 24019905: borderline
 
-24018632: borderline - AP3B1 normal despite loss on chr5
+ERBB2 validation: "The 29 cobas®-extracted FFPE controls were tested, 
+with ddPCR ERBB2 copy numbers ranging from 0.77-6 (median: 1.61)."
+
+Pooled control DNA showed normal dosage (C3, WS146103)
+
+Could be due to FFPE degradation.
 
 {{< pagebreak >}}
 
@@ -2129,6 +2172,18 @@ nf2_fragpcr_results <- read_csv(file = paste0(data_folderpath,
 
 nf2_loh_comparison <- del_val_collated_loh |> 
   filter(gene == "NF2") |> 
+  rename(check_1 = x6) |> 
+  mutate(comment_present = str_detect(string = check_1,
+                                      pattern = ";"),
+        analyst_result = case_when(
+          comment_present == TRUE ~str_extract(string = check_1,
+                                      pattern = "(.*);(.*)",
+                                      group = 1),
+          comment_present == FALSE ~check_1
+        ),
+        analyst_comment = str_extract(string = check_1,
+                                      pattern = "(.*);(.*)",
+                                      group = 2)) |> 
   inner_join(nf2_fragpcr_results, by = "labno") |> 
   left_join(del_val_collated_stdev |> 
               select(labno, stdev_noise), by = "labno",
@@ -2143,7 +2198,7 @@ nf2_loh_comparison <- del_val_collated_loh |>
             by = "labno",
             relationship = "one-to-one") |> 
   mutate(
-    outcome = case_when(
+    outcome_pipeline = case_when(
       loh_status %in% c("Yes", "Yes, No") &
         pcr_loh == "Significant LOH" ~"true_positive",
       loh_status == "No" &
@@ -2153,18 +2208,31 @@ nf2_loh_comparison <- del_val_collated_loh |>
       loh_status == "No" &
         pcr_loh == "Significant LOH" ~"false_negative"),
     
-    outcome = factor(outcome, levels = c("true_positive",
+    outcome_pipeline = factor(outcome_pipeline, levels = c("true_positive",
                                            "false_positive",
                                            "false_negative",
                                            "true_negative")),
     
-    final_outcome = case_when(
-      outcome %in% c("true_positive", "true_negative") ~"Agree",
-      outcome %in% c("false_positive", "false_negative") ~"Disagree"
-    ))
+    outcome_combined = case_when(
+      analyst_result == "LOH" &
+        pcr_loh == "Significant LOH" ~"true_positive",
+      analyst_result == "no LOH" &
+        pcr_loh == "No significant LOH" ~"true_negative",
+      analyst_result == "LOH" &
+        pcr_loh == "No significant LOH" ~"false_positive",
+      analyst_result == "no LOH" &
+        pcr_loh == "Significant LOH" ~"false_negative"),
+    
+    outcome_combined = factor(outcome_combined, 
+                              levels = c("true_positive",
+                                           "false_positive",
+                                           "false_negative",
+                                           "true_negative")))
 
 nf2_loh_comparison_with_qc <- nf2_loh_comparison |> 
-  filter(percent_138x >= 75 & stdev_noise <= 0.7)
+  filter(percent_138x >= 75 & stdev_noise <= 0.7 &
+           # Remove sample with contamination
+           labno != "24054291")
 
 ```
 
@@ -2174,7 +2242,8 @@ passed both NGS quality thresholds, and outputs of the PanSolid CLC ploidy
 caller for the *NF2* gene were compared to the results from *NF2* dinucleotide 
 marker PCR LOH testing for these samples. @fig-24054282-nf2-loh shows an 
 example of copy-neutral LOH detected by both PanSolid and *NF2* PCR for a 
-Schwannoma sample (24054282, panel: v2SchwannAll_PS). 
+Schwannoma sample (24054282, panel: v2SchwannAll_PS). As with the WGS results,
+the annotations by the CLC ploidy caller were manually reviewed.
 Overall, concordance was high between the two
 methods, with only 3 results in disagreement (@tbl-nf2-results-with-qc), 
 giving a sensitivity for
@@ -2206,14 +2275,13 @@ uninformative for marker D22S268, hence these results are not shown."
 #| echo: FALSE
 
 tbl_nf2_results_with_qc <- nf2_loh_comparison_with_qc |> 
-  group_by(ploidy_state, loh_status, pcr_loh, final_outcome) |> 
+  group_by(ploidy_state, loh_status, analyst_result, pcr_loh) |> 
   count() |> 
   arrange(desc(n)) |> 
   janitor::adorn_totals() |> 
   rename("CLC ploidy state" = ploidy_state,
          "CLC LOH status" = loh_status,
          "NF2 PCR result" = pcr_loh,
-         "Outcome" = final_outcome,
          "Samples" = n)
 
 knitr::kable(tbl_nf2_results_with_qc)
@@ -2225,13 +2293,30 @@ knitr::kable(tbl_nf2_results_with_qc)
 #| tbl-cap: "PanSolid NGS vs NF2 LOH PCR metrics with quality filters"
 #| echo: FALSE
 
-tbl_nf2_metrics_with_qc <- get_epir_metrics(c(
-  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$outcome == "true_positive", ]),
-  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$outcome == "false_positive", ]),
-  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$outcome == "false_negative", ]),
-  nrow(nf2_loh_comparison_with_qc[nf2_loh_comparison_with_qc$outcome == "true_negative", ])))
+nf2_pipeline_results <- nf2_loh_comparison_with_qc |> 
+  group_by(outcome_pipeline) |> 
+  count(outcome_pipeline, .drop = FALSE) |> 
+  mutate(category = "pipeline") |> 
+  pivot_wider(id_cols = category,
+              names_from = outcome_pipeline,
+              values_from = n)
 
-knitr::kable(tbl_nf2_metrics_with_qc)
+nf2_combined_results <- nf2_loh_comparison_with_qc |> 
+  group_by(outcome_combined) |> 
+  count(outcome_combined, .drop = FALSE) |> 
+  mutate(category = "pipeline with manual review") |> 
+  pivot_wider(id_cols = category,
+              names_from = outcome_combined,
+              values_from = n)
+
+nf2_sens_spec <- rbind(nf2_pipeline_results, nf2_combined_results) |> 
+  mutate(
+    sensitivity = round((true_positive / (true_positive +
+                                                false_negative))*100, 1),
+    specificity = round((true_negative / (true_negative +
+                                                false_positive))*100, 1))
+
+kable(nf2_sens_spec)
 
 ```
 
@@ -2249,7 +2334,8 @@ consistent with a mono-allelic chromosome 22 loss (@fig-24044746-loh-false-negat
 ```{r}
 #| label: tbl-nf2-discrepant-results
 #| tbl-cap: "Discrepant LOH predictions"
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 nf2_loh_discrepant_results <- nf2_loh_comparison_with_qc |> 
   filter(final_outcome == "Disagree") |> 
