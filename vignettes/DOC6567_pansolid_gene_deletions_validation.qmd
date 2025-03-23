@@ -1532,9 +1532,18 @@ stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome_pipeline) == FALSE)
 
 stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome_combined) == FALSE)
 
+pipeline_manual_discrepancies <- pansolid_vs_wgs_outcomes |> 
+  filter(pansolid_result == "deletion" &
+           analyst_result == "no deletion")
+
+pipeline_manual_discrepancies |> 
+  group_by(gene) |> 
+  count() |> 
+  arrange(desc(n))
+
 ```
 
-### False positive and false negative results
+### False positive and false negative results {#sec-results-wgs-false-pos-neg}
 
 In some cases, the copy number statuses provided by the PanSolid CNV caller, which
 are based on fold change, contrasted with the pattern in the SNP allele frequency
@@ -1542,9 +1551,14 @@ view. For example, the PanSolid pipeline identified certain genes as being
 deleted with fold changes slightly below the `r deletion_fc_threshold` fold change
 threshold, whilst
 SNP allele frequencies in the same region indicated a normal diploid state.
-In these cases, the deletion status of the gene was manually annotated as not having
-a deletion. These discrepancies were commonly noted in the *MUTYH*, *FGFR3* and 
-*RB1* genes. An example for 
+This was noted in
+`r nrow(pipeline_manual_discrepancies)`
+gene results in 
+`r length(unique(pipeline_manual_discrepancies$labno_suffix_worksheet))`
+samples, and in each case the deletion status of the gene was manually annotated
+as not having
+a deletion. The genes for which this was most commonly performed were *FGFR3* and
+*MUTYH*. An example for 
 the *MUTYH* gene is shown in @fig-24030951-false-positive.
 
 ```{r}
@@ -1593,11 +1607,16 @@ fold changes of -1.23 which are just below the fold change threshold of-1.25."
 
 ### Haploidy and polyploidy
 
-WGS identified certain samples as having different whole genome ploidy states, 
-these samples were deliberately tested on the PanSolid pipeline. One sample
-was identified as being haploid by WGS (24062632, panel: v2PANSOLID). As the 
-majority of the genome was lost, the PanSolid CLC pipeline measured dosage from
-this baseline, leading to an inversion of the results from WGS: deleted regions
+The WGS sample cohort was deliberately selected to represent a range of 
+genome ploidy states, with the Genomics England pipeline detecting whole
+genome ploidy ranging from hexpaloidy (overall ploidy: 
+`r max(del_val_wgs_html_ids$calculated_overall_ploidy)`) to a sample
+with haploidy (overall ploidy: 
+`r min(del_val_wgs_html_ids$calculated_overall_ploidy)`).
+For the haploid sample (24062632, panel: v2PANSOLID), the PanSolid pipeline
+did not account for the reduced chromosome dosage across the majority of the
+genome, and measured gene dosage from this reduced baseline. This led
+to an inversion of the results from WGS: deleted regions
 were detected as normal dosage, and normal dosage regions were detected as 
 gains (@fig-24062632-haploid-false-negative).
 
@@ -1620,12 +1639,42 @@ false negative results for the genes on these chromosomes."
 
 ![`r caption_24062632`](`r path_24062632`){#fig-24062632-haploid-false-negative height=5in}
 
-Conversely, WGS detected some samples as having polyploid genomes. In these
+```{r}
+#| label: wgs-ploidy
+#| include: FALSE
+
+tbl_wgs_pansolid_ploidy <- pansolid_vs_wgs_outcomes |> 
+  left_join(
+    del_val_wgs_html_ids |> 
+      select(nhsno, calculated_overall_ploidy,
+             calculated_chromosome_count) |> 
+      rename(wgs_ploidy = calculated_overall_ploidy,
+             wgs_chrom_count = calculated_chromosome_count),
+    by = "nhsno") |> 
+  filter(wgs_ploidy < 1.5 |
+           wgs_ploidy > 2.5) |> 
+  group_by(labno.x, wgs_ploidy, wgs_chrom_count, outcome_pipeline) |> 
+  count() |> 
+  pivot_wider(id_cols = c(labno.x, wgs_ploidy,
+                          wgs_chrom_count),
+              names_from = outcome_pipeline,
+              values_from = n,
+              values_fill = 0) |>  
+  arrange(wgs_ploidy) |> 
+  select(-c(true_positive, true_negative)) |>  
+  adorn_totals()
+
+```
+
+The reverse was observed for 
+`r nrow(tbl_wgs_pansolid_ploidy)-2`
+samples defined by the Genomics England WGS pipeline as being polyploid. In these
 cases, the PanSolid pipeline identified some gene regions as deleted which 
 were not identified as deleted by WGS. This was because, whilst WGS detected
 a relative loss of dosage for these genes compared to the overall genome
 ploidy level, the absolute number of copies was 2 or above. An example is shown
-in @fig-24045841-false-positive-hexaploid.
+in @fig-24045841-false-positive-hexaploid. The details for each polyploid sample
+are shown in @tbl-wgs-pansolid-ploidy
 
 ```{r}
 #| label: wgs-false-pos-image-ploidy
@@ -1647,7 +1696,24 @@ chr13: BRCA2 and RB1), which are subsequently classed as false positives."
 
 ![`r caption_24045841`](`r path_24045841`){#fig-24045841-false-positive-hexaploid height=5in}
 
+```{r}
+#| label: tbl-wgs-pansolid-ploidy
+#| tbl-cap: "WGS ploidy samples tested on PanSolid"
+#| echo: FALSE
+
+kable(tbl_wgs_pansolid_ploidy)
+
+```
+
 ### Sensitivity and specificty 
+
+The sensitivity and specificity of the PanSolid pipeline compared to WGS were
+calculated in 3 ways: first the initial outputs of the PanSolid pipeline were
+compared; then the results following manual review of each detected CNV, which
+accounted for occasional discrepancies with the SNP allele frequencies
+(@sec-results-wgs-false-pos-neg); and finally for only those samples confirmed
+as diploid (overall ploidy 1.5-2.5) by WGS, which accounted for discrepancies
+due to ploidy. The results are shown in @tbl-pansolid-wgs-metrics.
 
 ```{r}
 #| label: pansolid-wgs-sensitivity
@@ -1780,25 +1846,44 @@ fig_copy_number_vs_fold_change
 
 ```{r}
 #| label: monoallelic-biallelic-deletion-sensitivity
-#| eval: FALSE
-#| include: FALSE
+#| echo: FALSE
 
-pansolid_vs_wgs_outcomes |> 
+bi_mono_gene_counts <- pansolid_vs_wgs_outcomes |> 
+  filter(cnv_copy_number %in% c(0, 1)) |> 
+  group_by(cnv_copy_number) |> 
+  summarise(genes = length(unique(gene)))
+
+biallelic_del_results <- pansolid_vs_wgs_outcomes |> 
   filter(cnv_copy_number == 0) |> 
-  group_by(outcome_combined) |> 
+  group_by(cnv_copy_number, outcome_combined) |> 
   count() |> 
-  mutate(category = "pipeline with manual review") |> 
-  rename(outcome = outcome_combined)
+  mutate(category = "biallelic deletions") |> 
+  pivot_wider(id_cols = c(cnv_copy_number, category),
+              names_from = outcome_combined,
+              values_from = n)
 
-pansolid_vs_wgs_outcomes |> 
+monoallelic_del_results <- pansolid_vs_wgs_outcomes |> 
   filter(cnv_copy_number == 1) |> 
-  group_by(outcome_combined) |> 
-  count() |> 
-  mutate(category = "pipeline with manual review") |> 
-  rename(outcome = outcome_combined)
+  group_by(cnv_copy_number, outcome_combined) |> 
+  count()  |> 
+  mutate(category = "monoallelic deletions") |> 
+  pivot_wider(id_cols = c(cnv_copy_number, category),
+              names_from = outcome_combined,
+              values_from = n)
+
+bi_mono_allelic_results <- rbind(biallelic_del_results,
+                                monoallelic_del_results) |> 
+  mutate(deletions = true_positive + false_negative,
+         sensitivity = round((true_positive / (true_positive +
+                                                false_negative))*100, 1)) |> 
+  ungroup() |> 
+  left_join(bi_mono_gene_counts, by = "cnv_copy_number") |> 
+  select(category, genes, deletions, true_positive, false_negative,
+         sensitivity)
+
+kable(bi_mono_allelic_results)
 
 ```
-
 
 ```{r}
 #| label: pansolid-loh-vs-wgs
