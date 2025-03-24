@@ -35,7 +35,8 @@ stopifnot(length(pansolid_files) * 7 == nrow(collated_loh))
 stopifnot(setequal(unique(collated_loh$gene), 
           c("MSH2", "MSH6", "MLH1", "PMS2", "LZTR1", "SMARCB1", "NF2")))
 
-stopifnot(anyNA.data.frame(collated_loh) == FALSE)
+stopifnot(anyNA.data.frame(collated_loh |> 
+                             select(-x6)) == FALSE)
 
 message(paste0(length(pansolid_files), " LOH results collated"))
 

@@ -1960,9 +1960,11 @@ pansolid_vs_ddpcr <- ddpcr_data_mod |>
     pansolid_result_combined = case_when(
       is.na(analyst_result) ~pansolid_result,
       !is.na(analyst_result) ~analyst_result),
-    # Deletion call doesn't include ddPCR assay
     pansolid_result_combined = case_when(
+      # Deletion call doesn't include ddPCR assay
     sample == "24047809" & gene == "PTEN" ~"no deletion",
+    # Small deletion visible on PanSolid
+    sample == "24048159" & gene == "CDKN2A" ~"deletion",
     TRUE ~pansolid_result_combined),
     sub_category = case_when(
     category != "normal control" ~paste0(category, " ", pansolid_result_combined),
@@ -2050,31 +2052,68 @@ and from
 (median `r round(median(control_ddpcr_results_pten$cnv), 1)`) for *PTEN*. 
 A copy number threshold of 1.4 was used for the categorisation of results as
 normal or deleted, although the *CDKN2A* copy numbers for 2 normal control 
-samples (24012050 and 24012073) fell below this threshold
-(@fig-ddpcr-pansolid-outcomes). Using this threshold, 91.4% of ddPCR and PanSolid
+samples (24012050, R24-0AKB, skin and 24012073, R24-0AJR, prostate) fell below this threshold
+(@fig-ddpcr-pansolid-outcomes). 
+
+Using this threshold, 91.4% of ddPCR and PanSolid
 results were concordant (@tbl-pansolid-ddpcr-metrics). The sample with a small
 germline deletion of CDKN2A (24048159) had a *CDKN2A* ddPCR copy number of 0.25.
 
 ```{r}
 #| label: fig-ddpcr-pansolid-outcomes
-#| fig-cap: "PanSolid results vs ddPCR"
+#| fig-cap: "PanSolid results vs ddPCR. Note the ordering of samples is 
+#| different on each plot."
 #| echo: FALSE
 #| fig-width: 6
+#| fig-height: 7
 
-fig_ddpcr_pansolid_outcomes <- pansolid_vs_ddpcr |> 
-  ggplot(aes(x = sub_category, y = cnv)) +
+cdkn2a_ddpcr_for_plot <- pansolid_vs_ddpcr |> 
+  filter(gene == "CDKN2A") |> 
+  filter(!duplicated(sample)) |> 
+  arrange(sub_category, desc(cnv)) |> 
+  mutate(sample_order = factor(sample,
+                               levels = sample))
+
+pten_ddpcr_for_plot <-  pansolid_vs_ddpcr |> 
+  filter(gene == "PTEN") |> 
+  filter(!duplicated(sample)) |> 
+  arrange(sub_category, desc(cnv)) |> 
+  mutate(sample_order = factor(sample,
+                               levels = sample))
+
+cdkn2a_ddpcr_plot <- cdkn2a_ddpcr_for_plot |> 
+  ggplot(aes(x = sample_order, y = cnv)) +
   geom_hline(yintercept = 1.4, linetype = "dashed") +
-  geom_jitter(shape = 21, width = 0.1) +
-  facet_wrap(~gene) +
+  geom_errorbar(aes(ymin = poisson_cnv_max, ymax = poisson_cnv_min)) +
+  geom_point(aes(shape = sub_category), fill = "white") +
+  scale_shape_manual(values = c(21, 22, 25)) +
   theme_bw() +
-  scale_y_continuous(limits = c(0, 5),
+  scale_y_continuous(limits = c(0, 5.5),
                      breaks = c(0, 1, 1.4, 2, 3, 4, 5),
                      minor_breaks = FALSE) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "PanSolid result", y = "ddPCR copy number",
-       fill = "ddPCR result")
+  theme(axis.text.x = element_blank(),
+        legend.position = "none") +
+  labs(x = "", y = "ddPCR copy number",
+       shape = "PanSolid result",
+       title = "CDKN2A ddPCR results")
 
-fig_ddpcr_pansolid_outcomes
+pten_ddpcr_plot <- pten_ddpcr_for_plot |> 
+  ggplot(aes(x = sample_order, y = cnv)) +
+  geom_hline(yintercept = 1.4, linetype = "dashed") +
+  geom_errorbar(aes(ymin = poisson_cnv_max, ymax = poisson_cnv_min)) +
+  geom_point(aes(shape = sub_category), fill = "white") +
+  scale_shape_manual(values = c(21, 22, 25)) +
+  theme_bw() +
+  scale_y_continuous(limits = c(0, 3.5),
+                     breaks = c(0, 1, 1.4, 2, 3),
+                     minor_breaks = FALSE) +
+  theme(axis.text.x = element_blank(),
+        legend.position = "bottom") +
+  labs(x = "Sample", y = "ddPCR copy number",
+       shape = "PanSolid result",
+       title = "PTEN ddPCR results")
+
+cdkn2a_ddpcr_plot + pten_ddpcr_plot + plot_layout(nrow = 2)
   
 ```
 
