@@ -73,3 +73,30 @@ get_epir_metrics <- function(outcome_vector) {
   return(epi_test_df)
   
 }
+
+make_se_sp_table <- function(outcome_vector) {
+  
+  epi_test <- epiR::epi.tests(dat = outcome_vector,
+                              digits = 2, conf.level = 0.95, method = "exact")
+  
+  se_sp_df <- tibble::tibble(epi_test$detail) |> 
+    dplyr::filter(statistic %in% c("se", "sp")) |> 
+    dplyr::mutate(
+      percent = round(est*100, 1),
+      ci = str_c(round(lower*100, 1), "-", round(upper*100, 1)),
+      percent_ci = str_c(percent, " (", ci, ")")) |> 
+    dplyr::select(statistic, percent_ci) |> 
+    tidyr::pivot_wider(names_from = statistic,
+                values_from = percent_ci) |> 
+    dplyr::mutate(`True positives` = outcome_vector[1],
+           `False positives` = outcome_vector[2],
+           `False negatives` = outcome_vector[3],
+           `True negatives` = outcome_vector[4]) |> 
+    dplyr::relocate(se, .after = `True negatives`) |> 
+    dplyr::relocate(sp, .after = se) |> 
+    dplyr::rename(`Sensitivity (%)` = se,
+           `Specificity (%)` = sp)
+  
+  return(se_sp_df)
+  
+}
