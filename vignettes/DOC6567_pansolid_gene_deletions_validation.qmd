@@ -171,6 +171,20 @@ del_val_collated_sig_cnvs <- del_val_collated_sig_cnvs |>
                                       pattern = "(.*);(.*)",
                                       group = 2))
 
+del_val_collated_loh <- del_val_collated_loh |> 
+  rename(check_1 = x6) |> 
+  mutate(comment_present = str_detect(string = check_1,
+                                      pattern = ";"),
+        analyst_result = case_when(
+          comment_present == TRUE ~str_extract(string = check_1,
+                                      pattern = "(.*);(.*)",
+                                      group = 1),
+          comment_present == FALSE ~check_1
+        ),
+        analyst_comment = str_extract(string = check_1,
+                                      pattern = "(.*);(.*)",
+                                      group = 2))
+
 loh_genes <- c("MSH2", "MSH6", "MLH1", "PMS2", "LZTR1", "SMARCB1", "NF2")
 
 ```
@@ -984,7 +998,9 @@ WS150529.
 
 All data analysis was performed in R version 4.4.1 [@rcore2024] using 
 multiple packages 
-including the tidyverse [@wickham2019]. This validation document is written and
+including the tidyverse [@wickham2019]. Sensitivity and specificity metrics
+were calculated using the epiR package [@stevenson2008].This validation 
+document is written and
 rendered with Quarto [@allaire2024].
 All analysis scripts are saved in a public Github repository:
 [https://github.com/joe-m-shaw/pansolid_cnv_validation/tree/main/vignettes](https://github.com/joe-m-shaw/pansolid_cnv_validation/tree/main/vignettes)
@@ -1116,6 +1132,9 @@ genes with the most detected deletions were *PTEN*, *CDKN2A* and *PTEN*. This wa
 likely due to ascertainment bias as these deletions are commonly detected in
 brain tumours, which comprised
 `r round((87/128)*100, 0)`% of the samples tested (@tbl-cancer-types).
+
+Of the x significant CNVs called, y were categorised as not being deletions on
+manual review.
 
 ```{r}
 #| label: fig-cnv-size-distribution
@@ -1707,7 +1726,7 @@ kable(tbl_wgs_pansolid_ploidy)
 
 ```
 
-### Sensitivity and specificty 
+### Sensitivity and specificity 
 
 The sensitivity and specificity of the PanSolid pipeline compared to WGS were
 calculated in 3 ways: first the initial outputs of the PanSolid pipeline were
@@ -1727,40 +1746,34 @@ diploid_wgs_samples <- del_val_wgs_html_ids |>
 
 wgs_outcomes_pipeline <- pansolid_vs_wgs_outcomes |> 
   group_by(outcome_pipeline) |> 
-  count() |> 
-  mutate(category = "pipeline only") |> 
-  rename(outcome = outcome_pipeline)
+  count(.drop = FALSE) 
+
+wgs_pipeline_se_sp <- make_se_sp_table(wgs_outcomes_pipeline$n) |> 
+  mutate(analysis = "CNV caller")  
 
 wgs_outcomes_combined <- pansolid_vs_wgs_outcomes |> 
   group_by(outcome_combined) |> 
-  count() |> 
-  mutate(category = "pipeline with manual review") |> 
-  rename(outcome = outcome_combined)
+  count(.drop = FALSE) 
+
+wgs_combined_se_sp <- make_se_sp_table(wgs_outcomes_combined$n) |> 
+  mutate(analysis = "CNV caller with manual review")  
 
 wgs_outcomes_combined_diploid <-  pansolid_vs_wgs_outcomes |> 
   filter(nhsno %in% diploid_wgs_samples$nhsno) |> 
   group_by(outcome_combined) |> 
-  count() |> 
-  mutate(category = "pipeline with manual review (diploid samples)") |> 
-  rename(outcome = outcome_combined)
+  count(.drop = FALSE)
 
-wgs_outcome_table <- rbind(wgs_outcomes_pipeline,
-                           wgs_outcomes_combined,
-                           wgs_outcomes_combined_diploid) |> 
-  pivot_wider(id_cols = ,
-              names_from = outcome,
-              values_from = n,
-              values_fill = 0,
-              names_expand = TRUE) |> 
-  mutate(
-    sensitivity = round((true_positive / (true_positive +
-                                                false_negative))*100, 1),
-    specificity = round((true_negative / (true_negative +
-                                                false_positive))*100, 1),
-    samples = (true_positive + true_negative + false_negative +
-                         false_positive) / 37) |> 
-  select(category, sensitivity, specificity, samples,
-         true_positive, true_negative, false_negative, false_positive)
+wgs_combined_diploid_se_sp <- make_se_sp_table(wgs_outcomes_combined_diploid$n) |> 
+  mutate(analysis = "CNV caller with manual review (diploid samples)")
+
+wgs_outcome_table <- rbind(wgs_pipeline_se_sp,
+                           wgs_combined_se_sp,
+                           wgs_combined_diploid_se_sp) |> 
+  mutate(`Samples` = (`True positives` + `True negatives` +
+           `False positives` + `False negatives`) / 37) |> 
+  relocate(analysis) |> 
+  relocate(`Samples`, .after = analysis) |> 
+  rename(`Analysis` = analysis)
 
 ```
 
@@ -1773,12 +1786,29 @@ knitr::kable(wgs_outcome_table)
 
 ```
 
+23013975 - MUTYH deletion - visible in SNP track
+23024575 - FGFR2 and SUFU - chr10 deletion visible, but fold changes slightly
+to high
+23024575 - BMPR1A del on pansolid but not WGS - check pathno - different pathno
+
+N418/23 B
+NB24-540
+
+24025266 - PanSolid: partial loss of CDKN2A and full loss of CDKN2B on a 
+background of copy neutral LOH. WGS: full loss of CDKN2B on a background of
+copy neutral LOH.
+
+24031053 - SUFU del called in del_genes table but not sig cnv table
+
+24019998 - FH	borderline 1.247270687, CDH1 not borderline
+
 ```{r}
 #| label: fig-pansolid-wgs-counts-plot
 #| fig-cap: "PanSolid vs WGS by gene. Genes are ordered by chromosome number."
 #| fig-height: 8
 #| fig-width: 6
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 pansolid_wgs_for_plot <- pansolid_vs_wgs_outcomes |> 
   mutate(plot_outcome = case_when(
@@ -1820,6 +1850,9 @@ impacted the *CDKN2A*
 NM_000077.5 transcript. This deletion is expected to be detected when the
 pipeline graining level for *CDKN2A* is changed to "fine".
 
+The sensitivity for detection of confirmed monoallelic and biallelic deletions
+is shown in @tbl-bi-mono-del-detection. 
+
 ```{r}
 #| label: fig-copy-number-vs-fold-change
 #| fig-cap: "Copy number vs fold change"
@@ -1847,43 +1880,86 @@ fig_copy_number_vs_fold_change
 ```
 
 ```{r}
-#| label: monoallelic-biallelic-deletion-sensitivity
+#| label: tbl-bi-mono-del-detection
+#| tbl-cap: "Detection rate of monoallelic and biallelic deletions"
 #| echo: FALSE
 
 bi_mono_gene_counts <- pansolid_vs_wgs_outcomes |> 
-  filter(cnv_copy_number %in% c(0, 1)) |> 
+  filter(cnv_copy_number %in% c(0, 1) & nhsno %in% diploid_wgs_samples$nhsno) |> 
   group_by(cnv_copy_number) |> 
   summarise(genes = length(unique(gene)))
 
 biallelic_del_results <- pansolid_vs_wgs_outcomes |> 
-  filter(cnv_copy_number == 0) |> 
+  filter(cnv_copy_number == 0 & nhsno %in% diploid_wgs_samples$nhsno) |> 
   group_by(cnv_copy_number, outcome_combined) |> 
-  count() |> 
-  mutate(category = "biallelic deletions") |> 
-  pivot_wider(id_cols = c(cnv_copy_number, category),
-              names_from = outcome_combined,
-              values_from = n)
+  count(outcome_combined, .drop = FALSE)
+
+biallelic_se_sp <- make_se_sp_table(biallelic_del_results$n) |> 
+  mutate(deletion = "Biallelic",
+         cnv_copy_number = 0)
 
 monoallelic_del_results <- pansolid_vs_wgs_outcomes |> 
-  filter(cnv_copy_number == 1) |> 
+  filter(cnv_copy_number == 1 & nhsno %in% diploid_wgs_samples$nhsno) |> 
   group_by(cnv_copy_number, outcome_combined) |> 
-  count()  |> 
-  mutate(category = "monoallelic deletions") |> 
-  pivot_wider(id_cols = c(cnv_copy_number, category),
-              names_from = outcome_combined,
-              values_from = n)
+  count(outcome_combined, .drop = FALSE)
 
-bi_mono_allelic_results <- rbind(biallelic_del_results,
-                                monoallelic_del_results) |> 
-  mutate(deletions = true_positive + false_negative,
-         sensitivity = round((true_positive / (true_positive +
-                                                false_negative))*100, 1)) |> 
+monoallelic_se_sp <- make_se_sp_table(monoallelic_del_results$n) |> 
+  mutate(deletion = "Monoallelic",
+         cnv_copy_number = 1) 
+
+bi_mono_allelic_results <- rbind(biallelic_se_sp,
+                                monoallelic_se_sp) |> 
   ungroup() |> 
   left_join(bi_mono_gene_counts, by = "cnv_copy_number") |> 
-  select(category, genes, deletions, true_positive, false_negative,
-         sensitivity)
+  select(-c(cnv_copy_number,
+            `False positives`, `True negatives`, `Specificity (%)`)) |> 
+  relocate(deletion) |> 
+  relocate(genes, .after = deletion) |> 
+  rename(`Deletions` = deletion,
+         `Genes` = genes)
 
 kable(bi_mono_allelic_results)
+
+```
+
+```{r}
+#| label: fig-bi-mono-del-fold-change
+#| fig-cap: "Fold change of biallelic and monoallelic deletions"
+#| echo: FALSE
+#| fig-width: 6
+
+del_line_df <- fold_change_df |> 
+  rename(ccube_ncc = ncc)
+
+bi_mono_fc_plot <- pansolid_vs_wgs_outcomes |> 
+  mutate(fold_change = case_when(
+    min_region_fold_change <= -1 ~min_region_fold_change,
+    min_region_fold_change >= 1 ~-1 / min_region_fold_change)) |> 
+  filter(cnv_copy_number %in% c(0, 1)) |>
+  mutate(cnv_copy_number_char = case_when(
+    cnv_copy_number == 0 ~"Biallelic deletions on WGS",
+    cnv_copy_number == 1 ~"Monoallelic deletions on WGS"
+  )) |> 
+  select(labno.x, gene, cnv_copy_number_char, 
+         ccube_ncc, fold_change) |> 
+  ggplot(aes(x = ccube_ncc, y = fold_change)) +
+  geom_line(data = del_line_df,
+            aes(colour = del_state), linewidth = 1) +
+  scale_colour_manual(values = c( "#999999", "#999999", "#999999")) +
+  geom_point(shape = 21, size = 2, fill = "white") +
+  scale_x_continuous(limits = c(0, 100),
+                     breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(limits = c(-20, 0)) +
+  facet_wrap(~cnv_copy_number_char) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  labs(x = "Neoplastic cell content (Ccube)",
+       y = "PanSolid fold change") +
+  annotate("text", x = 85, y = -15, label = "Biallelic") +
+  annotate("text", x = 95, y = -3, label = "Monoallelic") +
+  annotate("text", x = 95, y = 0, label = "Normal")
+
+bi_mono_fc_plot
 
 ```
 
@@ -1892,7 +1968,9 @@ kable(bi_mono_allelic_results)
 #| eval: FALSE
 #| include: FALSE
 
-pansolid_loh_for_wgs_comp <- loh_with_qc |> 
+pansolid_loh_for_wgs_comp <- del_val_collated_loh_mod |> 
+  filter(stdev_noise <= noise_qc_threshold &
+           percent_138x >= percent_138x_qc_threshold) |> 
   left_join(del_val_sample_patient_info |> 
               select(labno, nhsno, extraction_method),
             by = "labno") |> 
@@ -1914,7 +1992,8 @@ pansolid_loh_for_wgs_comp <- loh_with_qc |>
                               "24026628d"))
 
 pansolid_loh_vs_wgs <- pansolid_loh_for_wgs_comp |> 
-  left_join(wgs_results_for_pansolid_comparison,
+  left_join(wgs_results_for_pansolid_comparison |> 
+              filter(nhsno %in% diploid_wgs_samples$nhsno),
             join_by(nhsno == nhsno, gene == gene),
             relationship = "one-to-one")
 
@@ -2209,20 +2288,8 @@ nf2_fragpcr_results <- read_csv(file = paste0(data_folderpath,
   rename(pcr_median_loh = median_loh,
          pcr_loh = loh_outcome)
 
-nf2_loh_comparison <- del_val_collated_loh |> 
+pansolid_vs_nf2_loh <- del_val_collated_loh |> 
   filter(gene == "NF2") |> 
-  rename(check_1 = x6) |> 
-  mutate(comment_present = str_detect(string = check_1,
-                                      pattern = ";"),
-        analyst_result = case_when(
-          comment_present == TRUE ~str_extract(string = check_1,
-                                      pattern = "(.*);(.*)",
-                                      group = 1),
-          comment_present == FALSE ~check_1
-        ),
-        analyst_comment = str_extract(string = check_1,
-                                      pattern = "(.*);(.*)",
-                                      group = 2)) |> 
   inner_join(nf2_fragpcr_results, by = "labno") |> 
   left_join(del_val_collated_stdev |> 
               select(labno, stdev_noise), by = "labno",
@@ -2268,25 +2335,99 @@ nf2_loh_comparison <- del_val_collated_loh |>
                                            "false_negative",
                                            "true_negative")))
 
-nf2_loh_comparison_with_qc <- nf2_loh_comparison |> 
+pansolid_vs_nf2_loh_with_qc <- pansolid_vs_nf2_loh |> 
   filter(percent_138x >= 75 & stdev_noise <= 0.7 &
            # Remove sample with contamination
            labno != "24054291")
 
 ```
 
-`r nrow(nf2_loh_comparison)` samples were tested on both the PanSolid CNV and 
-NF2 PCR LOH methods. Of these, `r nrow(nf2_loh_comparison_with_qc)` samples 
+`r nrow(pansolid_vs_nf2_loh)` samples were tested on both the PanSolid CNV and 
+NF2 PCR LOH methods. Of these, `r nrow(pansolid_vs_nf2_loh_with_qc)` samples 
 passed both NGS quality thresholds, and outputs of the PanSolid CLC ploidy 
 caller for the *NF2* gene were compared to the results from *NF2* dinucleotide 
 marker PCR LOH testing for these samples. @fig-24054282-nf2-loh shows an 
 example of copy-neutral LOH detected by both PanSolid and *NF2* PCR for a 
 Schwannoma sample (24054282, panel: v2SchwannAll_PS). As with the WGS results,
-the annotations by the CLC ploidy caller were manually reviewed.
-Overall, concordance was high between the two
-methods, with only 3 results in disagreement (@tbl-nf2-results-with-qc), 
-giving a sensitivity for
-LOH detection of 87.5% (@tbl-nf2-metrics-with-qc).
+the annotations by the CLC ploidy caller were manually reviewed. There were
+3 cases in which the analyst and the ploidy caller disagreed
+(@tbl-nf2-discrepant-results). In each case
+the ploidy caller had categorised the *NF2* locus as having a biallelic 
+deletion, with no LOH present according to the logic in @tbl-clc-ploidy-states,
+whilst the SNP frequency and log2 dosage were consistent with mono-allelic 
+chromosome 22 loss (@fig-24044746-loh-false-negative).
+
+1 sample had two calls - 24031162 - this was due to a deletion on a background
+of LOH.
+
+```{r}
+#| label: tbl-nf2-discrepant-results
+#| tbl-cap: "Discrepant ploidy predictions"
+#| echo: FALSE
+
+nf2_loh_discrepant_results <- pansolid_vs_nf2_loh_with_qc |> 
+  filter(loh_status == "No" & analyst_result == "LOH") |> 
+  select(labno, ploidy_state, 
+         loh_status, check_1,
+         pcr_median_loh, pcr_loh) |> 
+  rename(`DNA number` = labno,
+         `CLC ploidy state` = ploidy_state,
+         `CLC LOH status` = loh_status,
+         `NF2 PCR median peak reduction (%)` = pcr_median_loh, 
+         `NF2 PCR result` = pcr_loh,
+         `Manual review` = check_1)
+
+knitr::kable(nf2_loh_discrepant_results)
+
+```
+
+```{r}
+#| label: tbl-nf2-results-with-qc
+#| tbl-cap: "PanSolid NGS vs NF2 LOH PCR results with quality filters"
+#| echo: FALSE
+
+tbl_nf2_results_with_qc <- pansolid_vs_nf2_loh_with_qc |> 
+  group_by(ploidy_state, loh_status, analyst_result, pcr_loh) |> 
+  count() |> 
+  arrange(desc(n)) |> 
+  janitor::adorn_totals() |> 
+  rename("CLC ploidy state" = ploidy_state,
+         "CLC LOH status" = loh_status,
+         "NF2 PCR result" = pcr_loh,
+         "Samples" = n)
+
+knitr::kable(tbl_nf2_results_with_qc)
+
+```
+
+```{r}
+#| label: tbl-nf2-metrics-with-qc
+#| tbl-cap: "PanSolid NGS vs NF2 LOH PCR metrics with quality filters"
+#| echo: FALSE
+
+nf2_pipeline_results <- pansolid_vs_nf2_loh_with_qc |> 
+  group_by(outcome_pipeline) |> 
+  count(outcome_pipeline, .drop = FALSE) 
+
+nf2_pipeline_se_sp <- make_se_sp_table(nf2_pipeline_results$n) |> 
+  mutate(category = "Ploidy caller") |> 
+  relocate(category, .before = `True positives`) 
+
+nf2_combined_results <- pansolid_vs_nf2_loh_with_qc |> 
+  group_by(outcome_combined) |> 
+  count(outcome_combined, .drop = FALSE) 
+
+nf2_combined_se_sp <- make_se_sp_table(nf2_combined_results$n) |> 
+  mutate(category = "Ploidy caller with manual review") |> 
+  relocate(category, .before = `True positives`) 
+
+nf2_sens_spec <- rbind(nf2_pipeline_se_sp,
+                       nf2_combined_se_sp) |> 
+  rename(`Analysis` = category)
+
+kable(nf2_sens_spec)
+
+```
 
 ```{r}
 #| label: nf2-loh-image
@@ -2307,88 +2448,6 @@ uninformative for marker D22S268, hence these results are not shown."
 ```
 
 ![`r caption_24054282`](`r path_24054282`){#fig-24054282-nf2-loh height=5in}
-
-```{r}
-#| label: tbl-nf2-results-with-qc
-#| tbl-cap: "PanSolid NGS vs NF2 LOH PCR results with quality filters"
-#| echo: FALSE
-
-tbl_nf2_results_with_qc <- nf2_loh_comparison_with_qc |> 
-  group_by(ploidy_state, loh_status, analyst_result, pcr_loh) |> 
-  count() |> 
-  arrange(desc(n)) |> 
-  janitor::adorn_totals() |> 
-  rename("CLC ploidy state" = ploidy_state,
-         "CLC LOH status" = loh_status,
-         "NF2 PCR result" = pcr_loh,
-         "Samples" = n)
-
-knitr::kable(tbl_nf2_results_with_qc)
-
-```
-
-```{r}
-#| label: tbl-nf2-metrics-with-qc
-#| tbl-cap: "PanSolid NGS vs NF2 LOH PCR metrics with quality filters"
-#| echo: FALSE
-
-nf2_pipeline_results <- nf2_loh_comparison_with_qc |> 
-  group_by(outcome_pipeline) |> 
-  count(outcome_pipeline, .drop = FALSE) |> 
-  mutate(category = "pipeline") |> 
-  pivot_wider(id_cols = category,
-              names_from = outcome_pipeline,
-              values_from = n)
-
-nf2_combined_results <- nf2_loh_comparison_with_qc |> 
-  group_by(outcome_combined) |> 
-  count(outcome_combined, .drop = FALSE) |> 
-  mutate(category = "pipeline with manual review") |> 
-  pivot_wider(id_cols = category,
-              names_from = outcome_combined,
-              values_from = n)
-
-nf2_sens_spec <- rbind(nf2_pipeline_results, nf2_combined_results) |> 
-  mutate(
-    sensitivity = round((true_positive / (true_positive +
-                                                false_negative))*100, 1),
-    specificity = round((true_negative / (true_negative +
-                                                false_positive))*100, 1))
-
-kable(nf2_sens_spec)
-
-```
-
-### Discrepant LOH predictions {#sec-results-discrepant-loh-predictions}
-
-There were 3 samples with discrepant results on PanSolid, which are shown in 
-@tbl-nf2-discrepant-results. In each case, a bi-allelic deletion was 
-predicted by the CLC Detect Regional Ploidy tool. This led to a prediction of 
-no LOH, according to the CLC categories in @tbl-clc-ploidy-states. Manual
-inspection of the HTML file in each case showed that ploidy states of both
-"Deletion" and "Bi-allelic deletion" had been returned by the Detect Regional
-Ploidy tool for chromosome 22, whilst the SNP profile was 
-consistent with a mono-allelic chromosome 22 loss (@fig-24044746-loh-false-negative).
-
-```{r}
-#| label: tbl-nf2-discrepant-results
-#| tbl-cap: "Discrepant LOH predictions"
-#| eval: FALSE
-#| include: FALSE
-
-nf2_loh_discrepant_results <- nf2_loh_comparison_with_qc |> 
-  filter(final_outcome == "Disagree") |> 
-  select(labno, ploidy_state, 
-         loh_status, pcr_median_loh, pcr_loh) |> 
-  rename(`DNA number` = labno,
-         `CLC ploidy state` = ploidy_state,
-         `CLC LOH status` = loh_status,
-         `NF2 PCR median peak reduction (%)` = pcr_median_loh, 
-         `NF2 PCR result` = pcr_loh)
-
-knitr::kable(nf2_loh_discrepant_results)
-
-```
 
 ```{r}
 #| label: loh-false-negative-image
@@ -2445,6 +2504,7 @@ pansolid_vs_merged <- del_val_collated_loh |>
 
 tbl_pansolid_vs_merged <- pansolid_vs_merged |> 
   select(labno, gene, ploidy_state, loh_status, 
+         check_1, 
          merged_result) |> 
   mutate(gene = factor(gene, levels = c("MLH1", "MSH2", "MSH6"))) |> 
   arrange(labno, gene) |> 
@@ -2452,6 +2512,7 @@ tbl_pansolid_vs_merged <- pansolid_vs_merged |>
          `Gene` = gene,
          `CLC ploidy state` = ploidy_state,
          `PanSolid LOH status` = loh_status,
+         `Manual review` = check_1,
          `Merged LOH status` = merged_result)
 
 kable(tbl_pansolid_vs_merged)
@@ -3167,6 +3228,13 @@ fold change threshold to our validation cohort would have led to
 of all gene results being classed as deletions, which is an unacceptably 
 high rate of false positive results.
 
+
+## Ploidy caller
+
+The ploidy caller can correctly identify when there is a deletion on a background
+of copy neutral LOH, but also may switch between ploidy states when there
+is only one present.
+
 ## Limitations
 
 The technique has the following limitations:
@@ -3294,7 +3362,7 @@ The outputs of the Detect Regional Ploidy tool for the
 *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2* should be checked
 for consistency against the results shown in the HTML file, in order to 
 identify the low percentage of cases where the outputs differ from 
-PCR-based LOH testing (@sec-results-discrepant-loh-predictions).
+PCR-based LOH testing.
 
 The test has a limit of detection for biallelic deletions of at least 
 20% NCC (@sec-results-lod). In practice, this may be further reduced by the
