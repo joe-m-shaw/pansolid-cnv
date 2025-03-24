@@ -999,8 +999,9 @@ WS150529.
 All data analysis was performed in R version 4.4.1 [@rcore2024] using 
 multiple packages 
 including the tidyverse [@wickham2019]. Sensitivity and specificity metrics
-were calculated using the epiR package [@stevenson2008].This validation 
-document is written and
+were calculated using the epiR package [@stevenson2008] and fold change
+conversions performed using the foldchanger package [@shaw2024].
+This validation document is written and
 rendered with Quarto [@allaire2024].
 All analysis scripts are saved in a public Github repository:
 [https://github.com/joe-m-shaw/pansolid_cnv_validation/tree/main/vignettes](https://github.com/joe-m-shaw/pansolid_cnv_validation/tree/main/vignettes)
@@ -3171,6 +3172,16 @@ service. During the optimisation phase of the project, the fold change
 threshold was deliberately set to be permissive, with the intention that this
 would bias the pipeline towards false positives rather than false negatives.
 
+Can we confirm CDKN2A biallelic loss?
+
+## ddPCR
+
+@mcfadden2023 reported a sensitivity and specificity of 94% and 90% when using 
+ddPCR for CDKN2A deletion detection in 28 FFPE samples, using a copy number 
+threshold of 1.7 with a singleplex assay [@mcfadden2023], and then sensitivity
+and specificity of 
+80% and 100% using a threshold of 1.6 in 17 different samples [@mcfadden2024].
+
 ## Uncertainty of Measurement
 
 The uncertainty of measurement of the fold change metric for deleted regions
@@ -3268,6 +3279,8 @@ measurement value may be an overestimate of the true value.
 - An intra-control normalisation was not done.
 
 - No true positive or true negative samples were tested for *PMS2* LOH.
+
+- Only a single reference gene was used for ddPCR.
 
 ## Overall performance of CNV detection using PanSolid NGS 
 
