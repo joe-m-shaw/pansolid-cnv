@@ -1098,8 +1098,41 @@ loss_count_df_qc <- loss_count_df |>
 stopifnot(length(setdiff(loss_count_df_qc$labno_suffix_worksheet,
         results_passing_qc$labno_suffix_worksheet)) == 0)
 
+calls_with_cancer <- loss_count_df_qc |> 
+  left_join(del_val_sample_cancer_types,
+            by = "labno")
+
+calls_by_cancer <- calls_with_cancer |> 
+  group_by(cancer) |> 
+  summarise(mean = mean(calls),
+            samples = n()) 
+
+over_5 <- calls_by_cancer |> 
+  filter(samples > 5)
+
+calls_with_cancer |> 
+  filter(cancer %in% over_5$cancer) |> 
+  ggplot(aes(x = reorder(cancer, calls),
+                              y = calls)) +
+  geom_boxplot() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   hjust = 1)) +
+  labs(x = "", y = "Significant CNVs")
+
 ```
 
+```{r}
+#| label: manual-call-review
+#| include: FALSE
+
+sig_cnvs_with_manual_review <- sig_cnvs_with_qc_mod |> 
+  filter(!is.na(check_1) & consequence == "Loss") 
+
+manual_review_false_pos <- sig_cnvs_with_manual_review |> 
+  filter(analyst_result == "no deletion")
+
+```
 
 In total, `r nrow(noise_and_138x)` replicates from 
 `r length(unique(noise_and_138x$labno))` DNA samples were tested on the PanSolid
@@ -1381,6 +1414,46 @@ fig_ploidy_caller_results <- del_val_collated_loh_split |>
 fig_ploidy_caller_results
 
 ```
+
+### Disagreements with CNV caller
+
+```{r}
+#| label: ploidy-cnv-disagreements
+#| include: FALSE
+
+cnv_vs_ploidy_caller <- del_val_collated_del_genes |> 
+  inner_join(del_val_collated_loh |> 
+               select(filepath, chrom, gene, ploidy_state,
+                      loh_status, no_targets_in_ploidy_region,
+                      check_1, analyst_result, analyst_comment),
+             join_by(filepath, gene)) |> 
+  filter(labno_suffix_worksheet %in% 
+           results_passing_qc$labno_suffix_worksheet) |> 
+  filter(!labno %in% c(
+    # sample with small deletion and LOH
+    "24035816",
+    # Small MSH2 deletion
+    "24067827", 
+    "25001806"))
+  
+cnv_ploidy_caller_disagreements <- cnv_vs_ploidy_caller |> 
+  filter((pansolid_result == "deletion" &
+           !ploidy_state %in% c("Deletion", "Bi-allelic deletion")) |
+           (pansolid_result == "no deletion" &
+           ploidy_state %in% c("Deletion", "Bi-allelic deletion")))
+
+sig_cnvs_checked <- del_val_collated_sig_cnvs |> 
+  filter(!is.na(check_1))
+
+```
+
+In `r nrow(cnv_vs_ploidy_caller)` results for the `r length(loh_genes)` LOH 
+genes, there were 
+`r nrow(cnv_ploidy_caller_disagreements)` 
+(`r round((nrow(cnv_ploidy_caller_disagreements) / nrow(cnv_vs_ploidy_caller))*100, 1)`%)
+instances for the 
+where the results of the ploidy caller
+contradicted the results of the CNV caller.
 
 ## Comparison to whole genome sequencing
 
@@ -2236,15 +2309,41 @@ fig_pansolid_fold_change_vs_ddpcr
 #| tbl-cap: "PanSolid vs ddPCR metrics"
 #| echo: FALSE
 
-pansolid_ddpcr_summary <- pansolid_vs_ddpcr |> 
+pansolid_vs_ddpcr_results <- pansolid_vs_ddpcr |> 
   filter(outcome != "no result") |> 
-  group_by(outcome) |> 
-  count() |> 
-  arrange(outcome) |> 
-  janitor::adorn_totals()
+  mutate(outcome = factor(outcome, levels = c("true_positive",
+                                       "false_positive",
+                                       "false_negative",
+                                       "true_negative")))
 
-pansolid_vs_ddpcr_metrics <- get_epir_metrics(outcome_vector =
-                                                      pansolid_ddpcr_summary$n)
+ddpcr_pten_results <- pansolid_vs_ddpcr_results |> 
+  filter(gene == "PTEN") |> 
+  group_by(outcome) |> 
+   count(outcome, .drop = FALSE)
+
+ddpcr_cdkn2a_results <- pansolid_vs_ddpcr_results |> 
+  filter(gene == "CDKN2A") |> 
+  group_by(outcome) |> 
+   count(outcome, .drop = FALSE)
+
+ddpcr_all_results <- pansolid_vs_ddpcr_results |> 
+  group_by(outcome) |> 
+  count(outcome, .drop = FALSE)
+
+ddpcr_pten_se_sp <- make_se_sp_table(ddpcr_pten_results$n) |> 
+  mutate(cohort = "PTEN")
+
+ddpcr_cdkn2a_se_sp <- make_se_sp_table(ddpcr_cdkn2a_results$n) |> 
+  mutate(cohort = "CDKN2A")
+
+pansolid_ddpcr_se_sp <- make_se_sp_table(ddpcr_all_results$n) |> 
+  mutate(cohort = "CDKN2A and PTEN")
+
+pansolid_vs_ddpcr_metrics <- rbind(ddpcr_pten_se_sp,
+                                   ddpcr_cdkn2a_se_sp,
+                                   pansolid_ddpcr_se_sp) |> 
+  relocate(cohort) |> 
+  rename(`Cohort` = cohort)
 
 knitr::kable(pansolid_vs_ddpcr_metrics)
 
@@ -3092,6 +3191,8 @@ chr10_lod_dosage_plot
 
 In each case, noise and coverage were acceptable
 
+Do the number of false positive calls increase with increased noise?
+
 {{< pagebreak >}}
 
 # Discussion
@@ -3174,6 +3275,19 @@ would bias the pipeline towards false positives rather than false negatives.
 
 Can we confirm CDKN2A biallelic loss?
 
+The fold change threshold was deliberately set to be permissive. Manual 
+review of detected CNVs then increased the specificity, however it did not 
+increase the sensitivity. This is because often false negatives were due to
+certain genes being slighly above the fold change threshold when whole chromosome
+or chromosome arm losses were seen. It is not realistic to expect scientists to
+remember the chromosomal locations of 37 different genes and to be able to 
+manually correct where the pipeline has omitted a gene deletion result.
+Consequently, manual review reduces the number of false positives, but will not
+reduce the low number of false negatives.
+
+@glodzik2023 also reported discrepancies in ploidy prediction between targeted
+NGS and WGS.
+
 ## ddPCR
 
 @mcfadden2023 reported a sensitivity and specificity of 94% and 90% when using 
@@ -3181,6 +3295,33 @@ ddPCR for CDKN2A deletion detection in 28 FFPE samples, using a copy number
 threshold of 1.7 with a singleplex assay [@mcfadden2023], and then sensitivity
 and specificity of 
 80% and 100% using a threshold of 1.6 in 17 different samples [@mcfadden2024].
+
+In the ERBB2 validation the range varied from 0.77-6 (median: 1.61) in 
+cobas-extracted controls.
+
+## NF2 LOH PCR
+
+The ploidy caller can correctly identify when there is a deletion on a background
+of copy neutral LOH, but also may switch between ploidy states when there
+is only one present.
+
+Determining LOH by PCR is a well-established technique; a relative reduction in
+peak height of at least 30% is required to classify a locus as having 
+LOH [@wallace2004]. 
+
+## QIAseq Merged Panel
+
+The QIAseq merged panel analyses 84 SNPs in and around the *MSH2* and *MSH6* 
+genes on chromosome 2 (GRCh37, chr2:47593094-48199845) and 62 SNPs in and around the 
+*MLH1* gene on chromosome 3 (GRCh37, chr3:37016953-37141732).
+
+Comparatively the LOH genes on PanSolid analysis may have only a few or no SNPs
+within the gene region. This is due to the design of the PanSolid enrichment, 
+and raises the potential that a focal region of copy neutral LOH could be 
+missed by this method. However, this is biologically unlikely, as LOH regions 
+are usually several Megabases in size.
+
+The resolution of the ploidy caller depends on the SNPs present in the sample.
 
 ## Uncertainty of Measurement
 
@@ -3238,13 +3379,6 @@ fold change threshold to our validation cohort would have led to
 (`r new_threshold_del_results`/`r new_threshold_del_results + new_threshold_normal_results`)
 of all gene results being classed as deletions, which is an unacceptably 
 high rate of false positive results.
-
-
-## Ploidy caller
-
-The ploidy caller can correctly identify when there is a deletion on a background
-of copy neutral LOH, but also may switch between ploidy states when there
-is only one present.
 
 ## Limitations
 
@@ -3380,6 +3514,11 @@ PCR-based LOH testing.
 The test has a limit of detection for biallelic deletions of at least 
 20% NCC (@sec-results-lod). In practice, this may be further reduced by the
 technique's uncertainty of measurement.
+
+The test will report genome-wide copy-neutral LOH in cases of haploidy.
+
+The ploidy caller and the CNV caller may disagree - analysts should be aware
+of this.
 
 # Conclusion
 
