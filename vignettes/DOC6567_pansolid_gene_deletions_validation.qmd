@@ -199,11 +199,6 @@ del_val_collated_loh <- del_val_collated_loh |>
                                       pattern = analyst_comment_regex,
                                       group = 2))
 
-
-del_val_collated_sig_cnvs |> 
-  filter(is.na(analyst_result)) |>  
-  distinct(labno_suffix_worksheet, filepath) |> view()
-
 ```
 
 ```{r}
@@ -2117,8 +2112,47 @@ pansolid_loh_vs_wgs <- pansolid_loh_for_wgs_comp |>
 
 ### Neoplastic cell content comparison
 
+```{r}
+#| label: wgs-ncc-comparison
+#| echo: FALSE
+#| warning: FALSE
 
+wgs_ncc_comp <- read_excel(path = paste0(data_folderpath,
+                                 "validation/DOC6567_deletions/",
+                                 "samples_for_ncc_comp.xlsx")) |> 
+  mutate(wgs_calculated_ncc	 = as.numeric(wgs_calculated_ncc),
+         labno_suffix_worksheet = str_c(pansolid_labno, "_", worksheet),
+         ncc_diff = abs(wgs_calculated_ncc - CLC_calculated_NCC))
 
+wgs_ncc_comp_with_qc <- wgs_ncc_comp |> 
+  left_join(del_val_collated_stdev |> 
+              select(labno_suffix_worksheet, stdev_noise),
+            by = "labno_suffix_worksheet") |> 
+  left_join(del_val_collated_138x |> 
+              select(labno_suffix_worksheet, percent_138x),
+            by = "labno_suffix_worksheet")
+
+wgs_ncc_plot <- wgs_ncc_comp |> 
+  filter(pansolid_labno != "24030962" &
+           !is.na(wgs_calculated_ncc)) |> 
+  ggplot(aes(x = wgs_calculated_ncc, y = CLC_calculated_NCC)) +
+  geom_abline(linetype = "dashed") +
+  geom_point(shape = 21, size = 3) +
+  theme_bw() +
+  scale_y_continuous(limits = c(0, 1),
+                     breaks = seq(0,1, by = 0.1)) +
+  scale_x_continuous(limits = c(0, 1),
+                     breaks = seq(0,1, by = 0.1)) +
+  labs(y = "ClC calculated NCC",
+       x = "WGS calculated NCC",
+       title = "PanSolid vs WGS NCC prediction") +
+  ggpubr::stat_cor(method = "pearson", label.x = 0.6, label.y = 0.1) 
+
+wgs_ncc_plot
+
+# 24043023 - DROSHA variant is at same level as for WGS
+
+```
 
 ## Comparison to ddPCR
 
@@ -3248,6 +3282,27 @@ chr10_lod_dosage_plot
 
 ## Quality control
 
+23011114, 23032153, 24026811 - high noise leads to multiple deletion calls 
+with low fold changes.
+
+```{r}
+
+
+ggplot(noise_and_138x, aes(x = stdev_noise, y = percent_138x)) +
+  geom_point(shape = 21) +
+  scale_x_continuous(limits = c(0, 1.6),
+                     breaks = seq(0, 1.6, by = 0.2)) +
+  theme_bw()
+
+
+ggplot(noise_and_138x, aes(x = stdev_noise, y = )) +
+  geom_histogram() +
+  #scale_x_continuous(limits = c(0, 1.8)) +
+  theme_bw() 
+
+
+```
+
 ### DNA contamination
 
 During the validation, it was noticed that the SNP allele frequency plot of the 
@@ -3262,7 +3317,9 @@ approximately 10% of the total DNA (@fig-24030962-dna-contamination).
 Following this discovery, all the
 samples in the cohort were reviewed: 2 further samples (24030945 and 
 24054291) were found to have similar profiles, and were excluded from the 
-validation analysis. This demonstrates that visual inspection of PanSolid 
+validation analysis. The signal-adjusted noise and percentage coverage above
+138X were of acceptable quality for each sample.
+This demonstrates that visual inspection of PanSolid 
 pipeline results can detected DNA contamination at least as low as 10%, and
 the source of contamination is being followed up as a quality incident
 [INC10288]{custom-style="Strong"}.
@@ -3531,6 +3588,10 @@ measurement value may be an overestimate of the true value.
 - No true positive or true negative samples were tested for *PMS2* LOH.
 
 - Only a single reference gene was used for ddPCR.
+
+- Positive controls for MMR gene LOH were not sourced. Instead, samples were
+used which had been sequenced with a different QIAseq enrichment, which is not
+a truly orthogonal method to PanSolid.
 
 ## Overall performance of CNV detection using PanSolid NGS 
 
