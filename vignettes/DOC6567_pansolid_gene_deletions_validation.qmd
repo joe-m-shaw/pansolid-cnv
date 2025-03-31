@@ -257,6 +257,10 @@ somatic gene deletions and ploidy states
 with the PanSolid v2 QIAseq enrichment panel using the PanSolid CLC 
 pipeline (v2.4) at the North West Genomic Laboratory Hub (GLH).
 
+# Executive Summary
+
+Manual review of CNV calls by a trained staff member is required.
+
 # Introduction
 
 This validation is the final part of the project to validate copy number
@@ -2111,6 +2115,11 @@ pansolid_loh_vs_wgs <- pansolid_loh_for_wgs_comp |>
 
 ```
 
+### Neoplastic cell content comparison
+
+
+
+
 ## Comparison to ddPCR
 
 ```{r}
@@ -3241,13 +3250,38 @@ chr10_lod_dosage_plot
 
 ### DNA contamination
 
-24030945
-24030962,
-24054291 - LOH still detected
+During the validation, it was noticed that the SNP allele frequency plot of the 
+interactive HTML allowed the detection of DNA contamination between samples.
+This was initially noted in sample 24030962; the SNP frequency profile was 
+similar to the profiles from the limit of detection experiment, when DNA from 
+two patients was deliberately mixed together. Microsatellite instability 
+testing on 24030962 with the OncoMate™ MSI Dx kit (Promega) showed
+the presence of additional alleles at two 
+pentanucleotide markers, indicating that a contaminating sample comprised 
+approximately 10% of the total DNA (@fig-24030962-dna-contamination). 
+Following this discovery, all the
+samples in the cohort were reviewed: 2 further samples (24030945 and 
+24054291) were found to have similar profiles, and were excluded from the 
+validation analysis. This demonstrates that visual inspection of PanSolid 
+pipeline results can detected DNA contamination at least as low as 10%, and
+the source of contamination is being followed up as a quality incident
+[INC10288]{custom-style="Strong"}.
 
-In each case, noise and coverage were acceptable
+```{r}
+#| label: dna-contamination-image
+#| include: FALSE
 
-Do the number of false positive calls increase with increased noise?
+path_24030962 <- paste0(image_folderpath,
+                        "24030962_dna_contamination.png")
+
+caption_24030962 <- "The results for sample 24030962, which showed a dispersed
+SNP frequency profile on PanSolid NGS, indicative of DNA contamination. 
+Microsatellite instability (MSI) testing of the same DNA showed evidence of 
+additional low-level alleles (black arrows)."
+
+```
+
+![`r caption_24030962`](`r path_24030962`){#fig-24030962-dna-contamination height=5in}
 
 {{< pagebreak >}}
 
