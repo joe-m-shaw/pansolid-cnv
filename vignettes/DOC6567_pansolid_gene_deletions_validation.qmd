@@ -1141,43 +1141,31 @@ calls_with_cancer |>
 
 ```{r}
 #| label: manual-call-review
-#| eval: FALSE
 #| include: FALSE
 
 sig_cnvs_with_manual_review <- sig_cnvs_with_qc_mod |> 
-  filter(!is.na(check_1) & consequence == "Loss") 
+  filter(consequence == "Loss" &
+           analyst_result %in% c("deletion", "no deletion")) 
 
 manual_review_false_pos <- sig_cnvs_with_manual_review |> 
   filter(analyst_result == "no deletion")
 
-sig_cnvs_with_qc_mod_pval_cat <- sig_cnvs_with_qc_mod |> 
+sig_cnvs_with_qc_mod_pval_cat <- sig_cnvs_with_manual_review |> 
   mutate(p_value_category  = case_when(
     p_value == 0 ~"0",
     p_value > 0 ~"Above 0"
+  ),
+  analyst_result = case_when(
+    analyst_result == "no deletion" ~"manual review: no deletion",
+    analyst_result == "deletion" ~"manual review: deletion"
   )) 
 
 sig_cnvs_with_qc_mod_pval_cat |> 
-  filter(analyst_result %in% c("deletion", "no deletion")) |> 
   ggplot(aes(x = p_value_category, y = )) +
   geom_bar() +
-  facet_wrap(~analyst_result)
-
-sig_cnvs_with_qc_mod_pval_cat |> 
-  filter(analyst_result %in% c("deletion", "no deletion")) |> 
-  group_by(p_value_category, analyst_result) |> 
-  count() |> 
-  pivot_wider(id_cols = p_value_category,
-              names_from = analyst_result,
-              values_from = n) |> 
-  mutate(percent_true = round((deletion / (deletion + `no deletion`))*100, 2)) 
-
-# size and number of targets
-
-sig_cnvs_with_qc_mod_pval_cat |> 
-  filter(analyst_result %in% c("deletion", "no deletion")) |> 
-  ggplot(aes(x = no_targets, y = fold_change)) +
-  geom_point(shape = 21, aes(fill = analyst_result)) +
-  facet_wrap(~p_value_category)
+  facet_wrap(~analyst_result) +
+  theme_bw() +
+  labs(x = "P value", y = "Number of CNVs")
 
 ```
 
@@ -1214,8 +1202,16 @@ likely due to ascertainment bias as these deletions are commonly detected in
 brain tumours, which comprised
 `r round((87/128)*100, 0)`% of the samples tested (@tbl-cancer-types).
 
-Of the x significant CNVs called, y were categorised as not being deletions on
-manual review.
+Of the 
+`r nrow(sig_cnvs_with_manual_review)`
+significant CNVs called, 
+`r nrow(manual_review_false_pos)`
+were categorised as not being deletions on
+manual review. The p values of the CNV calls ranged from
+`r min(sig_cnvs_with_manual_review$p_value)` to
+`r max(round(sig_cnvs_with_manual_review$p_value, 3))`, and CNVs with p values
+above 0 were more likely to be classified as not being deletions on manual
+review. CNVs with p values above 0.05 were not considered significant CNVs.
 
 ```{r}
 #| label: fig-cnv-size-distribution
