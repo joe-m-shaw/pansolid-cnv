@@ -1,4 +1,4 @@
-# Solid Cancer Copy Number Variants
+# Solid Cancer Copy Number Variants <img src="images/pansolid_cnv_logo.png" align="right" height="250"/>
 
 This repository contains R scripts used in the validation and monitoring of copy number variant (CNV) detection on the "Pan Solid" Qiaseq primer panel at the North West Genomic Laboratory Hub (GLH) in Manchester.
 
@@ -6,7 +6,7 @@ This repository contains R scripts used in the validation and monitoring of copy
 
 ### data
 
-All data is saved internally at the North West GLH, as it contains patient identifiable information. **No data should be available in this Github repository.** The filepath for the data folder is specified in the config.yml file. 
+All data is saved internally at the North West GLH, as it contains patient identifiable information. **No data should be available in this Github repository.** The filepath for the data folder is specified in the config.yml file.
 
 ### functions
 
