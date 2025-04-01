@@ -643,8 +643,7 @@ heterozygous and homozygous deletions, in samples with a range of NCC values.
 for deciding when the test results should be reported and when the test has 
 failed.
 
-5. **Variability:** the test should have defined intra-run variation 
-(repeatability) and inter-run variability (reproducibility) for detection of 
+5. **Variability:** the test should have defined variation for detection of 
 deletions. Analysis of this variation should then be used to derive the 
 uncertainty of measurement for the test.
 
@@ -758,7 +757,7 @@ path_clc_pipeline <- paste0(image_folderpath,
 
 ```
 
-![CLC pipeline](`r path_clc_pipeline`){#fig-clc-pipeline}
+![CLC pipeline](`r path_clc_pipeline`){#fig-clc-pipeline width=5in}
 
 ### Deletion detection by fold change {#sec-methods-fold-change}
 
@@ -1950,7 +1949,7 @@ fig_pansolid_wgs_counts_plot
 
 ```
 
-### Monoallelic and biallelic deletions
+### Monoallelic and biallelic deletions {#sec-results-bi-mono-deletions}
 
 There was a clear relationship between the fold change measured by the PanSolid
 pipeline and the overall gene copy number from WGS
@@ -1996,12 +1995,16 @@ fig_copy_number_vs_fold_change
 #| echo: FALSE
 
 bi_mono_gene_counts <- pansolid_vs_wgs_outcomes |> 
-  filter(cnv_copy_number %in% c(0, 1) & nhsno %in% diploid_wgs_samples$nhsno) |> 
+  filter(cnv_copy_number %in% c(0, 1) 
+         & nhsno %in% diploid_wgs_samples$nhsno
+         ) |> 
   group_by(cnv_copy_number) |> 
   summarise(genes = length(unique(gene)))
 
 biallelic_del_results <- pansolid_vs_wgs_outcomes |> 
-  filter(cnv_copy_number == 0 & nhsno %in% diploid_wgs_samples$nhsno) |> 
+  filter(cnv_copy_number == 0 
+         & nhsno %in% diploid_wgs_samples$nhsno
+         ) |> 
   group_by(cnv_copy_number, outcome_combined) |> 
   count(outcome_combined, .drop = FALSE)
 
@@ -2010,7 +2013,9 @@ biallelic_se_sp <- make_se_sp_table(biallelic_del_results$n) |>
          cnv_copy_number = 0)
 
 monoallelic_del_results <- pansolid_vs_wgs_outcomes |> 
-  filter(cnv_copy_number == 1 & nhsno %in% diploid_wgs_samples$nhsno) |> 
+  filter(cnv_copy_number == 1 
+         & nhsno %in% diploid_wgs_samples$nhsno
+         ) |> 
   group_by(cnv_copy_number, outcome_combined) |> 
   count(outcome_combined, .drop = FALSE)
 
@@ -2067,8 +2072,8 @@ bi_mono_fc_plot <- pansolid_vs_wgs_outcomes |>
   labs(x = "Neoplastic cell content (Ccube)",
        y = "PanSolid fold change") +
   annotate("text", x = 85, y = -15, label = "Biallelic") +
-  annotate("text", x = 95, y = -3, label = "Monoallelic") +
-  annotate("text", x = 95, y = 0, label = "Normal")
+  annotate("text", x = 90, y = -3, label = "Monoallelic") +
+  annotate("text", x = 90, y = 0, label = "Normal")
 
 bi_mono_fc_plot
 
@@ -2112,10 +2117,14 @@ pansolid_loh_vs_wgs <- pansolid_loh_for_wgs_comp |>
 
 ### Neoplastic cell content comparison
 
+The CLC Regional Ploidy Tool predicts the NCC of a sample as part of its HMM 
+approach to deconvoluting ploidy states. The NCC predictions from CLC were 
+compared to the predictions from the WGS results, which were calculated using
+the Canvas algorithm [@fig-wgs-ncc-comparison].
+
 ```{r}
 #| label: wgs-ncc-comparison
-#| echo: FALSE
-#| warning: FALSE
+#| include: FALSE
 
 wgs_ncc_comp <- read_excel(path = paste0(data_folderpath,
                                  "validation/DOC6567_deletions/",
@@ -2143,14 +2152,18 @@ wgs_ncc_plot <- wgs_ncc_comp |>
                      breaks = seq(0,1, by = 0.1)) +
   scale_x_continuous(limits = c(0, 1),
                      breaks = seq(0,1, by = 0.1)) +
-  labs(y = "ClC calculated NCC",
+  labs(y = "CLC calculated NCC",
        x = "WGS calculated NCC",
        title = "PanSolid vs WGS NCC prediction") +
   ggpubr::stat_cor(method = "pearson", label.x = 0.6, label.y = 0.1) 
 
-wgs_ncc_plot
+```
 
-# 24043023 - DROSHA variant is at same level as for WGS
+```{r}
+#| label: fig-wgs-ncc-comparison
+#| echo: FALSE
+
+wgs_ncc_plot
 
 ```
 
@@ -2273,7 +2286,6 @@ targets "chr5:76.7Mb" and "chr5:77.7Mb". Another sample (24047809) with am
 intragenic *PTEN* deletion detected on PanSolid was coded as "no deletion" 
 because the deletion coordinates did not overlap with the coordinartes of the
 *PTEN* exon 1 ddPCR assay.
-
 There was wide variation 
 in the copy numbers determined within the control 
 cohort, ranging from 
@@ -2435,14 +2447,6 @@ CDKN2A:
 
 PTEN:
 24018632 - normal on PanSolid, deletion on ddPCR
-
-24047809: 87952113..87961123 - deletion doesn't overlap with ddPCR amplicon
-
-24022883: pansolid call looks like LOH, analyst would say no deletion
-
-24048581: pansolid looks diploid, analyst would say no deletion
-
-24028569: pansolid looks diploid, analyst would say no deletion
 
 24019905: borderline
 
@@ -3286,7 +3290,9 @@ chr10_lod_dosage_plot
 with low fold changes.
 
 ```{r}
-
+#| label: quality-control
+#| eval: FALSE
+#| include: FALSE
 
 ggplot(noise_and_138x, aes(x = stdev_noise, y = percent_138x)) +
   geom_point(shape = 21) +
@@ -3303,7 +3309,7 @@ ggplot(noise_and_138x, aes(x = stdev_noise, y = )) +
 
 ```
 
-### DNA contamination
+### DNA contamination {#sec-results-contamination}
 
 During the validation, it was noticed that the SNP allele frequency plot of the 
 interactive HTML allowed the detection of DNA contamination between samples.
@@ -3403,7 +3409,8 @@ pipeline_metric_tbl <- tibble::tribble(
   "Pipeline software", "QIAgen CLC Genomics Workbench", "Bespoke",
   "CNV caller",  "CNV Detection Tool", "Germline CNVs: DRAGEN CNV; Somatic CNVs: Canvas and Manta",
   "Ploidy caller", "Regional Ploidy Tool", "Canvas",
-  "NCC calculated", "Yes - by Regional Ploidy Tool", "Yes - by Canvas and Ccube"
+  "NCC calculated", "Yes - by Regional Ploidy Tool", "Yes - by Canvas and Ccube",
+  "Whole genome ploidy calculated", "No", "Yes - by Canvas"
 )
 
 knitr::kable(pipeline_metric_tbl)
@@ -3637,7 +3644,14 @@ are shown in @tbl-pansolid-cnv-metrics.
 **Dosage accuracy:** it should be shown how accurate the test is at detecting 
 heterozygous and homozygous deletions, in samples with a range of NCC values.
 
-
+The sensitivities of the PanSolid pipeline for detecting biallelic and monoallelic deletions in comparison to WGS for diploid samples are 
+`r substr(bi_mono_allelic_results[1, 5], 1,3)`% and
+`r substr(bi_mono_allelic_results[2, 5], 1, 4)`%, respectively. The NCC values 
+for these samples ranged from
+`r min(pansolid_vs_wgs_outcomes$calculated_tumour_content, na.rm = TRUE)`
+to
+`r max(pansolid_vs_wgs_outcomes$calculated_tumour_content, na.rm = TRUE)`
+(@sec-results-bi-mono-deletions).
 
 **Quality control:** the test should have clear quality control thresholds
 for deciding when the test results should be reported and when the test has 
@@ -3646,7 +3660,9 @@ failed.
 Consistent with current service thresholds for amplification detection, the 
 detection of deletions and ploidy states requires signal-adjusted noise metrics
 below 1, and optimally below 0.7, and the percentage coverage at 138X should
-be 75% or greater.
+be 75% or greater. The SNP allelic frequency profile can identify DNA 
+contamination down to at least 10% (@sec-results-contamination), 
+and should be checked for every sample.
 
 **Variability:** the test should have defined intra-run variation 
 (repeatability) and inter-run variability (reproducibility) for detection of 
