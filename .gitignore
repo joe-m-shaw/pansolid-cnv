@@ -75,9 +75,6 @@ outputs/
 # Word file
 *.docx
 
-# PNG files
-*.png
-
 # Extra quarto files
 scripts/pansolid_cnv_analysis_files/
 
