@@ -2773,6 +2773,16 @@ this dataset, a fold change measurement below -1 has an uncertainty of
 measurement of ±`r del_uom` (± 2 x `r all_sd`) at a confidence level
 of 95%.
 
+For each sample 
+
+Notably sample 24018518 had 5 genes (*FGFR3*, *MUTYH*, *RAD51C*, *RNF43* and
+*STK11*) which fold changes below the `r deletion_fc_threshold` threshold in the
+second replicate only. The cause of this discrepancy was likely the increased
+signal-adjusted noise (0.43) for this replicate. However, the p value for each
+region was above 0.05, and consequently these regions were not identified by the
+pipeline as significant CNVs. This means that in a clinical scenario they would
+not be analysed or reported.
+
 ```{r}
 #| label: tbl-uom
 #| tbl-cap: "Standard deviation and uncertainty of measurement"
@@ -2859,20 +2869,6 @@ draw_repeat_plot2 <- function(df = repeat_data_long, labno) {
 ```
 
 ```{r}
-#| label: fig-repeat-24018518-fc
-#| fig-cap: "24018518 repeatability results"
-#| echo: FALSE
-#| fig-width: 6
-#| fig-height: 7
-
-fig_repeat_24018518 <- draw_repeat_plot(df = repeat_data_long,
-                 labno = "24018518")
-
-fig_repeat_24018518
-
-```
-
-```{r}
 #| label: fig-repeat-24018518-fc-loss
 #| fig-cap: "24018518 repeatability results"
 #| echo: FALSE
@@ -2887,20 +2883,6 @@ fig_repeat_24018518_loss
 ```
 
 ```{r}
-#| label: fig-repeat-24045597-fc
-#| fig-cap: "24045597 repeatability results"
-#| echo: FALSE
-#| fig-width: 6
-#| fig-height: 7
-
-fig_repeat_24045597 <- draw_repeat_plot(df = repeat_data_long,
-                 labno = "24045597")
-
-fig_repeat_24045597
-
-```
-
-```{r}
 #| label: fig-repeat-24045597-fc-loss
 #| fig-cap: "24045597 repeatability results"
 #| echo: FALSE
@@ -2911,20 +2893,6 @@ fig_repeat_24045597_loss <- draw_repeat_plot2(df = repeat_data_long,
                  labno = "24045597")
 
 fig_repeat_24045597_loss
-
-```
-
-```{r}
-#| label: fig-repeat-24054282-fc
-#| fig-cap: "24054282 repeatability results"
-#| echo: FALSE
-#| fig-width: 6
-#| fig-height: 7
-
-fig_repeat_24054282 <- draw_repeat_plot(df = repeat_data_long,
-                 labno = "24054282")
-
-fig_repeat_24054282
 
 ```
 
@@ -3385,12 +3353,20 @@ across the sample's genome,
 but did not identify genes as being deleted. 
 
 The Genomics England WGS pipeline uses the Canvas algorithm for 
-ploidy calling, which was was optimised using
+ploidy calling, which includes the prediction of whole genome ploidy and 
+was was optimised using
 a cohort of tumour-normal samples with known ploidy and NCC values
-(@roller2016, supplementary information, page 17). This allows Canvas to more
+(@roller2016, supplementary information, page 17). Conversely, the CLC Detect
+Regional Ploidy tool used by the PanSolid pipeline does not include a 
+prediction of whole genome ploidy.
+
+
+This allows Canvas to more
 accurately deconvolute the combination of levels of NCC, ploidy and tumour
 heterogeneity within the sample, whilst the PanSolid pipeline is restricted by
-only using tumour FFPE material. This mis-prediction of ploidy also led to false
+only using tumour FFPE material. 
+
+This mis-prediction of ploidy also led to false
 positive results from the PanSolid pipeline in tumours with high ploidy. A 
 similar scenario was described by @gardina2008: when ploidy was not accounted for,
 SNP-array analysis mistakenly reported a loss of chromosome 10 in 
@@ -3406,9 +3382,9 @@ pipeline_metric_tbl <- tibble::tribble(
   ~"",         ~"PanSolid NGS", ~"Whole genome sequencing",
   "Sample(s)",   "FFPE tumour sample",   "Paired fresh frozen tumour sample and blood sample for germline DNA",
   "Library preparation", "QIAseq panel enrichment", "Whole genome amplification",
-  "Pipeline software", "QIAgen CLC Genomics Workbench", "Bespoke",
-  "CNV caller",  "CNV Detection Tool", "Germline CNVs: DRAGEN CNV; Somatic CNVs: Canvas and Manta",
-  "Ploidy caller", "Regional Ploidy Tool", "Canvas",
+  "Pipeline software", "Analysis in QIAgen CLC Genomics Workbench; visualisation using Python", "Bespoke",
+  "CNV caller",  "CLC CNV Detection Tool", "Germline CNVs: DRAGEN CNV; Somatic CNVs: Canvas",
+  "Ploidy caller", "CLC Regional Ploidy Tool", "Canvas",
   "NCC calculated", "Yes - by Regional Ploidy Tool", "Yes - by Canvas and Ccube",
   "Whole genome ploidy calculated", "No", "Yes - by Canvas"
 )
@@ -3477,6 +3453,11 @@ are usually several Megabases in size.
 
 The resolution of the ploidy caller depends on the SNPs present in the sample.
 
+The QIAseq merged panel does not provide results for the *PMS2* gene, so there
+are no gold standard results for comparison with PanSolid. Analysis of *PMS2* is
+complicated by the presence of 15 pseudogenes which presents a technical
+challenge for confirming the coordinates of any apparently CNV [@blount2018].
+
 ## Small and intragenic deletions
 
 The method was optimised for whole gene deletions, although intragenic deletions
@@ -3502,6 +3483,11 @@ This means the pipeline can alert the analyst to the presence of
 intragenic deletions, which then allows the
 analyst to judge the true extent of the deletion.
 
+## Contamination
+
+A study by @sehn2015 showed that significant contamination above 5% 
+occurred in 3% of cases, 
+whilst lower level contamination may be more prevalent.
 
 ## Uncertainty of Measurement
 
