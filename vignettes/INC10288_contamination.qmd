@@ -1,0 +1,199 @@
+---
+title: "INC10288: DNA contamination"
+author: "Joe Shaw"
+format: pdf
+editor: visual
+---
+
+```{r}
+#| label: contamination-samples
+#| include: FALSE
+#| eval: FALSE
+
+source(here::here("scripts/connect_to_dna_db.R"))
+source(here::here("functions/dna_db_functions.R"))
+
+INC10288_folder <- paste0(config::get("data_folderpath"),
+                          "live_service/INC10288_contamination/")
+
+contamination_samples <- read_csv(file = paste0(INC10288_folder,
+                                  "contamination_dna_labnos.csv"),
+                                  col_types = list(
+                                    "labno" = col_character()
+                                  ))
+
+contamination_labnos <- contamination_samples$labno
+
+# Sample details ----------------------------------------------------------
+
+sample_df <- sample_tbl |> 
+  filter(labno %in% contamination_labnos) |> 
+  select(labno, nhsno, firstname, surname, i_gene_r_no,
+         date_in, consultant_address, comments) |> 
+  collect()
+
+contamination_nhsnos <- sample_df$nhsno
+
+all_sample_df <- sample_tbl |> 
+  filter(nhsno %in% contamination_nhsnos) |> 
+  select(labno, nhsno, firstname, surname, i_gene_r_no,
+         date_in, consultant_address, comments) |> 
+  collect()
+
+impacted_patient_labnos <- all_sample_df$labno
+
+extraction_df <- get_extraction_method(sample_vector = contamination_labnos)
+
+worksheet_df <- dna_db_pcr_records |> 
+  filter(sample %in% impacted_patient_labnos) |> 
+  select(sample, pcrid) |> 
+  collect() |> 
+  distinct()
+
+impacted_worksheets <- unique(worksheet_df$pcrid)
+
+worksheet_details <- dna_db_worksheets |> 
+  filter(pcrid %in% impacted_worksheets) |> 
+  select(pcrid, description, date) |> 
+  collect()
+
+worksheet_df_mod <- worksheet_df |> 
+  left_join(worksheet_details, by = "pcrid")
+
+# Export results ----------------------------------------------------------
+
+export_folder <- paste0(INC10288_folder, "dna_db_exports/")
+
+write_csv(all_sample_df, paste0(export_folder, "all_sample_df.csv"))
+
+write_csv(extraction_df, paste0(export_folder, "extraction_df.csv"))
+
+write_csv(worksheet_df_mod, paste0(export_folder, "worksheet_df_mod.csv"))
+
+```
+
+
+```{r}
+#| label: snp-frequencies
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+
+snp_data_folder <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/Contamination/AF_Frequency_data/"
+
+snp_data_files <- list.files(snp_data_folder,
+                             full.names = TRUE,
+                             recursive = TRUE,
+                             pattern = ".*.xlsx")
+
+snp_filename_regex <- ".*(GIAB_filter|variants_annotated)_(WS\\d{6})_(\\d{8}).*"
+
+read_snp_data <- function(filepath) {
+  
+  df <- read_excel(path = filepath,
+                   range = cell_cols("A:L"),
+                   col_types = c(
+                     "text", "text", "text", "text", "text", 
+                     "text", "numeric", "text", "text",
+                     "numeric", "numeric", "numeric"
+                   )) |> 
+    janitor::clean_names() |> 
+    mutate(
+      filepath = filepath,
+      worksheet = str_extract(string = filepath,
+                              pattern = snp_filename_regex,
+                              group = 2),
+      labno = str_extract(string = filepath,
+                              pattern = snp_filename_regex,
+                              group = 3))
+  
+  return(df)
+  
+}
+
+all_snp_data <- snp_data_files |> 
+  map(\(snp_data_files) read_snp_data(snp_data_files)) |> 
+  list_rbind()
+
+make_snp_plot <- function(sample1_ws, sample1_labno,
+                          sample2_ws, sample2_labno) {
+  
+  sample1_df <- all_snp_data |> 
+    filter(worksheet == sample1_ws &
+             labno == sample1_labno)
+  
+  sample2_df <- all_snp_data |> 
+    filter(worksheet == sample2_ws &
+             labno == sample2_labno)
+                                        
+  comparison_df <- sample1_df |> 
+    filter(type == "SNV") |> 
+    select(chromosome, region, type, reference, reference_allele, allele, frequency) |> 
+    left_join(sample2_df |> 
+                filter(type == "SNV") |> 
+                select(chromosome, region, type, reference, reference_allele,
+                       allele, frequency) |> 
+                rename(sample2_frequency = frequency),
+              join_by(chromosome, region, type, reference, reference_allele,
+                      allele)) |> 
+    mutate(sample2_frequency_category = case_when(
+      sample2_frequency > 90 ~"Above 90%",
+      sample2_frequency < 60 &
+        sample2_frequency > 40 ~"Between 40-60%",
+      sample2_frequency < 10 ~"Lower than 10%",
+      TRUE ~"Not present")) |> 
+      rename(sample1_frequency = frequency)
+  
+  comparison_df_no_na <- comparison_df |> 
+    filter(!is.na(sample2_frequency))
+  
+  comparison_plot <- comparison_df |> 
+    ggplot(aes(x = region, y = sample1_frequency)) +
+    geom_point(shape = 21, aes(fill = sample2_frequency_category),
+               alpha = 0.8) +
+    scale_fill_manual(values = c("#56B4E9", "#D55E00", "#999999", "white")) +
+    theme_bw() +
+    theme(axis.text.x = element_blank(),
+          panel.grid = element_blank()) +
+    scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+    labs(x = "SNPs", y = "SNP Allele Frequency",
+         fill = paste0("Percentage in ", sample2_labno),
+         title = paste0("SNP data from ", sample1_labno),
+         subtitle = paste0("SNPs coloured by frequency in ", sample2_labno),
+         caption = paste0(nrow(comparison_df_no_na), " SNPs match"))
+  
+  return(list(comparison_plot, comparison_df))
+  
+}
+
+```
+
+## 25009458
+
+When we compare the genotypes of the sample directly after 25009458 on worksheet
+WS150808 (25009459), we find that they line up with the contamination pattern
+seen in 25009458.
+
+```{r}
+#| label: fig-25009458
+#| echo: FALSE
+#| fig-width: 6
+#| fig-height: 6
+
+fig_25009458 <- make_snp_plot("WS150808", "25009458",
+              "WS150808", "25009459")[1]
+
+fig_25009458
+  
+```
+
+{{< pagebreak >}}
+
+## 25006349
+
+I've checked all samples on WS150302. None seem to match the allelic pattern.
+
+## 25003615
+
+I've checked all samples on WS149784. None seem to match the allelic pattern.
