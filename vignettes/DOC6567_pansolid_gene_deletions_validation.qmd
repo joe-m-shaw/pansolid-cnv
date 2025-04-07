@@ -279,7 +279,7 @@ prev_validation_table <- tribble(
   "Verification of PanSolid enrichment version 2", "DOC6024 v3", "April 2024",
   "Detection of amplifications in *ERBB2*", "DOC6260", "April 2024",
   "Detection of amplifications in 8 additional genes", "DOC6283", "November 2024",
-  "Detection of gene deletions and ploidy states", "DOC6567", "March 2025"
+  "Detection of gene deletions and ploidy states", "DOC6567", "April 2025"
 )
 
 kable(prev_validation_table)
@@ -316,7 +316,7 @@ of a gene by copying the other allele.
 If the allele used
 for the repair contains a deleterious variant, such as a pathogenic sequence 
 variant or a gene deletion, the genotype of the cell changes
-from being heterozygous for the variant to being homozygous. Copy-neutral LOH
+from being monoallelic for the variant to being biallelic. Copy-neutral LOH
 is a frequent pathogenic mechanism in multiple cancer types, including
 colorectal cancer [@melcher2007], and is similar but distinct from the copy-loss
 LOH which accompanies a gene deletion. In this way, LOH is an attribute of 
@@ -349,7 +349,7 @@ cell to cause cancer. One example is the common inactivation of the
 missense variant on one allele and a mono-allelic loss of
 chromosome 17p on the other allele [@bendavid2020; @levine2020]. 
 Conversely, a gene loss may be due to a 
-homozygous event, such as the recurrent focal bi-allelic deletion of 
+biallelic event, such as the recurrent focal bi-allelic deletion of 
 the *CDKN2A* and *CDKN2B* genes in
 central nervous system tumours [@louis2021].
 
@@ -515,7 +515,7 @@ Due to their proximity, *CDKN2A* and *CDKN2B* are frequently deleted together,
 and this co-deletion of these loci may be abbreviated to *CDKN2A/B*. However
 there are less common cases where only one gene is deleted. For example, 
 @gonzálezgil2021 reported that in 20% of acute lymphoblastic leukaemia only 
-one of *CDKN2A* or *CDKN2B* was lost. Homozygous *CDKN2A/B* deletion is
+one of *CDKN2A* or *CDKN2B* was lost. biallelic *CDKN2A/B* deletion is
 included in the fifth edition 
 of the World Health Organisation Classification
 of Tumours of the Central Nervous System [@louis2021], and is associated with
@@ -637,7 +637,7 @@ LOH, of the following genes:
 specificity, calculated by comparison with orthogonal methods.
 
 3. **Dosage accuracy:** it should be shown how accurate the test is at detecting 
-heterozygous and homozygous deletions, in samples with a range of NCC values.
+monoallelic and biallelic deletions, in samples with a range of NCC values.
 
 4. **Quality control:** the test should have clear quality control thresholds
 for deciding when the test results should be reported and when the test has 
@@ -801,12 +801,12 @@ fold_change_df <- data.frame(ncc = seq(0, 100, by = 0.1)) |>
 
 The NCC of a sample and the number of gene copies per cell both impact the total
 measured fold change and copy number of a sample, with fold change providing a 
-greater distinction between homozygous and heterozygous deletions, as shown in 
+greater distinction between biallelic and monoallelic deletions, as shown in 
 @fig-fold-change-vs-ncc and @fig-fold-change-vs-cn. 
 Initially, the fold change threshold 
 was set at
 `r round(deletion_fc_threshold_theoretical,2)`
-as this was the predicted fold change for a sample with a heterozygous deletion 
+as this was the predicted fold change for a sample with a monoallelic deletion 
 at 50% NCC. Following initial testing of samples, this was modified to
 `r deletion_fc_threshold`.
 
@@ -828,8 +828,8 @@ fig_fold_change_vs_ncc <- ggplot(fold_change_df, aes(x = ncc, y = fold_change)) 
   labs(y = "Fold change (loss equation)", x = "Neoplastic cell content",
        colour = "") +
   geom_hline(yintercept = round(deletion_fc_threshold,2), linetype = "dashed") +
-  annotate("text", x = 65, y = -4.5, label = "Homozyous \n deletion") +
-  annotate("text", x = 90, y = -2.5, label = "Heterozygous \n deletion") +
+  annotate("text", x = 65, y = -4.5, label = "biallelic \n deletion") +
+  annotate("text", x = 90, y = -2.5, label = "monoallelic \n deletion") +
   annotate("text", x = 90, y = -0.5, label = "Normal")
 
 fig_fold_change_vs_ncc
@@ -858,8 +858,8 @@ fig_fold_change_vs_cn <- ggplot(copy_number_df, aes(x = ncc, y = copy_number)) +
   theme(legend.position = "blank") +
   labs(y = "Overall copy number", x = "Neoplastic cell content",
        colour = "") +
-  annotate("text", x = 75, y = 0.2, label = "Homozyous \n deletion") +
-  annotate("text", x = 90, y = 0.8, label = "Heterozygous \n deletion") +
+  annotate("text", x = 75, y = 0.2, label = "biallelic \n deletion") +
+  annotate("text", x = 90, y = 0.8, label = "monoallelic \n deletion") +
   annotate("text", x = 90, y = 1.8, label = "Normal") 
 
 fig_fold_change_vs_cn
@@ -1174,7 +1174,7 @@ Of these, `r nrow(results_passing_qc)` replicates had signal-adjusted noise
 values below 0.7 and percentage coverage at 138X greater than 75%.
 There was a clear relationship between the size of the detected deletions and
 their fold changes (@fig-cnv-size-distribution); shorter focal deletions had
-lower fold change values, consistent with homozygous losses, and all regions with 
+lower fold change values, consistent with biallelic losses, and all regions with 
  fold changes below -3 were less than 7 Megabases (Mb) in length.
 
 `r nrow(sig_cnvs_passing_qc)` target gene regions with fold changes lower than the 
@@ -1496,6 +1496,8 @@ instances for the
 where the results of the ploidy caller
 contradicted the results of the CNV caller.
 
+{{< pagebreak >}}
+
 ## Comparison to whole genome sequencing
 
 ```{r}
@@ -1590,15 +1592,15 @@ detected by Canvas ranged from
 `r round(max(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000000, 1)` Mb in
 length. To avoid double-counting,
 samples where DNA was tested following multiple extraction methods 
-(QIAsymphony, Cobas or fresh frozen tissue)
-had a single sample of DNA extracted via the QIAsymphony method 
+(QIAsymphony, Cobas or fresh frozen tissue),
+a single sample of DNA extracted via the QIAsymphony method was
 selected for the comparison. If QIAsymphony-extracted DNA was not available, 
 DNA from fresh frozen tissue was used instead. Results were only compared when
 the noise and coverage metrics were above the quality control thresholds. The
 CNV regions detected by the PanSolid pipeline were manually reviewed using the
 output Excel spreadsheet and the interactive HTML file to check whether each 
 CNV region appeared to be genuine. This process revealed examples of both 
-false positive and false negative CNV classifictions.
+false positive and false negative CNV classifications.
 
 ```{r}
 #| label: compare-pansolid-to-wgs-results
@@ -1701,9 +1703,9 @@ path_24030951 <- paste0(image_folderpath,
 
 caption_24030951 <- "For this sample, PanSolid NGS 
 (24030951, WS143415, panel: v2PANSOLID) identified a partial deletion in 
-the MUTYH gene on chromosome 1 with a fold change of -1.28
+the *MUTYH* gene on chromosome 1 with a fold change of -1.28
 (highlighted in the red box). However, 
-the ploidy caller and SNP profile at the MUTYH locus both indicate a normal 
+the ploidy caller and SNP profile at the *MUTYH* locus both indicate a normal 
 diploid result (black arrow). WGS on DNA from fresh frozen tissue 
 from the same pathology 
 block (23018367) did not detect a deletion in *MUTYH*."
@@ -1716,7 +1718,7 @@ In other cases, the reverse scenario was observed: the PanSolid pipeline
 categorised genes as not being deleted with fold changes slightly above the
 `r deletion_fc_threshold` fold change threshold, whilst
 SNP allele frequencies indicated the loss of a large chromosomal region. An 
-example is shown in @fig-23024575-false-negative.
+example is shown in @fig-23024575-false-neg.
 
 ```{r}
 #| label: wgs-false-neg-image
@@ -1725,7 +1727,8 @@ example is shown in @fig-23024575-false-negative.
 path_23024575 <- paste0(image_folderpath,
                         "23024575_false_negative.png")
 
-caption_23024575 <- "WGS for this sample shows a loss of chromosome 10. On 
+caption_23024575 <- "WGS for this sample shows a loss of chromosome 10
+(23024547). On 
 PanSolid, the CLC ploidy caller also detects this loss and deletions are 
 detected in *BMPR1A* and *PTEN*. However, *FGFR2* and *SUFU*, also on 
 chromosome 10, are not identified as deletions on PanSolid 
@@ -1734,16 +1737,63 @@ fold changes of -1.23 which are just below the fold change threshold of-1.25."
 
 ```
 
-![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-negative height=5in}
+![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-neg height=5in}
 
 ### Haploidy and polyploidy
 
-The WGS sample cohort was deliberately selected to represent a range of 
+The CLC Detect Regional Ploidy Tool does not calculate ploidy at the whole
+genome level. The WGS sample cohort was deliberately selected to represent a range of 
 genome ploidy states, with the Genomics England pipeline detecting whole
 genome ploidy ranging from hexpaloidy (overall ploidy: 
 `r max(del_val_wgs_html_ids$calculated_overall_ploidy)`) to a sample
 with haploidy (overall ploidy: 
-`r min(del_val_wgs_html_ids$calculated_overall_ploidy)`).
+`r min(del_val_wgs_html_ids$calculated_overall_ploidy)`) 
+(@tbl-wgs-pansolid-ploidy).
+
+```{r}
+#| label: wgs-ploidy
+#| include: FALSE
+
+tbl_wgs_pansolid_ploidy <- pansolid_vs_wgs_outcomes |> 
+  left_join(
+    del_val_wgs_html_ids |> 
+      select(nhsno, labno, calculated_overall_ploidy,
+             calculated_chromosome_count) |> 
+      rename(wgs_ploidy = calculated_overall_ploidy,
+             wgs_chrom_count = calculated_chromosome_count,
+             wgs_labno = labno),
+    by = "nhsno") |> 
+  filter(wgs_ploidy < 1.5 |
+           wgs_ploidy > 2.5) |> 
+  group_by(labno.x, wgs_labno, 
+           wgs_ploidy, wgs_chrom_count, outcome_pipeline) |> 
+  count() |> 
+  pivot_wider(id_cols = c(labno.x, wgs_labno, wgs_ploidy,
+                          wgs_chrom_count),
+              names_from = outcome_pipeline,
+              values_from = n,
+              values_fill = 0) |>  
+  arrange(wgs_ploidy) |>
+  select(-c(true_positive, true_negative)) |>  
+  adorn_totals(,,,, false_positive, false_negative) |> 
+  rename(`DNA number (PanSolid)` = labno.x,
+         `DNA number (WGS)` = wgs_labno,
+         `Ploidy detected by WGS` = wgs_ploidy,
+         `Chromosome count detected by WGS` = wgs_chrom_count,
+         `False positives` = false_positive,
+         `False negatives` = false_negative)
+  
+```
+
+```{r}
+#| label: tbl-wgs-pansolid-ploidy
+#| tbl-cap: "WGS ploidy samples tested on PanSolid"
+#| echo: FALSE
+
+kable(tbl_wgs_pansolid_ploidy)
+
+```
+
 For the haploid sample (24062632, panel: v2PANSOLID), the PanSolid pipeline
 did not account for the reduced chromosome dosage across the majority of the
 genome, and measured gene dosage from this reduced baseline. This led
@@ -1759,7 +1809,7 @@ path_24062632 <- paste0(image_folderpath,
                         "24062632_haploid_false_negative.png")
 
 caption_24062632 <- "WGS for this tumour sample showed a haploid genome 
-(ploidy: 1.2, NCC: 78.6%) with diploid copy number of chromosomes 5, 7, 13, 
+(24062650, ploidy: 1.2, NCC: 78.6%) with diploid copy number of chromosomes 5, 7, 13, 
 16, 19 and 20. Conversely, on PanSolid NGS performed on an FFPE sample for the
 same tumour (24062632, panel: v2PANSOLID) these chromosomes are 
 classified as gains, with the rest of the 
@@ -1769,33 +1819,6 @@ false negative results for the genes on these chromosomes."
 ```
 
 ![`r caption_24062632`](`r path_24062632`){#fig-24062632-haploid-false-negative height=5in}
-
-```{r}
-#| label: wgs-ploidy
-#| include: FALSE
-
-tbl_wgs_pansolid_ploidy <- pansolid_vs_wgs_outcomes |> 
-  left_join(
-    del_val_wgs_html_ids |> 
-      select(nhsno, calculated_overall_ploidy,
-             calculated_chromosome_count) |> 
-      rename(wgs_ploidy = calculated_overall_ploidy,
-             wgs_chrom_count = calculated_chromosome_count),
-    by = "nhsno") |> 
-  filter(wgs_ploidy < 1.5 |
-           wgs_ploidy > 2.5) |> 
-  group_by(labno.x, wgs_ploidy, wgs_chrom_count, outcome_pipeline) |> 
-  count() |> 
-  pivot_wider(id_cols = c(labno.x, wgs_ploidy,
-                          wgs_chrom_count),
-              names_from = outcome_pipeline,
-              values_from = n,
-              values_fill = 0) |>  
-  arrange(wgs_ploidy) |> 
-  select(-c(true_positive, true_negative)) |>  
-  adorn_totals()
-
-```
 
 The reverse was observed for 
 `r nrow(tbl_wgs_pansolid_ploidy)-2`
@@ -1820,21 +1843,14 @@ caption_24045841 <- "WGS for this tumour sample showed a hexaploid genome
 comparative to the overall ploidy (black dashed line). PanSolid NGS, 
 performed on an FFPE sample from the same tumour block
 (24042543, WS146593, panel: v2PANSOLID), detects these 
-relative losses as deletions for 4 target genes (chr8: FGFR1; chr10: PTEN; 
-chr13: BRCA2 and RB1), which are subsequently classed as false positives."
+relative losses as deletions for 4 target genes (chr8: *FGFR1*; chr10: *PTEN*; 
+chr13: *BRCA2* and *RB1*), which are subsequently classed as false positives.
+However, a biallelic deletion of the *CDKN2A* deletion is still correctly
+identified."
 
 ```
 
 ![`r caption_24045841`](`r path_24045841`){#fig-24045841-false-positive-hexaploid height=5in}
-
-```{r}
-#| label: tbl-wgs-pansolid-ploidy
-#| tbl-cap: "WGS ploidy samples tested on PanSolid"
-#| echo: FALSE
-
-kable(tbl_wgs_pansolid_ploidy)
-
-```
 
 ### Sensitivity and specificity 
 
@@ -1844,7 +1860,7 @@ compared; then the results following manual review of each detected CNV, which
 accounted for occasional discrepancies with the SNP allele frequencies
 (@sec-results-wgs-false-pos-neg); and finally for only those samples confirmed
 as diploid (overall ploidy 1.5-2.5) by WGS, which accounted for discrepancies
-due to ploidy. The results are shown in @tbl-pansolid-wgs-metrics.
+due to ploidy. The results are shown in @tbl-pansolid-wgs-metrics. 
 
 ```{r}
 #| label: pansolid-wgs-sensitivity
@@ -1896,21 +1912,81 @@ knitr::kable(wgs_outcome_table)
 
 ```
 
-23013975 - MUTYH deletion - visible in SNP track
-23024575 - FGFR2 and SUFU - chr10 deletion visible, but fold changes slightly
-to high
-23024575 - BMPR1A del on pansolid but not WGS - check pathno - different pathno
+Following manual review of CNV calls in diploid samples, there were 8 discrepant
+results between PanSolid and WGS. These results are summarised in
+@tbl-wgs-discrepant_results and individually reviewed below. The DNA numbers in 
+bold are the identifiers for the PanSolid results.
 
-N418/23 B
-NB24-540
+ - **24035922**: PanSolid detected a deletion in *BMPR1A* which was not detected
+ on WGS (WGS DNA number: 24036644). The deletion call included only 
+ one target of *BMPR1A*, 
+ and was caused
+ by a biallelic deletion of the nearby *PTEN* gene. 
+ 
+ - **24025266**: PanSolid detected a *CDKN2B* deletion 
+ (coordinates: GRCh38 chr9:21978976-22206994) which was also detected
+ on WGS
+ (coordinates: GRCh38 chr9:21977849-22286172; WGS DNA number 24029491), 
+ but PanSolid also detected a 
+ partial deletion of *CDKN2A* which was 
+ not detected on WGS. Closer inspection showed that the partial deletion only 
+ impacted the NM_058195.4 (ENST000005797) transcript of *CDKN2A*. The 
+ deletion coordinates overlapped those reported by WGS, but the WGS report
+ uses the smaller NM_000077.5 (ENST00000304494) transcript for reporting
+ *CDKN2A* deletions.
+ 
+ - **24031053**: a partial *SUFU* deletion with a fold change of -1.7 was
+ reported by PanSolid, but not by WGS (WGS DNA number: 24031671).
+ However the p value of the deletion call
+ on PanSolid was above 0.05 and the call was not displayed as a significant CNV
+ in the Excel output.
+ 
+ - **23013975**: a deletion of chromosome 1p was detected on WGS (WGS DNA
+ number: 23013975), and identified
+ by the ploidy caller on PanSolid, however the fold change of the *MUTYH* gene
+ was slightly above the `r deletion_fc_threshold` threshold and so was not 
+ identified as being deleted.
 
-24025266 - PanSolid: partial loss of CDKN2A and full loss of CDKN2B on a 
-background of copy neutral LOH. WGS: full loss of CDKN2B on a background of
-copy neutral LOH.
+- **23024575**: a chromosome 10 deletion was detected on WGS and PanSolid
+ (WGS DNA number: 23024547), but
+the fold changes of the *SUFU* and *FGFR2* genes were slightly above the 
+`r deletion_fc_threshold` threshold. This sample is shown in @fig-23024575-false-neg.
 
-24031053 - SUFU del called in del_genes table but not sig cnv table
+- **24019998**: deletions of *FH* (chromosome 1p) and *CDH1* (chromosome 16q) 
+were detected on WGS (WGS DNA number: 24024109), but not on PanSolid. 
+Evidence of chromosomal changes
+at 1p and 16q were visible on PanSolid but had been identified as copy neutral
+LOH and a gain, respectively, by the Detect Regional Ploidy Tool. Deletions in
+12 other target genes were successfully detected for this sample.
 
-24019998 - FH	borderline 1.247270687, CDH1 not borderline
+```{r}
+#| label: tbl-wgs-discrepant_results
+#| tbl-cap: "WGS discrepant results"
+#| echo: FALSE
+
+wgs_discrepant_results <- pansolid_vs_wgs_outcomes |> 
+  filter(nhsno %in% diploid_wgs_samples$nhsno) |>
+  filter(outcome_combined %in% c("false_positive",
+                                 "false_negative")) |>  
+  left_join(del_val_wgs_html_ids |> 
+              select(nhsno, labno) |> 
+              rename(wgs_labno = labno),
+            by = "nhsno") |> 
+  select(labno.x, wgs_labno,
+         gene, min_region_fold_change, wgs_result, outcome_combined) |> 
+  arrange(outcome_combined) |> 
+  mutate(`Minimum fold change` = round(min_region_fold_change, 3)) |> 
+  relocate(`Minimum fold change`, .after = gene) |> 
+  rename(`PanSolid DNA number` = labno.x,
+         `WGS DNA number` = wgs_labno,
+         `Gene` = gene,
+         `WGS result` = wgs_result,
+         `Outcome` = outcome_combined) |> 
+  select(-min_region_fold_change)
+  
+kable(wgs_discrepant_results)
+
+```
 
 ```{r}
 #| label: fig-pansolid-wgs-counts-plot
@@ -1954,19 +2030,28 @@ fig_pansolid_wgs_counts_plot
 There was a clear relationship between the fold change measured by the PanSolid
 pipeline and the overall gene copy number from WGS
 (@fig-copy-number-vs-fold-change). All biallelic gene deletions with copy 
-numbers of 0 on WGS were detected as deletions by PanSolid, except for a 
+numbers of 0 on WGS were detected as deletions by PanSolid, even in non-diploid
+samples, except for a 
 germline *CDKN2A* deletion in sample 24048159 (panel: v2PANSOLID), which only
 impacted the *CDKN2A*
 NM_000077.5 transcript. This deletion is expected to be detected when the
-pipeline graining level for *CDKN2A* is changed to "fine".
-
-The sensitivity for detection of confirmed monoallelic and biallelic deletions
-is shown in @tbl-bi-mono-del-detection. 
+pipeline graining level for *CDKN2A* is changed to "fine". The sensitivity 
+values for 
+detection of confirmed monoallelic and biallelic deletions in all samples and
+in confirmed diploid samples 
+are shown in @tbl-bi-mono-del-detection. Notably, biallelic deletions can
+be successfully detected in polyploid samples, whilst the sensitivity for 
+detecting monoallelic deletions is greatly reduced versus the sensitivity for
+diploid samples.
 
 ```{r}
 #| label: fig-copy-number-vs-fold-change
 #| fig-cap: "Copy number vs fold change"
 #| echo: FALSE
+
+pansolid_vs_wgs_outcomes |> 
+  filter(cnv_copy_number == 1 &
+           min_region_fold_change < -10) |>  view()
 
 fig_copy_number_vs_fold_change <- pansolid_vs_wgs_outcomes |> 
   mutate(cnv_copy_number = case_when(
@@ -1994,47 +2079,83 @@ fig_copy_number_vs_fold_change
 #| tbl-cap: "Detection rate of monoallelic and biallelic deletions"
 #| echo: FALSE
 
-bi_mono_gene_counts <- pansolid_vs_wgs_outcomes |> 
+bi_mono_gene_counts_all <- pansolid_vs_wgs_outcomes |> 
+  filter(cnv_copy_number %in% c(0, 1)) |> 
+  group_by(cnv_copy_number) |> 
+  summarise(genes = length(unique(gene)))
+
+bi_mono_gene_counts_diploid <- pansolid_vs_wgs_outcomes |> 
   filter(cnv_copy_number %in% c(0, 1) 
          & nhsno %in% diploid_wgs_samples$nhsno
          ) |> 
   group_by(cnv_copy_number) |> 
   summarise(genes = length(unique(gene)))
 
-biallelic_del_results <- pansolid_vs_wgs_outcomes |> 
+biallelic_del_results_all <- pansolid_vs_wgs_outcomes |> 
+  filter(cnv_copy_number == 0) |> 
+  group_by(cnv_copy_number, outcome_combined) |> 
+  count(outcome_combined, .drop = FALSE)
+
+biallelic_del_results_diploid <- pansolid_vs_wgs_outcomes |> 
   filter(cnv_copy_number == 0 
          & nhsno %in% diploid_wgs_samples$nhsno
          ) |> 
   group_by(cnv_copy_number, outcome_combined) |> 
   count(outcome_combined, .drop = FALSE)
 
-biallelic_se_sp <- make_se_sp_table(biallelic_del_results$n) |> 
+biallelic_se_sp_all <- make_se_sp_table(biallelic_del_results_all$n) |> 
   mutate(deletion = "Biallelic",
          cnv_copy_number = 0)
 
-monoallelic_del_results <- pansolid_vs_wgs_outcomes |> 
+biallelic_se_sp_diploid <- make_se_sp_table(biallelic_del_results_diploid$n) |> 
+  mutate(deletion = "Biallelic",
+         cnv_copy_number = 0)
+
+monoallelic_del_results_all <- pansolid_vs_wgs_outcomes |> 
+  filter(cnv_copy_number == 1) |> 
+  group_by(cnv_copy_number, outcome_combined) |> 
+  count(outcome_combined, .drop = FALSE)
+
+monoallelic_del_results_diploid <- pansolid_vs_wgs_outcomes |> 
   filter(cnv_copy_number == 1 
          & nhsno %in% diploid_wgs_samples$nhsno
          ) |> 
   group_by(cnv_copy_number, outcome_combined) |> 
   count(outcome_combined, .drop = FALSE)
 
-monoallelic_se_sp <- make_se_sp_table(monoallelic_del_results$n) |> 
+monoallelic_se_sp_all <- make_se_sp_table(monoallelic_del_results_all$n) |> 
   mutate(deletion = "Monoallelic",
          cnv_copy_number = 1) 
 
-bi_mono_allelic_results <- rbind(biallelic_se_sp,
-                                monoallelic_se_sp) |> 
+monoallelic_se_sp_diploid <- make_se_sp_table(monoallelic_del_results_diploid$n) |> 
+  mutate(deletion = "Monoallelic",
+         cnv_copy_number = 1) 
+
+bi_mono_allelic_results_all <- rbind(biallelic_se_sp_all,
+                                monoallelic_se_sp_all) |> 
   ungroup() |> 
-  left_join(bi_mono_gene_counts, by = "cnv_copy_number") |> 
+  left_join(bi_mono_gene_counts_all, by = "cnv_copy_number") |> 
+  mutate(cohort = "All samples")
+
+bi_mono_allelic_results_diploid <- rbind(biallelic_se_sp_diploid,
+                                monoallelic_se_sp_diploid) |> 
+  ungroup() |> 
+  left_join(bi_mono_gene_counts_diploid, by = "cnv_copy_number") |> 
+  mutate(cohort = "Diploid samples only")
+
+
+bi_mono_del_table <- rbind(bi_mono_allelic_results_all,
+     bi_mono_allelic_results_diploid ) |> 
   select(-c(cnv_copy_number,
             `False positives`, `True negatives`, `Specificity (%)`)) |> 
   relocate(deletion) |> 
   relocate(genes, .after = deletion) |> 
+  relocate(cohort, .before = deletion) |> 
   rename(`Deletions` = deletion,
-         `Genes` = genes)
+         `Genes` = genes,
+         `Cohort` = cohort)
 
-kable(bi_mono_allelic_results)
+kable(bi_mono_del_table)
 
 ```
 
@@ -2166,6 +2287,8 @@ wgs_ncc_plot <- wgs_ncc_comp |>
 wgs_ncc_plot
 
 ```
+
+{{< pagebreak >}}
 
 ## Comparison to ddPCR
 
@@ -3006,9 +3129,9 @@ part of the q arm, including *PTEN*, when no glioma sample was added
 the majority of chromosome 10q, this could not reliably be differentiated 
 from the background when the simulated NCC fell below 60%. As shown in 
 @fig-chr9-lod-fold-change-plot, the results for *CDKN2A* and
-*CDKN2B* broadly follow the trajectory predicted for a homozygous deletion. 
+*CDKN2B* broadly follow the trajectory predicted for a biallelic deletion. 
 On the other hand, a similar relationship with the predicted values for a 
-heterozygous deletion is only observed for certain genes on chromosome 10q
+monoallelic deletion is only observed for certain genes on chromosome 10q
 (*BMPR1A*, *FGFR2* and *SUFU*) but not for *PTEN* 
 (@fig-chr10-lod-fold-change-plot).
 
@@ -3206,8 +3329,8 @@ chr9_lod_dosage_plot <- lod_gene_results |>
   facet_wrap(~gene) +
   labs(x = "Neoplastic cell content", y = "Fold change",
        caption = "Error bars show uncertainty of measurement") +
-  annotate("text", x = 65, y = -4.5, label = "Homozyous \n deletion") +
-  annotate("text", x = 90, y = -2.5, label = "Heterozygous \n deletion") +
+  annotate("text", x = 65, y = -4.5, label = "biallelic \n deletion") +
+  annotate("text", x = 90, y = -2.5, label = "monoallelic \n deletion") +
   annotate("text", x = 90, y = -0.5, label = "Normal")
   
 chr9_lod_dosage_plot
@@ -3244,8 +3367,8 @@ chr10_lod_dosage_plot <- lod_gene_results |>
   facet_wrap(~gene, nrow = 2, ncol = 2) +
   labs(x = "Neoplastic cell content", y = "Fold change",
        caption = "Error bars show uncertainty of measurement") +
-  annotate("text", x = 65, y = -4.5, label = "Homozyous \n deletion") +
-  annotate("text", x = 90, y = -3.5, label = "Heterozygous \n deletion") +
+  annotate("text", x = 65, y = -4.5, label = "biallelic \n deletion") +
+  annotate("text", x = 90, y = -3.5, label = "monoallelic \n deletion") +
   annotate("text", x = 90, y = -0.5, label = "Normal")
 
 chr10_lod_dosage_plot
@@ -3394,7 +3517,7 @@ knitr::kable(pipeline_metric_tbl)
 ```
 
 Even accounting for the differences in ploidy calculation, there were still
-discrepant results between PanSolid CLC and WGS analysis for heterozygous gene
+discrepant results between PanSolid CLC and WGS analysis for monoallelic gene
 losses. Manual inspection of
 the HTML files for each result showed that in each case the correct result 
 could be interpreted from viewing the log2 ratios and the SNP track 
@@ -3628,11 +3751,11 @@ LOH detection. The sensitivity and specificity values for these comparisons
 are shown in @tbl-pansolid-cnv-metrics.
 
 **Dosage accuracy:** it should be shown how accurate the test is at detecting 
-heterozygous and homozygous deletions, in samples with a range of NCC values.
+monoallelic and biallelic deletions, in samples with a range of NCC values.
 
 The sensitivities of the PanSolid pipeline for detecting biallelic and monoallelic deletions in comparison to WGS for diploid samples are 
-`r substr(bi_mono_allelic_results[1, 5], 1,3)`% and
-`r substr(bi_mono_allelic_results[2, 5], 1, 4)`%, respectively. The NCC values 
+`r substr(bi_mono_allelic_results_diploid[1, 5], 1,3)`% and
+`r substr(bi_mono_allelic_results_diploid[2, 5], 1, 4)`%, respectively. The NCC values 
 for these samples ranged from
 `r min(pansolid_vs_wgs_outcomes$calculated_tumour_content, na.rm = TRUE)`
 to
