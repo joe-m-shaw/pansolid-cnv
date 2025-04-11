@@ -72,13 +72,14 @@ write_csv(worksheet_df_mod, paste0(export_folder, "worksheet_df_mod.csv"))
 
 ```
 
-
 ```{r}
 #| label: snp-frequencies
 #| include: FALSE
 
 library(tidyverse)
 library(readxl)
+
+source(here::here("functions/filename_functions.R"))
 
 snp_data_folder <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/Contamination/AF_Frequency_data/"
 
@@ -98,17 +99,11 @@ read_snp_data <- function(filepath) {
                      "text", "numeric", "text", "text",
                      "numeric", "numeric", "numeric"
                    )) |> 
-    janitor::clean_names() |> 
-    mutate(
-      filepath = filepath,
-      worksheet = str_extract(string = filepath,
-                              pattern = snp_filename_regex,
-                              group = 2),
-      labno = str_extract(string = filepath,
-                              pattern = snp_filename_regex,
-                              group = 3))
+    janitor::clean_names() 
   
-  return(df)
+  output <- add_identifiers(filepath, df)
+  
+  return(output)
   
 }
 
@@ -121,11 +116,11 @@ make_snp_plot <- function(sample1_ws, sample1_labno,
   
   sample1_df <- all_snp_data |> 
     filter(worksheet == sample1_ws &
-             labno == sample1_labno)
+             labno_suffix == sample1_labno)
   
   sample2_df <- all_snp_data |> 
     filter(worksheet == sample2_ws &
-             labno == sample2_labno)
+             labno_suffix == sample2_labno)
                                         
   comparison_df <- sample1_df |> 
     filter(type == "SNV") |> 
@@ -169,11 +164,60 @@ make_snp_plot <- function(sample1_ws, sample1_labno,
 
 ```
 
+## Identifying contamination
+
+One way to identify contamination is to plot the SNP frequencies within a 
+sample (sample 1) and then colour the data by the genotypes of the SNPs in 
+the sample which 
+is suspected of being the contaminant (sample 2).
+
+If sample 1 is not contaminated with sample 2, then there should be no 
+pattern to the colouring. Here is an example from the limit of detection 
+experiment: sample 24026628 was analysed on it's own as "24026628a". Here are the
+results coloured by a random sample from the same worksheet (25008651).
+
+```{r}
+#| label: plot-24026628b-no-cont
+#| echo: FALSE
+
+plot_24026628b_no_cont <- make_snp_plot("WS150465", "24026628b",
+              "WS150465", "25008651")[1]
+
+plot_24026628b_no_cont
+
+```
+
+Now here's what the plot looks like if the SNP data is coloured by the genotypes
+in sample 24053299, which was deliberately mixed into 24026628b.
+
+```{r}
+#| label: plot-24026628b-cont
+#| echo: FALSE
+
+plot_24026628b_cont <- make_snp_plot("WS150465", "24026628b",
+              "WS150529", "24053299")[1]
+
+plot_24026628b_cont
+
+```
+
+
+```{r}
+
+WS146642_labnos <- all_snp_data |> 
+  filter(worksheet == "WS146642")
+
+unique(WS146642_labnos$labno)
+
+make_snp_plot("WS146642", "24054291",
+              "WS146642", "24057739")[1]
+
+
+```
+
 ## 25009458
 
-When we compare the genotypes of the sample directly after 25009458 on worksheet
-WS150808 (25009459), we find that they line up with the contamination pattern
-seen in 25009458.
+When we compare the genotypes of the sample directly after 25009458 on worksheet WS150808 (25009459), we find that they line up with the contamination pattern seen in 25009458.
 
 ```{r}
 #| label: fig-25009458
@@ -185,7 +229,7 @@ fig_25009458 <- make_snp_plot("WS150808", "25009458",
               "WS150808", "25009459")[1]
 
 fig_25009458
-  
+
 ```
 
 {{< pagebreak >}}
