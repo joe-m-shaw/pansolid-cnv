@@ -48,7 +48,7 @@ read_cnv_sheet <- function(filepath, sheet_regex = "Amplifications_") {
   
   #' Read the entire CNV sheet from a PanSolid CLC Excel file
   #' 
-  #' The new PanSolid CLC Excel output includes 5 information tables on the
+  #' The new PanSolid CLC Excel output includes multiple tables on the
   #' same tab. `read_cnv_sheet` reads the entire sheet as one table, which 
   #' allows individual tables to be subsequently extracted 
   #' using `extract_cnv_tbls` without the file being read multiple times. 
@@ -116,8 +116,7 @@ find_stdev_ratios <- function(input_sheet,
   #'
   #' @examples
   
-  stdev_start <- find_match(input_sheet, "a",
-                            stdev_string) + 1
+  stdev_start <- find_match(input_sheet, "a", stdev_string) + 1
   
   stdev_df <- tibble::as_tibble(input_sheet[stdev_start, 1]) |> 
     dplyr::rename(stdev_noise = a) |> 
@@ -149,8 +148,7 @@ find_percent_138x <- function(input_sheet,
   #'
   #' @examples
   
-  percent_138x_start <- find_match(input_sheet, "a",
-                                   percent_138x_string) + 1
+  percent_138x_start <- find_match(input_sheet, "a", percent_138x_string) + 1
   
   percent_138x_df <- tibble::as_tibble(input_sheet[percent_138x_start, 1]) |> 
     dplyr::rename(percent_138x = a) |> 
@@ -161,6 +159,36 @@ find_percent_138x <- function(input_sheet,
   }
   
   return(percent_138x_df)
+  
+}
+
+find_pred_ncc <- function(input_sheet, 
+                          pred_ncc_string = "Predicted NCC (%)") {
+  
+  #' Find predicted neoplastic cell content (NCC) within the CNV sheet
+  #'
+  #' @param input_sheet A tibble containing the percent NCC information. 
+  #' This is intended to be the output from `read_cnv_sheet`.
+  #' @param pred_ncc_string The string which identifies the position of the 
+  #' predicted NCC value. This defaults to the current header, but
+  #' can be changed if necessary.
+  #'
+  #' @returns A tibble with the predicted NCC information.
+  #' @export
+  #'
+  #' @examples
+  
+  pred_ncc_start <- find_match(input_sheet, "a", pred_ncc_string) + 1
+  
+  pred_ncc_df <- tibble::as_tibble(input_sheet[pred_ncc_start, 1]) |> 
+    dplyr::rename(pred_ncc = a) |> 
+    dplyr::mutate(pred_ncc = as.double(pred_ncc))
+  
+  if(pred_ncc_df[1,1] < 0 | pred_ncc_df[1,1] > 100) {
+    stop("Predicted NCC must be between 0 and 100")
+  }
+  
+  return(pred_ncc_df)
   
 }
 
@@ -207,7 +235,8 @@ find_amp_genes <- function(input_sheet, num_genes = 9,
 
 
 find_del_genes <- function(input_sheet, num_genes = 37,
-                           del_string = "Deletion genes") {
+                           del_string = "Deletion genes",
+                           col_length = 15) {
   
   #' For fold change information for deletion genes within the CNV sheet
   #'
@@ -223,6 +252,10 @@ find_del_genes <- function(input_sheet, num_genes = 37,
   #' @param del_string The string which identifies the position of the 
   #' deletion genes table. This defaults to the current header, but
   #' can be changed if necessary.
+  #' 
+  #' @param col_length The length in rows of the columns that genes are 
+  #' presented in. Defaults to 15 and then blank space is removed 
+  #' automatically. 
   #'
   #' @returns A tibble of the deletion genes results table
   #' @export
@@ -235,26 +268,25 @@ find_del_genes <- function(input_sheet, num_genes = 37,
   
   del_tbl_start <- del_tbl_header + 2
   
-  del_tbl_1_end <- del_tbl_start + 12
+  del_tbl_end <- del_tbl_start + col_length
   
-  del_tbl_3_end <- del_tbl_start + 10
-  
-  del_tbl1 <- tibble::as_tibble(input_sheet[del_tbl_start:del_tbl_1_end, 1:3])
+  del_tbl1 <- tibble::as_tibble(input_sheet[del_tbl_start:del_tbl_end, 1:3])
   
   colnames(del_tbl1) <- as.character(input_sheet[del_tbl_colname_row, 1:3])
   
-  del_tbl2 <- tibble::as_tibble(input_sheet[del_tbl_start:del_tbl_1_end, 5:7])
+  del_tbl2 <- tibble::as_tibble(input_sheet[del_tbl_start:del_tbl_end, 5:7])
   
   colnames(del_tbl2) <- as.character(input_sheet[del_tbl_colname_row, 5:7])
   
-  del_tbl3 <- tibble::as_tibble(input_sheet[del_tbl_start:del_tbl_3_end, 9:11])
+  del_tbl3 <- tibble::as_tibble(input_sheet[del_tbl_start:del_tbl_end, 9:11])
   
   colnames(del_tbl3) <- as.character(input_sheet[del_tbl_colname_row, 9:11])
   
   del_tbl <- rbind(del_tbl1, del_tbl2, del_tbl3) |> 
     janitor::clean_names() |> 
     dplyr::mutate(max_region_fold_change = as.double(max_region_fold_change),
-           min_region_fold_change = as.double(min_region_fold_change))
+           min_region_fold_change = as.double(min_region_fold_change)) |> 
+    dplyr::filter(!is.na(gene))
   
   if(nrow(del_tbl) != num_genes){
     warning("Different number of genes found to expected")
@@ -341,13 +373,26 @@ find_sig_cnvs <- function(input_sheet,
   
 }
 
-extract_cnv_tbls <- function(filepath, sheet_regex = "Amplifications_") {
+extract_cnv_tbls <- function(filepath, 
+                             sheet_regex = "CNVs_",
+                             stdev_string = "StDev Signal-adjusted Log2 Ratios",
+                             percent_138x_string = "% Whole Panel Covered at 138X",
+                             pred_ncc_string = "Predicted NCC (%)",
+                             num_amp_genes = 13, 
+                             amp_string = "Amplification genes",
+                             num_del_genes = 34,
+                             del_string = "Deletion genes",
+                             del_col_length = 15,
+                             sig_cnv_string = "Significant CNV results") {
   
   #' Extract all information from the CNV sheet of a PanSolid CLC Excel output
   #'
   #' This function acts as a wrapper of the `find_*` functions to extract
   #' information from the 5 tables on the CLC pipeline Excel output CNV
   #' sheet, adds sample identifiers and stores them within a list. 
+  #' 
+  #' The defaults are set for the version of the CNV tab used in the live
+  #' PanSolid service following addition of deletions and LOH.
   #'
   #' @param filepath Full file path to an Excel file
   #' @param sheet_regex Regular expression for sheet name matching
@@ -361,16 +406,39 @@ extract_cnv_tbls <- function(filepath, sheet_regex = "Amplifications_") {
                       sheet_regex = sheet_regex)
   
   tables <- list(
-    "stdev" = add_identifiers(file = filepath,
-                              tbl = find_stdev_ratios(sheet)),
-    "percent_138x" = add_identifiers(file = filepath,
-                                     tbl = find_percent_138x(sheet)),
-    "sig_cnvs"  = add_identifiers(file = filepath,
-                                  tbl = find_sig_cnvs(sheet)),
-    "amp_genes" = add_identifiers(file = filepath,
-                                  tbl = find_amp_genes(sheet)),
-    "del_genes" = add_identifiers(file = filepath,
-                                  tbl = find_del_genes(sheet))
+    
+    "stdev" = add_identifiers(
+      file = filepath,
+      tbl = find_stdev_ratios(sheet,
+                              stdev_string = stdev_string)),
+    
+    "percent_138x" = add_identifiers(
+      file = filepath,
+      tbl = find_percent_138x(sheet,
+                              percent_138x_string = percent_138x_string)),
+    
+    "pred_ncc" = add_identifiers(
+      file = filepath,
+      tbl = find_pred_ncc(sheet,
+                          pred_ncc_string = pred_ncc_string)),
+    
+    "sig_cnvs"  = add_identifiers(
+      file = filepath,
+      tbl = find_sig_cnvs(sheet,
+                          sig_cnv_string = sig_cnv_string)),
+    
+    "amp_genes" = add_identifiers(
+      file = filepath,
+      tbl = find_amp_genes(sheet,
+                           num_genes = num_amp_genes, 
+                           amp_string = amp_string)),
+    
+    "del_genes" = add_identifiers(
+      file = filepath,
+      tbl = find_del_genes(sheet,
+                           num_genes = num_del_genes,
+                           del_string = del_string,
+                           col_length = del_col_length))
   )
   
   return(tables)
@@ -379,7 +447,7 @@ extract_cnv_tbls <- function(filepath, sheet_regex = "Amplifications_") {
 
 read_loh_table <- function(filepath, 
                            sheet_regex = "LOH_",
-                           sheet_range = "A1:F8",
+                           sheet_range = "A1:G8",
                            loh_genes = c("MSH2", "MSH6", "MLH1",
                                          "PMS2", "LZTR1", "SMARCB1", "NF2")) {
   
@@ -400,7 +468,8 @@ read_loh_table <- function(filepath,
                                                        sheet_regex = sheet_regex),
                                  range = sheet_range,
                                  col_types = c("text", "text","text", 
-                                               "text", "text", "text")) |> 
+                                               "text", "text",
+                                               "text", "text")) |> 
     janitor::clean_names()
   
   if(setequal(loh_table$gene, loh_genes) == FALSE){
