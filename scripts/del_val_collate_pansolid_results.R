@@ -17,10 +17,14 @@ message("Finding filepaths")
 
 pansolid_files <- list.files(path = paste0(config::get("data_folderpath"),
                                            "validation/DOC6567_deletions/raw/",
-                                           "pansolid_ngs/"),
+                                           "pansolid_ngs/final_format/"),
                         recursive = TRUE,
                         full.names = TRUE,
                         pattern  = "Annotated.*.xlsx")
+
+if(length(pansolid_files) == 0){
+  stop("No files found")
+}
 
 # LOH results -------------------------------------------------------------
 
@@ -36,7 +40,7 @@ stopifnot(setequal(unique(collated_loh$gene),
           c("MSH2", "MSH6", "MLH1", "PMS2", "LZTR1", "SMARCB1", "NF2")))
 
 stopifnot(anyNA.data.frame(collated_loh |> 
-                             select(-x6)) == FALSE)
+                             select(-c(check_1, check_2))) == FALSE)
 
 message(paste0(length(pansolid_files), " LOH results collated"))
 
@@ -63,14 +67,17 @@ stopifnot(length(setdiff(collated_138x$filepath, pansolid_files)) == 0)
 collated_del_genes <- map(file_cnv_tbl_list, ~ .x[["del_genes"]]) |> 
   list_rbind()
 
-stopifnot(nrow(collated_del_genes) == length(pansolid_files) * 37)
+stopifnot(nrow(collated_del_genes) == length(pansolid_files) * 34)
 
 collated_amp_genes <- map(file_cnv_tbl_list, ~ .x[["amp_genes"]]) |> 
   list_rbind()
 
-stopifnot(nrow(collated_amp_genes) == length(pansolid_files) * 9)
+stopifnot(nrow(collated_amp_genes) == length(pansolid_files) * 13)
 
 collated_sig_cnvs <- map(file_cnv_tbl_list, ~ .x[["sig_cnvs"]]) |> 
+  list_rbind()
+
+collated_pred_ncc <- map(file_cnv_tbl_list, ~ .x[["pred_ncc"]]) |> 
   list_rbind()
 
 # Export collated data ----------------------------------------------------
