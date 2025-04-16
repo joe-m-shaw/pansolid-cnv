@@ -1606,10 +1606,18 @@ false positive and false negative CNV classifications.
 #| label: compare-pansolid-to-wgs-results
 #| include: FALSE
 
+wgs_ncc_comp <- read_excel(path = paste0(data_folderpath,
+                                 "validation/DOC6567_deletions/",
+                                 "samples_for_ncc_comp.xlsx")) |> 
+  mutate(wgs_calculated_ncc	 = as.numeric(wgs_calculated_ncc),
+         labno_suffix_worksheet = str_c(pansolid_labno, "_", worksheet),
+         ncc_diff = abs(wgs_calculated_ncc - CLC_calculated_NCC),
+         pansolid_labno = as.character(pansolid_labno))
+
 sig_cnvs_for_join <- del_val_collated_sig_cnvs |> 
   filter(!is.na(check_1)) |> 
   distinct(labno_suffix_worksheet, gene, check_1, analyst_result, analyst_comment)
-          
+
 pansolid_vs_wgs_outcomes <- pansolid_vs_wgs |> 
   left_join(sig_cnvs_for_join, 
             join_by(labno_suffix_worksheet, gene)) |> 
@@ -1658,13 +1666,25 @@ pansolid_vs_wgs_outcomes <- pansolid_vs_wgs |>
       pansolid_result_combined == "no deletion" &
         wgs_result == "Deletion detected" ~"false_negative"),
     
+    # Manually recode result with low p value and
+    # different transcript used by WGS
+    outcome_combined = case_when(
+      labno.x == "24031053" & gene == "SUFU" &
+        pansolid_result == "deletion" ~"true_negative",
+      labno.x == "24025266" & gene == "CDKN2A" &
+        wgs_result == "No deletion detected" ~"true_positive",
+      TRUE ~outcome_combined),
+    
     outcome_combined = factor(outcome_combined, 
                               levels = c("true_positive",     
                                          "false_positive",    
                                          "false_negative",    
                                          "true_negative"
                                          )),
-    ccube_ncc = parse_number(calculated_tumour_content))
+    ccube_ncc = parse_number(calculated_tumour_content)) |> 
+  left_join(wgs_ncc_comp |> 
+              select(pansolid_labno, CLC_calculated_NCC),
+            join_by("labno.x" == "pansolid_labno"))
 
 stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome_pipeline) == FALSE)
 
@@ -1675,6 +1695,22 @@ pipeline_manual_discrepancies <- pansolid_vs_wgs_outcomes |>
            analyst_result == "no deletion")
 
 ```
+
+```{r}
+
+pansolid_vs_wgs_outcomes |> 
+  group_by(CLC_calculated_NCC, outcome_pipeline) |> 
+  count() |> 
+  pivot_wider(id_cols = CLC_calculated_NCC,
+              names_from = outcome_pipeline,
+              values_from = n,
+              values_fill = 0) |>  view()
+
+
+
+
+```
+
 
 ### False positive and false negative results {#sec-results-wgs-false-pos-neg}
 
@@ -1738,6 +1774,45 @@ fold changes of -1.23 which are just below the fold change threshold of-1.25."
 ```
 
 ![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-neg height=5in}
+
+```{r}
+
+outcomes_with_p_value <- pansolid_vs_wgs_outcomes |> 
+  filter(outcome_pipeline %in% c("false_positive", "true_positive")) |> 
+  left_join(del_val_collated_sig_cnvs, 
+            join_by("labno_suffix_worksheet" == "labno_suffix_worksheet",
+                    "gene" == "gene")) |> 
+  mutate(p_value_category  = case_when(
+    p_value == 0 ~"0",
+    p_value > 0 ~"Above 0"
+  )) 
+
+outcomes_with_p_value |> 
+  filter(!is.na(p_value_category)) |> 
+  ggplot(aes(x = p_value_category, y = )) +
+  geom_bar() +
+  theme_bw() +
+  facet_wrap(~outcome_pipeline) +
+  labs(x = "P value", y = "Number of results")
+
+outcomes_with_p_value |> 
+  filter(!is.na(p_value_category)) |> 
+  group_by(outcome_pipeline, p_value_category) |> 
+  count() |> 
+  pivot_wider(id_cols = outcome_pipeline,
+              names_from = p_value_category,
+              values_from = n) |> 
+  rename(zero = `0`,
+         above_zero = `Above 0`) |> 
+  mutate(zero_percent = round((zero / (zero + above_zero))*100, 1),
+         above_zero_percent = round((above_zero / (zero + above_zero))*100, 1),
+         p_value_zero = str_c(zero, " (", zero_percent, "%)"),
+         p_value_above_zero = str_c(above_zero, " (", above_zero_percent, "%)"),
+         results = zero + above_zero) |> 
+  select(outcome_pipeline, results, p_value_zero, p_value_above_zero)
+
+```
+
 
 ### Haploidy and polyploidy
 
@@ -1969,11 +2044,12 @@ wgs_discrepant_results <- pansolid_vs_wgs_outcomes |>
   filter(outcome_combined %in% c("false_positive",
                                  "false_negative")) |>  
   left_join(del_val_wgs_html_ids |> 
-              select(nhsno, labno) |> 
+              select(nhsno, labno, calculated_tumour_content) |> 
               rename(wgs_labno = labno),
             by = "nhsno") |> 
   select(labno.x, wgs_labno,
-         gene, min_region_fold_change, wgs_result, outcome_combined) |> 
+         gene, min_region_fold_change, calculated_tumour_content.y,
+         wgs_result, outcome_combined, percent_138x, stdev_noise) |> 
   arrange(outcome_combined) |> 
   mutate(`Minimum fold change` = round(min_region_fold_change, 3)) |> 
   relocate(`Minimum fold change`, .after = gene) |> 
@@ -2049,10 +2125,6 @@ diploid samples.
 #| fig-cap: "Copy number vs fold change"
 #| echo: FALSE
 
-pansolid_vs_wgs_outcomes |> 
-  filter(cnv_copy_number == 1 &
-           min_region_fold_change < -10) |>  view()
-
 fig_copy_number_vs_fold_change <- pansolid_vs_wgs_outcomes |> 
   mutate(cnv_copy_number = case_when(
     is.na(cnv_copy_number) ~2,
@@ -2082,14 +2154,16 @@ fig_copy_number_vs_fold_change
 bi_mono_gene_counts_all <- pansolid_vs_wgs_outcomes |> 
   filter(cnv_copy_number %in% c(0, 1)) |> 
   group_by(cnv_copy_number) |> 
-  summarise(genes = length(unique(gene)))
+  summarise(genes = length(unique(gene)),
+            samples = length(unique(labno.x)))
 
 bi_mono_gene_counts_diploid <- pansolid_vs_wgs_outcomes |> 
   filter(cnv_copy_number %in% c(0, 1) 
          & nhsno %in% diploid_wgs_samples$nhsno
          ) |> 
   group_by(cnv_copy_number) |> 
-  summarise(genes = length(unique(gene)))
+  summarise(genes = length(unique(gene)),
+            samples = length(unique(labno.x)))
 
 biallelic_del_results_all <- pansolid_vs_wgs_outcomes |> 
   filter(cnv_copy_number == 0) |> 
@@ -2149,11 +2223,13 @@ bi_mono_del_table <- rbind(bi_mono_allelic_results_all,
   select(-c(cnv_copy_number,
             `False positives`, `True negatives`, `Specificity (%)`)) |> 
   relocate(deletion) |> 
-  relocate(genes, .after = deletion) |> 
+  relocate(samples, .after = deletion) |> 
+  relocate(genes, .after = samples) |> 
   relocate(cohort, .before = deletion) |> 
   rename(`Deletions` = deletion,
          `Genes` = genes,
-         `Cohort` = cohort)
+         `Cohort` = cohort,
+         `Samples` = samples)
 
 kable(bi_mono_del_table)
 
@@ -2247,13 +2323,6 @@ the Canvas algorithm [@fig-wgs-ncc-comparison].
 #| label: wgs-ncc-comparison
 #| include: FALSE
 
-wgs_ncc_comp <- read_excel(path = paste0(data_folderpath,
-                                 "validation/DOC6567_deletions/",
-                                 "samples_for_ncc_comp.xlsx")) |> 
-  mutate(wgs_calculated_ncc	 = as.numeric(wgs_calculated_ncc),
-         labno_suffix_worksheet = str_c(pansolid_labno, "_", worksheet),
-         ncc_diff = abs(wgs_calculated_ncc - CLC_calculated_NCC))
-
 wgs_ncc_comp_with_qc <- wgs_ncc_comp |> 
   left_join(del_val_collated_stdev |> 
               select(labno_suffix_worksheet, stdev_noise),
@@ -2278,6 +2347,21 @@ wgs_ncc_plot <- wgs_ncc_comp |>
        title = "PanSolid vs WGS NCC prediction") +
   ggpubr::stat_cor(method = "pearson", label.x = 0.6, label.y = 0.1) 
 
+colnames(wgs_ncc_comp)
+
+x <- wgs_ncc_comp |> 
+  filter(pansolid_labno != "24030962" &
+           !is.na(wgs_calculated_ncc)) |> 
+  mutate(ploidy_cat = case_when(
+    wgs_calculated_ploidy > 2.5 ~"polyploid",
+    wgs_calculated_ploidy < 1.5 ~"haploid",
+    TRUE ~"diploid"
+  )) |> 
+  left_join(del_val_collated_stdev,
+            by = "labno_suffix_worksheet") |> 
+  left_join(del_val_collated_138x,
+            by = "labno_suffix_worksheet")
+  
 ```
 
 ```{r}
@@ -3436,6 +3520,14 @@ additional low-level alleles (black arrows)."
 ```
 
 ![`r caption_24030962`](`r path_24030962`){#fig-24030962-dna-contamination height=5in}
+
+## New amplification genes
+
+*CDK12* has both tumour-suppressor and oncogenic effects on cancer development
+[@paculova2017] and was analysed for both amplifications and deletions.
+
+The *FGFR1*, *FGFR2* and *FGFR3* genes were added to the list of genes for 
+amplification detection.
 
 {{< pagebreak >}}
 
