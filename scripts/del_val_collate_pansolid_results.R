@@ -40,7 +40,7 @@ stopifnot(setequal(unique(collated_loh$gene),
           c("MSH2", "MSH6", "MLH1", "PMS2", "LZTR1", "SMARCB1", "NF2")))
 
 stopifnot(anyNA.data.frame(collated_loh |> 
-                             select(-c(check_1, check_2))) == FALSE)
+                             select(-check_2)) == FALSE)
 
 message(paste0(length(pansolid_files), " LOH results collated"))
 
@@ -59,26 +59,40 @@ collated_stdev <- map(file_cnv_tbl_list, ~ .x[["stdev"]]) |>
 
 stopifnot(length(setdiff(collated_stdev$filepath, pansolid_files)) == 0)
 
+stopifnot(anyNA.data.frame(collated_stdev) == FALSE)
+
 collated_138x <- map(file_cnv_tbl_list, ~ .x[["percent_138x"]]) |> 
   list_rbind()
 
 stopifnot(length(setdiff(collated_138x$filepath, pansolid_files)) == 0)
+
+stopifnot(anyNA.data.frame(collated_138x) == FALSE)
 
 collated_del_genes <- map(file_cnv_tbl_list, ~ .x[["del_genes"]]) |> 
   list_rbind()
 
 stopifnot(nrow(collated_del_genes) == length(pansolid_files) * 34)
 
+stopifnot(anyNA.data.frame(collated_del_genes) == FALSE)
+
 collated_amp_genes <- map(file_cnv_tbl_list, ~ .x[["amp_genes"]]) |> 
   list_rbind()
 
 stopifnot(nrow(collated_amp_genes) == length(pansolid_files) * 13)
 
+stopifnot(anyNA.data.frame(collated_amp_genes) == FALSE)
+
 collated_sig_cnvs <- map(file_cnv_tbl_list, ~ .x[["sig_cnvs"]]) |> 
   list_rbind()
 
+stopifnot(length(setdiff(unique(collated_sig_cnvs$filepath), pansolid_files)) == 0)
+
 collated_pred_ncc <- map(file_cnv_tbl_list, ~ .x[["pred_ncc"]]) |> 
   list_rbind()
+
+stopifnot(length(setdiff(collated_pred_ncc$filepath, pansolid_files)) == 0)
+
+stopifnot(anyNA.data.frame(collated_pred_ncc) == FALSE)
 
 # Export collated data ----------------------------------------------------
 
@@ -103,7 +117,8 @@ df_list <- list(
   "collated_138x" = collated_138x,
   "collated_amp_genes" = collated_amp_genes,
   "collated_del_genes" = collated_del_genes,
-  "collated_sig_cnvs" = collated_sig_cnvs
+  "collated_sig_cnvs" = collated_sig_cnvs,
+  "collated_pred_ncc" = collated_pred_ncc
 )
 
 imap(df_list, export_del_val_data)
