@@ -185,6 +185,20 @@ del_val_collated_sig_cnvs <- del_val_collated_sig_cnvs |>
                                       pattern = analyst_comment_regex,
                                       group = 2))
 
+# Check all detected CNVs have been manually reviewed
+stopifnot(nrow(del_val_collated_sig_cnvs |> 
+  filter(consequence != "no call" &
+           is.na(analyst_result))) == 0)
+
+sig_cnvs_with_manual_review <- del_val_collated_sig_cnvs |> 
+  filter(consequence != "no call")
+
+# Check consistent terminology has been used
+stopifnot(length(setdiff(unique(sig_cnvs_with_manual_review$analyst_result),
+        c("deletion", "no deletion",
+            "amplification", "no amplification",
+            "fail"))) == 0)
+
 del_val_collated_loh <- del_val_collated_loh |> 
   mutate(comment_present = str_detect(string = check_1,
                                       pattern = ";"),
@@ -197,6 +211,11 @@ del_val_collated_loh <- del_val_collated_loh |>
         analyst_comment = str_extract(string = check_1,
                                       pattern = analyst_comment_regex,
                                       group = 2))
+
+stopifnot(anyNA(del_val_collated_loh$analyst_result) == FALSE)
+
+stopifnot(length(setdiff(unique(del_val_collated_loh$analyst_result),
+                         c("no LOH", "LOH", "fail"))) == 0)
 
 ```
 
@@ -220,24 +239,28 @@ target_df_with_coordinates <- extract_pansolid_cnv_coordinates(target_df,
                                                                region) |> 
   mutate(target_size_bp = abs(end-start))
 
-del_genes <- read_excel(paste0(
-  data_folderpath,
-  "validation/DOC6567_deletions/gene_lists/",
-  "2024_12_20_deletion_gene_list.xlsx"
-)) |> 
-  janitor::clean_names() |> 
-  select(priority, gene)
+del_genes <- unique(del_val_collated_del_genes$gene)
 
 pansolid_target_loci <- target_df |> 
   mutate(single_locus = str_split(name, pattern = ";")) |> 
   unnest(single_locus) 
 
 gene_target_counts <- pansolid_target_loci |> 
-  filter(single_locus %in% del_genes$gene) |> 
+  filter(single_locus %in% del_genes) |> 
   count(single_locus) |>
+  # Some genes have SNP backbone targets within them, which don't contain
+  # the gene name but do contribute to CNV calling within the gene
+  mutate(n = case_when(
+    single_locus == "CDKN2A" ~14,
+    single_locus == "PMS2" ~16,
+    single_locus == "TP53" ~15,
+    TRUE ~n
+  )) |> 
   mutate("CLC setting" = case_when(
     n < 10 ~"Fine",
-    n >= 10 ~"Coarse"
+    n >= 10 & single_locus != "CDKN2A" ~"Coarse",
+    # CDKN2A on fine due to small NM_000077.5	transcript
+    single_locus == "CDKN2A" ~"Fine"
   )) |> 
   rename("Number of PanSolid targets" = n,
          "Gene" = single_locus) 
@@ -264,8 +287,9 @@ gene deletions and loss of heterozygosity (LOH) is
 performed on the "Core" and "Merged" QIAseq primer enrichments for different
 tumour types. By validating detection of these variants on the PanSolid 
 enrichment, this project aims to replace these enrichments with 
-PanSolid and streamline testing of solid tumours at the 
-North West GLH.
+PanSolid. Overall, the aim is to streamline testing of 
+solid tumours at the 
+North West GLH, and to expand the list of genes and variant types detected.
 
 ```{r}
 #| label: tbl-previous-validations
@@ -627,7 +651,7 @@ laboratories [@neill2020].
 The requirements for this new method are as follows:
 
 1. **Results:** the test should provide clear results for the presence of 
-whole-gene deletion in the `r length(del_genes$gene)` specified TSGs. The test
+whole-gene deletion in the `r length(del_genes)` specified TSGs. The test
 should also provide results for the ploidy state, including copy-neutral
 LOH, of the following genes:
 *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*.
@@ -685,9 +709,15 @@ brain tumours (@tbl-cancer-types and @tbl-cns-cancer-types).
 #| tbl-cap: "Validation cohort cancer types"
 #| echo: FALSE
 
-tbl_cancer_types <- cancer_types_tested |> 
+cancer_types_grouped <- cancer_types_tested |> 
   group_by(cancer_group) |> 
-  count() |> 
+  count()
+
+count_cns <- cancer_types_grouped[cancer_types_grouped$cancer_group == "Central nervous system", 2]
+
+percent_cns <- round((count_cns / sum(cancer_types_grouped$n))* 100, 0)
+
+tbl_cancer_types <- cancer_types_grouped |> 
   arrange(desc(n)) |> 
   rename(`Cancer type` = cancer_group,
          `Samples` = n) |>
@@ -827,8 +857,8 @@ fig_fold_change_vs_ncc <- ggplot(fold_change_df, aes(x = ncc, y = fold_change)) 
   labs(y = "Fold change (loss equation)", x = "Neoplastic cell content",
        colour = "") +
   geom_hline(yintercept = round(deletion_fc_threshold,2), linetype = "dashed") +
-  annotate("text", x = 65, y = -4.5, label = "biallelic \n deletion") +
-  annotate("text", x = 90, y = -2.5, label = "monoallelic \n deletion") +
+  annotate("text", x = 65, y = -4.5, label = "Biallelic \n deletion") +
+  annotate("text", x = 90, y = -2.5, label = "Monoallelic \n deletion") +
   annotate("text", x = 90, y = -0.5, label = "Normal")
 
 fig_fold_change_vs_ncc
@@ -857,8 +887,8 @@ fig_fold_change_vs_cn <- ggplot(copy_number_df, aes(x = ncc, y = copy_number)) +
   theme(legend.position = "blank") +
   labs(y = "Overall copy number", x = "Neoplastic cell content",
        colour = "") +
-  annotate("text", x = 75, y = 0.2, label = "biallelic \n deletion") +
-  annotate("text", x = 90, y = 0.8, label = "monoallelic \n deletion") +
+  annotate("text", x = 75, y = 0.2, label = "Biallelic \n deletion") +
+  annotate("text", x = 90, y = 0.8, label = "Monoallelic \n deletion") +
   annotate("text", x = 90, y = 1.8, label = "Normal") 
 
 fig_fold_change_vs_cn
@@ -980,7 +1010,7 @@ the North West GLH, LOH testing for *NF2* is performed by targeting 4 dinucleoti
 microsatellite repeat markers (D22S275, NF2CA3, NF2intron10 and
 D22S268) spanning `r nf2_marker_mb` Mb of chromosome 22 (@tbl-nf2-markers).
 The fluorescence-labelled PCR 
-prodcuts for paired
+products for paired
 DNA samples from tumour and blood are analysed on an ABI-3130 analyser 
 ([LP 000 069: Neurofibromatosis type 2 (NF2): Standard Operating
 Procedure]{custom-style="Strong"}). A relative loss of peak height greater than 
@@ -1034,22 +1064,28 @@ Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/validation/DOC6567_deleti
 #| label: overall-results
 #| include: FALSE
 
-noise_and_138x <- del_val_collated_stdev |> 
-  inner_join(del_val_collated_138x |> 
+noise_138x_ncc <- del_val_collated_stdev |> 
+  left_join(del_val_collated_138x |> 
                select(filepath, percent_138x),
-             by = "filepath")
+             by = "filepath",
+            relationship = "one-to-one") |> 
+  inner_join(del_val_collated_pred_ncc |> 
+               select(filepath, pred_ncc),
+              by = "filepath",
+            relationship = "one-to-one")
 
-results_passing_qc <- noise_and_138x |> 
+stopifnot(anyNA.data.frame(noise_138x_ncc |> 
+                   select(-suffix)) == FALSE)
+
+results_passing_qc <- noise_138x_ncc |> 
   filter(stdev_noise <= noise_qc_threshold &
            percent_138x >= percent_138x_qc_threshold)
 
 sig_cnvs_with_qc <- del_val_collated_sig_cnvs |> 
-  left_join(del_val_collated_138x |> 
-              select(filepath, percent_138x),
-            by = "filepath") |> 
-  left_join(del_val_collated_stdev |> 
-              select(filepath, stdev_noise), 
-            by = "filepath") |> 
+  left_join(noise_138x_ncc |> 
+              select(filepath, stdev_noise, percent_138x, pred_ncc),
+            by = "filepath",
+            relationship = "many-to-one") |> 
   left_join(del_val_sample_cancer_types, by = "labno")
 
 sig_cnvs_passing_qc <- sig_cnvs_with_qc |> 
@@ -1060,14 +1096,13 @@ sig_cnvs_passing_qc <- sig_cnvs_with_qc |>
 del_gene_results_with_ids <- del_val_collated_del_genes |> 
   left_join(del_val_sample_patient_info, by = "labno",
             relationship = "many-to-one") |> 
-  left_join(del_val_collated_138x |> 
-               select(filepath, percent_138x),
-            by = "filepath") |> 
-  left_join(del_val_collated_stdev |> 
-              select(filepath, stdev_noise),
-            by = "filepath") |> 
+  left_join(noise_138x_ncc |> 
+              select(filepath, stdev_noise, percent_138x, pred_ncc),
+            by = "filepath",
+            relationship = "many-to-one") |> 
   left_join(del_val_sample_cancer_types,
-            by = "labno")
+            by = "labno",
+            relationship = "many-to-one")
 
 del_gene_cnv_spans <- del_gene_results_with_ids |> 
   filter(stdev_noise <= noise_qc_threshold &
@@ -1117,14 +1152,14 @@ calls_with_cancer <- loss_count_df_qc |>
             by = "labno")
 
 calls_by_cancer <- calls_with_cancer |> 
-  group_by(cancer) |> 
+  group_by(cancer, cancer_group) |> 
   summarise(mean = mean(calls),
             samples = n()) 
 
 over_5 <- calls_by_cancer |> 
   filter(samples > 5)
 
-calls_with_cancer |> 
+plot_calls_by_cancer_type <- calls_with_cancer |> 
   filter(cancer %in% over_5$cancer) |> 
   ggplot(aes(x = reorder(cancer, calls),
                               y = calls)) +
@@ -1132,7 +1167,9 @@ calls_with_cancer |>
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, vjust = 1,
                                    hjust = 1)) +
-  labs(x = "", y = "Significant CNVs")
+  labs(x = "", y = "Significant CNVs",
+       title = "Number of detected CNVs varies with cancer type",
+       subtitle = "Data shown for cancer types with more than 5 samples in cohort")
 
 ```
 
@@ -1157,7 +1194,7 @@ sig_cnvs_with_qc_mod_pval_cat <- sig_cnvs_with_manual_review |>
     analyst_result == "deletion" ~"manual review: deletion"
   )) 
 
-sig_cnvs_with_qc_mod_pval_cat |> 
+pvalue_plot <- sig_cnvs_with_qc_mod_pval_cat |> 
   ggplot(aes(x = p_value_category, y = )) +
   geom_bar() +
   facet_wrap(~analyst_result) +
@@ -1166,8 +1203,8 @@ sig_cnvs_with_qc_mod_pval_cat |>
 
 ```
 
-In total, `r nrow(noise_and_138x)` replicates from 
-`r length(unique(noise_and_138x$labno))` DNA samples were tested on the PanSolid
+In total, `r nrow(noise_138x_ncc)` replicates from 
+`r length(unique(noise_138x_ncc$labno))` DNA samples were tested on the PanSolid
 enrichment and analysed with the PanSolid CLC pipeline.
 Of these, `r nrow(results_passing_qc)` replicates had signal-adjusted noise 
 values below 0.7 and percentage coverage at 138X greater than 75%.
@@ -1193,11 +1230,11 @@ case ranged from
 `r min(loss_count_df_qc$calls)` to 
 `r max(loss_count_df_qc$calls)` (median
 `r median(loss_count_df_qc$calls)`
-).The three 
+). The three 
 genes with the most detected deletions were *PTEN*, *CDKN2A* and *PTEN*. This was
 likely due to ascertainment bias as these deletions are commonly detected in
 brain tumours, which comprised
-`r round((87/128)*100, 0)`% of the samples tested (@tbl-cancer-types).
+`r percent_cns`% of the samples tested (@tbl-cancer-types).
 
 Of the 
 `r nrow(sig_cnvs_with_manual_review)`
@@ -1224,9 +1261,8 @@ fig_cnv_size_distribution <- sig_cnvs_passing_qc |>
   scale_x_continuous(limits = c(0, 140),
                      breaks = seq(0, 140, by = 10)) +
   scale_y_continuous(limits = c(-30, 0),
-                     breaks = c(0, deletion_fc_threshold,
-                                -10, -20, -30)) +
-  labs(x = "CNV length (Megabases)", y = "Fold change",
+                     breaks = c(0, -10, -20, -30)) +
+  labs(x = "CNV length (Megabases)", y = "Fold change (loss)",
        title = "Deletion results for all genes",
        subtitle = "Data from results passing quality control thresholds")
 
@@ -1367,11 +1403,9 @@ pten_primer_plot <- make_primer_plot(plot_xmin = 87863625-pten_buffer,
 #| include: FALSE
 
 del_val_collated_loh_mod <- del_val_collated_loh |> 
-  left_join(del_val_collated_stdev |> 
-              select(filepath, stdev_noise), by = "filepath",
-            relationship = "many-to-one") |> 
-  left_join(del_val_collated_138x |> 
-              select(filepath, percent_138x), by = "filepath",
+  left_join(noise_138x_ncc |> 
+              select(filepath, stdev_noise, percent_138x, pred_ncc),
+            by = "filepath",
             relationship = "many-to-one") |> 
   # Remove samples where DNA was deliberately mixed
   filter(!labno_suffix %in% c("24026628b", "24026628c", "24026628d")) |> 
@@ -1480,10 +1514,10 @@ cnv_ploidy_caller_disagreements <- cnv_vs_ploidy_caller |>
   filter((pansolid_result == "deletion" &
            !ploidy_state %in% c("Deletion", "Bi-allelic deletion")) |
            (pansolid_result == "no deletion" &
-           ploidy_state %in% c("Deletion", "Bi-allelic deletion")))
-
-sig_cnvs_checked <- del_val_collated_sig_cnvs |> 
-  filter(!is.na(check_1))
+           ploidy_state %in% c("Deletion", "Bi-allelic deletion"))) |> 
+  left_join(noise_138x_ncc |> 
+              select(filepath, stdev_noise, percent_138x, pred_ncc),
+            by = "filepath")
 
 ```
 
@@ -1494,6 +1528,17 @@ genes, there were
 instances for the 
 where the results of the ploidy caller
 contradicted the results of the CNV caller.
+
+```{r}
+#| label: tbl-ploidy-cnv-disagreements
+#| include: FALSE
+
+tbl_ploidy_cnv_disagreements <- cnv_ploidy_caller_disagreements |> 
+  select(worksheet, labno, stdev_noise, percent_138x, pred_ncc,
+gene, min_region_fold_change, pansolid_result,
+ploidy_state, loh_status, analyst_result)
+
+```
 
 {{< pagebreak >}}
 
@@ -3790,7 +3835,7 @@ kable(tbl_pansolid_cnv_metrics)
 The test requirements specified in @sec-requirements have been met:
 
 **Results:** the test should provide clear results for the presence of 
-whole-gene deletion in the `r length(del_genes$gene)` specified TSGs. The test
+whole-gene deletion in the `r length(del_genes)` specified TSGs. The test
 should also provide results for the ploidy state, including copy-neutral
 LOH, of the following genes:
 *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*.
