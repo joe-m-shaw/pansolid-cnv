@@ -3317,7 +3317,7 @@ monoallelic deletion is only observed for certain genes on chromosome 10q
 
 lod_target_folder <- paste0(config::get("data_folderpath"),
                             "validation/DOC6567_deletions/raw/",
-                            "pansolid_ngs/initial_format/v2PANSOLID/",
+                            "pansolid_ngs/final_format/v2PANSOLID/",
                             "Unannotated_Files/")
 
 ncc_84 <- read_excel(path = paste0(lod_target_folder,
@@ -3344,10 +3344,7 @@ ncc_20 <- read_excel(path = paste0(lod_target_folder,
   mutate(id = "20% NCC; 24% glioma sample") |> 
   janitor::clean_names()
 
-ncc_00_file <- list.files(path = paste0(config::get("data_folderpath"),
-                         "validation/DOC6567_deletions/raw/",
-                          "pansolid_ngs/initial_format/",
-                         "v2RMS_PS/Unannotated_Files/"),
+ncc_00_file <- list.files(path = lod_target_folder,
            pattern = "Results_SNVs_Indels-WS145901_24053299.*.xlsx",
            full.names = TRUE)
 
