@@ -186,7 +186,6 @@ del_val_collated_sig_cnvs <- del_val_collated_sig_cnvs |>
                                       group = 2))
 
 del_val_collated_loh <- del_val_collated_loh |> 
-  rename(check_1 = x6) |> 
   mutate(comment_present = str_detect(string = check_1,
                                       pattern = ";"),
         analyst_result = case_when(
@@ -1696,22 +1695,6 @@ pipeline_manual_discrepancies <- pansolid_vs_wgs_outcomes |>
 
 ```
 
-```{r}
-
-pansolid_vs_wgs_outcomes |> 
-  group_by(CLC_calculated_NCC, outcome_pipeline) |> 
-  count() |> 
-  pivot_wider(id_cols = CLC_calculated_NCC,
-              names_from = outcome_pipeline,
-              values_from = n,
-              values_fill = 0) |>  view()
-
-
-
-
-```
-
-
 ### False positive and false negative results {#sec-results-wgs-false-pos-neg}
 
 In some cases, the copy number statuses provided by the PanSolid CNV caller, which
@@ -1776,6 +1759,9 @@ fold changes of -1.23 which are just below the fold change threshold of-1.25."
 ![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-neg height=5in}
 
 ```{r}
+#| label: p-values
+#| eval: FALSE
+#| include: FALSE
 
 outcomes_with_p_value <- pansolid_vs_wgs_outcomes |> 
   filter(outcome_pipeline %in% c("false_positive", "true_positive")) |> 
@@ -2684,16 +2670,16 @@ pansolid_vs_nf2_loh <- del_val_collated_loh |>
   filter(gene == "NF2") |> 
   inner_join(nf2_fragpcr_results, by = "labno") |> 
   left_join(del_val_collated_stdev |> 
-              select(labno, stdev_noise), by = "labno",
+              select(filepath, stdev_noise), by = "filepath",
             relationship = "one-to-one") |> 
   left_join(del_val_collated_138x |> 
-              select(labno, percent_138x), by = "labno",
+              select(filepath, percent_138x), by = "filepath",
             relationship = "one-to-one") |> 
   left_join(del_val_collated_del_genes |> 
               filter(gene == "NF2") |> 
-              select(labno, min_region_fold_change, 
+              select(filepath, min_region_fold_change, 
                      max_region_fold_change),
-            by = "labno",
+            by = "filepath",
             relationship = "one-to-one") |> 
   mutate(
     outcome_pipeline = case_when(
@@ -2931,26 +2917,8 @@ the validation of amplification detection.
 
 repeated_samples <- c("24018518", "24045597", "24054282")
 
-rep_filepath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/dev_v2.4/v2aSchwannAll_PS/"
-
-rep_files <- list.files(path = paste0(rep_filepath),
-                        pattern = ".xlsx",
-                        full.names = TRUE)
-
-rep_file_tbl_list <- rep_files |> 
-  map(\(rep_files) extract_cnv_tbls(rep_files, 
-                                         sheet_regex = "CNVs_"))
-
-rep_del_genes <- map(rep_file_tbl_list, ~ .x[["del_genes"]]) |> 
-  list_rbind() |> 
-  mutate(pansolid_result = case_when(
-    min_region_fold_change <= deletion_fc_threshold ~"deletion",
-    min_region_fold_change > deletion_fc_threshold ~"no deletion"
-  ))
-  
 repeat_data <- del_val_collated_del_genes |> 
   filter(labno %in% repeated_samples) |> 
-  rbind(rep_del_genes) |> 
   mutate(fold_change_uom = case_when(
     min_region_fold_change >= 1 ~-1 / min_region_fold_change,
     TRUE ~min_region_fold_change))
@@ -3125,14 +3093,9 @@ fig_repeat_24054282_loss
 #| label: loh-repeatability
 #| include: FALSE
 
-rep_loh <- rep_files |> 
-  map(\(rep_files) read_loh_table(filepath = rep_files)) |> 
-  list_rbind() 
-
 repeat_data_loh <- del_val_collated_loh |> 
   filter(labno %in% repeated_samples) |> 
-  select(-c(comment_present, analyst_result, analyst_comment)) |> 
-  rbind(rep_loh)
+  select(-c(comment_present, analyst_result, analyst_comment))
 
 make_loh_repeat_table <- function(labno_input) {
   
@@ -3226,7 +3189,7 @@ monoallelic deletion is only observed for certain genes on chromosome 10q
 
 lod_target_folder <- paste0(config::get("data_folderpath"),
                             "validation/DOC6567_deletions/raw/",
-                            "pansolid_ngs/v2PANSOLID/",
+                            "pansolid_ngs/initial_format/v2PANSOLID/",
                             "Unannotated_Files/")
 
 ncc_84 <- read_excel(path = paste0(lod_target_folder,
@@ -3255,7 +3218,7 @@ ncc_20 <- read_excel(path = paste0(lod_target_folder,
 
 ncc_00_file <- list.files(path = paste0(config::get("data_folderpath"),
                          "validation/DOC6567_deletions/raw/",
-                          "pansolid_ngs/",
+                          "pansolid_ngs/initial_format/",
                          "v2RMS_PS/Unannotated_Files/"),
            pattern = "Results_SNVs_Indels-WS145901_24053299.*.xlsx",
            full.names = TRUE)
