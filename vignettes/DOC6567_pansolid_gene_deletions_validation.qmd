@@ -1648,7 +1648,7 @@ samples where DNA was tested following multiple extraction methods
 (QIAsymphony, Cobas or fresh frozen tissue),
 a single sample of DNA extracted via the QIAsymphony method was
 selected for the comparison. If QIAsymphony-extracted DNA was not available, 
-DNA from fresh frozen tissue was used instead (@tbl_wgs_comparison_summary). 
+DNA from fresh frozen tissue was used instead (@tbl-wgs-comparison-summary). 
 Results were only compared when
 the noise and coverage metrics were above the quality control thresholds. The
 CNV regions detected by the PanSolid pipeline were manually reviewed using the
@@ -3218,6 +3218,40 @@ kable(make_loh_repeat_table("24045597"))
 kable(make_loh_repeat_table("24054282"))
 
 ```
+
+```{r}
+#| label: ncc-repeat-data
+#| echo: FALSE
+
+make_ncc_rep_plot <- function(labno_input, yaxis_title) {
+  
+  plot <- del_val_collated_pred_ncc |> 
+    filter(labno == labno_input) |> 
+    ggplot(aes(x = worksheet, y = pred_ncc)) +
+    geom_point(shape = 21, size = 2) +
+    ylim(0, 100) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90)) +
+    labs(x = "", y = yaxis_title,
+         title = paste0(labno_input))
+  
+  return(plot)
+  
+}
+
+ncc_24018518 <- make_ncc_rep_plot("24018518", "Predicted NCC (%)")
+
+ncc_24045597 <-make_ncc_rep_plot("24045597", "")
+
+ncc_24054282 <- make_ncc_rep_plot("24054282", "")
+  
+ncc_repeat_plot <- ncc_24018518 + ncc_24045597 +
+  ncc_24054282 + plot_layout(ncol = 3)
+
+ncc_repeat_plot
+
+```
+
 
 {{< pagebreak >}}
 
