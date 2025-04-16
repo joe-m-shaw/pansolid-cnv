@@ -1662,7 +1662,8 @@ false positive and false negative CNV classifications.
 
 sig_cnvs_for_join <- del_val_collated_sig_cnvs |> 
   filter(!is.na(check_1)) |> 
-  distinct(labno_suffix_worksheet, gene, check_1, analyst_result, analyst_comment)
+  distinct(labno_suffix_worksheet, gene, .keep_all = TRUE) |> 
+  select(labno_suffix_worksheet, gene, check_1, analyst_result, analyst_comment)
 
 pansolid_vs_wgs_outcomes <- pansolid_vs_wgs |> 
   left_join(sig_cnvs_for_join, 
@@ -1729,13 +1730,35 @@ pansolid_vs_wgs_outcomes <- pansolid_vs_wgs |>
                                          )),
     ccube_ncc = parse_number(calculated_tumour_content))
 
+pipeline_manual_discrepancies <- pansolid_vs_wgs_outcomes |> 
+  filter(pansolid_result == "deletion" &
+           analyst_result == "no deletion")
+
+```
+
+```{r}
+#| label: check-pansolid-to-wgs-comparison
+#| include: FALSE
+
 stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome_pipeline) == FALSE)
 
 stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome_combined) == FALSE)
 
-pipeline_manual_discrepancies <- pansolid_vs_wgs_outcomes |> 
-  filter(pansolid_result == "deletion" &
-           analyst_result == "no deletion")
+stopifnot(nrow(pansolid_vs_wgs_outcomes) == nrow(pansolid_samples_for_wgs_comparison) *
+  length(del_genes))
+
+del_gene_string <- str_c(del_genes, collapse = ",")
+
+pansolid_vs_wgs_gene_strings <- pansolid_vs_wgs_outcomes |> 
+  group_by(labno.x) |> 
+  summarise(gene_number = length(gene),
+            gene_string = str_c(gene, collapse = ",")) |> 
+  mutate(gene_check = case_when(
+    gene_string == del_gene_string ~"pass",
+    gene_string != del_gene_string ~"fail"
+  ))
+
+stopifnot(pansolid_vs_wgs_gene_strings$gene_check == "pass")
 
 ```
 
@@ -2025,10 +2048,12 @@ wgs_outcome_table <- rbind(wgs_pipeline_se_sp,
                            wgs_combined_se_sp,
                            wgs_combined_diploid_se_sp) |> 
   mutate(`Samples` = (`True positives` + `True negatives` +
-           `False positives` + `False negatives`) / 37) |> 
+           `False positives` + `False negatives`) / length(del_genes)) |> 
   relocate(analysis) |> 
   relocate(`Samples`, .after = analysis) |> 
   rename(`Analysis` = analysis)
+
+
 
 ```
 
