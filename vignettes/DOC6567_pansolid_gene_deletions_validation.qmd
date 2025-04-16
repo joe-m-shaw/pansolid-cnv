@@ -217,6 +217,14 @@ stopifnot(anyNA(del_val_collated_loh$analyst_result) == FALSE)
 stopifnot(length(setdiff(unique(del_val_collated_loh$analyst_result),
                          c("no LOH", "LOH", "fail"))) == 0)
 
+del_val_sample_patient_info <- del_val_sample_patient_info |> 
+  mutate(pathno = case_when(
+    # Pathology number incorrectly entered on DNA Database - checked
+    # against referral form
+    labno == "23013975" ~"NB23-145",
+    TRUE ~pathno
+  ))
+
 ```
 
 ```{r}
@@ -1588,6 +1596,7 @@ pansolid_results_for_wgs_comparison <- del_gene_results_with_ids |>
     )) |>                      # on iGene
   # This sample was repeated for repeatability
   filter((labno != "24017319" & worksheet != "WS144364")) |> 
+  # These sample replicates were used for the limit of detection study
   filter((labno != "24053299" & worksheet != "WS150529")) |> 
   filter(!labno_suffix %in% c("24026628a", "24026628b", "24026628c",
                               "24026628d"))
@@ -1598,7 +1607,7 @@ pansolid_patients_for_wgs_comparison <- pansolid_results_for_wgs_comparison |>
 stopifnot(anyDuplicated(pansolid_patients_for_wgs_comparison$nhsno) == 0)
 
 pansolid_samples_for_wgs_comparison <- pansolid_results_for_wgs_comparison |> 
-  distinct(labno, worksheet)
+  distinct(firstname, surname, labno, worksheet, extraction_method)
 
 stopifnot(anyDuplicated(pansolid_samples_for_wgs_comparison$labno) == 0)
 
@@ -1639,7 +1648,8 @@ samples where DNA was tested following multiple extraction methods
 (QIAsymphony, Cobas or fresh frozen tissue),
 a single sample of DNA extracted via the QIAsymphony method was
 selected for the comparison. If QIAsymphony-extracted DNA was not available, 
-DNA from fresh frozen tissue was used instead. Results were only compared when
+DNA from fresh frozen tissue was used instead (@tbl_wgs_comparison_summary). 
+Results were only compared when
 the noise and coverage metrics were above the quality control thresholds. The
 CNV regions detected by the PanSolid pipeline were manually reviewed using the
 output Excel spreadsheet and the interactive HTML file to check whether each 
@@ -1649,14 +1659,6 @@ false positive and false negative CNV classifications.
 ```{r}
 #| label: compare-pansolid-to-wgs-results
 #| include: FALSE
-
-wgs_ncc_comp <- read_excel(path = paste0(data_folderpath,
-                                 "validation/DOC6567_deletions/",
-                                 "samples_for_ncc_comp.xlsx")) |> 
-  mutate(wgs_calculated_ncc	 = as.numeric(wgs_calculated_ncc),
-         labno_suffix_worksheet = str_c(pansolid_labno, "_", worksheet),
-         ncc_diff = abs(wgs_calculated_ncc - CLC_calculated_NCC),
-         pansolid_labno = as.character(pansolid_labno))
 
 sig_cnvs_for_join <- del_val_collated_sig_cnvs |> 
   filter(!is.na(check_1)) |> 
@@ -1725,10 +1727,7 @@ pansolid_vs_wgs_outcomes <- pansolid_vs_wgs |>
                                          "false_negative",    
                                          "true_negative"
                                          )),
-    ccube_ncc = parse_number(calculated_tumour_content)) |> 
-  left_join(wgs_ncc_comp |> 
-              select(pansolid_labno, CLC_calculated_NCC),
-            join_by("labno.x" == "pansolid_labno"))
+    ccube_ncc = parse_number(calculated_tumour_content))
 
 stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome_pipeline) == FALSE)
 
@@ -1737,6 +1736,30 @@ stopifnot(anyNA(pansolid_vs_wgs_outcomes$outcome_combined) == FALSE)
 pipeline_manual_discrepancies <- pansolid_vs_wgs_outcomes |> 
   filter(pansolid_result == "deletion" &
            analyst_result == "no deletion")
+
+```
+
+```{r}
+#| label: tbl-wgs-comparison-sample-summary
+#| tbl-cap: "Details of samples used in the PanSolid-WGS comparison. Pathology
+#| identifiers for PanSolid are taken from the DNA database. Pathology 
+#| identifiers for WGS are taken from the WGS HTML reports."
+#| echo: FALSE
+
+tbl_wgs_comparison_summary <- pansolid_vs_wgs_outcomes |> 
+  select(labno.x, labno.y, worksheet, extraction_method, 
+         pathno, wgs_pathno, cancer) |> 
+  distinct() |>  
+  filter(!is.na(labno.y)) |> 
+  rename(`PanSolid DNA number` = labno.x,
+         `WGS DNA number` = labno.y,
+        `PanSolid worksheet` = worksheet,
+        `PanSolid DNA extraction method` = extraction_method,
+        `PanSolid DNA pathology ID` = pathno,
+        `WGS DNA pathology ID` = wgs_pathno,
+        `Cancer type` = cancer)
+
+kable(tbl_wgs_comparison_summary)
 
 ```
 
