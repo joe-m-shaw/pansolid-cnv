@@ -412,7 +412,9 @@ selected based on the specifications of the
 `r length(loh_genes)`
 genes involved with inherited 
 predisposition to colorectal tumours (*MSH2*, *MSH6*, *MLH1* and *PMS2*) and
-Schwannomas (*LZTR1*, *SMARCB1* and *NF2*). For gene deletions there was a 
+Schwannomas (*LZTR1*, *SMARCB1* and *NF2*). 
+
+For gene deletions there was a 
 particular focus on *CDKN2A*, *CDKN2B* 
 and *PTEN*, as these 
 deletions are frequently found in glioblastoma samples, which comprised the
@@ -795,6 +797,18 @@ path_clc_pipeline <- paste0(image_folderpath,
 ```
 
 ![CLC pipeline](`r path_clc_pipeline`){#fig-clc-pipeline width=5in}
+
+### Gene lists and graining levels
+
+Deletions were detected in `r length(del_genes)` genes with the graining levels
+specified in @gene_target_counts (Appendix). Detection of amplifications 
+was performed for the 9 genes specified in 
+[DOC6283]{custom-style="Strong"} plus an additional four genes: *CDK12*, 
+*FGFR1*, *FGFR2* and *FGFR3*. Amplification detection for these four genes was
+added to the NHS Genomic Medicine Test Directory since the validation of
+amplification detection on the PanSolid pipeline. *CDK12* has both 
+tumour-suppressor and oncogenic effects on cancer development
+[@paculova2017] and was analysed for both amplifications and deletions.
 
 ### Deletion detection by fold change {#sec-methods-fold-change}
 
@@ -3597,14 +3611,6 @@ additional low-level alleles (black arrows)."
 ```
 
 ![`r caption_24030962`](`r path_24030962`){#fig-24030962-dna-contamination height=5in}
-
-## New amplification genes
-
-*CDK12* has both tumour-suppressor and oncogenic effects on cancer development
-[@paculova2017] and was analysed for both amplifications and deletions.
-
-The *FGFR1*, *FGFR2* and *FGFR3* genes were added to the list of genes for 
-amplification detection.
 
 {{< pagebreak >}}
 
