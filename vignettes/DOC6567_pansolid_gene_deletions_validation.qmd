@@ -2298,7 +2298,8 @@ del_line_df <- fold_change_df |>
 bi_mono_fc_plot <- pansolid_vs_wgs_outcomes |> 
   mutate(fold_change = case_when(
     min_region_fold_change <= -1 ~min_region_fold_change,
-    min_region_fold_change >= 1 ~-1 / min_region_fold_change)) |> 
+    min_region_fold_change >= 1 ~change(min_region_fold_change,
+                                        from = "fcgain", to = "fcloss"))) |> 
   filter(cnv_copy_number %in% c(0, 1)) |>
   mutate(cnv_copy_number_char = case_when(
     cnv_copy_number == 0 ~"Biallelic deletions on WGS",
@@ -2650,7 +2651,8 @@ fig_pansolid_fold_change_vs_ddpcr <- pansolid_vs_ddpcr |>
            !is.na(min_region_fold_change)) |> 
   mutate(fold_change = case_when(
     min_region_fold_change <= -1 ~min_region_fold_change,
-    min_region_fold_change >= 1 ~-1 / min_region_fold_change)) |> 
+    min_region_fold_change >= 1 ~change(min_region_fold_change, 
+                                        from = "fcgain", to = "fcloss"))) |> 
   ggplot(aes(x = cnv, y = fold_change)) +
   geom_line(data = ddpcr_plot_line_df, colour = "grey",
             linewidth = 1) +
@@ -2996,7 +2998,8 @@ repeated_samples <- c("24018518", "24045597", "24054282")
 repeat_data <- del_val_collated_del_genes |> 
   filter(labno %in% repeated_samples) |> 
   mutate(fold_change_uom = case_when(
-    min_region_fold_change >= 1 ~-1 / min_region_fold_change,
+    min_region_fold_change >= 1 ~change(min_region_fold_change, from = "fcgain",
+                                        to = "fcloss"),
     TRUE ~min_region_fold_change))
 
 ```
@@ -3041,7 +3044,7 @@ not be analysed or reported.
 
 tbl_uom <- tribble(
     ~"Metric", ~"Value",
-    "Standard deviation", all_sd,
+    "Standard deviation of gene fold changes", all_sd,
     "95% Uncertainty of Measurement", del_uom)
 
 knitr::kable(tbl_uom)
@@ -3067,7 +3070,8 @@ repeat_data_long <- repeat_data |>
          pansolid_result = factor(pansolid_result,
                                   levels = c("no deletion", "deletion")),
          fold_change_mod = case_when(
-           fold_change >= 1 ~-1 / fold_change,
+           fold_change >= 1 ~change(fold_change, from = "fcgain",
+                                    to = "fcloss"),
            TRUE ~fold_change))
   
 draw_repeat_plot <- function(df = repeat_data_long, labno) {
