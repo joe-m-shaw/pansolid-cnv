@@ -2432,20 +2432,30 @@ approach to deconvoluting ploidy states. The NCC predictions from CLC were
 compared to the predictions from the WGS results, which were calculated using
 the Canvas algorithm [@fig-wgs-ncc-comparison].
 
+24039973d_CNVMix12CopiesSERASEQ - 29% NCC but its DNA from a cell line. 
+
 ```{r}
 #| label: wgs-ncc-comparison
 #| include: FALSE
 
 pansolid_vs_wgs_ncc <- noise_138x_ncc |>  
+  filter(stdev_noise <= noise_qc_threshold &
+           percent_138x >= percent_138x_qc_threshold) |>  
   left_join(del_val_sample_patient_info,
             by = "labno") |> 
   filter(nhsno %in% del_val_wgs_html_ids$nhsno) |> 
-  filter(stdev_noise <= noise_qc_threshold &
-           percent_138x >= percent_138x_qc_threshold) |>  
+  # Remove limit of detection samples
+  filter(is.na(suffix)) |> 
+  filter(!duplicated(labno)) |> 
   left_join(del_val_wgs_html_ids, 
             by = "nhsno") |> 
   filter(calculated_tumour_content != "NOTAVAILABLE") |> 
-  mutate(ccube_ncc = parse_number(calculated_tumour_content))
+  mutate(ccube_ncc = parse_number(calculated_tumour_content)) |> 
+  # Remove samples with non-matching pathology blocks
+  filter(!labno.x %in% c("24018922", "24033015",
+                         # Contaminated samples
+                         "24030945","24030962"
+                         )) 
 
 ncc_comp_same_dnas <- pansolid_vs_wgs_ncc |> 
   filter(labno.x == labno.y) 
@@ -2453,40 +2463,46 @@ ncc_comp_same_dnas <- pansolid_vs_wgs_ncc |>
 ncc_comp_diff_dnas <- pansolid_vs_wgs_ncc |> 
   filter(labno.x != labno.y) |>  
   filter(is.na(suffix)) |> 
-  # Remove samples with non-matching pathology blocks
-  filter(!labno.x %in% c("24018922", "24033015",
-                         # Contaminated samples
-                         "24030945","24030962"
-                         )) |>  
   filter(!duplicated(nhsno)) 
 
-ncc_same_dna_plot <- ncc_comp_same_dnas |> 
-  filter(!is.na(ccube_ncc)) |>
-  ggplot(aes(x = pred_ncc, y = ccube_ncc)) +
-  geom_point(shape = 21, size = 2) +
-  ylim(0, 100) +
-  xlim(0, 100) +
-  geom_abline(linetype = "dashed") +
-  theme_bw() +
-  labs(x = "CLC predicted NCC (%)", 
-       y = "WGS predicted NCC (%)",
-       title = "Same DNA samples")
+make_ncc_plot <- function(df) {
+  
+  plot <- ggplot(df, aes(x = pred_ncc, y = ccube_ncc)) +
+    geom_point(shape = 21, size = 2) +
+    ylim(0, 100) +
+    xlim(0, 100) +
+    geom_abline(linetype = "dashed") +
+    theme_bw() +
+    labs(x = "CLC predicted NCC (%)", 
+         y = "WGS predicted NCC (%)") +
+    ggpubr::stat_cor(method = "pearson", label.x = 30, label.y = 10)
+  
+  return(plot)
+  
+}
 
-ncc_diff_dna_plot <- ncc_comp_diff_dnas |> 
-  filter(!is.na(ccube_ncc)) |>
-  ggplot(aes(x = pred_ncc, y = ccube_ncc)) +
-  geom_point(shape = 21, size = 2) +
-  ylim(0, 100) +
-  xlim(0, 100) +
-  geom_abline(linetype = "dashed") +
-  theme_bw() +
-  labs(x = "CLC predicted NCC (%)", 
-       y = "WGS predicted NCC (%)",
-       title = "Different DNA samples") +
-  ggpubr::stat_cor(method = "pearson", label.x = 30, label.y = 10) 
+ncc_same_dna_plot <- make_ncc_plot(df = ncc_comp_same_dnas) +
+  labs(title = "Same DNAs")
+  
+ncc_diff_dna_plot <- make_ncc_plot(df = ncc_comp_diff_dnas) +
+       labs(title = "Different DNA samples",
+            subtitle = "All samples")
+  
+ncc_diff_diploid_plot <- make_ncc_plot(ncc_comp_diff_dnas |> 
+  filter(calculated_overall_ploidy < 2.5 &
+           calculated_overall_ploidy > 1.5)) +
+  labs(title = "Different DNA samples",
+            subtitle = "Diploid samples")
 
-wgs_ncc_plot <- ncc_diff_dna_plot + ncc_same_dna_plot +
-  plot_layout(ncol = 2)
+ncc_diff_non_diploid_plot <- make_ncc_plot(ncc_comp_diff_dnas |> 
+  filter(calculated_overall_ploidy > 2.5 |
+           calculated_overall_ploidy < 1.5)) +
+  labs(title = "Different DNA samples",
+            subtitle = "Non-diploid samples")
+
+wgs_ncc_plot <- ncc_diff_dna_plot + ncc_same_dna_plot + 
+  ncc_diff_diploid_plot + ncc_diff_non_diploid_plot +
+  plot_layout(ncol = 2, nrow = 2)
 
 ```
 
