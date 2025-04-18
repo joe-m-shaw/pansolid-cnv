@@ -264,14 +264,15 @@ gene_target_counts <- pansolid_target_loci |>
     single_locus == "TP53" ~15,
     TRUE ~n
   )) |> 
-  mutate("CLC setting" = case_when(
+  mutate(clc_setting = case_when(
     n < 10 ~"Fine",
     n >= 10 & single_locus != "CDKN2A" ~"Coarse",
     # CDKN2A on fine due to small NM_000077.5	transcript
     single_locus == "CDKN2A" ~"Fine"
-  )) |> 
-  rename("Number of PanSolid targets" = n,
-         "Gene" = single_locus) 
+  ),
+  percent_del = case_when(
+    clc_setting == "Coarse" ~round((10/n)*100, 0),
+    clc_setting == "Fine" ~round((2/n)*100, 0))) 
 
 ```
 
@@ -801,7 +802,7 @@ path_clc_pipeline <- paste0(image_folderpath,
 ### Gene lists and graining levels
 
 Deletions were detected in `r length(del_genes)` genes with the graining levels
-specified in @gene_target_counts (Appendix). Detection of amplifications 
+specified in @tbl-deletion-gene-targets (Appendix). Detection of amplifications 
 was performed for the 9 genes specified in 
 [DOC6283]{custom-style="Strong"} plus an additional four genes: *CDK12*, 
 *FGFR1*, *FGFR2* and *FGFR3*. Amplification detection for these four genes was
@@ -1662,7 +1663,7 @@ samples where DNA was tested following multiple extraction methods
 (QIAsymphony, Cobas or fresh frozen tissue),
 a single sample of DNA extracted via the QIAsymphony method was
 selected for the comparison. If QIAsymphony-extracted DNA was not available, 
-DNA from fresh frozen tissue was used instead (@tbl-wgs-comparison-summary). 
+DNA from fresh frozen tissue was used instead. 
 Results were only compared when
 the noise and coverage metrics were above the quality control thresholds. The
 CNV regions detected by the PanSolid pipeline were manually reviewed using the
@@ -2209,6 +2210,13 @@ fig_copy_number_vs_fold_change <- pansolid_vs_wgs_outcomes |>
 
 fig_copy_number_vs_fold_change
 
+wgs_plot_line_df <- data.frame(
+  cnv_copy_number = seq(0, 10, by = 0.1)) |> 
+  mutate(fold_change = pred_fc(tumour_cpc = cnv_copy_number,
+                               ncc = 100,
+                               dir = "loss"))
+
+ 
 ```
 
 ```{r}
@@ -2434,7 +2442,8 @@ ncc_diff_dna_plot <- ncc_comp_diff_dnas |>
   theme_bw() +
   labs(x = "CLC predicted NCC (%)", 
        y = "WGS predicted NCC (%)",
-       title = "Different DNA samples")
+       title = "Different DNA samples") +
+  ggpubr::stat_cor(method = "pearson", label.x = 30, label.y = 10) 
 
 wgs_ncc_plot <- ncc_diff_dna_plot + ncc_same_dna_plot +
   plot_layout(ncol = 2)
@@ -2467,8 +2476,16 @@ ddpcr_data_mod <- del_val_ddpcr_collated |>
   filter(target_type == "Ch1Unknown") |> 
   mutate(category = case_when(
     sample %in% qs_normals$labno ~"normal control",
-    TRUE ~"patient"
-  ))
+    TRUE ~"patient"),
+    sample_gene = str_c(sample, "_", gene))
+
+stopifnot(unique(ddpcr_data_mod$worksheet) == c("WS146462", "WS146463"))
+
+stopifnot(unique(ddpcr_data_mod$gene) == c("CDKN2A", "PTEN"))
+
+stopifnot(unique(ddpcr_data_mod$category) == c("normal control", "patient"))
+
+stopifnot(anyDuplicated(ddpcr_data_mod$sample_gene) == 0)
 
 ```
 
@@ -2476,7 +2493,9 @@ ddpcr_data_mod <- del_val_ddpcr_collated |>
 #| label: compare-ddpcr-pansolid
 #| include: FALSE
 
-pansolid_vs_ddpcr <- ddpcr_data_mod |> 
+ddpcr_del_threshold <- 1.4
+
+pansolid_vs_ddpcr_1 <- ddpcr_data_mod |> 
   left_join(del_val_collated_del_genes |> 
               mutate(labno = case_when(
                 # Change to the numbers for fresh frozen DNA, 
@@ -2484,34 +2503,69 @@ pansolid_vs_ddpcr <- ddpcr_data_mod |>
                 labno == "24025211" & gene %in% c("CDKN2A", "PTEN") ~"24027848",
                 labno == "24030951" & gene %in% c("CDKN2A", "PTEN") ~"23018367",
                 TRUE ~labno)), 
-            join_by("sample" == "labno", "gene" == "gene")) |> 
+            join_by("sample" == "labno", "gene" == "gene"),
+            relationship = "one-to-one") |> 
+  # Remove any patients without PanSolid results
+  filter(!(category == "patient" & is.na(min_region_fold_change)))
+
+stopifnot(anyDuplicated(pansolid_vs_ddpcr_1$sample_gene) == 0)
+
+pansolid_vs_ddpcr_2 <- pansolid_vs_ddpcr_1 |> 
   left_join(sig_cnvs_for_join, 
-            join_by(labno_suffix_worksheet, gene)) |> 
+            # Add join by fold change rounded to 2 decimal places
+            join_by(labno_suffix_worksheet, gene),
+            relationship = "one-to-one") 
+
+stopifnot(anyDuplicated(pansolid_vs_ddpcr_2$sample_gene) == 0)
+
+pansolid_vs_ddpcr_3 <- pansolid_vs_ddpcr_2 |> 
+  rename(pansolid_pipeline_result = pansolid_result) |> 
   mutate(
     pansolid_result_combined = case_when(
-      is.na(analyst_result) ~pansolid_result,
+      is.na(analyst_result) ~pansolid_pipeline_result,
       !is.na(analyst_result) ~analyst_result),
-    pansolid_result_combined = case_when(
-      # Deletion call doesn't include ddPCR assay
-    sample == "24047809" & gene == "PTEN" ~"no deletion",
-    # Small deletion visible on PanSolid
-    sample == "24048159" & gene == "CDKN2A" ~"deletion",
-    TRUE ~pansolid_result_combined),
+    
     sub_category = case_when(
-    category != "normal control" ~paste0(category, " ", pansolid_result_combined),
-    TRUE ~category
-  ),
+      category != "normal control" ~paste0(category, " ", pansolid_pipeline_result),
+      TRUE ~category
+    ),
+    
   sub_category = factor(sub_category,
                         levels = c("normal control",
                                    "patient no deletion",
                                    "patient deletion")),
   ddpcr_result = case_when(
-    cnv >= 1.4 ~"no deletion",
-    cnv <= 1.4 ~"deletion"
+    cnv >= ddpcr_del_threshold ~"no deletion",
+    cnv <= ddpcr_del_threshold ~"deletion"
   ),
   ddpcr_result = factor(ddpcr_result, levels = c("no deletion",
-                                                 "deletion")),
-  outcome = case_when(
+                                                 "deletion"))) |> 
+  filter(is.na(analyst_result) |
+           (!is.na(analyst_result) & analyst_result != "fail"))
+
+stopifnot(length(setdiff(pansolid_vs_ddpcr_3$analyst_result, 
+                         c(NA, "deletion", "no deletion"))) == 0)
+
+pansolid_vs_ddpcr_outcomes <- pansolid_vs_ddpcr_3 |> 
+  mutate(
+    outcome_pipeline = case_when(
+      pansolid_pipeline_result == "deletion" &
+        ddpcr_result == "deletion" ~"true_positive",
+      pansolid_pipeline_result == "no deletion" &
+        ddpcr_result == "no deletion" ~"true_negative",
+      pansolid_pipeline_result == "deletion" &
+        ddpcr_result == "no deletion" ~"false_positive",
+      pansolid_pipeline_result == "no deletion" &
+        ddpcr_result == "deletion" ~"false_negative",
+      TRUE ~"no result"
+    ),
+    outcome_pipeline = factor(outcome_pipeline, 
+                              levels = c("true_positive",
+                                       "false_positive",
+                                       "false_negative",
+                                       "true_negative",
+                                       "no result")),
+  outcome_combined = case_when(
     pansolid_result_combined == "deletion" &
       ddpcr_result == "deletion" ~"true_positive",
     pansolid_result_combined == "no deletion" &
@@ -2522,31 +2576,35 @@ pansolid_vs_ddpcr <- ddpcr_data_mod |>
       ddpcr_result == "deletion" ~"false_negative",
     TRUE ~"no result"
   ),
-  outcome = factor(outcome, levels = c("true_positive",
+  outcome_combined = factor(outcome_combined, 
+                            levels = c("true_positive",
                                        "false_positive",
                                        "false_negative",
                                        "true_negative",
                                        "no result"))) |> 
-  filter(sample != "24034335")
+  # Exclude as there is a copy number gain on chromosome 5
+  filter(sample != "24034335") |> 
+  # PanSolid deletion call does not include region of ddPCR assay
+  filter(sample != "24047809")
 
-ddpcr_sample_summary <- pansolid_vs_ddpcr |> 
+ddpcr_sample_summary <- pansolid_vs_ddpcr_outcomes |> 
   group_by(sub_category) |> 
   summarise(samples = length(unique(sample))) |> 
   janitor::adorn_totals()
 
-control_ddpcr_results_cdkn2a <- pansolid_vs_ddpcr |> 
+control_ddpcr_results_cdkn2a <- pansolid_vs_ddpcr_outcomes |> 
   filter(sub_category == "normal control" & gene == "CDKN2A") |> 
   arrange(cnv) |> 
   select(sample, cnv)
 
-control_ddpcr_results_pten <- pansolid_vs_ddpcr |> 
+control_ddpcr_results_pten <- pansolid_vs_ddpcr_outcomes |> 
   filter(sub_category == "normal control" & gene == "PTEN")
 
-ddpcr_patients <- ddpcr_sample_summary[2,2] +ddpcr_sample_summary[3,2]
+ddpcr_patients <- ddpcr_sample_summary[2,2] + ddpcr_sample_summary[3,2]
 
-normals_below_ddpcr_threshold <- pansolid_vs_ddpcr |> 
+normals_below_ddpcr_threshold <- pansolid_vs_ddpcr_outcomes |> 
   filter(sub_category == "normal control" &
-           cnv < 1.4)
+           cnv < ddpcr_del_threshold)
 
 ```
 
@@ -2585,10 +2643,6 @@ normal or deleted, although the *CDKN2A* copy numbers for 2 normal control
 samples (24012050, R24-0AKB, skin and 24012073, R24-0AJR, prostate) fell below this threshold
 (@fig-ddpcr-pansolid-outcomes). 
 
-Using this threshold, 91.4% of ddPCR and PanSolid
-results were concordant (@tbl-pansolid-ddpcr-metrics). The sample with a small
-germline deletion of CDKN2A (24048159) had a *CDKN2A* ddPCR copy number of 0.25.
-
 ```{r}
 #| label: fig-ddpcr-pansolid-outcomes
 #| fig-cap: "PanSolid results vs ddPCR. Note the ordering of samples is 
@@ -2597,16 +2651,17 @@ germline deletion of CDKN2A (24048159) had a *CDKN2A* ddPCR copy number of 0.25.
 #| fig-width: 6
 #| fig-height: 7
 
-cdkn2a_ddpcr_for_plot <- pansolid_vs_ddpcr |> 
+pansolid_vs_ddpcr_outcomes |> 
+  filter(is.na(sample))
+
+cdkn2a_ddpcr_for_plot <- pansolid_vs_ddpcr_outcomes |> 
   filter(gene == "CDKN2A") |> 
-  filter(!duplicated(sample)) |> 
   arrange(sub_category, desc(cnv)) |> 
   mutate(sample_order = factor(sample,
                                levels = sample))
 
-pten_ddpcr_for_plot <-  pansolid_vs_ddpcr |> 
+pten_ddpcr_for_plot <-  pansolid_vs_ddpcr_outcomes |> 
   filter(gene == "PTEN") |> 
-  filter(!duplicated(sample)) |> 
   arrange(sub_category, desc(cnv)) |> 
   mutate(sample_order = factor(sample,
                                levels = sample))
@@ -2660,7 +2715,7 @@ ddpcr_plot_line_df <- data.frame(
                                ncc = 100,
                                dir = "loss"))
 
-fig_pansolid_fold_change_vs_ddpcr <- pansolid_vs_ddpcr |> 
+fig_pansolid_fold_change_vs_ddpcr <- pansolid_vs_ddpcr_outcomes |> 
   filter(category == "patient" &
            !is.na(min_region_fold_change)) |> 
   mutate(fold_change = case_when(
@@ -2682,65 +2737,113 @@ fig_pansolid_fold_change_vs_ddpcr
 
 ```
 
+### Sensivitity and specificity
+
+Sensitivity and specificity were calculated as for the comparison with WGS, 
+using both the initial result from the PanSolid pipeline, and then the 
+result from manual review (@tbl-pansolid-ddpcr-metrics-pipeline and
+@tbl-pansolid-ddpcr-metrics-combined). As with WGS, the specificity comparative
+to ddPCR improved with manual review.
+
 ```{r}
-#| label: tbl-pansolid-ddpcr-metrics
-#| tbl-cap: "PanSolid vs ddPCR metrics"
+#| label: tbl-pansolid-ddpcr-metrics-pipeline
+#| tbl-cap: "PanSolid pipeline vs ddPCR"
 #| echo: FALSE
 
-pansolid_vs_ddpcr_results <- pansolid_vs_ddpcr |> 
-  filter(outcome != "no result") |> 
-  mutate(outcome = factor(outcome, levels = c("true_positive",
+pansolid_pipeline_vs_ddpcr_results <- pansolid_vs_ddpcr_outcomes |> 
+  filter(outcome_pipeline != "no result") |> 
+  mutate(outcome_pipeline = factor(outcome_pipeline, 
+                                   levels = c("true_positive",
                                        "false_positive",
                                        "false_negative",
                                        "true_negative")))
 
-ddpcr_pten_results <- pansolid_vs_ddpcr_results |> 
+pipeline_vs_ddpcr_pten_results <- pansolid_pipeline_vs_ddpcr_results |> 
   filter(gene == "PTEN") |> 
-  group_by(outcome) |> 
-   count(outcome, .drop = FALSE)
+  group_by(outcome_pipeline) |> 
+   count(outcome_pipeline, .drop = FALSE)
 
-ddpcr_cdkn2a_results <- pansolid_vs_ddpcr_results |> 
+pipeline_ddpcr_cdkn2a_results <- pansolid_pipeline_vs_ddpcr_results |> 
   filter(gene == "CDKN2A") |> 
-  group_by(outcome) |> 
-   count(outcome, .drop = FALSE)
+  group_by(outcome_pipeline) |> 
+   count(outcome_pipeline, .drop = FALSE)
 
-ddpcr_all_results <- pansolid_vs_ddpcr_results |> 
-  group_by(outcome) |> 
-  count(outcome, .drop = FALSE)
+pipeline_ddpcr_all_results <- pansolid_pipeline_vs_ddpcr_results |> 
+  group_by(outcome_pipeline) |> 
+  count(outcome_pipeline, .drop = FALSE)
 
-ddpcr_pten_se_sp <- make_se_sp_table(ddpcr_pten_results$n) |> 
+pipeline_ddpcr_pten_se_sp <- make_se_sp_table(pipeline_vs_ddpcr_pten_results$n) |> 
   mutate(cohort = "PTEN")
 
-ddpcr_cdkn2a_se_sp <- make_se_sp_table(ddpcr_cdkn2a_results$n) |> 
+pipeline_ddpcr_cdkn2a_se_sp <- make_se_sp_table(pipeline_ddpcr_cdkn2a_results$n) |> 
   mutate(cohort = "CDKN2A")
 
-pansolid_ddpcr_se_sp <- make_se_sp_table(ddpcr_all_results$n) |> 
+pipeline_ddpcr_se_sp <- make_se_sp_table(pipeline_ddpcr_all_results$n) |> 
   mutate(cohort = "CDKN2A and PTEN")
 
-pansolid_vs_ddpcr_metrics <- rbind(ddpcr_pten_se_sp,
-                                   ddpcr_cdkn2a_se_sp,
-                                   pansolid_ddpcr_se_sp) |> 
+pipeline_vs_ddpcr_metrics <- rbind(pipeline_ddpcr_pten_se_sp,
+                                   pipeline_ddpcr_cdkn2a_se_sp,
+                                   pipeline_ddpcr_se_sp) |> 
   relocate(cohort) |> 
-  rename(`Cohort` = cohort)
+  rename(`Gene` = cohort)
 
-knitr::kable(pansolid_vs_ddpcr_metrics)
+knitr::kable(pipeline_vs_ddpcr_metrics)
 
 ```
+
+```{r}
+#| label: tbl-pansolid-ddpcr-metrics-combined
+#| tbl-cap: "PanSolid pipeline with manual review vs ddPCR"
+#| echo: FALSE
+
+pansolid_combined_vs_ddpcr_results <- pansolid_vs_ddpcr_outcomes |> 
+  filter(outcome_combined != "no result") |> 
+  mutate(outcome_combined = factor(outcome_combined, 
+                                   levels = c("true_positive",
+                                       "false_positive",
+                                       "false_negative",
+                                       "true_negative")))
+
+combined_vs_ddpcr_pten_results <- pansolid_combined_vs_ddpcr_results |> 
+  filter(gene == "PTEN") |> 
+  group_by(outcome_combined) |> 
+   count(outcome_combined, .drop = FALSE)
+
+combined_ddpcr_cdkn2a_results <- pansolid_combined_vs_ddpcr_results |> 
+  filter(gene == "CDKN2A") |> 
+  group_by(outcome_combined) |> 
+   count(outcome_combined, .drop = FALSE)
+
+combined_ddpcr_all_results <- pansolid_combined_vs_ddpcr_results |> 
+  group_by(outcome_combined) |> 
+  count(outcome_combined, .drop = FALSE)
+
+combined_ddpcr_pten_se_sp <- make_se_sp_table(combined_vs_ddpcr_pten_results$n) |> 
+  mutate(cohort = "PTEN")
+
+combined_ddpcr_cdkn2a_se_sp <- make_se_sp_table(combined_ddpcr_cdkn2a_results$n) |> 
+  mutate(cohort = "CDKN2A")
+
+combined_ddpcr_se_sp <- make_se_sp_table(combined_ddpcr_all_results$n) |> 
+  mutate(cohort = "CDKN2A and PTEN")
+
+combined_vs_ddpcr_metrics <- rbind(combined_ddpcr_pten_se_sp,
+                                   combined_ddpcr_cdkn2a_se_sp,
+                                   combined_ddpcr_se_sp) |> 
+  relocate(cohort) |> 
+  rename(`Gene` = cohort)
+
+knitr::kable(combined_vs_ddpcr_metrics)
+
+```
+
 
 CDKN2A:
 24037201 - normal on PanSolid, deletion on ddPCR. Could be a primer binding SNP.
 
-PTEN:
-24018632 - normal on PanSolid, deletion on ddPCR
-
 24019905: borderline
 
-ERBB2 validation: "The 29 cobas®-extracted FFPE controls were tested, 
-with ddPCR ERBB2 copy numbers ranging from 0.77-6 (median: 1.61)."
-
-Pooled control DNA showed normal dosage (C3, WS146103)
-
-Could be due to FFPE degradation.
+24022883: could be non-diploid genome, chromosome 5 also reduced in dosage
 
 {{< pagebreak >}}
 
@@ -3233,6 +3336,8 @@ kable(make_loh_repeat_table("24054282"))
 
 ```
 
+### NCC prediction
+
 ```{r}
 #| label: ncc-repeat-data
 #| echo: FALSE
@@ -3547,6 +3652,64 @@ chr10_lod_dosage_plot
 
 ```
 
+## Intragenic and germline deletions
+
+```{r}
+#| label: intragenic-deletions
+#| include: FALSE
+
+intragenic_del_results <- del_val_collated_sig_cnvs |> 
+  filter((labno == "24048159" & gene == "CDKN2A") |
+           (labno == "24067827" & gene == "MSH2")) |> 
+  left_join(del_val_collated_pred_ncc |> 
+              select(filepath, pred_ncc),
+            by = "filepath") |> 
+  select(labno, gene, no_targets,  fold_change,
+         cnv_length, pred_ncc) |> 
+  mutate(cnv_kb = round(cnv_length / 1000, 1)) |> 
+  select(-cnv_length)
+  
+intragenic_del_orthogonal <- tribble(
+  ~gene, ~`Orthogonal method`, ~`R number`, ~`Description`,
+  "MSH2", "Targetted NGS and MLPA", "R24-1HBV-1", "NM_000251.1 (exons 1-7)",
+  "CDKN2A", "WGS", "R24-1C6B-1", "NM_000077.5 (exons 1a-3)")
+
+tbl_intragenic_deletions <- intragenic_del_results |> 
+  inner_join(intragenic_del_orthogonal, by = "gene") |>  
+  rename(`DNA number` = labno,
+         `Gene` = gene,
+         `Number of targets` = no_targets,
+         `Fold change` = fold_change,
+         `CNV length (kb)` = cnv_kb,
+         `Predicted NCC (%)` = pred_ncc)
+
+```
+
+2 cases of small germline deletions in the *MSH2* and *CDKN2A* genes
+were detected by the PanSolid pipeline. These
+cases are summarised in @tbl-intragenic-deletions and demonstrate that the 
+pipeline can detect intragenic deletions on both the coarse (*MSH2*) and
+fine (*CDKN2A*) graining levels. For the *MSH2* deletion, the PanSolid pipeline
+overestimated the coordinates of the deletion: 7 targets were impacted,
+which is below the resolution of the "coarse" graining level,
+but a deletion call was returned for 13 targets. Examining the HTML file and
+raw target fold changes for this case showed the true deletion coordinates
+are GRCh38 chr2: 47403187-47429946 (fig). 25001806 - deletion not seen
+
+For sample 24048159, a deletion impacting only the NM_000077.5 transcript of
+the *CDKN2A* was detected, which agreed with the results from somatic and
+germline WGS analysis. This case demonstrated the suitability of the fine
+graining level for *CDKN2A*.
+
+```{r}
+#| label: tbl-intragenic-deletions
+#| tbl-cap: "Intragenic deletions"
+#| echo: FALSE
+
+kable(tbl_intragenic_deletions)
+
+```
+
 ## Quality control
 
 23011114, 23032153, 24026811 - high noise leads to multiple deletion calls 
@@ -3724,6 +3887,13 @@ and specificity of
 In the ERBB2 validation the range varied from 0.77-6 (median: 1.61) in 
 cobas-extracted controls.
 
+ERBB2 validation: "The 29 cobas®-extracted FFPE controls were tested, 
+with ddPCR ERBB2 copy numbers ranging from 0.77-6 (median: 1.61)."
+
+Pooled control DNA showed normal dosage (C3, WS146103)
+
+Could be due to FFPE degradation.
+
 ## NF2 LOH PCR
 
 The ploidy caller can correctly identify when there is a deletion on a background
@@ -3755,28 +3925,29 @@ challenge for confirming the coordinates of any apparently CNV [@blount2018].
 
 ## Small and intragenic deletions
 
-The method was optimised for whole gene deletions, although intragenic deletions
-can also be detected. The ability to detect intragenic deletions depends on the 
-size of the deletion, the fold change of the affected targets and the graining 
-level used, which is determined by the size of the gene. 
-
-The pipeline may detect that a deletion is there although it can overestimate 
-the size.
-
-24067827 - MSH2 intragenic deletion detected - 7 targets impacted, which is 
-below the resolution of the "coarse" graining level used for *MSH2*, 
-but the fold change is so 
-low (-8) that it has led to a deletion being called for 13 targets (the original 7
-plus an additional 6). This patient was found to have a germline MSH2 deletion 
-from exon 1-7 (R24-1SXE).
-
-Similarly, the pipeline detected an intragenic deletion only impacting 2
-targets. 24034306 - biallelic deletion of exons 4 and 5 of PTEN 
-(although the call is for exons 3-5) on a background of chromosome 10 loss.
-
-This means the pipeline can alert the analyst to the presence of
+The method was optimised for somatic whole gene deletions, although intragenic 
+and germline deletions
+can also be detected. The pipeline may detect that a deletion is there 
+although it can overestimate 
+the size. This means the pipeline can alert the analyst to the presence of
 intragenic deletions, which then allows the
 analyst to judge the true extent of the deletion.
+
+The ability to detect intragenic deletions will depend
+on several factors, including the
+size of the deletion, the neoplastic cell content, the signal-adjusted noise
+of the sample, the fold change of the affected targets, the positioning of 
+targets within the gene and the graining 
+level used, which is determined by the size of the gene. Accepting these 
+caveats, an approximation of the smallest detectable deletion 
+for each gene with a specific graining level can be calculated as a 
+percentage of the total gene size. This shows that the PanSolid pipeline
+could theoretically detect deletions ranging from
+`r min(gene_target_counts$percent_del)`
+to `r max(gene_target_counts$percent_del)`% of the genes of interest (@tbl-deletion-gene-targets, Appendix).
+
+The ability to detect germline deletions will be inversely impacted by the 
+neoplastic cell content.
 
 ## Contamination
 
@@ -4016,10 +4187,18 @@ of ploidy states in *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*
 
 ```{r}
 #| label: tbl-deletion-gene-targets
-#| tbl-cap: "Genes on the deletion list"
+#| tbl-cap: "Genes on the deletion list. The smallest theoretically detectable
+#| deletion was calculated by dividing the lowest number of targets required
+#| to detect a deletion on each setting (Coarse: 10; Fine: 2) by the total
+#| targets within each gene."
 #| echo: FALSE
 
-kable(gene_target_counts)
+kable(gene_target_counts |> 
+          rename("Number of PanSolid targets" = n,
+           "Gene" = single_locus,
+           "CLC setting" = clc_setting,
+           "Smallest theoretically detectable deletion
+           as a percentage of the gene" = percent_del))
 
 ```
 
