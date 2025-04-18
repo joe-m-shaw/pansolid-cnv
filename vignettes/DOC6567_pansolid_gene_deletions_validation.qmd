@@ -1324,6 +1324,17 @@ false_pos_frequencies <- del_val_collated_sig_cnvs |>
   count() |> 
   arrange(desc(n))
 
+false_pos_percent_tbl <- del_val_collated_sig_cnvs |>
+  filter(gene != "no positive calls") |> 
+  filter(!analyst_result %in% c("fail", "no amplification", 
+                                "amplification")) |> 
+  group_by(analyst_result) |> 
+  summarise(n = n()) |>   
+  mutate(percent = round((n / sum(n))*100, 0)) |> 
+  adorn_totals()
+
+percent_false_pos_calls <- false_pos_percent_tbl[2, 3]
+
 ```
 
 ### Manual review of deletions {#sec-results-manual-review}
@@ -1605,7 +1616,7 @@ fig_ploidy_caller_results
 
 ```
 
-### Disagreements with CNV caller
+### Disagreements with CNV caller {#sec-results-cnv-caller-disagreements}
 
 ```{r}
 #| label: ploidy-cnv-disagreements
@@ -1644,6 +1655,10 @@ genes, there were
 instances for the 
 where the results of the ploidy caller
 contradicted the results of the CNV caller.
+
+One example is the 
+*PTEN* result for 24054295 (WS146337, v2SchwannAll_PS): the CNV caller predicts
+a deletion whilst the ploidy caller predicts a normal diploid state.
 
 ```{r}
 #| label: tbl-ploidy-cnv-disagreements
@@ -2508,6 +2523,7 @@ wgs_ncc_plot <- ncc_diff_dna_plot + ncc_same_dna_plot +
 
 ```{r}
 #| label: fig-wgs-ncc-comparison
+#| fig-width: 6
 #| echo: FALSE
 
 wgs_ncc_plot
@@ -2706,9 +2722,6 @@ samples (24012050, R24-0AKB, skin and 24012073, R24-0AJR, prostate) fell below t
 #| echo: FALSE
 #| fig-width: 6
 #| fig-height: 7
-
-pansolid_vs_ddpcr_outcomes |> 
-  filter(is.na(sample))
 
 cdkn2a_ddpcr_for_plot <- pansolid_vs_ddpcr_outcomes |> 
   filter(gene == "CDKN2A") |> 
@@ -3716,7 +3729,8 @@ chr10_lod_dosage_plot
 
 intragenic_del_results <- del_val_collated_sig_cnvs |> 
   filter((labno == "24048159" & gene == "CDKN2A") |
-           (labno == "24067827" & gene == "MSH2")) |> 
+           (labno == "24067827" & gene == "MSH2") |
+           (labno == "24031162" & gene == "NF2")) |> 
   left_join(del_val_collated_pred_ncc |> 
               select(filepath, pred_ncc),
             by = "filepath") |> 
@@ -3953,15 +3967,28 @@ threshold of 1.7 with a singleplex assay [@mcfadden2023], and then sensitivity
 and specificity of 
 80% and 100% using a threshold of 1.6 in 17 different samples [@mcfadden2024].
 
-## NF2 LOH PCR
+## *NF2* LOH PCR
 
-The ploidy caller can correctly identify when there is a deletion on a background
-of copy neutral LOH, but also may switch between ploidy states when there
-is only one present.
+To assess the accuracy of the PanSolid ploidy caller for detecting LOH, 
+`r sum(nf2_pipeline_results$n)` samples were tested with known LOH statuses from
+PCR-based testing for the *NF2* gene. Determining LOH for *NF2* by 
+PCR is a well-established technique at the North West 
+GLH as part of the *NF2*-related Schwannamatosis clinical service [@wallace2004]. 
+The Regional Ploidy Caller showed close agreement with the results from *NF2*
+PCR testing, and revealed cases where LOH was due to loss of chromosome 22 and
+copy-neutral LOH. This demonstrates a key advantage of this approach, as 
+PCR-based testing does not distinguish between these two forms of LOH.
+Moreover, the ploidy caller was able to identify a case with an
+intragenic *NF2* deletion on a background
+of copy neutral LOH (24031162; R24-0TDP).
 
-Determining LOH by PCR is a well-established technique; a relative reduction in
-peak height of at least 30% is required to classify a locus as having 
-LOH [@wallace2004]. 
+However, there were cases where the ploidy caller switched between ploidy states 
+when the VAF pattern indicated that only one was present.
+Another limitation of the ploidy caller is that classified deleted regions as
+biallelic deletions in 2 cases, which are not associated with LOH and led to
+false negative results when compared to *NF2* PCR. Manual review of each call 
+was able to correct for this behaviour, 
+and increase the sensitivity to 100%.
 
 ## QIAseq Merged Panel
 
@@ -4108,20 +4135,25 @@ may be more prevalent.
 This validation has shown that the PanSolid NGS technique has the 
 following limitations:
 
-- The Detect Regional Ploidy tool predicts LOH with high accuracy comparative
-to PCR-based (@sec-results-nf2-loh) and NGS-based methods (@sec-results-mmr-ngs).
-However, due to the spacing of SNPs within the PanSolid enrichment, a focal or
-intragenic region of copy neutral LOH could be missed.
+- The classification of deletions based solely on fold change can lead to
+false positive results in which the the VAF pattern in a region marked as a 
+deletion is not consistent with a deletion (@sec-results-manual-review). In the 
+validation cohort, this occured for
+`r percent_false_pos_calls`% of deletion calls.
+
+- The predictions of the CNV Detection tool and the Detect Regional Ploidy tool
+contradict each other in a limited number of cases
+(@sec-results-cnv-caller-disagreements). 
 
 - Haploidy will not be identified as a genome-wide 
 loss of copy dosage (@fig-24062632-haploid-false-negative) and 
 higher genome-wide ploidy states
 may not be correctly characterised (@fig-24045841-false-positive-hexaploid).
 
-- The predictions of the CNV Detection tool and the Detect Regional Ploidy tool
-may contradict each other in a limited number of cases. One example is the 
-*PTEN* result for 24054295 (WS146337, v2SchwannAll_PS): the CNV caller predicts
-a deletion whilst the ploidy caller predicts a normal diploid state.
+- The Detect Regional Ploidy tool predicts LOH with high accuracy comparative
+to PCR-based (@sec-results-nf2-loh) and NGS-based methods (@sec-results-mmr-ngs).
+However, due to the spacing of SNPs within the PanSolid enrichment, a focal or
+intragenic region of copy neutral LOH could be missed.
 
 - The resolution of the ploidy caller depends on the SNPs present in the sample.
 
@@ -4131,12 +4163,7 @@ This validation has the following limitations:
 tumours (@tbl-cancer-types) and hence had higher numbers of deletions
 impacting these types of cancer.
 
-- The repeatability tests were performed before the
-75% threshold for panel coverage at 138X was decided on 
-(@sec-results-repeat-testing). As a result the calculated uncertainty of 
-measurement value may be an overestimate of the true value.
-
-- An intra-control normalisation was not done.
+- An intra-control normalisation was not performed.
 
 - No true positive or true negative samples were tested for *PMS2* LOH.
 
@@ -4191,8 +4218,9 @@ are shown in @tbl-pansolid-cnv-metrics.
 monoallelic and biallelic deletions, in samples with a range of NCC values.
 
 The sensitivities of the PanSolid pipeline for detecting biallelic and monoallelic deletions in comparison to WGS for diploid samples are 
-`r substr(bi_mono_allelic_results_diploid[1, 5], 1,3)`% and
-`r substr(bi_mono_allelic_results_diploid[2, 5], 1, 4)`%, respectively. The NCC values 
+`r substr(bi_mono_allelic_results_diploid[1, 5], 1, 3)`% and
+`r substr(bi_mono_allelic_results_diploid[2, 5], 1, 4)`%, respectively. 
+The NCC values 
 for these samples ranged from
 `r min(pansolid_vs_wgs_outcomes$calculated_tumour_content, na.rm = TRUE)`
 to
@@ -4248,16 +4276,11 @@ deletion. This is because a proportion of deletion calls are false positives.
 *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2* should be checked
 for consistency against the results shown in the HTML file, in order to 
 identify the low percentage of cases where the outputs differ from 
-PCR-based LOH testing.
+PCR-based LOH testing (@tbl-nf2-metrics-with-qc).
 
 - The test has a limit of detection for biallelic deletions of at least 
 20% NCC (@sec-results-lod). In practice, this may be further reduced by the
 technique's uncertainty of measurement.
-
-- The test will report genome-wide copy-neutral LOH in cases of haploidy.
-
-- The ploidy caller and the CNV caller may disagree - analysts should be aware
-of this.
 
 # Conclusion
 
@@ -4282,17 +4305,19 @@ of ploidy states in *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*
 ```{r}
 #| label: tbl-deletion-gene-targets
 #| tbl-cap: "Genes on the deletion list. The smallest theoretically detectable
-#| deletion was calculated by dividing the lowest number of targets required
+#| deletion is expressed as a percentage of the targets for each gene, and was
+#| calculated by dividing the lowest number of targets required
 #| to detect a deletion on each setting (Coarse: 10; Fine: 2) by the total
 #| targets within each gene."
 #| echo: FALSE
 
-kable(gene_target_counts |> 
+tbl_gene_target_counts <- gene_target_counts |> 
           rename("Number of PanSolid targets" = n,
            "Gene" = single_locus,
            "CLC setting" = clc_setting,
-           "Smallest theoretically detectable deletion
-           as a percentage of the gene" = percent_del))
+           "Smallest detectable deletion (%)" = percent_del)
+
+kable(tbl_gene_target_counts)
 
 ```
 
