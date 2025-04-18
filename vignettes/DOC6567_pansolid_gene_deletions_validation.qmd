@@ -1314,6 +1314,84 @@ fig_cnv_gene_frequency
 
 ```
 
+```{r}
+#| label: manual-review-false-positives
+#| include: FALSE
+
+false_pos_frequencies <- del_val_collated_sig_cnvs |> 
+  filter(analyst_result == "no deletion") |> 
+  group_by(gene) |> 
+  count() |> 
+  arrange(desc(n))
+
+```
+
+### Manual review of deletions {#sec-results-manual-review}
+
+All the deletion calls were manually reviewed using the Excel and HTML for each
+case. In some cases, the copy number statuses provided by the PanSolid 
+CNV caller, which
+are based on fold change, contrasted with the pattern in the SNP allele frequency
+view. For example, the PanSolid pipeline identified certain genes as being 
+deleted with fold changes slightly below the `r deletion_fc_threshold` fold change
+threshold, whilst
+SNP allele frequencies in the same region indicated a normal diploid state.
+In each case the deletion status of the gene was manually annotated
+as not having
+a deletion in the "Check 1" box of the analysis Excel file. 
+The genes for which this was most commonly performed were *FGFR3* and
+*MUTYH*. An example for 
+the *MUTYH* gene is shown in @fig-24030951-false-positive.
+
+```{r}
+#| label: false-pos-image
+#| include: FALSE
+
+path_24030951 <- paste0(image_folderpath,
+                        "24030951_false_positive.png")
+
+caption_24030951 <- "For this sample, PanSolid NGS 
+(24030951, WS143415, panel: v2PANSOLID) identified a partial deletion in 
+the *MUTYH* gene on chromosome 1 with a fold change of -1.28
+(highlighted in the red box). However, 
+the ploidy caller and SNP profile at the *MUTYH* locus both indicate a normal 
+diploid result (black arrow). WGS on DNA from fresh frozen tissue 
+from the same pathology 
+block (23018367) did not detect a deletion in *MUTYH*."
+
+```
+
+![`r caption_24030951`](`r path_24030951`){#fig-24030951-false-positive height=5in}
+
+In other cases, the reverse scenario was observed: the PanSolid pipeline 
+categorised genes as not being deleted with fold changes slightly above the
+`r deletion_fc_threshold` fold change threshold, whilst
+SNP allele frequencies indicated the loss of a large chromosomal region. An 
+example is shown in @fig-23024575-false-neg. In these cases, the missed genes
+were not manually annotated as having deletions. This was because it is 
+unrealistic to expect analysis staff to remember the chromosomal location of
+`r length(del_genes)` genes and to manually annotate deletions in this way when
+the pipeline does not draw their attention to a particular genomic region.
+
+```{r}
+#| label: wgs-false-neg-image
+#| include: FALSE
+
+path_23024575 <- paste0(image_folderpath,
+                        "23024575_false_negative.png")
+
+caption_23024575 <- "WGS for this sample shows a loss of chromosome 10
+(23024547). On 
+PanSolid, the CLC ploidy caller also detects this loss and deletions are 
+detected in *BMPR1A* and *PTEN*. However, *FGFR2* and *SUFU*, also on 
+chromosome 10, are not identified as deletions on PanSolid 
+(23024575 WS141565, panel: v2PANSOLID) as they have 
+fold changes of -1.23 which are just below the fold change threshold of-1.25."
+
+```
+
+![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-neg height=5in}
+
 ### *CDKN2A/B* and *PTEN* results
 
 A range of different deletions were detected at the *CDKN2A/B* and *PTEN* loci.
@@ -1822,66 +1900,13 @@ kable(tbl_wgs_comparison_summary)
 
 ### False positive and false negative results {#sec-results-wgs-false-pos-neg}
 
-In some cases, the copy number statuses provided by the PanSolid CNV caller, which
-are based on fold change, contrasted with the pattern in the SNP allele frequency
-view. For example, the PanSolid pipeline identified certain genes as being 
-deleted with fold changes slightly below the `r deletion_fc_threshold` fold change
-threshold, whilst
-SNP allele frequencies in the same region indicated a normal diploid state.
-This was noted in
+PanSolid deletion calls were manually reviewed as described in 
+@sec-results-manual-review. False positive deletion calls were noted in
 `r nrow(pipeline_manual_discrepancies)`
 gene results in 
 `r length(unique(pipeline_manual_discrepancies$labno_suffix_worksheet))`
-samples, and in each case the deletion status of the gene was manually annotated
-as not having
-a deletion. The genes for which this was most commonly performed were *FGFR3* and
-*MUTYH*. An example for 
-the *MUTYH* gene is shown in @fig-24030951-false-positive.
-
-```{r}
-#| label: wgs-false-pos-image
-#| include: FALSE
-
-path_24030951 <- paste0(image_folderpath,
-                        "24030951_false_positive.png")
-
-caption_24030951 <- "For this sample, PanSolid NGS 
-(24030951, WS143415, panel: v2PANSOLID) identified a partial deletion in 
-the *MUTYH* gene on chromosome 1 with a fold change of -1.28
-(highlighted in the red box). However, 
-the ploidy caller and SNP profile at the *MUTYH* locus both indicate a normal 
-diploid result (black arrow). WGS on DNA from fresh frozen tissue 
-from the same pathology 
-block (23018367) did not detect a deletion in *MUTYH*."
-
-```
-
-![`r caption_24030951`](`r path_24030951`){#fig-24030951-false-positive height=5in}
-
-In other cases, the reverse scenario was observed: the PanSolid pipeline 
-categorised genes as not being deleted with fold changes slightly above the
-`r deletion_fc_threshold` fold change threshold, whilst
-SNP allele frequencies indicated the loss of a large chromosomal region. An 
-example is shown in @fig-23024575-false-neg.
-
-```{r}
-#| label: wgs-false-neg-image
-#| include: FALSE
-
-path_23024575 <- paste0(image_folderpath,
-                        "23024575_false_negative.png")
-
-caption_23024575 <- "WGS for this sample shows a loss of chromosome 10
-(23024547). On 
-PanSolid, the CLC ploidy caller also detects this loss and deletions are 
-detected in *BMPR1A* and *PTEN*. However, *FGFR2* and *SUFU*, also on 
-chromosome 10, are not identified as deletions on PanSolid 
-(23024575 WS141565, panel: v2PANSOLID) as they have 
-fold changes of -1.23 which are just below the fold change threshold of-1.25."
-
-```
-
-![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-neg height=5in}
+samples. Additional sources of false positives and false negatives were noted
+to be due to sample ploidy.
 
 ```{r}
 #| label: p-values
@@ -2231,7 +2256,6 @@ wgs_plot_line_df <- data.frame(
                                ncc = 100,
                                dir = "loss"))
 
- 
 ```
 
 ```{r}
@@ -2420,6 +2444,7 @@ pansolid_vs_wgs_ncc <- noise_138x_ncc |>
            percent_138x >= percent_138x_qc_threshold) |>  
   left_join(del_val_wgs_html_ids, 
             by = "nhsno") |> 
+  filter(calculated_tumour_content != "NOTAVAILABLE") |> 
   mutate(ccube_ncc = parse_number(calculated_tumour_content))
 
 ncc_comp_same_dnas <- pansolid_vs_wgs_ncc |> 
