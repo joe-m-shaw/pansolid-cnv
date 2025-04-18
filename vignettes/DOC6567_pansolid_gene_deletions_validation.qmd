@@ -1314,25 +1314,30 @@ fig_cnv_gene_frequency
 
 ```
 
-### *CDKN2A* and *PTEN* results
+### *CDKN2A/B* and *PTEN* results
 
-The deletions detected at the *CKDN2A/B* locus on chromosome 9p are shown in
-@fig-cdkn2a-results, and the *PTEN* deletions detected on chromosome 10 are
-shown in @fig-pten-results. The majority of CNVs included both the *CDKN2A* and
-*CDKN2B* genes.
+A range of different deletions were detected at the *CDKN2A/B* and *PTEN* loci.
 
-24026819: CDKN2A only deletion (not with CDKN2B)
+There were four samples (24017040, 24026819, 24029270 and 24048159) in which 
+*CDKN2A* but not *CDKN2B* was deleted, and one sample (24030966) in which 
+*CDKN2B* was deleted with only one exon of *CDKN2A*.
+
+For *PTEN* there were 2 samples (24047809 and 24034306) which showed intragenic
+deletions.
 
 ```{r}
 #| label: fig-cdkn2a-results
+#| fig-cap: "CDKN2A deletions with fold changes below -1.9 which passed manual
+#| review"
 #| echo: FALSE
 #| fig-width: 6
-#| fig-height: 9
+#| fig-height: 8
 
 cdkn2a_pass_qc <- sig_cnvs_passing_qc |> 
   filter(gene %in% c("CDKN2A", "CDKN2B")) |> 
-  arrange(desc(start)) |> 
-  mutate(labno_start = str_c(labno, "_", no_targets))
+  filter(analyst_result == "deletion") |> 
+  filter(fold_change < -1.9) |> 
+  arrange(cnv_length)
 
 cdkn2a_pass_qc_factors <- cdkn2a_pass_qc |> 
   mutate(labno_factor = factor(labno, levels = unique(labno)))
@@ -1358,9 +1363,7 @@ cdkn2a_labno_plot <- ggplot(cdkn2a_pass_qc_factors,
                  linewidth = 2) +
     scale_colour_gradient(high = "#FF9999", 
                           low = "#660000", 
-                          limits = c(min(cdkn2a_pass_qc_factors$fold_change),
-                                     max(cdkn2a_pass_qc_factors$fold_change)),
-                          n.breaks = 4) +
+                          limits = c(-25, 0)) +
     labs(
       y = "Sample",
       x = "",
@@ -1371,7 +1374,6 @@ cdkn2a_labno_plot <- ggplot(cdkn2a_pass_qc_factors,
   geom_vline(xintercept = NM_058195_end, linetype = "dashed") +
   geom_vline(xintercept = NM_004396_start, linetype = "dashed") +
   geom_vline(xintercept = NM_004396_end, linetype = "dashed")
-
 
 (cdkn2a_labno_plot / cdkn2a_transcripts_plot / cdkn2a_target_plot) +
     plot_layout(
@@ -1384,22 +1386,35 @@ cdkn2a_labno_plot <- ggplot(cdkn2a_pass_qc_factors,
 #| label: fig-pten-results
 #| echo: FALSE
 #| fig-width: 6
-#| fig-height: 9
+#| fig-height: 7
 
 pten_pass_qc <- sig_cnvs_passing_qc |> 
   filter(gene == "PTEN") |> 
-  arrange(desc(start), labno) 
+  filter(analyst_result == "deletion") |> 
+  filter(fold_change < -1.9) |> 
+  arrange(cnv_length)
 
 pten_pass_qc_factors <- pten_pass_qc |> 
   mutate(labno_factor = factor(labno, levels = unique(labno)))
 
 pten_buffer <- 40000
 
-pten_labno_plot <- make_labno_cnv_plot(df = pten_pass_qc_factors,
-                                         yaxis = labno_factor,
-                    gene = "PTEN", interval = 10000)
-
-pten_zoom <- pten_labno_plot[[4]] +
+pten_labno_plot <- ggplot(pten_pass_qc_factors, 
+                            aes(x = start,
+                                y = labno_factor,
+                                colour = fold_change)) +
+    theme_bw() +
+    theme(axis.text.x = element_blank()) +
+    geom_segment(aes(x = start, xend = end, 
+                     y = labno_factor, yend = labno_factor),
+                 linewidth = 2) +
+    scale_colour_gradient(high = "#FF9999", 
+                          low = "#660000", 
+                          limits = c(-30, 0)) +
+    labs(
+      y = "Sample",
+      x = "",
+      colour = "Fold change") +
   coord_cartesian(xlim = c(87863625-pten_buffer, 87971930+pten_buffer))
 
 pten_exon_plot <- make_exon_plot(plot_xmin = 87863625-pten_buffer,
@@ -1412,7 +1427,7 @@ pten_primer_plot <- make_primer_plot(plot_xmin = 87863625-pten_buffer,
                                    chromosome = "10",
                                    interval = 10000)
 
-(pten_zoom / pten_primer_plot / pten_exon_plot) +
+(pten_labno_plot / pten_primer_plot / pten_exon_plot) +
     plot_layout(
       heights = c(10, 1, 2)
     )
