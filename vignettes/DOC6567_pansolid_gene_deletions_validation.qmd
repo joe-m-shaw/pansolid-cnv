@@ -1112,6 +1112,20 @@ Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/validation/DOC6567_deleti
 
 # Results
 
+```{r}
+#| label: sample-groups
+#| include: FALSE
+
+contaminated_labnos <- c("24030962", "24030945")
+
+lod_mixed_dna_samples <- c("24026628b_WS150465",
+                           "24026628c_WS150465",
+                           "24026628d_WS150465")
+
+repeated_samples <- c("24018518", "24045597", "24054282")
+
+```
+
 ## CNV caller results
 
 ```{r}
@@ -1636,8 +1650,7 @@ del_val_collated_loh_split <- del_val_collated_loh_mod |>
 ```
 
 Ploidy state regions impacting the  `r length(loh_genes)` target genes ranged from 
-`r min(del_val_collated_loh_split$no_targets_split)`-
-`r max(del_val_collated_loh_split$no_targets_split)` targets in length (median
+`r min(del_val_collated_loh_split$no_targets_split)`-`r max(del_val_collated_loh_split$no_targets_split)` targets in length (median
 `r median(del_val_collated_loh_split$no_targets_split)`). 
 In 
 `r nrow(multiple_loh_calls)` out of 
@@ -1646,8 +1659,8 @@ results
 (`r round(nrow(multiple_loh_calls) / nrow(del_val_collated_loh_mod)*100, 1)`%)
 there were multiple ploidy
 states predicted within the same gene. @fig-ploidy-caller-results shows the
-frequency of different ploidy state predictions across the 6 genes. Notably,
-a similar pattern of ploidy state frequencies is seen for *LZTR1*, *SMARCB1* and
+frequency of different ploidy state predictions across the 6 genes. A 
+similar pattern of ploidy state frequencies is seen for *LZTR1*, *SMARCB1* and
 *NF2* as these genes are located closer to each other on chromosome 22q.
 
 ```{r}
@@ -1696,10 +1709,12 @@ cnv_vs_ploidy_caller <- del_val_collated_del_genes |>
            results_passing_qc$labno_suffix_worksheet) |> 
   filter(!labno %in% c(
     # sample with small deletion and LOH
-    "24035816",
+    "24031162",
     # Small MSH2 deletion
     "24067827", 
-    "25001806"))
+    "25001806")) |> 
+  filter(!labno %in% contaminated_labnos) |> 
+  filter(!labno_suffix_worksheet %in% lod_mixed_dna_samples)
   
 cnv_ploidy_caller_disagreements <- cnv_vs_ploidy_caller |> 
   filter((pansolid_result == "deletion" &
@@ -1710,28 +1725,46 @@ cnv_ploidy_caller_disagreements <- cnv_vs_ploidy_caller |>
               select(filepath, stdev_noise, percent_138x, pred_ncc),
             by = "filepath")
 
+cnv_ploidy_caller_disagreements |> 
+  select(labno_suffix_worksheet,
+         gene, min_region_fold_change, pansolid_result, ploidy_state, loh_status,
+         check_1,
+         stdev_noise, percent_138x) |>  view()
+
+cnv_ploidy_caller_disagreements_summary <- cnv_ploidy_caller_disagreements |> 
+  group_by(pansolid_result, ploidy_state) |> 
+  summarise(n = n()) |> 
+  ungroup() |> 
+  mutate(percent = round((n / sum(n))*100, 1)) |> 
+  arrange(desc(n)) |> 
+  adorn_totals() |> 
+  rename(`CNV caller result` = pansolid_result,
+         `Ploidy caller result` = ploidy_state,
+         `Cases` = n,
+         `Percentage (%)` = percent)
+
 ```
 
-In `r nrow(cnv_vs_ploidy_caller)` results for the `r length(loh_genes)` LOH 
+Detection of deletions and ploidy states are performed by two separate, but
+connected, components of the PanSolid CLC pipleine (@fig-clc-pipeline). Whilst
+the CNV caller predicts deletions based on fold change alone, the ploidy caller
+can also classify regions as deletions based on fold change values and SNP
+frequencies. In `r nrow(cnv_vs_ploidy_caller)` results for
+the `r length(loh_genes)` LOH 
 genes, there were 
 `r nrow(cnv_ploidy_caller_disagreements)` 
 (`r round((nrow(cnv_ploidy_caller_disagreements) / nrow(cnv_vs_ploidy_caller))*100, 1)`%)
 instances for the 
 where the results of the ploidy caller
-contradicted the results of the CNV caller.
-
-One example is the 
-*PTEN* result for 24054295 (WS146337, v2SchwannAll_PS): the CNV caller predicts
-a deletion whilst the ploidy caller predicts a normal diploid state.
+contradicted the results of the CNV caller (@tbl-ploidy-cnv-disagreements).
 
 ```{r}
 #| label: tbl-ploidy-cnv-disagreements
-#| include: FALSE
+#| tbl-cap: "Summary of disagreements between the CNV caller and ploidy caller
+#| for 7 LOH genes"
+#| echo: FALSE
 
-tbl_ploidy_cnv_disagreements <- cnv_ploidy_caller_disagreements |> 
-  select(worksheet, labno, stdev_noise, percent_138x, pred_ncc,
-gene, min_region_fold_change, pansolid_result,
-ploidy_state, loh_status, analyst_result)
+kable(cnv_ploidy_caller_disagreements_summary)
 
 ```
 
@@ -1755,8 +1788,6 @@ chrom_gene_tbl <- del_val_wgs_html_cnvs |>
 ```{r}
 #| label: join-pansolid-and-wgs-results
 #| include: FALSE
-
-contaminated_labnos <- c("24030962", "24030945")
 
 wgs_cnvs_with_ids <- del_val_wgs_html_cnvs |> 
   left_join(del_val_wgs_html_ids,
@@ -1831,18 +1862,14 @@ structural variants were detected by the Manta algorithm, notated as
 detected by Canvas ranged from 
 `r round(min(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000, 1)` kb to
 `r round(max(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000000, 1)` Mb in
-length. To avoid double-counting,
+length. To avoid double-counting for
 samples where DNA was tested following multiple extraction methods 
 (QIAsymphony, Cobas or fresh frozen tissue),
 a single sample of DNA extracted via the QIAsymphony method was
 selected for the comparison. If QIAsymphony-extracted DNA was not available, 
 DNA from fresh frozen tissue was used instead. 
 Results were only compared when
-the noise and coverage metrics were above the quality control thresholds. The
-CNV regions detected by the PanSolid pipeline were manually reviewed using the
-output Excel spreadsheet and the interactive HTML file to check whether each 
-CNV region appeared to be genuine. This process revealed examples of both 
-false positive and false negative CNV classifications.
+the noise and coverage metrics were above the quality control thresholds. 
 
 ```{r}
 #| label: compare-pansolid-to-wgs-results
@@ -1980,7 +2007,10 @@ kable(tbl_wgs_comparison_summary)
 
 ### False positive and false negative results {#sec-results-wgs-false-pos-neg}
 
-PanSolid deletion calls were manually reviewed as described in 
+The
+CNV regions detected by the PanSolid pipeline were manually reviewed using the
+output Excel spreadsheet and the interactive HTML file to check whether each 
+CNV region appeared to be genuine, as described in 
 @sec-results-manual-review. False positive deletion calls were noted in
 `r nrow(pipeline_manual_discrepancies)`
 gene results in 
@@ -3242,8 +3272,6 @@ the validation of amplification detection.
 ```{r}
 #| label: repeat-data
 #| include: FALSE
-
-repeated_samples <- c("24018518", "24045597", "24054282")
 
 repeat_data <- del_val_collated_del_genes |> 
   filter(labno %in% repeated_samples) |> 
