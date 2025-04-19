@@ -1693,11 +1693,39 @@ fig_ploidy_caller_results
 
 ```
 
-### Neoplastic cell content prediction
+### Neoplastic cell content prediction {#sec-results-overall-ncc}
 
-NCC levels varied from x-y%. 
+```{r}
+#| label: results-ncc
+#| include: FALSE
 
-24039973d_CNVMix12CopiesSERASEQ - 29% NCC but its DNA from a cell line.
+ncc_with_qc <- noise_138x_ncc |> 
+  filter(stdev_noise <= noise_qc_threshold &
+           percent_138x >= percent_138x_qc_threshold)
+
+ncc_24039975 <- ncc_with_qc |> 
+  filter(labno_suffix_worksheet == "24039973d_WS144291") |> 
+  select(labno_suffix_worksheet, pred_ncc)
+
+```
+
+As part of the process of ploidy state prediction, the Detect Regional Ploidy
+tool predicts sample NCC within its HMM. The predicted NCC levels ranged from
+`r min(ncc_with_qc$pred_ncc)` to 
+`r max(ncc_with_qc$pred_ncc)`%. No NCCs were predicted below 20%, as this was
+the threshold set within the PanSolid CLC pipeline, even when the
+Seraseq® TNA (DNA) WT Mix reference material was tested
+(SeraCare; product number 0710-1580; DNA number 24039975). 
+This material contains DNA extracted
+from an immortalised male human cell line 
+([GM24385](https://www.coriell.org/0/Sections/Search/Sample_Detail.aspx?Ref=GM24385)) 
+and would be expected to have a predicted
+NCC of 0%. However, the PanSolid pipeline predicted an NCC of 
+`r ncc_24039975[1,2]`% (note: the replicate is named "24039973d" in the results
+because it was used within a limit of detection experiment using reference
+material 24039973 in the validation of amplification detection). This finding
+indicates that the ploidy caller is unreliable when analysing samples with
+low or absent NCC values.
 
 ### Disagreements with CNV caller {#sec-results-cnv-caller-disagreements}
 
@@ -2537,11 +2565,6 @@ pansolid_loh_vs_wgs <- pansolid_loh_for_wgs_comp |>
 
 ### Neoplastic cell content comparison
 
-The CLC Regional Ploidy Tool predicts the NCC of a sample as part of its HMM 
-approach to deconvoluting ploidy states. The NCC predictions from CLC were 
-compared to the predictions from the WGS results, which were calculated using
-the Canvas algorithm [@fig-wgs-ncc-comparison].
-
 ```{r}
 #| label: wgs-ncc-comparison
 #| include: FALSE
@@ -2549,6 +2572,9 @@ the Canvas algorithm [@fig-wgs-ncc-comparison].
 pansolid_vs_wgs_ncc <- noise_138x_ncc |>  
   filter(stdev_noise <= noise_qc_threshold &
            percent_138x >= percent_138x_qc_threshold) |>  
+  # Remove samples with non-matching pathology blocks
+  filter(!labno %in% c("24018922", "24033015",
+                         contaminated_labnos)) |> 
   left_join(del_val_sample_patient_info,
             by = "labno") |> 
   filter(nhsno %in% del_val_wgs_html_ids$nhsno) |> 
@@ -2557,12 +2583,12 @@ pansolid_vs_wgs_ncc <- noise_138x_ncc |>
   filter(!duplicated(labno)) |> 
   left_join(del_val_wgs_html_ids, 
             by = "nhsno") |> 
-  filter(calculated_tumour_content != "NOTAVAILABLE") |> 
-  mutate(ccube_ncc = parse_number(calculated_tumour_content)) |> 
-  # Remove samples with non-matching pathology blocks
-  filter(!labno.x %in% c("24018922", "24033015",
-                         contaminated_labnos
-                         )) 
+  mutate(
+    calculated_tumour_content = case_when(
+      calculated_tumour_content == "NOTAVAILABLE" ~"6.0%",
+      TRUE ~calculated_tumour_content),
+    ccube_ncc = parse_number(calculated_tumour_content)
+  )
 
 ncc_comp_same_dnas <- pansolid_vs_wgs_ncc |> 
   filter(labno.x == labno.y) 
@@ -2582,7 +2608,7 @@ make_ncc_plot <- function(df) {
     theme_bw() +
     labs(x = "CLC predicted NCC (%)", 
          y = "WGS predicted NCC (%)") +
-    ggpubr::stat_cor(method = "pearson", label.x = 30, label.y = 10)
+    ggpubr::stat_cor(method = "pearson", label.x = 30, label.y = 20)
   
   return(plot)
   
@@ -2593,13 +2619,19 @@ ncc_same_dna_plot <- make_ncc_plot(df = ncc_comp_same_dnas) +
   
 ncc_diff_dna_plot <- make_ncc_plot(df = ncc_comp_diff_dnas) +
        labs(title = "Different DNA samples",
-            subtitle = "All samples")
+            subtitle = "All samples") +
+  geom_point(data = ncc_comp_diff_dnas |> 
+               filter(labno.x == "24053299"),
+             shape = 21, size = 5, colour = "red")
   
 ncc_diff_diploid_plot <- make_ncc_plot(ncc_comp_diff_dnas |> 
   filter(calculated_overall_ploidy < 2.5 &
            calculated_overall_ploidy > 1.5)) +
   labs(title = "Different DNA samples",
-            subtitle = "Diploid samples")
+            subtitle = "Diploid samples") +
+  geom_point(data = ncc_comp_diff_dnas |> 
+               filter(labno.x == "24053299"),
+             shape = 21, size = 5, colour = "red")
 
 ncc_diff_non_diploid_plot <- make_ncc_plot(ncc_comp_diff_dnas |> 
   filter(calculated_overall_ploidy > 2.5 |
@@ -2611,7 +2643,30 @@ wgs_ncc_plot <- ncc_diff_dna_plot + ncc_same_dna_plot +
   ncc_diff_diploid_plot + ncc_diff_non_diploid_plot +
   plot_layout(ncol = 2, nrow = 2)
 
+ncc_24053299 <- pansolid_vs_wgs_ncc |> 
+  filter(labno.x == "24053299") |> 
+  select(labno.x, pred_ncc)
+
 ```
+
+The CLC Regional Ploidy Tool predicts the NCC of a sample as part of its HMM 
+approach to deconvoluting ploidy states. The NCC predictions from CLC were 
+compared to the predictions from the WGS results, which were calculated using
+the Canvas algorithm [@fig-wgs-ncc-comparison]. There was a positive correlation
+between the two predictions in all comparisons, although there were significant
+outliers. One sample (WGS DNA number: 24058699; PanSolid DNA number: 24053299)
+had no NCC reported by WGS, with the report stating "this sample has a high 
+incidence of somatic variants with a low VAF (<6%) and tumour content cannot 
+be reliably estimated from the genomic data. A high level of variants with 
+low VAF usually indicates that the sample has either very low tumour content
+or high heterogeneity". However, on PanSolid NGS the predicted NCC was 
+`r ncc_24053299[1,2]`%. This sample is shown circled in red 
+on @fig-wgs-ncc-comparison with an arbitrary WGS NCC value of 6%. As with the
+NCC result for the Seraseq® TNA (DNA) WT Mix reference material 
+(@sec-results-overall-ncc),
+this result indicates that the Detect Regional Ploidy tool may not be 
+accurate at predicting NCC in samples where the tumour content is low or
+absent.
 
 ```{r}
 #| label: fig-wgs-ncc-comparison
