@@ -2840,7 +2840,7 @@ ddPCR was performed for the *PTEN* and *CDKN2A* genes for all
 samples used
 in the normal control pool by the PanSolid CLC pipeline, and for 
 `r ddpcr_patients` samples from
-the validation cohort. x samples were also tested by WGS.
+the validation cohort.
 The *CDKN2A* ddPCR assay 
 (amplicon coordinates:  GRCh38 chr9: 21,968,120-21,968,172) 
 targeted the 3rd exon of *CDKN2A*, which
@@ -2851,7 +2851,7 @@ targeted the first exon of *PTEN*. One sample (24034335) was excluded from the
 analysis due to a copy number gain on chromosome 5 which spanned the locus of 
 the *AP3B1* reference gene. The *AP3B1* gene is not targeted by the PanSolid
 enrichment and is located at chr5:78000522-78294698 (GRCh38) between PanSolid
-targets "chr5:76.7Mb" and "chr5:77.7Mb". Another sample (24047809) with am
+targets "chr5:76.7Mb" and "chr5:77.7Mb". Another sample (24047809) with an
 intragenic *PTEN* deletion detected on PanSolid was coded as "no deletion" 
 because the deletion coordinates did not overlap with the coordinartes of the
 *PTEN* exon 1 ddPCR assay.
@@ -2867,12 +2867,18 @@ and from
 (median `r round(median(control_ddpcr_results_pten$cnv), 1)`) for *PTEN*. 
 A copy number threshold of 1.4 was used for the categorisation of results as
 normal or deleted, although the *CDKN2A* copy numbers for 2 normal control 
-samples (24012050, R24-0AKB, skin and 24012073, R24-0AJR, prostate) fell below this threshold
-(@fig-ddpcr-pansolid-outcomes). 
+samples (24012050, R24-0AKB, skin and 24012073, R24-0AJR, prostate) fell
+below this threshold
+(@fig-ddpcr-pansolid-outcomes). @fig-pansolid-fold-change-vs-ddpcr shows the
+dosage correlation between the PanSolid fold changes for each gene and the
+copy number values obtained from ddPCR.
 
 ```{r}
 #| label: fig-ddpcr-pansolid-outcomes
-#| fig-cap: "PanSolid results vs ddPCR. Note the ordering of samples is 
+#| fig-cap: "This plot shows the range of copy numbers detected by ddPCR for 
+#| *CDKN2A* and *PTEN* for the normal control cohort and patient cohort.
+#| Samples are ordered according to their ddPCR copy number and their result
+#| from the PanSolid pipeline. Note the ordering of samples is 
 #| different on each plot."
 #| echo: FALSE
 #| fig-width: 6
@@ -2928,8 +2934,10 @@ cdkn2a_ddpcr_plot + pten_ddpcr_plot + plot_layout(nrow = 2)
 
 ```{r}
 #| label: fig-pansolid-fold-change-vs-ddpcr
-#| fig-cap: "PanSolid fold change vs ddPCR. Grey line shows predicted fold
-#| change based on ddPCR copy number"
+#| fig-cap: "This plot shows the correlation between PanSolid fold change and
+#| ddPCR copy number for the *CDKN2A* and *PTEN* genes.
+#| The grey line shows the trajectory of predicted fold
+#| changes based on ddPCR copy number, assuming an NCC of 100%."
 #| echo: FALSE
 #| fig-width: 6
 
@@ -2954,7 +2962,8 @@ fig_pansolid_fold_change_vs_ddpcr <- pansolid_vs_ddpcr_outcomes |>
   theme(legend.position = "bottom") +
   facet_wrap(~gene) +
   labs(x = "ddPCR copy number", y = "PanSolid minimum fold change",
-       fill = "PanSolid result") +
+       fill = "PanSolid result",
+       title = "Dosage correlation between PanSolid and ddPCR") +
   coord_cartesian(ylim = c(-30, 5))
 
 fig_pansolid_fold_change_vs_ddpcr
