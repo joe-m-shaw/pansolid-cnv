@@ -1693,6 +1693,12 @@ fig_ploidy_caller_results
 
 ```
 
+### Neoplastic cell content prediction
+
+NCC levels varied from x-y%. 
+
+24039973d_CNVMix12CopiesSERASEQ - 29% NCC but its DNA from a cell line.
+
 ### Disagreements with CNV caller {#sec-results-cnv-caller-disagreements}
 
 ```{r}
@@ -2609,6 +2615,13 @@ wgs_ncc_plot <- ncc_diff_dna_plot + ncc_same_dna_plot +
 
 ```{r}
 #| label: fig-wgs-ncc-comparison
+#| fig-cap: "These plots show the different comparisons between WGS and PanSolid
+#| NGS for prediction of neoplastic cell content. The comparisons are split
+#| by whether PanSolid NGS and WGS tested different DNA samples extracted from
+#| the same tumour (PanSolid: FFPE sample; WGS: fresh frozen sample) or whether
+#| the same DNA from a fresh frozen sample was used for both methods. The 
+#| comparison is also split by the whole genome ploidy of the tumour, with
+#| diploidy defined as a ploidy between 1.5-2.5."
 #| fig-width: 6
 #| fig-height: 6
 #| echo: FALSE
