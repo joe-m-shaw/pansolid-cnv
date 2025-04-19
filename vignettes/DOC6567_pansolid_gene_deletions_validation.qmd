@@ -3645,7 +3645,16 @@ DNA mixes were prepared to simulate NCC states of 60%, 40% and 20%,
 accounting for the 16% proportion 
 of DNA from normal cells in the original undiluted glioma sample.
 
-![Limit of detection samples](`r paste0(image_folderpath, "lod_wgs_plots.png")`){#fig-lod-wgs-plots}
+```{r}
+#| label: lod-image-caption
+#| include: FALSE
+
+lod_image_caption <- "The whole genome coverage plots from WGS for the 2 samples
+used in the limit of detection experiment."
+
+```
+
+![lod_image_caption](`r paste0(image_folderpath, "lod_wgs_plots.png")`){#fig-lod-wgs-plots}
 
 The results for chromosome 9 are shown in @fig-lod-chr9, demonstrating that the
 biallelic *CDKN2A* loss could be detected as low as the 20% simulated NCC
@@ -3653,13 +3662,12 @@ sample. However, for chromosome 10 there was a false positive result for
 part of the q arm, including *PTEN*, when no glioma sample was added
 (@fig-lod-chr10). Consequently, whilst there was a pattern of copy loss extending for
 the majority of chromosome 10q, this could not reliably be differentiated 
-from the background when the simulated NCC fell below 60%. As shown in 
-@fig-chr9-lod-fold-change-plot, the results for *CDKN2A* and
-*CDKN2B* broadly follow the trajectory predicted for a biallelic deletion. 
-On the other hand, a similar relationship with the predicted values for a 
-monoallelic deletion is only observed for certain genes on chromosome 10q
-(*BMPR1A*, *FGFR2* and *SUFU*) but not for *PTEN* 
-(@fig-chr10-lod-fold-change-plot).
+from the background when the simulated NCC fell below 60%. In a clinical 
+sample the VAF pattern could be used to interpret borderline cases such as 
+these (@sec-results-manual-review). However this was not possible for the limit
+of detection experiment as the mixtures contained DNA from 2 different
+patients, rather than DNA from the germline and somatic genomes of a single patient,
+and this generated multiple VAF levels.
 
 ```{r}
 #| label: lod-results
@@ -3736,7 +3744,9 @@ lod_df_with_coordinates <- extract_pansolid_cnv_coordinates(df = lod_df,
 
 ```{r}
 #| label: fig-lod-chr9
-#| fig-cap: "Limit of detection for chromosome 9"
+#| fig-cap: "The plots show the results of the limit of detection experiment for
+#| chromosome 9. Red points show the target regions which fell below the 
+#| -1.25 fold change threshold and were classified as deletions."
 #| echo: FALSE
 #| fig-width: 6
 #| fig-height: 7
@@ -3753,7 +3763,7 @@ chr9_lod_plot <- lod_df_with_coordinates |>
   geom_hline(yintercept = change(deletion_fc_threshold, from = "fcloss",
                                  to = "log2r"),
              linetype = "dashed") +
-  labs(x = "Chromosome 9 (GRCh38)", y = "log2 ratio",
+  labs(x = "Chromosome 9 (GRCh38)", y = "Log2 ratio",
        fill = "PanSolid result",
        title = "Limit of detection results for chromosome 9")
 
@@ -3763,7 +3773,10 @@ chr9_lod_plot
 
 ```{r}
 #| label: fig-lod-chr10
-#| fig-cap: "Limit of detection for chromosome 10"
+#| fig-cap: "The plots show the results of the limit of detection experiment for
+#| chromosome 10. Red points show the target regions which fell below the 
+#| -1.25 fold change threshold and were classified as deletions. For the 
+#| normal (0% glioma) sample, there is background noise on chromosome 10q."
 #| echo: FALSE
 #| fig-width: 6
 #| fig-height: 7
@@ -3780,13 +3793,21 @@ chr10_lod_plot <-  lod_df_with_coordinates |>
   geom_hline(yintercept = change(deletion_fc_threshold, from = "fcloss",
                                  to = "log2r"),
              linetype = "dashed") +
-  labs(x = "Chromosome 10 (GRCh38)", y = "log2 ratio",
+  labs(x = "Chromosome 10 (GRCh38)", y = "Log2 ratio",
        fill = "PanSolid result",
        title = "Limit of detection results for chromosome 10")
 
 chr10_lod_plot
   
 ```
+
+As shown in 
+@fig-chr9-lod-fold-change-plot, the results for *CDKN2A* and
+*CDKN2B* broadly follow the trajectory predicted for a biallelic deletion. 
+On the other hand, a similar relationship with the predicted values for a 
+monoallelic deletion is only observed for certain genes on chromosome 10q
+(*BMPR1A*, *FGFR2* and *SUFU*) but not for *PTEN* 
+(@fig-chr10-lod-fold-change-plot).
 
 ```{r}
 #| label: lod-dot-plots
@@ -3822,7 +3843,9 @@ lod_gene_results <- del_val_collated_del_genes |>
 
 ```{r}
 #| label: fig-chr9-lod-fold-change-plot
-#| fig-cap: "CDKN2A and CDKN2B actual vs predicted dosage"
+#| fig-cap: "The plot shows the predicted (grey lines) versus actual
+#| (white points) fold change values for the *CDKN2A* and *CDKN2B* genes in the 
+#| limit of detection experiment."
 #| echo: FALSE
 #| fig-width: 6
 
@@ -3850,10 +3873,11 @@ chr9_lod_dosage_plot <- lod_gene_results |>
   theme_bw() +
   theme(legend.position = "none") +
   facet_wrap(~gene) +
-  labs(x = "Neoplastic cell content", y = "Fold change",
-       caption = "Error bars show uncertainty of measurement") +
-  annotate("text", x = 65, y = -4.5, label = "biallelic \n deletion") +
-  annotate("text", x = 90, y = -2.5, label = "monoallelic \n deletion") +
+  labs(x = "Neoplastic cell content (%)", y = "Fold change",
+       caption = "Error bars show uncertainty of measurement",
+       title = "Limit of detection dosage for biallelic deletions") +
+  annotate("text", x = 65, y = -4.5, label = "Biallelic \n deletion") +
+  annotate("text", x = 90, y = -2.5, label = "Monoallelic \n deletion") +
   annotate("text", x = 90, y = -0.5, label = "Normal")
   
 chr9_lod_dosage_plot
@@ -3863,7 +3887,9 @@ chr9_lod_dosage_plot
 
 ```{r}
 #| label: fig-chr10-lod-fold-change-plot
-#| fig-cap: "Chr10 genes actual vs predicted dosage"
+#| fig-cap: "The plot shows the predicted (grey lines) versus actual
+#| (white points) fold change values for the *BMPR1A*, *PTEN* and
+#| *SUFU* genes on chromosome 10 in the limit of detection experiment."
 #| echo: FALSE
 #| fig-width: 6
 #| fig-height: 7
@@ -3888,10 +3914,11 @@ chr10_lod_dosage_plot <- lod_gene_results |>
   theme_bw() +
   theme(legend.position = "none") +
   facet_wrap(~gene, nrow = 2, ncol = 2) +
-  labs(x = "Neoplastic cell content", y = "Fold change",
-       caption = "Error bars show uncertainty of measurement") +
-  annotate("text", x = 65, y = -4.5, label = "biallelic \n deletion") +
-  annotate("text", x = 90, y = -3.5, label = "monoallelic \n deletion") +
+  labs(x = "Neoplastic cell content (%)", y = "Fold change",
+       caption = "Error bars show uncertainty of measurement",
+       title = "Limit of detection dosage for monoallelic deletions") +
+  annotate("text", x = 65, y = -4.5, label = "Biallelic \n deletion") +
+  annotate("text", x = 90, y = -3.5, label = "Monoallelic \n deletion") +
   annotate("text", x = 90, y = -0.5, label = "Normal")
 
 chr10_lod_dosage_plot
