@@ -1725,12 +1725,6 @@ cnv_ploidy_caller_disagreements <- cnv_vs_ploidy_caller |>
               select(filepath, stdev_noise, percent_138x, pred_ncc),
             by = "filepath")
 
-cnv_ploidy_caller_disagreements |> 
-  select(labno_suffix_worksheet,
-         gene, min_region_fold_change, pansolid_result, ploidy_state, loh_status,
-         check_1,
-         stdev_noise, percent_138x) |>  view()
-
 cnv_ploidy_caller_disagreements_summary <- cnv_ploidy_caller_disagreements |> 
   group_by(pansolid_result, ploidy_state) |> 
   summarise(n = n()) |> 
@@ -2114,8 +2108,7 @@ cases, the PanSolid pipeline identified some gene regions as deleted which
 were not identified as deleted by WGS. This was because, whilst WGS detected
 a relative loss of dosage for these genes compared to the overall genome
 ploidy level, the absolute number of copies was 2 or above. An example is shown
-in @fig-24045841-false-positive-hexaploid. The details for each polyploid sample
-are shown in @tbl-wgs-pansolid-ploidy
+in @fig-24045841-false-positive-hexaploid.
 
 ```{r}
 #| label: wgs-false-pos-image-ploidy
@@ -2199,16 +2192,26 @@ knitr::kable(wgs_outcome_table)
 
 ```
 
-Following manual review of CNV calls in diploid samples, there were 8 discrepant
+```{r}
+#| label: remaining-discrepant-results
+#| include: FALSE
+
+remaining_discrepancy_tbl <- wgs_outcomes_combined_diploid |> 
+  filter(outcome_combined %in% c("false_positive", "false_negative"))
+
+```
+
+Following manual review of CNV calls in diploid samples, there were 
+`r sum(remaining_discrepancy_tbl$n)`
+discrepant
 results between PanSolid and WGS. These results are summarised in
 @tbl-wgs-discrepant_results and individually reviewed below. The DNA numbers in 
 bold are the identifiers for the PanSolid results.
 
  - **24035922**: PanSolid detected a deletion in *BMPR1A* which was not detected
- on WGS (WGS DNA number: 24036644). The deletion call included only 
- one target of *BMPR1A*, 
- and was caused
- by a biallelic deletion of the nearby *PTEN* gene. 
+ on WGS (WGS DNA number: 24036644). WGS instead detected copy-neutral LOH
+ for the region of chromosome 10 containing *BMPR1A*, but both methods agreed
+ that a deletion of the nearby *PTEN* gene was present.
  
  - **23013975**: a deletion of chromosome 1p was detected on WGS (WGS DNA
  number: 23013975), and identified
@@ -2301,11 +2304,7 @@ There was a clear relationship between the fold change measured by the PanSolid
 pipeline and the overall gene copy number from WGS
 (@fig-copy-number-vs-fold-change). All biallelic gene deletions with copy 
 numbers of 0 on WGS were detected as deletions by PanSolid, even in non-diploid
-samples, except for a 
-germline *CDKN2A* deletion in sample 24048159 (panel: v2PANSOLID), which only
-impacted the *CDKN2A*
-NM_000077.5 transcript. This deletion is expected to be detected when the
-pipeline graining level for *CDKN2A* is changed to "fine". The sensitivity 
+samples. The sensitivity 
 values for 
 detection of confirmed monoallelic and biallelic deletions in all samples and
 in confirmed diploid samples 
@@ -2316,33 +2315,50 @@ diploid samples.
 
 ```{r}
 #| label: fig-copy-number-vs-fold-change
-#| fig-cap: "Copy number vs fold change"
+#| fig-cap: "This figure shows the correlation between copy number determined by
+#| WGS and PanSolid fold change for the 34 genes analysed for deletions. 
+#| The red circle highlights outlying results for sample 24030966. WGS reported
+#| a copy number of 1 for the *CDKN2A* and *CDKN2B* genes whilst PanSolid 
+#| reported a small deletion with low fold change. WGS also detected a complex 
+#| deletion inversion in *CDKN2A* via the Manta tool, which may be the cause
+#| of the discrepancy."
 #| echo: FALSE
-
-fig_copy_number_vs_fold_change <- pansolid_vs_wgs_outcomes |> 
-  mutate(cnv_copy_number = case_when(
-    is.na(cnv_copy_number) ~2,
-    TRUE ~cnv_copy_number
-  )) |> 
-  ggplot(aes(x = cnv_copy_number, y = min_region_fold_change)) +
-  annotate('rect', 
-           xmin = 0, xmax = 10, ymin = -1, ymax = 1, 
-           fill='grey', alpha = 0.5) +
-  scale_x_continuous(breaks = seq(0, 10, by = 1)) +
-  geom_jitter(shape = 21, width = 0.1) +
-  theme_bw() +
-  geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
-  scale_y_continuous(breaks = c(seq(-20, 5, by = 5), deletion_fc_threshold)) +
-  labs(x = "WGS copy number", y = "PanSolid minimum fold change") +
-  ggpubr::stat_cor(method = "pearson", label.x = 5, label.y = -10) 
-
-fig_copy_number_vs_fold_change
 
 wgs_plot_line_df <- data.frame(
   cnv_copy_number = seq(0, 10, by = 0.1)) |> 
   mutate(fold_change = pred_fc(tumour_cpc = cnv_copy_number,
                                ncc = 100,
                                dir = "loss"))
+
+data_for_wgs_fc_plot <- pansolid_vs_wgs_outcomes |> 
+  mutate(cnv_copy_number = case_when(
+    is.na(cnv_copy_number) ~2,
+    TRUE ~cnv_copy_number
+  ),
+  fold_change_for_plot = case_when(
+    min_region_fold_change >= 1 ~change(min_region_fold_change,
+                                        from = "fcgain", to = "fcloss"),
+    min_region_fold_change <= -1 ~min_region_fold_change
+  ))
+
+fig_copy_number_vs_fold_change <- ggplot(data_for_wgs_fc_plot,
+                                         aes(x = cnv_copy_number, 
+                                             y = fold_change_for_plot)) +
+  scale_x_continuous(breaks = seq(0, 10, by = 1)) +
+  geom_jitter(shape = 21, width = 0.1) +
+  theme_bw() +
+  scale_y_continuous(breaks = seq(-20, 0, by = 2)) +
+  labs(x = "WGS copy number", 
+       y = "PanSolid minimum fold change (loss equation)",
+       title = "Dosage correlation between WGS and PanSolid NGS analysis") +
+  geom_point(data = data_for_wgs_fc_plot |> 
+               filter(labno.x == "24030966" &
+                        gene == "CDKN2A"),
+             shape = 21, 
+             size = 8,
+             colour = "red")
+
+fig_copy_number_vs_fold_change
 
 ```
 
@@ -2469,7 +2485,7 @@ bi_mono_fc_plot <- pansolid_vs_wgs_outcomes |>
   theme(legend.position = "none") +
   labs(x = "Neoplastic cell content (Ccube)",
        y = "PanSolid fold change") +
-  annotate("text", x = 85, y = -15, label = "Biallelic") +
+  annotate("text", x = 75, y = -15, label = "Biallelic") +
   annotate("text", x = 90, y = -3, label = "Monoallelic") +
   annotate("text", x = 90, y = 0, label = "Normal")
 
@@ -2519,8 +2535,6 @@ The CLC Regional Ploidy Tool predicts the NCC of a sample as part of its HMM
 approach to deconvoluting ploidy states. The NCC predictions from CLC were 
 compared to the predictions from the WGS results, which were calculated using
 the Canvas algorithm [@fig-wgs-ncc-comparison].
-
-24039973d_CNVMix12CopiesSERASEQ - 29% NCC but its DNA from a cell line. 
 
 ```{r}
 #| label: wgs-ncc-comparison
@@ -2596,6 +2610,7 @@ wgs_ncc_plot <- ncc_diff_dna_plot + ncc_same_dna_plot +
 ```{r}
 #| label: fig-wgs-ncc-comparison
 #| fig-width: 6
+#| fig-height: 6
 #| echo: FALSE
 
 wgs_ncc_plot
