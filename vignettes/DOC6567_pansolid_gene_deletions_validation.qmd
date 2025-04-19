@@ -1451,14 +1451,20 @@ kable(del_calls_manual_review_summary)
 
 ### *CDKN2A/B* and *PTEN* results
 
-A range of different deletions were detected at the *CDKN2A/B* and *PTEN* loci.
-
-There were four samples (24017040, 24026819, 24029270 and 24048159) in which 
+A range of different deletions were detected at the *CDKN2A/B* and *PTEN* loci,
+which were both analysed on the fine graining level. Not all deletions at the
+*CDKN2A/B* locus encompassed both genes: there were four samples (24017040,
+24026819, 24029270 and 24048159) in which 
 *CDKN2A* but not *CDKN2B* was deleted, and one sample (24030966) in which 
-*CDKN2B* was deleted with only one exon of *CDKN2A*.
-
-For *PTEN* there were 2 samples (24047809 and 24034306) which showed intragenic
-deletions.
+*CDKN2B* was deleted with only one exon of *CDKN2A* transcript NM_058195.4. 
+In some
+cases separate deletion calls were issued for *CDKN2A* and *CDKN2B* in the
+same sample with the same fold change,
+but these likely reflect a single underlying deletion. For *PTEN* the majority 
+of deletions included the entire gene region, but there were 2 samples (24047809 
+and 24034306) which showed small intragenic deletions. These deletions appeared
+genuine when manually reviewed, but were not confirmed with ddPCR as the ddPCR
+assay targeted *PTEN* exon 1 which was not included in either deletion call.
 
 ```{r}
 #| label: fig-cdkn2a-results
@@ -1472,7 +1478,13 @@ cdkn2a_pass_qc <- sig_cnvs_passing_qc |>
   filter(gene %in% c("CDKN2A", "CDKN2B")) |> 
   filter(analyst_result == "deletion") |> 
   filter(fold_change < -1.9) |> 
-  arrange(cnv_length)
+  mutate(cdkn2a_del_cat = case_when(
+    labno %in% c("24017040","24026819", 
+                 "24029270", "24048159") ~"cdkn2a only",
+    TRUE ~"not cdkn2a only"),
+  cdkn2a_del_cat = factor(cdkn2a_del_cat, levels = c("cdkn2a only",
+                                                     "not cdkn2a only"))) |> 
+  arrange(cdkn2a_del_cat, cnv_length)
 
 cdkn2a_pass_qc_factors <- cdkn2a_pass_qc |> 
   mutate(labno_factor = factor(labno, levels = unique(labno)))
@@ -1502,7 +1514,8 @@ cdkn2a_labno_plot <- ggplot(cdkn2a_pass_qc_factors,
     labs(
       y = "Sample",
       x = "",
-      colour = "Fold change") +
+      colour = "Fold change",
+      title = "CDKN2A/B deletion coordinates") +
   coord_cartesian(xlim = c(cdkn2a_plot_start, cdkn2a_plot_end)) +
   geom_vline(xintercept = NM_000077_start, linetype = "dashed") +
   geom_vline(xintercept = NM_000077_end, linetype = "dashed") +
@@ -1512,7 +1525,7 @@ cdkn2a_labno_plot <- ggplot(cdkn2a_pass_qc_factors,
 
 (cdkn2a_labno_plot / cdkn2a_transcripts_plot / cdkn2a_target_plot) +
     plot_layout(
-      heights = c(10, 3, 1)
+      heights = c(9, 3, 1)
     )
 
 ```
@@ -1520,19 +1533,23 @@ cdkn2a_labno_plot <- ggplot(cdkn2a_pass_qc_factors,
 ```{r}
 #| label: fig-pten-results
 #| echo: FALSE
+#| fig-cap: "PTEN deletions with fold changes below -2 which passed manual
+#| review. Note that the exon diagram shows the exons for *PTEN* transcript
+#| NM_000314.8 (ENST00000371953) which has 9 exons, some of which are two
+#| small to be visible on this plot."
 #| fig-width: 6
 #| fig-height: 7
 
 pten_pass_qc <- sig_cnvs_passing_qc |> 
   filter(gene == "PTEN") |> 
   filter(analyst_result == "deletion") |> 
-  filter(fold_change < -1.9) |> 
+  filter(fold_change < -2) |> 
   arrange(cnv_length)
 
 pten_pass_qc_factors <- pten_pass_qc |> 
   mutate(labno_factor = factor(labno, levels = unique(labno)))
 
-pten_buffer <- 40000
+pten_buffer <- 5000
 
 pten_labno_plot <- ggplot(pten_pass_qc_factors, 
                             aes(x = start,
@@ -1549,7 +1566,8 @@ pten_labno_plot <- ggplot(pten_pass_qc_factors,
     labs(
       y = "Sample",
       x = "",
-      colour = "Fold change") +
+      colour = "Fold change",
+      title = "PTEN deletion coordinates") +
   coord_cartesian(xlim = c(87863625-pten_buffer, 87971930+pten_buffer))
 
 pten_exon_plot <- make_exon_plot(plot_xmin = 87863625-pten_buffer,
