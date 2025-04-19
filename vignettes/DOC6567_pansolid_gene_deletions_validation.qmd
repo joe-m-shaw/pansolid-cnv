@@ -26,8 +26,6 @@ Date: `r Sys.Date()`
 
 Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
-{{< pagebreak >}}
-
 # Acronyms
 
 **BAF:** B Allele Frequency
@@ -37,8 +35,6 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 **CDKN2B**: Cyclin Dependent Kinase iNhibitor 2B
 
 **CGH:** Comparative Genome Hybridisation
-
-**CIN:** Chromosomal Instability
 
 **CLC**: Acronym unknown. CLC Bio was acquired by Qiagen in 2013.
 
@@ -81,6 +77,8 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 **PTEN**: Phosphatase and tensin homolog deleted on chromosome ten
 
 **SNP:** Single Nucleotide Polymorphism
+
+**STR:** Short Tandem Repeat
 
 **TSG:** Tumour Suppressor Gene
 
@@ -283,22 +281,22 @@ somatic gene deletions and ploidy states
 with the PanSolid v2 QIAseq enrichment panel using the PanSolid CLC 
 pipeline (v2.4) at the North West Genomic Laboratory Hub (GLH).
 
-# Executive Summary
-
-Manual review of CNV calls by a trained staff member is required.
-
-# Introduction
-
 This validation is the final part of the project to validate copy number
-variants (CNVs) on the PanSolid enrichment panel, and builds on the previous
+variants (CNVs) on the PanSolid enrichment panel and pipeline, which comprises a
+primer-based enrichment coupled with Illumina next generation sequencing (NGS)
+[@xu2017]. This document builds on the previous
 validations described in @tbl-previous-validations. Currently, detection of 
 gene deletions and loss of heterozygosity (LOH) is 
 performed on the "Core" and "Merged" QIAseq primer enrichments for different
-tumour types. By validating detection of these variants on the PanSolid 
+tumour types. By validating detection of these variants on the PanSolid QIAseq
 enrichment, this project aims to replace these enrichments with 
 PanSolid. Overall, the aim is to streamline testing of 
 solid tumours at the 
-North West GLH, and to expand the list of genes and variant types detected.
+North West GLH, and to expand the list of genes and variant types detected in 
+line with the NHS National Genomic Test Directory for Cancer. In this document,
+the testing workflow comprising of the PanSolid v2 QIAseq enrichment panel
+followed by analysis with the PanSolid CLCpipeline (v2.4) will be referred to
+as "PanSolid NGS" for brevity.
 
 ```{r}
 #| label: tbl-previous-validations
@@ -406,8 +404,8 @@ undetected germline predisposition.
 
 The aim of this validation was to detect deletions in 
 `r length(unique(del_val_collated_del_genes$gene))`
-TSGs on the PanSolid v2 QIAseq enrichment (Supplementary Information,
-@tbl-deletion-gene-targets). These genes were
+TSGs on the PanSolid v2 QIAseq enrichment 
+(@tbl-deletion-gene-targets, Appendix). These genes were
 selected based on the specifications of the 
 [NHS Genomic Test Directory for Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/). Ploidy state was determined for 
 `r length(loh_genes)`
@@ -488,7 +486,9 @@ cdkn2ab_df_mod <- cdkn2ab_df |>
 
 ```{r}
 #| label: fig-cdkn2a-locus
-#| fig-cap: "The CDKN2A/B locus"
+#| fig-cap: "The arrangement of different transcripts of the *CDKN2A* and
+#| *CDKN2B* genes, and the locations of targets on the PanSolid QIAseq
+#| enrichment."
 #| fig-width: 6
 #| echo: FALSE
 
@@ -502,7 +502,7 @@ cdkn2a_targets <- target_df_with_coordinates |>
   filter(chromosome == "9") |> 
   filter(start > cdkn2a_plot_start &
            end < cdkn2a_plot_end) |> 
-  mutate(y_value = "Targets")
+  mutate(y_value = "PanSolid targets")
 
 cdkn2a_target_plot <- ggplot(cdkn2a_targets, aes(x = start, y = y_value)) +
   geom_point(shape = 21, size = 3) +
@@ -570,7 +570,7 @@ carcinoma [@jafri2015]. Germline deletions spanning both *CDKN2A* and
 
 The *PTEN* gene is deleted in many different cancer types [@alvarezgarcia2019].
 Germline mutations in *PTEN* cause PTEN hamartoma tumor syndrome [@yehia2020],
-and germline deletions in PTEN can either encompass the whole gene or 
+and germline deletions in *PTEN* can either encompass the whole gene or 
 include only certain exons [@zhou2003]. 
 
 ## Detection of gene deletions and ploidy states
@@ -584,7 +584,7 @@ and ploidy states, beginning with array comparative genome hybridisation
 single-nucleotide polymorphism (SNP)
 microarrays [@das2013; @spence2022], before progressing to 
 Illumina short-read
-next generation sequencing (NGS) of gene-panels [@conroy2021; @glodzik2023], 
+NGS of gene-panels [@conroy2021; @glodzik2023], 
 exomes [@zare2017] and genomes [@yi2023; @sosinsky2024]. The majority of NGS 
 approaches use a depth-of-coverage approach:
 the number of sequencing reads mapping to a locus is used to infer the copy
@@ -758,7 +758,7 @@ kable(tbl_cns_cancer_types)
 
 ## Next generation sequencing
 
-Samples were processed on the PanSolid version 2 enrichment (CDHS-48608Z-11752)
+Samples were processed on the PanSolid v2 enrichment (CDHS-48608Z-11752)
 and sequenced with 2 x 150bp paired-end sequencing on an
 Illumina Novaseq
 ([DOC6278]{custom-style="Strong"})
@@ -777,10 +777,12 @@ and
 ## PanSolid CLC bioinformatics pipeline
 
 A bioinformatics pipeline was built in the CLC Genomics Workbench v23 (Qiagen).
-The details of the pipeline are described in 
-[DOC6260]{custom-style="Strong"} and [DOC6283]{custom-style="Strong"}.
+The details of the pipeline are described in the validation documents for 
+detection of *ERBB2* amplifications ([DOC6260]{custom-style="Strong"}) and 
+8 additional amplifications ([DOC6283]{custom-style="Strong"}).
 The graining level for
-each gene was set based on the number of targets present 
+each gene, which defines the resolution of the analysis for detecting CNVs of
+different sizes, was set based on the number of targets present 
 within the gene (@tbl-deletion-gene-targets). 
 The 
 version of the PanSolid CLC pipeline tested in this validation was PanSolid 
@@ -807,7 +809,7 @@ was performed for the 9 genes specified in
 [DOC6283]{custom-style="Strong"} plus an additional four genes: *CDK12*, 
 *FGFR1*, *FGFR2* and *FGFR3*. Amplification detection for these four genes was
 added to the NHS Genomic Medicine Test Directory since the validation of
-amplification detection on the PanSolid pipeline. *CDK12* has both 
+amplification detection on PanSolid NGS. *CDK12* has both 
 tumour-suppressor and oncogenic effects on cancer development
 [@paculova2017] and was analysed for both amplifications and deletions.
 
@@ -860,26 +862,33 @@ was set at
 `r round(deletion_fc_threshold_theoretical,2)`
 as this was the predicted fold change for a sample with a monoallelic deletion 
 at 50% NCC. Following initial testing of samples, this was modified to
-`r deletion_fc_threshold`.
+`r deletion_fc_threshold` to increase the sensitivity of the technique.
 
 ```{r}
 #| label: fig-fold-change-vs-ncc
-#| fig-cap: "Fold change vs neoplastic cell content"
+#| fig-cap: "This plot shows the relationship between measured fold change and
+#| neoplastic cell content (NCC) for different dosage states. The plot Y axis
+#| is limited to -5, but the relationship for biallelic deletions is exponential
+#| and generates very negative fold change values when the NCC is 80% or 
+#| greater. The horiztonal dashed line shows 
+#| the original fold change threshold, which was set as the expected fold change
+#| for a monoallelic deletion at 50% NCC."
 #| echo: FALSE
 
 fig_fold_change_vs_ncc <- ggplot(fold_change_df, aes(x = ncc, y = fold_change)) +
   geom_line(aes(colour = del_state), linewidth = 1) +
   scale_colour_manual(values = c( "#999999", "#999999", "#999999")) +
   coord_cartesian(ylim = c(-5, 0)) +
-  scale_y_continuous(breaks = c(0, -1, round(deletion_fc_threshold, 2),
+  scale_y_continuous(breaks = c(0, -1, round(deletion_fc_threshold_theoretical, 2),
                                 -2, -3, -4, -5),
                      minor_breaks = NULL) +
   scale_x_continuous(breaks = seq(0, 100, by = 10)) +
   theme_bw() +
   theme(legend.position = "blank") +
-  labs(y = "Fold change (loss equation)", x = "Neoplastic cell content",
+  labs(y = "Fold change (loss equation)", x = "Neoplastic cell content (%)",
        colour = "") +
-  geom_hline(yintercept = round(deletion_fc_threshold,2), linetype = "dashed") +
+  geom_hline(yintercept = round(deletion_fc_threshold_theoretical,2), 
+             linetype = "dashed") +
   annotate("text", x = 65, y = -4.5, label = "Biallelic \n deletion") +
   annotate("text", x = 90, y = -2.5, label = "Monoallelic \n deletion") +
   annotate("text", x = 90, y = -0.5, label = "Normal")
@@ -890,7 +899,8 @@ fig_fold_change_vs_ncc
 
 ```{r}
 #| label: fig-fold-change-vs-cn
-#| fig-cap: "Fold change vs copy number"
+#| fig-cap: "This plot shows the linear relationship between overall copy 
+#| number and neoplastic cell content (NCC) for different dosage states."
 #| echo: FALSE
 
 copy_number_df <- data.frame(ncc = seq(0, 100, by = 1)) |> 
@@ -908,7 +918,7 @@ fig_fold_change_vs_cn <- ggplot(copy_number_df, aes(x = ncc, y = copy_number)) +
   scale_x_continuous(breaks = seq(0, 100, by = 10)) +
   theme_bw() +
   theme(legend.position = "blank") +
-  labs(y = "Overall copy number", x = "Neoplastic cell content",
+  labs(y = "Overall copy number", x = "Neoplastic cell content (%)",
        colour = "") +
   annotate("text", x = 75, y = 0.2, label = "Biallelic \n deletion") +
   annotate("text", x = 90, y = 0.8, label = "Monoallelic \n deletion") +
