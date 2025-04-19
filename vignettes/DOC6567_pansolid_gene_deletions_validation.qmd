@@ -886,7 +886,8 @@ fig_fold_change_vs_ncc <- ggplot(fold_change_df, aes(x = ncc, y = fold_change)) 
   theme_bw() +
   theme(legend.position = "blank") +
   labs(y = "Fold change (loss equation)", x = "Neoplastic cell content (%)",
-       colour = "") +
+       colour = "",
+       title = "Fold change versus neoplastic cell content") +
   geom_hline(yintercept = round(deletion_fc_threshold_theoretical,2), 
              linetype = "dashed") +
   annotate("text", x = 65, y = -4.5, label = "Biallelic \n deletion") +
@@ -919,7 +920,8 @@ fig_fold_change_vs_cn <- ggplot(copy_number_df, aes(x = ncc, y = copy_number)) +
   theme_bw() +
   theme(legend.position = "blank") +
   labs(y = "Overall copy number", x = "Neoplastic cell content (%)",
-       colour = "") +
+       colour = "",
+       title = "Copy number versus neoplastic cell content") +
   annotate("text", x = 75, y = 0.2, label = "Biallelic \n deletion") +
   annotate("text", x = 90, y = 0.8, label = "Monoallelic \n deletion") +
   annotate("text", x = 90, y = 1.8, label = "Normal") 
@@ -930,7 +932,7 @@ fig_fold_change_vs_cn
 
 ### Ploidy state detection
 
-Ploidy status of copy number segments was predicted using the CLC
+The ploidy status of copy number segments was predicted using the CLC
 "Detect Regional Ploidy" tool with the "Region-level Ploidy Track". This uses
 a HMM to predict ploidy based on SNP and coverage data, which 
 is influenced by @beroukhim2006. The different ploidy states categorised by the
@@ -938,10 +940,15 @@ ploidy caller are summarised in @tbl-clc-ploidy-states.
 
 ### Visualisation
 
-A new visualisation of the pipeline results was developed to include deletions 
-and ploidy predictions (@fig-24021613-visualisation). In the interactive HTML
-file (@fig-24021613-visualisation section C) the predictions of the Detect
-Regional Ploidy tool were used to colour the target log2 ratios. A visualisation
+Bespoke scripts were written in the Python programming language to annotate and
+visualise the data output from the CLC pipeline. Results were exported into
+a curated Microsoft Excel file for each sample, which included details of
+detected deletions and ploidy predictions (@fig-24021613-visualisation). In the
+previous validation, an HTML file format was developed to allow 
+analysts to interact with copy number data across the genome for each sample.
+This format was updated to include deletion detection and the predictions of the Detect
+Regional Ploidy tool were used to colour the target log2 ratios
+(@fig-24021613-visualisation section C). A visualisation
 of allele frequency was also added, displaying 
 the read depth percentages of variants filtered by the following criteria:
 
