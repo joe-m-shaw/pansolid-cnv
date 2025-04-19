@@ -74,6 +74,8 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
 **p16INK4A**: protein 16 kilo Daltons Inhibitor of CDK4 A
 
+**PCR:** Polymerase Chain Reaction
+
 **PTEN**: Phosphatase and tensin homolog deleted on chromosome ten
 
 **SNP:** Single Nucleotide Polymorphism
@@ -983,14 +985,21 @@ a further quality metric. A threshold of 75% was set for this metric following
 
 ## Orthogonal testing
 
+Results from the PanSolid NGS process for the sample cohort were compared to
+results from 4 other methods: whole genome sequencing (WGS), droplet digital
+PCR (ddPCR), PCR-based LOH testing and NGS testing on the QIAseq Merged
+enrichment.
+
 ### Whole genome sequencing
 
-Whole genome sequencing (WGS) was performed by Illumina Laboratory 
+WGS was performed by Illumina Laboratory 
 Services in Cambridge as part of the NHS Genomic
 Medicine Service [@sosinsky2024]
-on paired blood and fresh frozen tumour samples. The fresh frozen samples were
-taken from tumours with matching pathology identifiers to the FFPE samples 
-tested on PanSolid. Genomics England requires solid tumour samples to 
+on paired blood and fresh frozen tumour samples. PanSolid NGS was performed
+on DNA from FFPE samples which were taken from the same tumours as the 
+fresh frozen tissue samples
+tested by WGS, as determined by matching 
+pathology identifiers. Genomics England requires solid tumour samples to 
 NCC values of at least 30% with less than 20% cell necrosis.
 Bioinformatic analysis was
 performed by Genomics England, and HTML reports were downloaded from the 
@@ -1006,7 +1015,7 @@ final HTML report is predicted using the Ccube package [@yuan2018].
 
 ### Droplet digital PCR
 
-Droplet digital PCR (ddPCR) assays were designed for the *CDKN2A* and 
+ddPCR assays were designed for the *CDKN2A* and 
 *PTEN* genes. ddPCR was performed on a BioRad QX200 system at the North West
 GLH with 20ng DNA input per well.
 The ddPCR
@@ -1043,7 +1052,8 @@ nf2_loh_targets <- target_df_with_coordinates |>
 
 ```
 
-DNA samples with results from PCR microsatellite testing of *NF2* were used to
+DNA samples with results from polymerase chain reaction (PCR) 
+microsatellite testing of the *NF2* gene were used to
 validate the ability of the CLC Detect Regional Ploidy tool to detect regions of 
 copy-loss and copy-neutral LOH. At 
 the North West GLH, LOH testing for *NF2* is performed by targeting 4 dinucleotide 
@@ -1056,7 +1066,7 @@ DNA samples from tumour and blood are analysed on an ABI-3130 analyser
 Procedure]{custom-style="Strong"}). A relative loss of peak height greater than 
 30% between tumour DNA and blood DNA is used to classify 
 "significant LOH" [@wallace2004]. Results for the NF2 LOH PCR assays were 
-extracted from the DNA Database.
+extracted from the DNA Database using a bespoke R script.
 
 ```{r}
 #| label: tbl-nf2-markers
@@ -1080,7 +1090,8 @@ WS150529.
 
 ## Validation analysis
 
-All data analysis was performed in R version 4.4.1 [@rcore2024] using 
+All data analysis for this validation document was performed in R version 4.4.1
+[@rcore2024] using 
 multiple packages 
 including the tidyverse [@wickham2019]. Sensitivity and specificity metrics
 were calculated using the epiR package [@stevenson2008] and fold change
@@ -1088,7 +1099,7 @@ conversions performed using the foldchanger package [@shaw2024].
 This validation document is written and
 rendered with Quarto [@allaire2024].
 All analysis scripts are saved in a public Github repository:
-[https://github.com/joe-m-shaw/pansolid_cnv_validation/tree/main/vignettes](https://github.com/joe-m-shaw/pansolid_cnv_validation/tree/main/vignettes)
+[https://github.com/joe-m-shaw/pansolid-cnv](https://github.com/joe-m-shaw/pansolid-cnv)
 
 All data analysed in this validation is saved at this file location:
 
