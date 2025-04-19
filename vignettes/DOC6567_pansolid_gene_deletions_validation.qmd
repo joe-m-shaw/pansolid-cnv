@@ -2972,16 +2972,9 @@ fig_pansolid_fold_change_vs_ddpcr
 
 ### Sensivitity and specificity
 
-Sensitivity and specificity were calculated as for the comparison with WGS, 
-using both the initial result from the PanSolid pipeline, and then the 
-result from manual review (@tbl-pansolid-ddpcr-metrics-pipeline and
-@tbl-pansolid-ddpcr-metrics-combined). As with WGS, the specificity comparative
-to ddPCR improved with manual review.
-
 ```{r}
-#| label: tbl-pansolid-ddpcr-metrics-pipeline
-#| tbl-cap: "PanSolid pipeline vs ddPCR"
-#| echo: FALSE
+#| label: pansolid-ddpcr-metrics-pipeline
+#| include: FALSE
 
 pansolid_pipeline_vs_ddpcr_results <- pansolid_vs_ddpcr_outcomes |> 
   filter(outcome_pipeline != "no result") |> 
@@ -3020,14 +3013,11 @@ pipeline_vs_ddpcr_metrics <- rbind(pipeline_ddpcr_pten_se_sp,
   relocate(cohort) |> 
   rename(`Gene` = cohort)
 
-knitr::kable(pipeline_vs_ddpcr_metrics)
-
 ```
 
 ```{r}
-#| label: tbl-pansolid-ddpcr-metrics-combined
-#| tbl-cap: "PanSolid pipeline with manual review vs ddPCR"
-#| echo: FALSE
+#| label: pansolid-ddpcr-metrics-combined
+#| include: FALSE
 
 pansolid_combined_vs_ddpcr_results <- pansolid_vs_ddpcr_outcomes |> 
   filter(outcome_combined != "no result") |> 
@@ -3066,17 +3056,36 @@ combined_vs_ddpcr_metrics <- rbind(combined_ddpcr_pten_se_sp,
   relocate(cohort) |> 
   rename(`Gene` = cohort)
 
-knitr::kable(combined_vs_ddpcr_metrics)
+ddpcr_remaining_discrepancies <- combined_ddpcr_all_results |> 
+  filter(outcome_combined %in% c("false_positive", "false_negative"))
 
 ```
 
+Sensitivity and specificity were calculated as for the comparison with WGS, 
+using both the initial result from the PanSolid pipeline, and then the 
+result from manual review (@tbl-pansolid-ddpcr-metrics-pipeline and
+@tbl-pansolid-ddpcr-metrics-combined). As with WGS, the specificity comparative
+to ddPCR improved with manual review, and the number of false positives was
+reduced. However, even with manual review there remained
+`r sum(ddpcr_remaining_discrepancies$n)` discrepancies.
 
-CDKN2A:
-24037201 - normal on PanSolid, deletion on ddPCR. Could be a primer binding SNP.
+```{r}
+#| label: tbl-pansolid-ddpcr-metrics-pipeline
+#| tbl-cap: "PanSolid pipeline vs ddPCR"
+#| echo: FALSE
 
-24019905: borderline
+kable(pipeline_vs_ddpcr_metrics)
 
-24022883: could be non-diploid genome, chromosome 5 also reduced in dosage
+```
+
+```{r}
+#| label: tbl-pansolid-ddpcr-metrics-combined
+#| tbl-cap: "PanSolid pipeline with manual review vs ddPCR"
+#| echo: FALSE
+
+kable(combined_vs_ddpcr_metrics)
+
+```
 
 {{< pagebreak >}}
 
@@ -3146,31 +3155,6 @@ pansolid_vs_nf2_loh_with_qc <- pansolid_vs_nf2_loh |>
            # Remove sample with contamination
            labno != "24054291")
 
-```
-
-`r nrow(pansolid_vs_nf2_loh)` samples were tested on both the PanSolid CNV and 
-NF2 PCR LOH methods. Of these, `r nrow(pansolid_vs_nf2_loh_with_qc)` samples 
-passed both NGS quality thresholds, and outputs of the PanSolid CLC ploidy 
-caller for the *NF2* gene were compared to the results from *NF2* dinucleotide 
-marker PCR LOH testing for these samples. @fig-24054282-nf2-loh shows an 
-example of copy-neutral LOH detected by both PanSolid and *NF2* PCR for a 
-Schwannoma sample (24054282, panel: v2SchwannAll_PS). As with the WGS results,
-the annotations by the CLC ploidy caller were manually reviewed. There were
-3 cases in which the analyst and the ploidy caller disagreed
-(@tbl-nf2-discrepant-results). In each case
-the ploidy caller had categorised the *NF2* locus as having a biallelic 
-deletion, with no LOH present according to the logic in @tbl-clc-ploidy-states,
-whilst the SNP frequency and log2 dosage were consistent with mono-allelic 
-chromosome 22 loss (@fig-24044746-loh-false-negative).
-
-1 sample had two calls - 24031162 - this was due to a deletion on a background
-of LOH.
-
-```{r}
-#| label: tbl-nf2-discrepant-results
-#| tbl-cap: "Discrepant ploidy predictions"
-#| echo: FALSE
-
 nf2_loh_discrepant_results <- pansolid_vs_nf2_loh_with_qc |> 
   filter(loh_status == "No" & analyst_result == "LOH") |> 
   select(labno, ploidy_state, 
@@ -3183,9 +3167,41 @@ nf2_loh_discrepant_results <- pansolid_vs_nf2_loh_with_qc |>
          `NF2 PCR result` = pcr_loh,
          `Manual review` = check_1)
 
-knitr::kable(nf2_loh_discrepant_results)
+```
+
+`r nrow(pansolid_vs_nf2_loh)` samples were tested on both the PanSolid NGS and 
+NF2 PCR LOH methods. Of these, `r nrow(pansolid_vs_nf2_loh_with_qc)` samples 
+passed both NGS quality thresholds, and outputs of the PanSolid CLC ploidy 
+caller for the *NF2* gene were compared to the results from *NF2* dinucleotide 
+marker PCR LOH testing for these samples. In the majority of cases, the PanSolid
+pipeline correctly identified LOH presence or absence at the *NF2* locus, including
+cases with chromosome 22 deletions and copy-neutral LOH
+(@tbl-nf2-results-with-qc)
+. @fig-24054282-nf2-loh shows an 
+example of LOH detected by both PanSolid and *NF2* PCR for a 
+Schwannoma sample (24054282, panel: v2SchwannAll_PS) which the PanSolid pipeline
+sub-categorised as copy-neutral LOH, and @tbl-nf2-results-with-qc shows the
+comparison of all results with *NF2* LOH PCR.
+
+```{r}
+#| label: nf2-loh-image
+#| include: FALSE
+
+path_24054282 <- paste0(image_folderpath,
+                        "24054282_nf2_loh.png")
+
+caption_24054282 <- "Results for sample 24054282 (v2SchwannAll_PS) tested 
+on both PanSolid NGS (top panel) and fragment PCR for *NF2* LOH. 
+PanSolid NGS identified copy neutral
+LOH for chromosome 22, with a clear disruption of the sample SNP profile
+ (black arrows). This was confirmed by 3 dinucleotide markers on the fragment
+PCR which showed a reduction of signal for a single allele in the tumour DNA 
+(blue traces) versus the DNA from blood (red traces). Fragment PCR was 
+uninformative for marker D22S268, hence these results are not shown."
 
 ```
+
+![`r caption_24054282`](`r path_24054282`){#fig-24054282-nf2-loh height=5in}
 
 ```{r}
 #| label: tbl-nf2-results-with-qc
@@ -3205,6 +3221,36 @@ tbl_nf2_results_with_qc <- pansolid_vs_nf2_loh_with_qc |>
 knitr::kable(tbl_nf2_results_with_qc)
 
 ```
+
+As with the WGS results,
+the annotations by the CLC ploidy caller were manually reviewed. There were
+`r nrow(nf2_loh_discrepant_results)`
+ cases in which the analyst and the ploidy caller disagreed. In each case
+the ploidy caller had categorised the *NF2* locus as having a biallelic 
+deletion, with no LOH present according to the logic in @tbl-clc-ploidy-states,
+whilst the SNP frequency and log2 dosage were consistent with mono-allelic 
+chromosome 22 loss (@fig-24044746-loh-false-negative). In both cases,
+LOH PCR confirmed that the LOH was present at the *NF2* locus. Resolving these
+discrepancies through manual review raised the sensitivity and specificity
+to 100% (@tbl-nf2-metrics-with-qc).
+
+```{r}
+#| label: loh-false-negative-image
+#| include: FALSE
+
+path_24044746 <- paste0(image_folderpath,
+                        "24044746_loh_false_negative.png")
+
+caption_24044746 <- "For this sample (24044746, panel: v2SchwannAll_PS)
+the ploidy caller categorised chromosome 
+22 as a region of “bi-allelic deletion”, without LOH (see table inset), whilst 
+*NF2* fragment PCR for the same sample showed significant LOH. The whole genome
+plot showed a clear deletion of 22q, and a deletion of NF2 was reported by 
+the PanSolid CNV caller."
+
+```
+
+![`r caption_24044746`](`r path_24044746`){#fig-24044746-loh-false-negative height=5in}
 
 ```{r}
 #| label: tbl-nf2-metrics-with-qc
@@ -3234,44 +3280,6 @@ nf2_sens_spec <- rbind(nf2_pipeline_se_sp,
 kable(nf2_sens_spec)
 
 ```
-
-```{r}
-#| label: nf2-loh-image
-#| include: FALSE
-
-path_24054282 <- paste0(image_folderpath,
-                        "24054282_nf2_loh.png")
-
-caption_24054282 <- "Results for sample 24054282 (v2SchwannAll_PS) tested 
-on both PanSolid NGS (top panel) and fragment PCR for *NF2* LOH. 
-PanSolid NGS identified copy neutral
-LOH for chromosome 22, with a clear disruption of the sample SNP profile
- (black arrows). This was confirmed by 3 dinucleotide markers on the fragment
-PCR which showed a reduction of signal for a single allele in the tumour DNA 
-(blue traces) versus the DNA from blood (red traces). Fragment PCR was 
-uninformative for marker D22S268, hence these results are not shown."
-
-```
-
-![`r caption_24054282`](`r path_24054282`){#fig-24054282-nf2-loh height=5in}
-
-```{r}
-#| label: loh-false-negative-image
-#| include: FALSE
-
-path_24044746 <- paste0(image_folderpath,
-                        "24044746_loh_false_negative.png")
-
-caption_24044746 <- "For this sample (24044746, panel: v2SchwannAll_PS)
-the ploidy caller categorised chromosome 
-22 as a region of “bi-allelic deletion”, without LOH (see table inset), whilst 
-*NF2* fragment PCR for the same sample showed significant LOH. The whole genome
-plot showed a clear deletion of 22q, and a deletion of NF2 was reported by 
-the PanSolid CNV caller."
-
-```
-
-![`r caption_24044746`](`r path_24044746`){#fig-24044746-loh-false-negative height=5in}
 
 {{< pagebreak >}}
 
