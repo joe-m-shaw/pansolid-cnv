@@ -1869,7 +1869,9 @@ a single sample of DNA extracted via the QIAsymphony method was
 selected for the comparison. If QIAsymphony-extracted DNA was not available, 
 DNA from fresh frozen tissue was used instead. 
 Results were only compared when
-the noise and coverage metrics were above the quality control thresholds. 
+the noise and coverage metrics were above the quality control thresholds. The
+details of the samples included in the comparison are summarised in
+@tbl-wgs-comparison-sample-summary (Appendix).
 
 ```{r}
 #| label: compare-pansolid-to-wgs-results
@@ -1978,30 +1980,6 @@ pansolid_vs_wgs_gene_strings <- pansolid_vs_wgs_outcomes |>
   ))
 
 stopifnot(pansolid_vs_wgs_gene_strings$gene_check == "pass")
-
-```
-
-```{r}
-#| label: tbl-wgs-comparison-sample-summary
-#| tbl-cap: "Details of samples used in the PanSolid-WGS comparison. Pathology
-#| identifiers for PanSolid are taken from the DNA database. Pathology 
-#| identifiers for WGS are taken from the WGS HTML reports."
-#| echo: FALSE
-
-tbl_wgs_comparison_summary <- pansolid_vs_wgs_outcomes |> 
-  select(labno.x, labno.y, worksheet, extraction_method, 
-         pathno, wgs_pathno, cancer) |> 
-  distinct() |>  
-  filter(!is.na(labno.y)) |> 
-  rename(`PanSolid DNA number` = labno.x,
-         `WGS DNA number` = labno.y,
-        `PanSolid worksheet` = worksheet,
-        `PanSolid DNA extraction method` = extraction_method,
-        `PanSolid DNA pathology ID` = pathno,
-        `WGS DNA pathology ID` = wgs_pathno,
-        `Cancer type` = cancer)
-
-kable(tbl_wgs_comparison_summary)
 
 ```
 
@@ -4392,8 +4370,6 @@ of ploidy states in *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*
 
 # Supplementary Information
 
-## Panel details
-
 ```{r}
 #| label: tbl-deletion-gene-targets
 #| tbl-cap: "Genes on the deletion list. The smallest theoretically detectable
@@ -4413,7 +4389,29 @@ kable(tbl_gene_target_counts)
 
 ```
 
-## ddPCR details
+```{r}
+#| label: tbl-wgs-comparison-sample-summary
+#| tbl-cap: "Details of samples used in the PanSolid-WGS comparison. Pathology
+#| identifiers for PanSolid are taken from the DNA database. Pathology 
+#| identifiers for WGS are taken from the WGS HTML reports."
+#| echo: FALSE
+
+tbl_wgs_comparison_summary <- pansolid_vs_wgs_outcomes |> 
+  select(labno.x, labno.y, worksheet, extraction_method, 
+         pathno, wgs_pathno, cancer) |> 
+  distinct() |>  
+  filter(!is.na(labno.y)) |> 
+  rename(`PanSolid DNA number` = labno.x,
+         `WGS DNA number` = labno.y,
+        `PanSolid worksheet` = worksheet,
+        `PanSolid DNA extraction method` = extraction_method,
+        `PanSolid DNA pathology ID` = pathno,
+        `WGS DNA pathology ID` = wgs_pathno,
+        `Cancer type` = cancer)
+
+kable(tbl_wgs_comparison_summary)
+
+```
 
 ```{r}
 #| label: tbl-ddpcr-primers
