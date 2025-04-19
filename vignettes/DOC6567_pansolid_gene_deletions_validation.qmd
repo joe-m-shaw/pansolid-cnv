@@ -3654,7 +3654,7 @@ used in the limit of detection experiment."
 
 ```
 
-![lod_image_caption](`r paste0(image_folderpath, "lod_wgs_plots.png")`){#fig-lod-wgs-plots}
+![`r lod_image_caption`](`r paste0(image_folderpath, "lod_wgs_plots.png")`){#fig-lod-wgs-plots}
 
 The results for chromosome 9 are shown in @fig-lod-chr9, demonstrating that the
 biallelic *CDKN2A* loss could be detected as low as the 20% simulated NCC
@@ -3933,13 +3933,12 @@ chr10_lod_dosage_plot
 
 intragenic_del_results <- del_val_collated_sig_cnvs |> 
   filter((labno == "24048159" & gene == "CDKN2A") |
-           (labno == "24067827" & gene == "MSH2") |
-           (labno == "24031162" & gene == "NF2")) |> 
+           (labno == "24067827" & gene == "MSH2")) |> 
   left_join(del_val_collated_pred_ncc |> 
               select(filepath, pred_ncc),
             by = "filepath") |> 
   select(labno, gene, no_targets,  fold_change,
-         cnv_length, pred_ncc) |> 
+         cnv_length) |> 
   mutate(cnv_kb = round(cnv_length / 1000, 1)) |> 
   select(-cnv_length)
   
@@ -3954,8 +3953,7 @@ tbl_intragenic_deletions <- intragenic_del_results |>
          `Gene` = gene,
          `Number of targets` = no_targets,
          `Fold change` = fold_change,
-         `CNV length (kb)` = cnv_kb,
-         `Predicted NCC (%)` = pred_ncc)
+         `CNV length (kb)` = cnv_kb)
 
 ```
 
@@ -3968,48 +3966,36 @@ overestimated the coordinates of the deletion: 7 targets were impacted,
 which is below the resolution of the "coarse" graining level,
 but a deletion call was returned for 13 targets. Examining the HTML file and
 raw target fold changes for this case showed the true deletion coordinates
-are GRCh38 chr2: 47403187-47429946 (fig). 25001806 - deletion not seen
-
-For sample 24048159, a deletion impacting only the NM_000077.5 transcript of
+are GRCh38 chr2: 47403187-47429946 (@fig-msh2-del). For sample 24048159, 
+a deletion impacting only the NM_000077.5 transcript of
 the *CDKN2A* was detected, which agreed with the results from somatic and
 germline WGS analysis. This case demonstrated the suitability of the fine
 graining level for *CDKN2A*.
 
 ```{r}
 #| label: tbl-intragenic-deletions
-#| tbl-cap: "Intragenic deletions"
+#| tbl-cap: "Intragenic germline deletions confirmed by orthogonal methods"
 #| echo: FALSE
 
 kable(tbl_intragenic_deletions)
 
 ```
 
-## Quality control
-
-23011114, 23032153, 24026811 - high noise leads to multiple deletion calls 
-with low fold changes.
-
 ```{r}
-#| label: quality-control
-#| eval: FALSE
+#| label: msh2-deletion-caption
 #| include: FALSE
 
-ggplot(noise_and_138x, aes(x = stdev_noise, y = percent_138x)) +
-  geom_point(shape = 21) +
-  scale_x_continuous(limits = c(0, 1.6),
-                     breaks = seq(0, 1.6, by = 0.2)) +
-  theme_bw()
-
-
-ggplot(noise_and_138x, aes(x = stdev_noise, y = )) +
-  geom_histogram() +
-  #scale_x_continuous(limits = c(0, 1.8)) +
-  theme_bw() 
-
+msh2_del_caption <- "This image shows the PanSolid results for sample
+24067827, which shows an intragenic deletion of exons 1-7 on *MSH2* on a 
+background of copy-neutral LOH. The deletion call has been extended to include
+normal dosage targets, but the zoomed-in view and the raw target-level data
+both show the ture extent of the deleted region."
 
 ```
 
-### DNA contamination {#sec-results-contamination}
+![`r msh2_del_caption`](`r paste0(image_folderpath, "24067827_msh2_deletion.png")`){#fig-msh2-del}
+
+## DNA contamination {#sec-results-contamination}
 
 During the validation, it was noticed that the SNP allele frequency plot of the 
 interactive HTML allowed the detection of DNA contamination between samples.
