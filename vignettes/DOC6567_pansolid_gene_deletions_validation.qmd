@@ -3383,15 +3383,18 @@ this dataset, a fold change measurement below -1 has an uncertainty of
 measurement of ±`r del_uom` (± 2 x `r all_sd`) at a confidence level
 of 95%.
 
-For each sample 
-
-Notably sample 24018518 had 5 genes (*FGFR3*, *MUTYH*, *RAD51C*, *RNF43* and
-*STK11*) which fold changes below the `r deletion_fc_threshold` threshold in the
-second replicate only. The cause of this discrepancy was likely the increased
+For each sample, the fold changes of each gene were reviewed to check whether
+variation between repeats crossed the the `r deletion_fc_threshold` fold
+change threshold (@fig-repeat-24018518-fc-loss, @fig-repeat-24045597-fc-loss
+and @fig-repeat-24054282-fc-loss). This occurred for 5 genes within sample 
+24018518 (*FGFR3*, *MUTYH*, *RAD51C*, *RNF43* and
+*STK11*) which showed fold changes below the `r deletion_fc_threshold` threshold 
+in the second replicate only. The cause of this discrepancy was likely the increased
 signal-adjusted noise (0.43) for this replicate. However, the p value for each
 region was above 0.05, and consequently these regions were not identified by the
 pipeline as significant CNVs. This means that in a clinical scenario they would
-not be analysed or reported.
+not be analysed or reported, and that the overall results for each sample were
+consistent across each replicate.
 
 ```{r}
 #| label: tbl-uom
@@ -3412,7 +3415,7 @@ knitr::kable(tbl_uom)
 #| include: FALSE
 
 repeat_data_long <- repeat_data |> 
-  select(labno, labno_suffix_worksheet, gene,
+  select(labno, worksheet, labno_suffix_worksheet, gene,
          min_region_fold_change, max_region_fold_change) |> 
   pivot_longer(
     cols = c(min_region_fold_change, max_region_fold_change),
@@ -3459,23 +3462,22 @@ draw_repeat_plot2 <- function(df = repeat_data_long, labno) {
   
   plot <- df |> 
     filter(labno == {{ labno }}) |> 
-    ggplot(aes(x = labno_suffix_worksheet, y = fold_change_mod)) +
+    ggplot(aes(x = worksheet, y = fold_change_mod)) +
     geom_hline(yintercept = deletion_fc_threshold, linetype = "dashed") +
       geom_line() +
       geom_point(shape = 21, aes(fill = pansolid_result)) +
     scale_fill_manual(values = c("white", "red")) +
     theme_bw() +
-      theme(axis.text.x = element_blank(),
+      theme(axis.text.x = element_text(angle = 90),
             legend.position = "bottom") +
       scale_y_continuous(limits = c(-2, 0), breaks = seq(-2, 2, by = 1)) +
       facet_wrap(~gene, ncol = 7) +
-      labs(x = "Replicate", y = "Fold change (loss equation)",
+      labs(x = "Worksheet", y = "Fold change (loss equation)",
            title = as.character(labno), fill = "PanSolid result")
   
   return(plot)
   
 }
-
 
 ```
 
@@ -3524,6 +3526,12 @@ fig_repeat_24054282_loss
 {{< pagebreak >}}
 
 ### Ploidy state detection
+
+The results for the ploidy state of the `r length(loh_genes)` LOH genes were
+also consistent between each replicate, except for the *LZTR1* gene in sample
+24054282 which had ploidy states of uniparental disomy (2 copies of one allele) and
+"(0,3)" (3 copies of one allele) on different worksheets. The other genes on
+chromosome 22 all had consistent predictions of uniparental disomy.
 
 ```{r}
 #| label: loh-repeatability
@@ -3575,11 +3583,10 @@ kable(make_loh_repeat_table("24054282"))
 
 ```
 
-### NCC prediction
-
 ```{r}
 #| label: ncc-repeat-data
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 make_ncc_rep_plot <- function(labno_input, yaxis_title) {
   
