@@ -2563,7 +2563,7 @@ pansolid_loh_vs_wgs <- pansolid_loh_for_wgs_comp |>
 
 ```
 
-### Neoplastic cell content comparison
+### Neoplastic cell content comparison {#sec-results-wgs-ncc}
 
 ```{r}
 #| label: wgs-ncc-comparison
@@ -4351,6 +4351,12 @@ loss of copy dosage (@fig-24062632-haploid-false-negative) and
 higher genome-wide ploidy states
 may not be correctly characterised (@fig-24045841-false-positive-hexaploid).
 
+- NCC predictions from the Detect Regional Ploidy tool were broadly consistent
+with WGS, but there were discrepancies with low NCC samples (@sec-results-wgs-ncc)
+and an NCC value of `r ncc_24039975[1,2]`% was predicted for a cell line 
+reference material (@sec-results-overall-ncc), indicating that accuracy is poorer
+for low-NCC samples.
+
 - The Detect Regional Ploidy tool predicts LOH with high accuracy comparative
 to PCR-based (@sec-results-nf2-loh) and NGS-based methods (@sec-results-mmr-ngs).
 However, due to the spacing of SNPs within the PanSolid enrichment, a focal or
@@ -4418,7 +4424,8 @@ are shown in @tbl-pansolid-cnv-metrics.
 **Dosage accuracy:** it should be shown how accurate the test is at detecting 
 monoallelic and biallelic deletions, in samples with a range of NCC values.
 
-The sensitivities of the PanSolid pipeline for detecting biallelic and monoallelic deletions in comparison to WGS for diploid samples are 
+The sensitivities of the PanSolid pipeline for detecting biallelic and monoallelic 
+deletions in comparison to WGS for diploid samples are 
 `r substr(bi_mono_allelic_results_diploid[1, 5], 1, 3)`% and
 `r substr(bi_mono_allelic_results_diploid[2, 5], 1, 4)`%, respectively. 
 The NCC values 
