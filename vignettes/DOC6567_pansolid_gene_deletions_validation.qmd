@@ -858,7 +858,10 @@ fold_change_df <- data.frame(ncc = seq(0, 100, by = 0.1)) |>
 The NCC of a sample and the number of gene copies per cell both impact the total
 measured fold change and copy number of a sample, with fold change providing a 
 greater distinction between biallelic and monoallelic deletions, as shown in 
-@fig-fold-change-vs-ncc and @fig-fold-change-vs-cn. 
+@fig-fold-change-vs-ncc and @fig-fold-change-vs-cn. Whilst fold change levels 
+from -1 to -2 can be associated with either monoallelic or biallelic deletions
+depending on the sample NCC, fold changes less than -2 are predicted solely
+for biallelic deletions in samples with 50% NCC or greater.
 Initially, the fold change threshold 
 was set at
 `r round(deletion_fc_threshold_theoretical,2)`
@@ -1167,6 +1170,16 @@ intragenic_region_changes <- nrow(del_gene_cnv_spans[del_gene_cnv_spans$cnv_span
 
 intragenic_region_percent <- round((intragenic_region_changes / nrow(del_gene_cnv_spans))*100, 1)
 
+low_fc_del_region_summary <- sig_cnvs_passing_qc |> 
+  filter(fold_change < -2) |> 
+  mutate(del_range = case_when(
+    cnv_length >= 10000000 ~"Over 10Mb",
+    cnv_length < 10000000 ~"Under 10Mb"
+  )) |> 
+  group_by(del_range) |> 
+  summarise(n = n()) |> 
+  mutate(percent = (n/sum(n))*100)
+
 ```
 
 ```{r}
@@ -1218,8 +1231,8 @@ plot_calls_by_cancer_type <- calls_with_cancer |>
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, vjust = 1,
                                    hjust = 1)) +
-  labs(x = "", y = "Significant CNVs",
-       title = "Number of detected CNVs varies with cancer type",
+  labs(x = "", y = "Delettions detected",
+       title = "Number of detected deletions varies with cancer type",
        subtitle = "Data shown for cancer types with more than 5 samples in cohort")
 
 ```
@@ -1232,26 +1245,6 @@ sig_cnvs_with_manual_review <- sig_cnvs_with_qc_mod |>
   filter(consequence == "Loss" &
            analyst_result %in% c("deletion", "no deletion")) 
 
-manual_review_false_pos <- sig_cnvs_with_manual_review |> 
-  filter(analyst_result == "no deletion")
-
-sig_cnvs_with_qc_mod_pval_cat <- sig_cnvs_with_manual_review |> 
-  mutate(p_value_category  = case_when(
-    p_value == 0 ~"0",
-    p_value > 0 ~"Above 0"
-  ),
-  analyst_result = case_when(
-    analyst_result == "no deletion" ~"manual review: no deletion",
-    analyst_result == "deletion" ~"manual review: deletion"
-  )) 
-
-pvalue_plot <- sig_cnvs_with_qc_mod_pval_cat |> 
-  ggplot(aes(x = p_value_category, y = )) +
-  geom_bar() +
-  facet_wrap(~analyst_result) +
-  theme_bw() +
-  labs(x = "P value", y = "Number of CNVs")
-
 ```
 
 In total, `r nrow(noise_138x_ncc)` replicates from 
@@ -1261,10 +1254,11 @@ Of these, `r nrow(results_passing_qc)` replicates had signal-adjusted noise
 values below 0.7 and percentage coverage at 138X greater than 75%.
 There was a clear relationship between the size of the detected deletions and
 their fold changes (@fig-cnv-size-distribution); shorter focal deletions had
-lower fold change values, consistent with biallelic losses, and all regions with 
- fold changes below -3 were less than 7 Megabases (Mb) in length.
+lower fold change values, consistent with biallelic losses, and 95% of regions 
+with fold changes below -2 were less than 10 Megabases (Mb) in length.
 
-`r nrow(sig_cnvs_passing_qc)` target gene regions with fold changes lower than the 
+`r nrow(sig_cnvs_with_manual_review)` target gene regions with fold changes 
+lower than the 
 `r deletion_fc_threshold` threshold were detected. 
 Deletions were detected in all 
 `r length(unique(del_val_collated_del_genes$gene))` target genes 
@@ -1273,30 +1267,20 @@ ranging from
 `r max(sig_cnvs_passing_qc$fold_change)` to
 `r min(sig_cnvs_passing_qc$fold_change)`, and CNV lengths ranging from
 `r round(min(sig_cnvs_passing_qc$cnv_length)/1000,1)` kb to 
-`r round(max(sig_cnvs_passing_qc$cnv_length)/1000000,1)` Mb 
+`r round(max(sig_cnvs_passing_qc$cnv_length)/1000000,1)` Mb. 
 In `r intragenic_region_changes` (`r intragenic_region_percent`%) results, 
 there was more than one fold change region detected within a gene. In the results
 passing the quality thresholds, the number of detected deletion regions per
 case ranged from
 `r min(loss_count_df_qc$calls)` to 
 `r max(loss_count_df_qc$calls)` (median
-`r median(loss_count_df_qc$calls)`
-). The three 
+`r median(loss_count_df_qc$calls)`)
+and there was a marked difference in the number of calls between different
+cancer types (@fig-calls-by-cancer-type). The three 
 genes with the most detected deletions were *PTEN*, *CDKN2A* and *PTEN*. This was
 likely due to ascertainment bias as these deletions are commonly detected in
 brain tumours, which comprised
 `r percent_cns`% of the samples tested (@tbl-cancer-types).
-
-Of the 
-`r nrow(sig_cnvs_with_manual_review)`
-significant CNVs called, 
-`r nrow(manual_review_false_pos)`
-were categorised as not being deletions on
-manual review. The p values of the CNV calls ranged from
-`r min(sig_cnvs_with_manual_review$p_value)` to
-`r max(round(sig_cnvs_with_manual_review$p_value, 3))`, and CNVs with p values
-above 0 were more likely to be classified as not being deletions on manual
-review. CNVs with p values above 0.05 were not considered significant CNVs.
 
 ```{r}
 #| label: fig-cnv-size-distribution
@@ -1343,29 +1327,44 @@ fig_cnv_gene_frequency
 ```
 
 ```{r}
-#| label: manual-review-false-positives
-#| include: FALSE
+#| label: fig-calls-by-cancer-type
+#| fig-cap: "The number of deletions detected stratified by cancer type. Types of
+#| cancer represented by fewer than 5 samples in the validation cohort were
+#| excluded for clarity."
+#| echo: FALSE
 
-false_pos_frequencies <- del_val_collated_sig_cnvs |> 
-  filter(analyst_result == "no deletion") |> 
-  group_by(gene) |> 
-  count() |> 
-  arrange(desc(n))
-
-false_pos_percent_tbl <- del_val_collated_sig_cnvs |>
-  filter(gene != "no positive calls") |> 
-  filter(!analyst_result %in% c("fail", "no amplification", 
-                                "amplification")) |> 
-  group_by(analyst_result) |> 
-  summarise(n = n()) |>   
-  mutate(percent = round((n / sum(n))*100, 0)) |> 
-  adorn_totals()
-
-percent_false_pos_calls <- false_pos_percent_tbl[2, 3]
+plot_calls_by_cancer_type
 
 ```
 
 ### Manual review of deletions {#sec-results-manual-review}
+
+```{r}
+#| label: manual-review-p-values
+#| include: FALSE
+
+sig_cnvs_with_qc_mod_pval_cat <- sig_cnvs_with_manual_review |> 
+  mutate(p_value_category  = case_when(
+    p_value == 0 ~"0",
+    p_value > 0 ~"Above 0"
+  ),
+  analyst_result = case_when(
+    analyst_result == "no deletion" ~"manual review: no deletion",
+    analyst_result == "deletion" ~"manual review: deletion"
+  )) 
+
+del_calls_manual_review_summary <- sig_cnvs_with_qc_mod_pval_cat |> 
+  group_by(analyst_result, p_value_category) |> 
+  summarise(n = n()) |>   
+  adorn_totals()
+
+manual_review_false_pos <- sig_cnvs_with_manual_review |> 
+  filter(analyst_result == "no deletion")
+
+percent_false_pos_calls <- round((nrow(manual_review_false_pos) /
+                                    nrow(sig_cnvs_with_qc_mod_pval_cat))*100, 0)
+
+```
 
 All the deletion calls were manually reviewed using the Excel and HTML for each
 case. In some cases, the copy number statuses provided by the PanSolid 
@@ -1378,8 +1377,7 @@ SNP allele frequencies in the same region indicated a normal diploid state.
 In each case the deletion status of the gene was manually annotated
 as not having
 a deletion in the "Check 1" box of the analysis Excel file. 
-The genes for which this was most commonly performed were *FGFR3* and
-*MUTYH*. An example for 
+An example for 
 the *MUTYH* gene is shown in @fig-24030951-false-positive.
 
 ```{r}
@@ -1408,8 +1406,7 @@ categorised genes as not being deleted with fold changes slightly above the
 SNP allele frequencies indicated the loss of a large chromosomal region. An 
 example is shown in @fig-23024575-false-neg. In these cases, the missed genes
 were not manually annotated as having deletions. This was because it is 
-unrealistic to expect analysis staff to remember the chromosomal location of
-`r length(del_genes)` genes and to manually annotate deletions in this way when
+unrealistic to expect analysis staff to manually annotate deletions in this way when
 the pipeline does not draw their attention to a particular genomic region.
 
 ```{r}
@@ -1430,6 +1427,27 @@ fold changes of -1.23 which are just below the fold change threshold of-1.25."
 ```
 
 ![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-neg height=5in}
+
+Of the 
+`r nrow(sig_cnvs_with_manual_review)`
+significant CNVs called, 
+`r nrow(manual_review_false_pos)`
+were categorised as not being deletions on
+manual review. The p values of the CNV calls ranged from
+`r min(sig_cnvs_with_manual_review$p_value)` to
+`r max(round(sig_cnvs_with_manual_review$p_value, 3))`, and CNVs with p values
+above 0 were more likely to be classified as not being deletions on manual
+review (@tbl-manual-review-summary). CNVs with p values above 0.05 
+were not considered significant CNVs.
+
+```{r}
+#| label: tbl-manual-review-summary
+#| tbl-cap: "Summary of manual review of deletion calls and p values"
+#| echo: FALSE
+
+kable(del_calls_manual_review_summary)
+
+```
 
 ### *CDKN2A/B* and *PTEN* results
 
