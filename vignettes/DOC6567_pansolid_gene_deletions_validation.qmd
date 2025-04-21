@@ -2687,7 +2687,7 @@ wgs_ncc_plot
 
 {{< pagebreak >}}
 
-## Comparison to ddPCR
+## Comparison to ddPCR {#sec-results-ddpcr}
 
 ```{r}
 #| label: load-ddpcr-data
@@ -3314,6 +3314,11 @@ pansolid_vs_merged <- del_val_collated_loh |>
     loh_status == "No" & merged_result == "No significant LOH" ~"true_negative",
     loh_status == "Yes" & merged_result == "No significant LOH" ~"false_positive",
     loh_status == "No" & merged_result == "Significant LOH" ~"false_negative"
+  ),
+  outcome = factor(outcome, levels = c("true_positive",
+                                           "false_positive",
+                                           "false_negative",
+                                           "true_negative")
   ))
 
 tbl_pansolid_vs_merged <- pansolid_vs_merged |> 
@@ -3330,6 +3335,22 @@ tbl_pansolid_vs_merged <- pansolid_vs_merged |>
          `Merged LOH status` = merged_result)
 
 kable(tbl_pansolid_vs_merged)
+
+```
+
+```{r}
+#| label: pansolid-vs-merged-metrics
+#| echo: FALSE
+
+pansolid_vs_merged_results <- pansolid_vs_merged |> 
+  group_by(outcome) |> 
+  count(outcome, .drop = FALSE)
+
+pansolid_vs_merged_metrics <- make_se_sp_table(pansolid_vs_merged_results$n) |>  
+  mutate(`Genes` = "MLH1, MSH2 and MSH6") |> 
+  relocate(`Genes`)
+  
+kable(pansolid_vs_merged_metrics)
 
 ```
 
@@ -4296,7 +4317,7 @@ increase of only 0.4 versus the
 `r round(deletion_fc_threshold_theoretical + del_uom, 2)` threshold
 to our validation cohort would have led to 
 `r round(new_threshold_del_percent, 1)`%
-of all gene results being classed as deletions, compared to
+of all gene dosage results being classed as deletions, compared to
 `r round(current_threshold_del_percent, 1)`% with the 
 `r deletion_fc_threshold`
 threshold.
@@ -4333,6 +4354,8 @@ may be more prevalent.
 
 ## Limitations
 
+### Limitations of the method
+
 This validation has shown that the PanSolid NGS technique has the 
 following limitations:
 
@@ -4352,7 +4375,9 @@ higher genome-wide ploidy states
 may not be correctly characterised (@fig-24045841-false-positive-hexaploid).
 
 - NCC predictions from the Detect Regional Ploidy tool were broadly consistent
-with WGS, but there were discrepancies with low NCC samples (@sec-results-wgs-ncc)
+with WGS using the Ccube tool (R = 0.71, @fig-wgs-ncc-comparison), 
+but there were discrepancies with 
+low NCC samples (@sec-results-wgs-ncc)
 and an NCC value of `r ncc_24039975[1,2]`% was predicted for a cell line 
 reference material (@sec-results-overall-ncc), indicating that accuracy is poorer
 for low-NCC samples.
@@ -4362,7 +4387,10 @@ to PCR-based (@sec-results-nf2-loh) and NGS-based methods (@sec-results-mmr-ngs)
 However, due to the spacing of SNPs within the PanSolid enrichment, a focal or
 intragenic region of copy neutral LOH could be missed.
 
-- The resolution of the ploidy caller depends on the SNPs present in the sample.
+- The resolution of the ploidy caller depends on genomic spacing of SNPs with 
+VAF greater than 4%, which will vary between samples.
+
+### Limitations of the validation
 
 This validation has the following limitations:
 
@@ -4370,32 +4398,93 @@ This validation has the following limitations:
 tumours (@tbl-cancer-types) and hence had higher numbers of deletions
 impacting these types of cancer.
 
-- An intra-control normalisation was not performed.
+- An intra-control normalisation of the 25 samples of control tissue used
+for copy number calling was not performed (@sec-results-ddpcr).
 
-- No true positive or true negative samples were tested for *PMS2* LOH.
+- No true positive or true negative samples were tested for *PMS2* LOH
+(@sec-results-nf2-loh and @sec-results-mmr-ngs).
 
-- Only a single reference gene, *AP3B1*, was used for ddPCR.
+- Only a single reference gene, *AP3B1*, was used for ddPCR CNV testing, which
+is located on a different chromosome to the targeted genes, *CDKN2A* and *PTEN*
+(@sec-results-ddpcr).
 
-- Positive controls for MMR gene LOH could not be not sourced. Instead, samples were
-used which had been sequenced with a different QIAseq enrichment, which is not
-a truly orthogonal method to PanSolid.
+- Positive controls for *MLH1*, *MSH2* or *MSH6* LOH could not be not sourced. 
+Instead, samples were
+used which had been sequenced with the Merged QIAseq enrichment, which is not
+an orthogonal method to PanSolid.
 
 ## Overall performance of CNV detection using PanSolid NGS 
 
 The validation of detection of deletions and ploidy status is the final 
-component of the validation of CNVs on the PanSolid enrichment and 
-pipeline (@tbl-previous-validations). 
+component of the validation of CNVs on PanSolid NGS (@tbl-previous-validations). 
 This validation project has used multiple comparative techniques to assess
-the test's capabilities from a number of angles (@tbl-pansolid-cnv-metrics).
+the accuracy of the method; the results are summarised 
+in @tbl-pansolid-cnv-metrics.
+
+```{r}
+#| label: pansolid-cnv-metrics-collation
+#| include: FALSE
+
+wgs_metrics <- wgs_outcome_table |> 
+  filter(`Analysis` == "CNV caller with manual review (diploid samples)") |> 
+   mutate(`Genes` = "34 tumour suppressor genes",
+          `Secondary technique` = "WGS",
+          `Variant type` = "Deletions") |> 
+  relocate(c(`Variant type`,
+             `Secondary technique`, `Genes`,
+             `Analysis`), .before = `Samples`) 
+
+ddpcr_metrics <- combined_vs_ddpcr_metrics |> 
+      filter(`Gene` == "CDKN2A and PTEN") |> 
+  mutate(`Samples` = floor((`True positives` + `True negatives` + 
+                           `False positives` + `False negatives`)/2),
+         `Analysis` = "CNV caller with manual review") |> 
+    rename(`Genes` = `Gene`) |> 
+    relocate(`Genes`) |> 
+    mutate(`Secondary technique` = "ddPCR",
+           `Variant type` = "Deletions") |> 
+    relocate(c(`Variant type`, 
+               `Secondary technique`,
+               `Genes`,
+                `Analysis`,
+               `Samples`), .before = `True positives`)
+
+nf2_loh_metrics <- nf2_sens_spec |> 
+      filter(`Analysis` == "Ploidy caller with manual review") |> 
+      mutate(`Genes` = "NF2",
+              `Secondary technique` = "Fragment PCR",
+             `Samples` = `True positives` + `True negatives` +
+               `False positives` + `False negatives`,
+             `Variant type` = "LOH",
+             ) |> 
+      relocate(c(`Variant type`,
+                 `Secondary technique`, `Genes`,
+                 `Analysis`), .before = `True positives`) |> 
+      relocate(`Samples`, .after = `Genes`)
+
+mmr_merged_metrics <- pansolid_vs_merged_metrics |> 
+      mutate(`Genes` = "MLH1, MSH2 and MSH6",
+                  `Secondary technique` = "QIAseq NGS",
+             `Samples` = (`True positives` + `True negatives` +
+                   `False positives` + `False negatives`) / 3,
+             `Variant type` = "LOH",
+             `Analysis` = "Ploidy caller with manual review") |> 
+          relocate(c(`Variant type`, 
+                     `Secondary technique`, `Genes`,
+                     `Analysis`), .before = `True positives`) |> 
+          relocate(`Samples`, .after = `Genes`)
+
+tbl_pansolid_cnv_metrics <- rbind(wgs_metrics, ddpcr_metrics,
+      nf2_loh_metrics,
+      mmr_merged_metrics) |>  
+  rename(`Genes(s)` = `Genes`,
+         `PanSolid analysis` = `Analysis`)
+```
 
 ```{r}
 #| label: tbl-pansolid-cnv-metrics
 #| tbl-cap: "PanSolid CNV detection"
 #| echo: FALSE
-
-tbl_pansolid_cnv_metrics <- read_excel(path = paste0(data_folderpath,
-                         "validation/DOC6567_deletions/excel_spreadsheets/",
-                         "pansolid_cnv_validation_summary.xlsx"))
 
 kable(tbl_pansolid_cnv_metrics)
 
@@ -4411,7 +4500,8 @@ should also provide results for the ploidy state, including copy-neutral
 LOH, of the following genes:
 *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*.
 
-Clear results for each gene are provided in the Excel output of the pipeline.
+Clear results for each gene are provided in the Excel 
+output of the pipeline.
 
 **Analytical validity:** the test should have a defined sensitivity and 
 specificity, calculated by comparison with orthogonal methods.
@@ -4465,14 +4555,14 @@ pipeline (@fig-24021613-visualisation).
 **Analysis:** there should be a clear procedure for analysis for gene 
 deletions by laboratory staff.
 
-[DOC6261: Somatic Copy Number Variant Analysis on the PanSolid Cancer Panel]{custom-style="Strong"} 
-will be updated to reflect the addition of deletion and ploidy state detection
-and the new result visualisation.
+A new standard operating procedure (SOP) 
+([DOC6720]{custom-style="Strong"}) has been written to describe the
+steps for analysing PanSolid NGS outputs for gene deletions and ploidy states.
 
 # Requirements for clinical implementation
 
 Given the findings of this validation, the PanSolid NGS pipeline for detection
-of gene deletions and ploidy states is ready for clinical implementation, with 
+of gene deletions and ploidy states is accepted for clinical implementation, with 
 the following requirements:
 
 - Any deletion calls from the PanSolid pipeline which are to be clinically 
@@ -4489,6 +4579,8 @@ PCR-based LOH testing (@tbl-nf2-metrics-with-qc).
 - The test has a limit of detection for biallelic deletions of at least 
 20% NCC (@sec-results-lod). In practice, this may be further reduced by the
 technique's uncertainty of measurement.
+
+- Cases where 
 
 # Conclusion
 
