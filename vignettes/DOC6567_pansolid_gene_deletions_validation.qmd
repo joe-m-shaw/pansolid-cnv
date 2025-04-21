@@ -4613,7 +4613,7 @@ of ploidy states in *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*
 
 {{< pagebreak >}}
 
-# Supplementary Information
+# Appendix
 
 ```{r}
 #| label: tbl-deletion-gene-targets
@@ -4685,8 +4685,14 @@ path_cdkn2a_ddpcr <- paste0(image_folderpath,
 path_pten_ddpcr <- paste0(image_folderpath,
                           "ddpcr_pten.png")
 
+caption_cdkn2a_ddpcr <- "The *CDKN2A* exon 3 ddPCR assay visualised on the
+Quantasoft software"
+
+caption_pten_ddpcr <- "The *PTEN* exon 1 ddPCR assay visualised on the
+Quantasoft software"
+
 ```
 
-!["CDKN2A ddPCR"](`r path_cdkn2a_ddpcr`){#fig-ddpcr-cdkn2a}
+![`r caption_cdkn2a_ddpcr`](`r path_cdkn2a_ddpcr`){#fig-ddpcr-cdkn2a}
 
-!["PTEN ddPCR"](`r path_pten_ddpcr`){#fig-ddpcr-pten}
+![`r caption_pten_ddpcr`](`r path_pten_ddpcr`){#fig-ddpcr-pten}
