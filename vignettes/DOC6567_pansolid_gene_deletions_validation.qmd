@@ -2350,7 +2350,9 @@ diploid samples.
 ```{r}
 #| label: fig-copy-number-vs-fold-change
 #| fig-cap: "This figure shows the correlation between copy number determined by
-#| WGS and PanSolid fold change for the 34 genes analysed for deletions. 
+#| WGS and PanSolid fold change for the 34 genes analysed for deletions. The grey
+#| line shows the trajectory of predicted fold changes based on 
+#| WGS copy number, assuming an NCC of 100%.
 #| The red circle highlights outlying results for sample 24030966. WGS reported
 #| a copy number of 1 for the *CDKN2A* and *CDKN2B* genes whilst PanSolid 
 #| reported a small deletion with low fold change. WGS also detected a complex 
@@ -2359,8 +2361,8 @@ diploid samples.
 #| echo: FALSE
 
 wgs_plot_line_df <- data.frame(
-  cnv_copy_number = seq(0, 10, by = 0.1)) |> 
-  mutate(fold_change = pred_fc(tumour_cpc = cnv_copy_number,
+  cnv_copy_number = seq(0.1, 10, by = 0.1)) |> 
+  mutate(fold_change_for_plot = pred_fc(tumour_cpc = cnv_copy_number,
                                ncc = 100,
                                dir = "loss"))
 
@@ -2378,6 +2380,8 @@ data_for_wgs_fc_plot <- pansolid_vs_wgs_outcomes |>
 fig_copy_number_vs_fold_change <- ggplot(data_for_wgs_fc_plot,
                                          aes(x = cnv_copy_number, 
                                              y = fold_change_for_plot)) +
+  geom_line(data = wgs_plot_line_df, colour = "grey",
+            linewidth = 1) +
   scale_x_continuous(breaks = seq(0, 10, by = 1)) +
   geom_jitter(shape = 21, width = 0.1) +
   theme_bw() +
