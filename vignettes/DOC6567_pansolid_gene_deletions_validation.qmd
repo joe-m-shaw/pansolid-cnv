@@ -799,6 +799,11 @@ the Detect Regional Ploidy tool (@fig-clc-pipeline).
 path_clc_pipeline <- paste0(image_folderpath,
                             "clc_pipeline.png")
 
+caption_clc_pipeline <- "Schematic of how CNVs and LOH are detected within
+the PanSolid CLC pipeline, illustrating how the CNV Detection Tool and the
+Detect Regional Ploidy tool are linked but produce independent predictions
+of deleted and non-deleted regions."
+
 ```
 
 ![CLC pipeline](`r path_clc_pipeline`){#fig-clc-pipeline width=5in}
@@ -1904,9 +1909,8 @@ pipeline for
 `r length(unique(pansolid_vs_wgs$labno.x))` DNA replicates from
 `r length(unique(pansolid_vs_wgs$nhsno))` patients. Deletion calls from the 
 Canvas tool, notated as "LOSS" or "LOH" in the WGS results output, were 
-compared with the deletion calls from the PanSolid pipeline. No deletion 
-structural variants were detected by the Manta algorithm, notated as
-"DEL" in the WGS results output, in the target genes. The deleted regions 
+compared with the deletion calls from the PanSolid pipeline.
+The deleted regions 
 detected by Canvas ranged from 
 `r round(min(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000, 1)` kb to
 `r round(max(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000000, 1)` Mb in
@@ -2373,7 +2377,8 @@ diploid samples.
 #| WGS and PanSolid fold change for the 34 genes analysed for deletions. The grey
 #| line shows the trajectory of predicted fold changes based on 
 #| WGS copy number, assuming an NCC of 100%.
-#| The red circle highlights outlying results for sample 24030966. WGS reported
+#| The red circle highlights outlying results for sample 
+#| 24030966 (v2PANSOLID). WGS reported
 #| a copy number of 1 for the *CDKN2A* and *CDKN2B* genes whilst PanSolid 
 #| reported a small deletion with low fold change. WGS also detected a complex 
 #| deletion inversion in *CDKN2A* via the Manta tool, which may be the cause
@@ -2511,12 +2516,17 @@ kable(bi_mono_del_table)
 
 ```{r}
 #| label: fig-bi-mono-del-fold-change
-#| fig-cap: "Fold change of biallelic and monoallelic deletions"
+#| fig-cap: "This plot shows the PanSolid fold changes of 
+#| confirmed monoallelic and
+#| biallelic deletions on WGS, with their NCC levels (white points).
+#| The grey lines show the predicted fold changes of 
+#| biallelic and monoallelic deletions at different NCC levels."
 #| echo: FALSE
 #| fig-width: 6
 
 del_line_df <- fold_change_df |> 
-  rename(ccube_ncc = ncc)
+  rename(ccube_ncc = ncc) |> 
+  filter(del_state != "fold_change_normal")
 
 bi_mono_fc_plot <- pansolid_vs_wgs_outcomes |> 
   mutate(fold_change = case_when(
@@ -2533,19 +2543,19 @@ bi_mono_fc_plot <- pansolid_vs_wgs_outcomes |>
   ggplot(aes(x = ccube_ncc, y = fold_change)) +
   geom_line(data = del_line_df,
             aes(colour = del_state), linewidth = 1) +
-  scale_colour_manual(values = c( "#999999", "#999999", "#999999")) +
+  scale_colour_manual(values = c( "#999999", "#999999")) +
   geom_point(shape = 21, size = 2, fill = "white") +
   scale_x_continuous(limits = c(0, 100),
                      breaks = seq(0, 100, by = 10)) +
-  scale_y_continuous(limits = c(-20, 0)) +
+  scale_y_continuous(limits = c(-20, 5)) +
   facet_wrap(~cnv_copy_number_char) +
   theme_bw() +
   theme(legend.position = "none") +
-  labs(x = "Neoplastic cell content (Ccube)",
-       y = "PanSolid fold change") +
-  annotate("text", x = 75, y = -15, label = "Biallelic") +
-  annotate("text", x = 90, y = -3, label = "Monoallelic") +
-  annotate("text", x = 90, y = 0, label = "Normal")
+  labs(x = "Neoplastic cell content (WGS - Ccube)",
+       y = "PanSolid fold change",
+       title = "Dosage correlation of biallelic and monoallelic deletions") +
+  annotate("text", x = 75, y = -15, label = "Biallelic\nprediction") +
+  annotate("text", x = 90, y = 2, label = "Monoallelic\nprediction")
 
 bi_mono_fc_plot
 
@@ -2676,7 +2686,7 @@ ncc_24053299 <- pansolid_vs_wgs_ncc |>
 The CLC Regional Ploidy Tool predicts the NCC of a sample as part of its HMM 
 approach to deconvoluting ploidy states. The NCC predictions from CLC were 
 compared to the predictions from the WGS results, which were calculated using
-the Canvas algorithm [@fig-wgs-ncc-comparison]. There was a positive correlation
+the Ccube algorithm [@fig-wgs-ncc-comparison]. There was a positive correlation
 between the two predictions in all comparisons, although there were significant
 outliers. One sample (WGS DNA number: 24058699; PanSolid DNA number: 24053299)
 had no NCC reported by WGS, with the report stating "this sample has a high 
@@ -2685,7 +2695,7 @@ be reliably estimated from the genomic data. A high level of variants with
 low VAF usually indicates that the sample has either very low tumour content
 or high heterogeneity". However, on PanSolid NGS the predicted NCC was 
 `r ncc_24053299[1,2]`%. This sample is shown circled in red 
-on @fig-wgs-ncc-comparison with an arbitrary WGS NCC value of 6%. As with the
+on @fig-wgs-ncc-comparison with a WGS NCC value of 6%. As with the
 NCC result for the Seraseq® TNA (DNA) WT Mix reference material 
 (@sec-results-overall-ncc),
 this result indicates that the Detect Regional Ploidy tool may not be 
@@ -2867,11 +2877,11 @@ in the normal control pool by the PanSolid CLC pipeline, and for
 the validation cohort.
 The *CDKN2A* ddPCR assay 
 (amplicon coordinates:  GRCh38 chr9: 21,968,120-21,968,172) 
-targeted the 3rd exon of *CDKN2A*, which
+targeted exon 1 of *CDKN2A*, which
 is present in both the NM_000077.5 and NM_058195.4 transcripts
 (@fig-cdkn2a-locus). The *PTEN* ddPCR assay
 (amplicon coordinates: GRCh38 chr10: 87,864,384-87,864,484)
-targeted the first exon of *PTEN*. One sample (24034335) was excluded from the
+targeted exon 1 of *PTEN*. One sample (24034335) was excluded from the
 analysis due to a copy number gain on chromosome 5 which spanned the locus of 
 the *AP3B1* reference gene. The *AP3B1* gene is not targeted by the PanSolid
 enrichment and is located at chr5:78000522-78294698 (GRCh38) between PanSolid
@@ -3434,8 +3444,8 @@ of 95%.
 For each sample, the fold changes of each gene were reviewed to check whether
 variation between repeats crossed the the `r deletion_fc_threshold` fold
 change threshold (@fig-repeat-24018518-fc-loss, @fig-repeat-24045597-fc-loss
-and @fig-repeat-24054282-fc-loss). This occurred for 5 genes within sample 
-24018518 (*FGFR3*, *MUTYH*, *RAD51C*, *RNF43* and
+and @fig-repeat-24054282-fc-loss). This occurred for 4 genes within sample 
+24018518 (*MUTYH*, *RAD51C*, *RNF43* and
 *STK11*) which showed fold changes below the `r deletion_fc_threshold` threshold 
 in the second replicate only. The cause of this discrepancy was likely the increased
 signal-adjusted noise (0.43) for this replicate. However, the p value for each
@@ -4097,7 +4107,7 @@ haploid_genome_bp <- (3.2*10^9)
 ## Whole genome sequencing
 
 Detection of gene deletions with the PanSolid pipeline compares favourably with
-WGS using the Genomics England pipeline, which uses the Manta tool for CNV 
+WGS using the Genomics England pipeline, which uses the Canvas tool for CNV 
 calling. The two pipelines for PanSolid and WGS differ in several ways, which are
 summarised in @tbl-pipeline-metrics. The close agreement between PanSolid and 
 WGS for detection of large chromosomal changes is impressive given the 
@@ -4227,7 +4237,7 @@ false negative results when compared to *NF2* PCR. Manual review of each call
 was able to correct for this behaviour, 
 and increase the sensitivity to 100%.
 
-## QIAseq Merged Panel
+## QIAseq Merged panel
 
 The accuracy of the Detect Regional Ploidy tool was also checked against results
 from the QIAseq Merged enrichment panel, which is currently used for LOH 
@@ -4280,29 +4290,15 @@ could theoretically detect deletions ranging from
 `r min(gene_target_counts$percent_del)`
 to `r max(gene_target_counts$percent_del)`% of the genes of interest (@tbl-deletion-gene-targets, Appendix).
 
-## Uncertainty of Measurement
+## Uncertainty of measurement
 
 The uncertainty of measurement of the fold change metric for deleted regions
-was calculated as ±`r del_uom` at 95% confidence. Notably, this value is 
-slightly higher than the value of 0.17 calculated for amplifications 
-([DOC6283]{custom-style="Strong"}),
-and a proportion of gene results had different CNV statuses ("deletion" vs
-"no deletion") on different replicates.
-
-This is because of the difference in the scale of the change measured: 
-amplification 
-detection looks for changes between the normal range of 2-10 copies and an 
-amplified range which extends from 10 to many hundreds of copies. Deletion
-detection, in contrast, aims to detect a reduction of only 1 or 2 copies from
-a potentially unstable baseline. This is summarised in the QIAgen user 
-manual for CLC:
-
-*"The fact that the same percent-wise change in coverage (copy number) leads* 
-*to a higher fold change for deletions than for amplifications means that*
-*given the same amplification and deletion fold change cutoff there is a *
-*higher risk of calling false positive deletions than amplifications*
-*- it takes less coverage fluctuation to pass the fold change cutoff*
-*for deletions."* [@qiagen2023]
+was calculated as ±`r del_uom` at 95% confidence. This value is 
+roughly equivalent to the value of 0.17 calculated for amplifications 
+([DOC6283]{custom-style="Strong"}). There was no difference in the number
+of significant CNVs detected within each replicate, although 4 genes on 
+one replicate of sample 24018518 had fold changes below 
+`r deletion_fc_threshold` but with non-significant p values. 
 
 ```{r}
 #| label: deletion-threshold-with-uom
@@ -4332,7 +4328,7 @@ current_threshold_del_percent <- (current_threshold_del_results /
 ```
 
 For the amplifications
-validation, we modified the amplification fold change threshold to account for the 
+validation, we modified the amplification fold change threshold to account for the
 uncertainty of measurement, lowering it from 3 to 2.8. 
 We chose not to replicate this approach for deletion
 detection, as accounting for the uncertainty of measurement in the deletion 
@@ -4347,7 +4343,16 @@ to our validation cohort would have led to
 of all gene dosage results being classed as deletions, compared to
 `r round(current_threshold_del_percent, 1)`% with the 
 `r deletion_fc_threshold`
-threshold.
+threshold. This increased impact of a small change in detection threshold is
+expected for deletions rather than amplifications, as explained in CLC
+manual (Qiagen):
+
+*"The fact that the same percent-wise change in coverage (copy number) leads* 
+*to a higher fold change for deletions than for amplifications means that*
+*given the same amplification and deletion fold change cutoff there is a *
+*higher risk of calling false positive deletions than amplifications*
+*- it takes less coverage fluctuation to pass the fold change cutoff*
+*for deletions."* [@qiagen2023]
 
 ## DNA contamination
 
