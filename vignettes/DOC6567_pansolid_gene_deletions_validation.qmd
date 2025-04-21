@@ -1154,7 +1154,8 @@ sig_cnvs_with_qc <- del_val_collated_sig_cnvs |>
               select(filepath, stdev_noise, percent_138x, pred_ncc),
             by = "filepath",
             relationship = "many-to-one") |> 
-  left_join(del_val_sample_cancer_types, by = "labno")
+  left_join(del_val_sample_cancer_types, by = "labno",
+            relationship = "many-to-one")
 
 sig_cnvs_passing_qc <- sig_cnvs_with_qc |> 
   filter(stdev_noise <= noise_qc_threshold &
@@ -1298,7 +1299,10 @@ brain tumours, which comprised
 
 ```{r}
 #| label: fig-cnv-size-distribution
-#| fig-cap: "Deletion results for all genes"
+#| fig-cap: "This plot shows the significant CNV losses detected in the 
+#| validation cohort by the PanSolid pipeline. The data is only from samples 
+#| with acceptable signal-adjusted noise and percent coverage at 138X
+#| metrics."
 #| echo: FALSE
 
 fig_cnv_size_distribution <- sig_cnvs_passing_qc |> 
@@ -1321,6 +1325,11 @@ fig_cnv_size_distribution
 
 ```{r}
 #| label: fig-cnv-gene-frequency
+#| fig-cap: "This plot shows the number of significant CNV losses detected for
+#| each tumour suppressor gene within the validation cohort. 
+#| The data is only from samples 
+#| with acceptable signal-adjusted noise and percent coverage at 138X
+#| metrics."
 #| echo: FALSE
 
 fig_cnv_gene_frequency <- sig_cnvs_passing_qc |> 
@@ -1436,7 +1445,7 @@ PanSolid, the CLC ploidy caller also detects this loss and deletions are
 detected in *BMPR1A* and *PTEN*. However, *FGFR2* and *SUFU*, also on 
 chromosome 10, are not identified as deletions on PanSolid 
 (23024575 WS141565, panel: v2PANSOLID) as they have 
-fold changes of -1.23 which are just below the fold change threshold of-1.25."
+fold changes of -1.23 which are just above the fold change threshold of-1.25."
 
 ```
 
@@ -1459,7 +1468,10 @@ were not considered significant CNVs.
 #| tbl-cap: "Summary of manual review of deletion calls and p values"
 #| echo: FALSE
 
-kable(del_calls_manual_review_summary)
+kable(del_calls_manual_review_summary |> 
+        rename(`Result` = analyst_result,
+               `P value category` = p_value_category,
+               `Number of deletion calls` = n))
 
 ```
 
@@ -1469,21 +1481,27 @@ A range of different deletions were detected at the *CDKN2A/B* and *PTEN* loci,
 which were both analysed on the fine graining level. Not all deletions at the
 *CDKN2A/B* locus encompassed both genes: there were four samples (24017040,
 24026819, 24029270 and 24048159) in which 
-*CDKN2A* but not *CDKN2B* was deleted, and one sample (24030966) in which 
-*CDKN2B* was deleted with only one exon of *CDKN2A* transcript NM_058195.4. 
+*CDKN2A* but not *CDKN2B* was deleted, and two samples (24030966 and
+24025266) in which 
+*CDKN2B* was deleted with only exon 1b of the *CDKN2A*  NM_058195.4
+transcript
+(@fig-cdkn2a-results). 
 In some
 cases separate deletion calls were issued for *CDKN2A* and *CDKN2B* in the
 same sample with the same fold change,
 but these likely reflect a single underlying deletion. For *PTEN* the majority 
 of deletions included the entire gene region, but there were 2 samples (24047809 
-and 24034306) which showed small intragenic deletions. These deletions appeared
+and 24034306) which showed small intragenic deletions
+(@fig-pten-results). These deletions appeared
 genuine when manually reviewed, but were not confirmed with ddPCR as the ddPCR
 assay targeted *PTEN* exon 1 which was not included in either deletion call.
 
 ```{r}
 #| label: fig-cdkn2a-results
-#| fig-cap: "CDKN2A deletions with fold changes below -1.9 which passed manual
-#| review"
+#| fig-cap: "This plot shows the CDKN2A deletions with fold changes 
+#| below -1.9 which passed manual review, along with the layout of the 
+#| *CDKN2A* and *CDKN2B* genes. The start and end points of each gene
+#| transcript are included as dashed vertical lines on the top plot."
 #| echo: FALSE
 #| fig-width: 6
 #| fig-height: 8
@@ -1495,8 +1513,10 @@ cdkn2a_pass_qc <- sig_cnvs_passing_qc |>
   mutate(cdkn2a_del_cat = case_when(
     labno %in% c("24017040","24026819", 
                  "24029270", "24048159") ~"cdkn2a only",
+    labno %in% c("24030966", "24025266") ~"cdkn2b only",
     TRUE ~"not cdkn2a only"),
   cdkn2a_del_cat = factor(cdkn2a_del_cat, levels = c("cdkn2a only",
+                                                     "cdkn2b only",
                                                      "not cdkn2a only"))) |> 
   arrange(cdkn2a_del_cat, cnv_length)
 
