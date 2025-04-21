@@ -3291,7 +3291,9 @@ tumour Lynch (tLynch) panel of the QIAseq Merged
 enrichment using a Microsoft Excel-based method for LOH detection
 (described in [DOC3339]{custom-style="Strong"}) in the MMR genes *MLH1*,
 *MSH2* and *MSH6*. There was complete concordance between the two methods for
-each gene, shown in @tbl-pansolid-vs-merged.
+each gene, shown in @tbl-pansolid-vs-merged, resulting in 100% sensitivity and
+specificity, albeit with wide confidence intervals due to the low number of
+samples tested (@tbl-pansolid-vs-merged-metrics).
 
 ```{r}
 #| label: tbl-pansolid-vs-merged
@@ -3339,7 +3341,8 @@ kable(tbl_pansolid_vs_merged)
 ```
 
 ```{r}
-#| label: pansolid-vs-merged-metrics
+#| label: tbl-pansolid-vs-merged-metrics
+#| tbl-cap: "QIAseq PanSolid vs QIAseq Merged for MMR gene LOH"
 #| echo: FALSE
 
 pansolid_vs_merged_results <- pansolid_vs_merged |> 
@@ -4425,6 +4428,12 @@ in @tbl-pansolid-cnv-metrics.
 #| label: pansolid-cnv-metrics-collation
 #| include: FALSE
 
+previous_validation_summary <- read_excel(
+  path = paste0(data_folderpath,
+                "validation/DOC6567_deletions/excel_spreadsheets/",
+                "previous_validation_summary.xlsx")) |> 
+select(-`Source`)
+
 wgs_metrics <- wgs_outcome_table |> 
   filter(`Analysis` == "CNV caller with manual review (diploid samples)") |> 
    mutate(`Genes` = "34 tumour suppressor genes",
@@ -4474,16 +4483,20 @@ mmr_merged_metrics <- pansolid_vs_merged_metrics |>
                      `Analysis`), .before = `True positives`) |> 
           relocate(`Samples`, .after = `Genes`)
 
-tbl_pansolid_cnv_metrics <- rbind(wgs_metrics, ddpcr_metrics,
-      nf2_loh_metrics,
-      mmr_merged_metrics) |>  
+tbl_pansolid_cnv_metrics <- rbind(
+  previous_validation_summary,
+  wgs_metrics, 
+  ddpcr_metrics,
+  nf2_loh_metrics,
+  mmr_merged_metrics) |>  
   rename(`Genes(s)` = `Genes`,
          `PanSolid analysis` = `Analysis`)
 ```
 
 ```{r}
 #| label: tbl-pansolid-cnv-metrics
-#| tbl-cap: "PanSolid CNV detection"
+#| tbl-cap: "PanSolid CNV detection. Values are taken from DOC6260 (ERBB2),
+#| DOC6283 (amplifications) and this document."
 #| echo: FALSE
 
 kable(tbl_pansolid_cnv_metrics)
@@ -4579,8 +4592,6 @@ PCR-based LOH testing (@tbl-nf2-metrics-with-qc).
 - The test has a limit of detection for biallelic deletions of at least 
 20% NCC (@sec-results-lod). In practice, this may be further reduced by the
 technique's uncertainty of measurement.
-
-- Cases where 
 
 # Conclusion
 
