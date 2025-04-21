@@ -13,8 +13,6 @@ fig-align: "left"
 fig-wdith: 6
 ---
 
-{{< pagebreak >}}
-
 # Authors
 
 Author: Joe Shaw (CS20980)
@@ -739,6 +737,9 @@ tbl_cancer_types <- cancer_types_grouped |>
 kable(tbl_cancer_types)
 
 ```
+
+@tbl-cancer-types: this table does not include the SeraCare reference material
+control.
 
 ```{r}
 #| label: tbl-cns-cancer-types
@@ -4450,7 +4451,10 @@ an orthogonal method to PanSolid.
 The validation of detection of deletions and ploidy status is the final 
 component of the validation of CNVs on PanSolid NGS (@tbl-previous-validations). 
 This validation project has used multiple comparative techniques to assess
-the accuracy of the method; the results are summarised 
+the accuracy of the method; the results from this document, 
+[DOC6260]{custom-style="Strong"} and
+[DOC6283]{custom-style="Strong"}
+are summarised 
 in @tbl-pansolid-cnv-metrics.
 
 ```{r}
@@ -4519,13 +4523,14 @@ tbl_pansolid_cnv_metrics <- rbind(
   nf2_loh_metrics,
   mmr_merged_metrics) |>  
   rename(`Genes(s)` = `Genes`,
-         `PanSolid analysis` = `Analysis`)
+         `PanSolid analysis` = `Analysis`) |> 
+  select(-c(`True positives`, `False positives`, `False negatives`,
+            `True negatives`))
 ```
 
 ```{r}
 #| label: tbl-pansolid-cnv-metrics
-#| tbl-cap: "PanSolid CNV detection. Values are taken from DOC6260 (ERBB2),
-#| DOC6283 (amplifications) and this document."
+#| tbl-cap: "PanSolid CNV detection. "
 #| echo: FALSE
 
 kable(tbl_pansolid_cnv_metrics)
@@ -4578,8 +4583,7 @@ be 75% or greater. The SNP allelic frequency profile can identify DNA
 contamination down to at least 10% (@sec-results-contamination), 
 and should be checked for every sample.
 
-**Variability:** the test should have defined intra-run variation 
-(repeatability) and inter-run variability (reproducibility) for detection of 
+**Variability:** the test should have defined variation for detection of 
 deletions. Analysis of this variation should then be used to derive the 
 uncertainty of measurement for the test.
 
