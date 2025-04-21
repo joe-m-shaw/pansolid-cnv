@@ -32,6 +32,8 @@ del_val_sample_patient_info <- read_csv(paste0(
                "concentration" = col_double(),
                "comments" = col_character()))
 
+stopifnot(anyDuplicated(del_val_sample_patient_info) == 0)
+
 del_val_sample_cancer_types <- read_csv(paste0(
   del_val_processed_folder,
   "del_val_sample_cancer_types.csv"),
@@ -41,6 +43,8 @@ del_val_sample_cancer_types <- read_csv(paste0(
     "cancer" = col_character(),
     "cancer_group" = col_character()
   ))
+
+stopifnot(anyDuplicated(del_val_sample_cancer_types$labno) == 0)
 
 # Orthogonal test data ----------------------------------------------------
 
