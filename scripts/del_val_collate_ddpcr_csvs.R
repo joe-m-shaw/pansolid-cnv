@@ -9,7 +9,7 @@ library(here)
 
 source(here("functions/ddpcr_functions.R"))
 
-data_folder <- config::get("data_filepath")
+data_folder <- config::get("data_folderpath")
 
 # ddPCR files -----------------------------------------------------------------------
 
