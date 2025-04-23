@@ -12,14 +12,13 @@ source(here("scripts/connect_to_dna_db.R"))
 
 # Find LOH results --------------------------------------------------------
 
-data_folder <- config::get("data_filepath")
+data_folder <- config::get("data_folderpath")
 
-pansolid_deletions_loh_cohort <- read_excel(
-  path = paste0("S:/central shared/Genetics/NGS/Bioinformatics/",
-                "1_Pan-solid-Cancer/CNV/Deletions/",
-                "pansolid_deletions_loh_cohort.xlsx")) |> 
-  janitor::clean_names() |> 
-  filter(category == "NF2 LOH testing")
+del_val_collated_stdev <- read_csv(paste0(config::get("data_folderpath"), 
+                                          "validation/DOC6567_deletions/processed/",
+                                          "del_val_collated_stdev.csv"),
+                                   col_types = list(
+                                     "labno" = col_character()))
 
 dlims_results <- results_tbl |> 
   filter(genodate > "2024-03-01 00:00:00") |> 
@@ -40,7 +39,7 @@ loh_regex <- regex(r"[
                    comments = TRUE)
 
 loh_results_with_pansolid_samples <- loh_results |> 
-  filter(labno %in% pansolid_deletions_loh_cohort$labno) |> 
+  filter(labno %in% del_val_collated_stdev$labno) |> 
   select(-c(genotype2, test)) |> 
   arrange(labno) |> 
   mutate(loh_percent = round(as.numeric(str_extract(
