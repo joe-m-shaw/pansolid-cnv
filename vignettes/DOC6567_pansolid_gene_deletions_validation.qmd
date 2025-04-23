@@ -116,17 +116,15 @@ source(here("functions/pansolid_cnv_excel_functions.R"))
 #| warning: FALSE
 #| include: FALSE
 
-# source(here("scripts/del_val_collate_wgs_htmls.R"))
+source(here("scripts/del_val_collate_wgs_htmls.R"))
 
-# source(here("scripts/del_val_collate_ddpcr_csvs.R"))
+source(here("scripts/del_val_collate_ddpcr_csvs.R"))
 
-# source(here("scripts/del_val_collate_pansolid_results.R"))
+source(here("scripts/del_val_collate_pansolid_results.R"))
 
-# source(here("scripts/del_val_get_patient_info.R"))
+source(here("scripts/del_val_get_patient_info.R"))
 
-# source(here("scripts/del_val_get_nf2_loh_results.R"))
-
-# rm(list=ls())
+source(here("scripts/del_val_get_nf2_loh_results.R"))
 
 source(here("scripts/del_val_load_processed_data.R"))
 
@@ -527,7 +525,7 @@ cdkn2a_transcripts_plot <- ggplot(cdkn2ab_df_mod, aes(x = start, y = refseq,
     y = "NM_004936.4", yend = "NM_004936.4")) +
   geom_label(nudge_y = 0.4) +
   theme_bw() +
-  labs(y = "", x = "") +
+  labs(y = "", x = "", title = "CDKN2A/B locus") +
   theme(axis.text.x = element_blank()) +
   scale_x_continuous(limits = c(cdkn2a_plot_start, cdkn2a_plot_end)) +
   geom_text(x = 21980000, y = "Gene",
@@ -2737,14 +2735,13 @@ qs_normals <- read_csv(file = paste0(data_folderpath,
                        col_types = "c")
 
 ddpcr_data_mod <- del_val_ddpcr_collated |> 
+  filter(worksheet %in% c("WS146462", "WS146463")) |> 
   filter(sample != "NTC") |> 
   filter(target_type == "Ch1Unknown") |> 
   mutate(category = case_when(
     sample %in% qs_normals$labno ~"normal control",
     TRUE ~"patient"),
     sample_gene = str_c(sample, "_", gene))
-
-stopifnot(unique(ddpcr_data_mod$worksheet) == c("WS146462", "WS146463"))
 
 stopifnot(unique(ddpcr_data_mod$gene) == c("CDKN2A", "PTEN"))
 
@@ -2888,7 +2885,8 @@ is present in both the NM_000077.5 and NM_058195.4 transcripts
 targeted exon 1 of *PTEN*. One sample (24034335) was excluded from the
 analysis due to a copy number gain on chromosome 5 which spanned the locus of 
 the *AP3B1* reference gene. The *AP3B1* gene is not targeted by the PanSolid
-enrichment and is located at chr5:78000522-78294698 (GRCh38) between PanSolid
+enrichment and is located at GRCh38 chr5:78000522-78294698 (5q14.1) 
+between PanSolid
 targets "chr5:76.7Mb" and "chr5:77.7Mb". Another sample (24047809) with an
 intragenic *PTEN* deletion detected on PanSolid was coded as "no deletion" 
 because the deletion coordinates did not overlap with the coordinartes of the
@@ -3535,7 +3533,9 @@ draw_repeat_plot2 <- function(df = repeat_data_long, labno) {
       scale_y_continuous(limits = c(-2, 0), breaks = seq(-2, 2, by = 1)) +
       facet_wrap(~gene, ncol = 7) +
       labs(x = "Worksheet", y = "Fold change (loss equation)",
-           title = as.character(labno), fill = "PanSolid result")
+           title = paste0(as.character(labno), 
+                          " repeat results"),
+           fill = "PanSolid result")
   
   return(plot)
   
