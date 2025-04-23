@@ -598,7 +598,8 @@ Whilst array and NGS approaches can define genomic losses more precisely than
 previous cytogenetic techniques, they do not allow single-cell resolution.
 Instead, DNA from millions of cancer and stromal cells is homogenised and
 analysed simultaneously within the same experiment. As a result, identifying
-somatic CNVs and ploidy states by these methods is confounded by three biological factors:
+somatic CNVs and ploidy states by these methods is confounded by 
+three biological factors:
 
 - **Neoplastic cell content (NCC):** the neoplastic cell content is the 
 proportion of tumour cells within a sample. NCC may also be referred to as 
@@ -807,7 +808,7 @@ of deleted and non-deleted regions."
 
 ```
 
-![CLC pipeline](`r path_clc_pipeline`){#fig-clc-pipeline width=5in}
+![`r caption_clc_pipeline`](`r path_clc_pipeline`){#fig-clc-pipeline width=5in}
 
 ### Gene lists and graining levels
 
@@ -1019,7 +1020,8 @@ part of the validation of amplification detection
 [DOC6283]{custom-style="Strong"}, plus additional samples with specific gene
 deletions detected on WGS.
 Within the Genomics England WGS pipeline, tumour ploidy and chromosome 
-count were calculated by the Canvas algorithm [@roller2016].  Whilst Canvas predicts tumour purity, the tumour purity stated on the 
+count were calculated by the Canvas algorithm [@roller2016].  
+Whilst Canvas predicts tumour purity, the tumour purity stated on the 
 final HTML report is predicted using the Ccube package [@yuan2018]. 
 
 ### Droplet digital PCR
@@ -1448,10 +1450,11 @@ path_23024575 <- paste0(image_folderpath,
 caption_23024575 <- "WGS for this sample shows a loss of chromosome 10
 (23024547). On 
 PanSolid, the CLC ploidy caller also detects this loss and deletions are 
-detected in *BMPR1A* and *PTEN*. However, *FGFR2* and *SUFU*, also on 
-chromosome 10, are not identified as deletions on PanSolid 
-(23024575 WS141565, panel: v2PANSOLID) as they have 
-fold changes of -1.23 which are just above the fold change threshold of-1.25."
+detected in *BMPR1A* and *PTEN* (23024575 WS141565, panel: v2PANSOLID). 
+However, *SUFU* is not identified as having a deletion, despite also being on 
+chromosome 10. This is because *SUFU* has a fold change
+of -1.23 (shown in the red box) which is just above the 
+fold change threshold of-1.25."
 
 ```
 
@@ -2280,7 +2283,7 @@ bold are the identifiers for the PanSolid results.
 
 - **23024575**: a chromosome 10 deletion was detected on WGS and PanSolid
  (WGS DNA number: 23024547), but
-the fold changes of the *SUFU* and *FGFR2* genes were slightly above the 
+the fold change of the *SUFU* gene was slightly above the 
 `r deletion_fc_threshold` threshold. This sample is shown in @fig-23024575-false-neg.
 
 - **24019998**: deletions of *FH* (chromosome 1p) and *CDH1* (chromosome 16q) 
