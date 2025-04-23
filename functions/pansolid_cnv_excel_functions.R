@@ -1,7 +1,7 @@
 source(here::here("functions/extract_pansolid_cnv_coordinates.R"))
 source(here::here("functions/filename_functions.R"))
 
-get_sheetname <- function(filepath, sheet_regex = "Amplifications_") {
+get_sheetname <- function(filepath, sheet_regex = "CNVs_") {
   
   #' Get sheet names from an Excel file using regular expressions
   #'
@@ -44,7 +44,7 @@ get_sheetname <- function(filepath, sheet_regex = "Amplifications_") {
   
 }
 
-read_cnv_sheet <- function(filepath, sheet_regex = "Amplifications_") {
+read_cnv_sheet <- function(filepath, sheet_regex = "CNVs_") {
   
   #' Read the entire CNV sheet from a PanSolid CLC Excel file
   #' 
