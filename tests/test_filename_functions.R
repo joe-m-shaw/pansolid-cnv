@@ -1,14 +1,20 @@
 library(testthat)
 
+test_datapath <- paste0(config::get("data_folderpath"),
+                        "validation/DOC6567_deletions/test_data/")
+
+# parse_filename
+
 test_that("parse_filename handles original filename format",{
   
-  x <- "Annotated_WS140721_24018287_NatashaROSTOVA.xlsx"
-  
+  x <- paste0(test_datapath,
+              "Annotated_v2PANSOLID_WS143574_24030966_NatashaROSTOVA.xlsx")
+    
   expect_equal(parse_filename(x, 1),
-               "WS140721")
+               "WS143574")
   
   expect_equal(parse_filename(x, 2),
-               "24018287")
+               "24030966")
   
   expect_equal(parse_filename(x, 3),
                "")
@@ -20,7 +26,7 @@ test_that("parse_filename handles original filename format",{
 
 test_that("parse_filename handles patient names with numbers",{
   
-  x <- "Annotated_WS140954_24017042_AndreiBolkonsky0133841080.xlsx"
+  x <- "Annotated_WS140954_24017042_BorisDrubetskoy0133841080.xlsx"
   
   expect_equal(parse_filename(x, 1),
                "WS140954")
@@ -32,19 +38,20 @@ test_that("parse_filename handles patient names with numbers",{
                "")
   
   expect_equal(parse_filename(x, 4),
-               "AndreiBolkonsky0133841080")
+               "BorisDrubetskoy0133841080")
   
 })
 
 test_that("parse_filename handles new format with panel and patient names", {
   
-  x <- "Annotated_v2M7_MELA_PS_WS147208_24060851_PierreBEZUKHOV.xlsx"
+  x <- paste0(test_datapath,
+              "Annotated_v2PANSOLID_WS143415_24030946_PierreBEZUKHOV.xlsx")
   
   expect_equal(parse_filename(x,1),
-               "WS147208")
+               "WS143415")
   
   expect_equal(parse_filename(x,2),
-               "24060851")
+               "24030946")
   
   expect_equal(parse_filename(x,3),
                "")
@@ -56,16 +63,17 @@ test_that("parse_filename handles new format with panel and patient names", {
 
 test_that("parse_filename handles lab numbers with suffixes", {
   
-  x <- "Annotated_v2SchwannAll_PS_WS142945_24032975c_PetyaROSTOV.xlsx"
+  x <- paste0(test_datapath,
+              "Annotated_v2PANSOLID_WS150465_24026628a_PetyaROSTOV.xlsx")
   
   expect_equal(parse_filename(x, 1),
-               "WS142945")
+               "WS150465")
   
   expect_equal(parse_filename(x, 2),
-               "24032975")
+               "24026628")
   
   expect_equal(parse_filename(x, 3),
-               "c")
+               "a")
   
   expect_equal(parse_filename(x, 4),
                "PetyaROSTOV")
@@ -74,33 +82,36 @@ test_that("parse_filename handles lab numbers with suffixes", {
 
 test_that("parse_filename handles new format with panel and without patient names", {
   
-  x <- "Annotated_v2aM4_LUNG_PS_WS148086_24066935_S14.xlsx"
-  
+  x <- paste0(test_datapath,
+              "Annotated_v2M4_LUNG_PS_WS143513_24037405_S32.xlsx")
+    
   expect_equal(parse_filename(x, 1),
-               "WS148086")
+               "WS143513")
   
   expect_equal(parse_filename(x, 2),
-               "24066935")
+               "24037405")
   
   expect_equal(parse_filename(x, 3),
                "")
   
   expect_equal(parse_filename(x, 4),
-               "S14")
+               "S32")
   
 })
 
+# filename_to_df
+
 test_that("filename_to_df handles filename input", {
   
-  x <- "Annotated_v2aM7_MELA_PS_WS123456_12345678_AnnaKARENINA.xlsx"
+  x <- "Annotated_v2aSchwannAll_PS_WS140775_24018518_AnnaKARENINA.xlsx"
   
   expected_df <- data.frame(
-    "worksheet" = c("WS123456"),
-    "labno" = c("12345678"),
+    "worksheet" = c("WS140775"),
+    "labno" = c("24018518"),
     "suffix" = c(""),
     "patient_name" = c("AnnaKARENINA"),
-    "labno_suffix" = c("12345678"),
-    "labno_suffix_worksheet" = c("12345678_WS123456")
+    "labno_suffix" = c("24018518"),
+    "labno_suffix_worksheet" = c("24018518_WS140775")
   )
   
   expect_equal(filename_to_df(x),
@@ -112,19 +123,19 @@ test_that("filename_to_df handles filepath input", {
   
   s_drive_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
   
-  ws_path <- "WS123456/v2aM7_MELA_PS/"
+  ws_path <- "WS140775/v2aSchwannAll_PS/"
   
-  file <- "Annotated_v2aM7_MELA_PS_WS123456_12345678_AnnaKARENINA.xlsx"
+  file <- "Annotated_v2aSchwannAll_PS_WS140775_24018518_AnnaKARENINA.xlsx"
   
   filepath <- paste0(s_drive_path, ws_path, file)
   
   expected_df <- data.frame(
-    "worksheet" = c("WS123456"),
-    "labno" = c("12345678"),
+    "worksheet" = c("WS140775"),
+    "labno" = c("24018518"),
     "suffix" = c(""),
     "patient_name" = c("AnnaKARENINA"),
-    "labno_suffix" = c("12345678"),
-    "labno_suffix_worksheet" = c("12345678_WS123456")
+    "labno_suffix" = c("24018518"),
+    "labno_suffix_worksheet" = c("24018518_WS140775")
   )
   
   expect_equal(filename_to_df(filepath),
