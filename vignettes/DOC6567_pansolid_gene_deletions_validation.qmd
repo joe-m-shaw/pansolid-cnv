@@ -1104,7 +1104,7 @@ All data analysis for this validation document was performed in R version 4.4.1
 multiple packages 
 including the tidyverse [@wickham2019]. Sensitivity and specificity metrics
 were calculated using the epiR package [@stevenson2008] and fold change
-conversions performed using the foldchanger package [@shaw2024].
+conversions performed using the foldchanger package (v1.0.0) [@shaw2024].
 This validation document is written and
 rendered with Quarto [@allaire2024].
 All analysis scripts are saved in a public Github repository:
@@ -3530,9 +3530,12 @@ and @fig-repeat-24054282-fc-loss). This occurred for 4 genes within sample
 in the second replicate only. The cause of this discrepancy was likely the increased
 signal-adjusted noise (0.43) for this replicate. However, the p value for each
 region was above 0.05, and consequently these regions were not identified by the
-pipeline as significant CNVs. This means that in a clinical scenario they would
+pipeline as significant CNVs and are coloured white in 
+@fig-repeat-24018518-fc-loss. This means that in a clinical scenario they would
 not be analysed or reported, and that the overall results for each sample were
-consistent across each replicate.
+consistent across each replicate. This is in contrast sample 24045597, in which 
+deletions in *CHEK2* and *NF2* were reported as significant CNVs in each 
+replicate (@fig-repeat-24045597-fc-loss).
 
 ```{r}
 #| label: tbl-uom
@@ -3552,21 +3555,25 @@ knitr::kable(tbl_uom)
 #| label: repeat-plot-functions
 #| include: FALSE
 
+
 repeat_data_long <- repeat_data |> 
-  select(labno, worksheet, labno_suffix_worksheet, gene,
+  select(labno, worksheet, labno_suffix_worksheet, filepath,gene,
          min_region_fold_change, max_region_fold_change) |> 
+  left_join(del_val_collated_sig_cnvs |> 
+              select(filepath, gene, consequence, p_value,
+                     check_1),
+            join_by(
+              filepath, gene),
+            relationship = "one-to-one") |> 
+  mutate(pansolid_result = case_when(
+    consequence == "Loss" ~"Significant deletion",
+    is.na(consequence) ~"No deletion")) |> 
   pivot_longer(
     cols = c(min_region_fold_change, max_region_fold_change),
     names_to = "fold_change_type",
     values_to =  "fold_change"
   ) |> 
-  mutate(pansolid_result = case_when(
-           fold_change <= deletion_fc_threshold ~"deletion",
-           fold_change > deletion_fc_threshold ~"no deletion"
-         ),
-         pansolid_result = factor(pansolid_result,
-                                  levels = c("no deletion", "deletion")),
-         fold_change_mod = case_when(
+  mutate(fold_change_mod = case_when(
            fold_change >= 1 ~change(fold_change, from = "fcgain",
                                     to = "fcloss"),
            TRUE ~fold_change))
