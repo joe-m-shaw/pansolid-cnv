@@ -774,7 +774,7 @@
     },
     "foldchanger": {
       "Package": "foldchanger",
-      "Version": "0.0.0.9000",
+      "Version": "1.0.0",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
@@ -782,8 +782,8 @@
       "RemoteUsername": "joe-m-shaw",
       "RemotePkgRef": "joe-m-shaw/foldchanger",
       "RemoteRef": "HEAD",
-      "RemoteSha": "e0d0b437949ea4fcd2414e85ebb49a1c8feceb77",
-      "Hash": "2d77427a826c002e5abffd7a6c2eef40"
+      "RemoteSha": "00d3d7bac91678b6e334a5fdd71d8688b0da40a9",
+      "Hash": "23901499bb5c1c719f408ae8d0682ffa"
     },
     "fontBitstreamVera": {
       "Package": "fontBitstreamVera",
@@ -960,7 +960,7 @@
     },
     "ggrepel": {
       "Package": "ggrepel",
-      "Version": "0.9.5",
+      "Version": "0.9.6",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -972,7 +972,7 @@
         "scales",
         "withr"
       ],
-      "Hash": "cc3361e234c4a5050e29697d675764aa"
+      "Hash": "3d4156850acc1161f2f24bc61c9217c1"
     },
     "ggsci": {
       "Package": "ggsci",
