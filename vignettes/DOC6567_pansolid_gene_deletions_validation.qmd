@@ -116,15 +116,15 @@ source(here("functions/pansolid_cnv_excel_functions.R"))
 #| warning: FALSE
 #| include: FALSE
 
-source(here("scripts/del_val_collate_wgs_htmls.R"))
+#source(here("scripts/del_val_collate_wgs_htmls.R"))
 
-source(here("scripts/del_val_collate_ddpcr_csvs.R"))
+#source(here("scripts/del_val_collate_ddpcr_csvs.R"))
 
-source(here("scripts/del_val_collate_pansolid_results.R"))
+#source(here("scripts/del_val_collate_pansolid_results.R"))
 
-source(here("scripts/del_val_get_patient_info.R"))
+#source(here("scripts/del_val_get_patient_info.R"))
 
-source(here("scripts/del_val_get_nf2_loh_results.R"))
+#source(here("scripts/del_val_get_nf2_loh_results.R"))
 
 source(here("scripts/del_val_load_processed_data.R"))
 
@@ -2718,6 +2718,84 @@ absent.
 #| echo: FALSE
 
 wgs_ncc_plot
+
+```
+
+### Updated sensitivity for amplification detection
+
+```{r}
+#| label: pansolid-vs-wgs-amps
+#| include: FALSE
+
+amp_gene_results_with_ids <- del_val_collated_amp_genes |> 
+  left_join(del_val_sample_patient_info, 
+            by = "labno") |> 
+  mutate(pansolid_result = case_when(
+    max_region_fold_change >= 2.8 ~"amplification",
+    max_region_fold_change < 2.8 ~"no amplification"
+  ))
+
+pansolid_amp_for_join <- amp_gene_results_with_ids |> 
+  filter(labno %in% pansolid_samples_for_wgs_comparison$labno) |> 
+  filter(!(worksheet == "WS150465" &
+             labno == "24026628"))
+
+stopifnot(nrow(pansolid_amp_for_join) / 13 == (length(pansolid_samples_for_wgs_comparison$labno)))
+
+pansolid_vs_wgs_amp <- pansolid_amp_for_join |> 
+  left_join(wgs_results_for_pansolid_comparison,
+            join_by(nhsno == nhsno, gene == gene),
+            relationship = "one-to-one") 
+
+stopifnot(nrow(pansolid_vs_wgs_amp) == nrow(pansolid_amp_for_join))
+
+pansolid_vs_wgs_amp_outcomes <- pansolid_vs_wgs_amp |> 
+  mutate(wgs_result = case_when(
+    
+    cnv_copy_number >= 12 ~"amplification",
+    cnv_copy_number < 12 ~"no amplification",
+    is.na(cnv_copy_number) ~"no amplification"),
+    
+  outcome = case_when(
+    pansolid_result == "amplification" &
+      wgs_result == "amplification" ~"true_positive",
+    pansolid_result == "no amplification" &
+      wgs_result == "no amplification" ~"true_negative",
+    pansolid_result == "amplification" &
+      wgs_result == "no amplification" ~"false_positive",
+    pansolid_result == "no amplification" &
+      wgs_result == "amplification" ~"false_negative"
+  ),
+  outcome = factor(outcome, levels = c("true_positive",     
+                                         "false_positive",    
+                                         "false_negative",    
+                                         "true_negative"
+                                         )))
+
+pansolid_vs_wgs_amp_results <- pansolid_vs_wgs_amp_outcomes |> 
+  group_by(outcome) |> 
+  count(outcome, .drop = FALSE)
+
+pansolid_vs_wgs_amp_se_sp <- make_se_sp_table(pansolid_vs_wgs_amp_results$n) |> 
+  mutate(`Cohort` = "Amplifications") |> 
+  relocate(`Cohort`, .before = `True positives`)
+
+```
+
+The PanSolid results for 
+`r length(unique(del_val_collated_amp_genes$gene))` amplification genes were
+compared against WGS for the same 
+`r length(unique(pansolid_vs_wgs_amp_outcomes$labno.x))`
+samples as for deletions. There were 8 amplifications present in the
+*EGFR* and *MDM2* genes, and the sensitivity and specificity are shown
+in @tbl-pansolid-vs-wgs-amp.
+
+```{r}
+#| label: tbl-pansolid-vs-wgs-amp
+#| tbl-cap: "Sensitivity and specificity for amplification detection"
+#| echo: FALSE
+
+kable(pansolid_vs_wgs_amp_se_sp)
 
 ```
 
