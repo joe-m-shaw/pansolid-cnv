@@ -946,7 +946,9 @@ The ploidy status of copy number segments was predicted using the CLC
 "Detect Regional Ploidy" tool with the "Region-level Ploidy Track". This uses
 a HMM to predict ploidy based on SNP and coverage data, which 
 is influenced by @beroukhim2006. The different ploidy states categorised by the
-ploidy caller are summarised in @tbl-clc-ploidy-states. 
+ploidy caller are summarised in @tbl-clc-ploidy-states. As part of the prediction
+of ploidy states, the Detect Regional Ploidy tool calculates the predicted
+NCC of the sample. The lower threshold for NCC prediction was set at 20%.
 
 ### Visualisation
 
@@ -4478,6 +4480,40 @@ manual (Qiagen):
 
 ## Limit of detection
 
+```{r}
+#| label: monoallelic-deletions-ncc
+#| include: FALSE
+
+wgs_monoallelic <- pansolid_vs_wgs_outcomes |> 
+  filter(cnv_copy_number == 1 )
+
+wgs_monoallelic_true_positive <- wgs_monoallelic |> 
+  filter(outcome_combined == "true_positive")
+
+wgs_biallelic <- pansolid_vs_wgs_outcomes |> 
+  filter(cnv_copy_number == 0)
+
+wgs_biallelic_true_positive <- wgs_biallelic |> 
+  filter(outcome_combined == "true_positive")
+
+
+
+```
+
+The limit of detection experiment showed that a biallelic CDKN2A deletion 
+could be detected as low as 40% simulated NCC.
+
+There was evidence from WGS analysis that biallelic deletions could be 
+detected as low as
+`r min(wgs_biallelic_true_positive$ccube_ncc)`% NCC.
+
+In the samples tested by both PanSolid and WGS, monoallelic deletions were 
+detected by both methods (True positives) in samples with NCC values ranging 
+from `r max(wgs_monoallelic_true_positive$ccube_ncc)`%
+down to 
+`r min(wgs_monoallelic_true_positive$ccube_ncc)`%, as measured by the 
+Ccube algorithm.
+
 ## Small and intragenic deletions
 
 The requirements for the method were to detect whole gene deletions, although 
@@ -4561,8 +4597,10 @@ with WGS using the Ccube tool (R = 0.71, @fig-wgs-ncc-comparison),
 but there were discrepancies with 
 low NCC samples (@sec-results-wgs-ncc)
 and an NCC value of `r ncc_24039975[1,2]`% was predicted for a cell line 
-reference material (@sec-results-overall-ncc), indicating that accuracy is poorer
-for low-NCC samples.
+reference material (@sec-results-overall-ncc). As the pipeline has a lower
+threshold of 20% for NCC prediction, NCC levels lower than 20% will not be
+predicted. This significantly limits the utility and accuracy of these
+predictions for samples with low or absent NCC.
 
 - The Detect Regional Ploidy tool predicts LOH with high accuracy comparative
 to PCR-based (@sec-results-nf2-loh) and NGS-based methods (@sec-results-mmr-ngs).
@@ -4787,6 +4825,10 @@ PCR-based LOH testing (@tbl-nf2-metrics-with-qc).
 - The test has a limit of detection for biallelic deletions of at least 
 20% NCC (@sec-results-lod). In practice, this may be further reduced by the
 technique's uncertainty of measurement.
+
+- Samples where the referral form states that the NCC is below 20% should be
+analysed with caution, and may need to be reported with the caveat that
+detection of deletions is not possible at NCC levels below 20%.
 
 # Conclusion
 
