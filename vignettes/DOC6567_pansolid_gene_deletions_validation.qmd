@@ -4412,33 +4412,7 @@ are no gold standard results for comparison with PanSolid. Analysis of *PMS2* is
 complicated by the presence of 15 pseudogenes which presents a technical
 challenge for confirming the coordinates of any apparent CNV [@blount2018].
 
-## Small and intragenic deletions
-
-The requirements for the method were to detect whole gene deletions, although 
-intragenic 
-and germline deletions
-can also be detected, which are summarised in @tbl-intragenic-deletions. 
-For the case of a germline *MSH2* deletion, the pipeline
-correctly identified the presence of a deletion, but overestimated the 
-deletion coordinates. This means the pipeline can alert the analyst to 
-the presence of
-intragenic deletions, which then allows the
-analyst to judge the true extent of the deletion.
-
-The ability of the PanSolid pipeline to detect intragenic deletions depends
-on several factors, including the
-size of the deletion, the NCC, the signal-adjusted noise
-of the sample, the fold change of the affected targets, the positioning of 
-targets within the gene and the graining 
-level used, which is determined by the size of the gene. Accepting these 
-caveats, an approximation of the smallest detectable deletion 
-for each gene with a specific graining level can be calculated as a 
-percentage of the total gene size. This shows that the PanSolid pipeline
-could theoretically detect deletions ranging from
-`r min(gene_target_counts$percent_del)`
-to `r max(gene_target_counts$percent_del)`% of the genes of interest (@tbl-deletion-gene-targets, Appendix).
-
-## Uncertainty of measurement
+## Repeat testing
 
 The uncertainty of measurement of the fold change metric for deleted regions
 was calculated as ±`r del_uom` at 95% confidence. This value is 
@@ -4501,6 +4475,34 @@ manual (Qiagen):
 *higher risk of calling false positive deletions than amplifications*
 *- it takes less coverage fluctuation to pass the fold change cutoff*
 *for deletions."* [@qiagen2023]
+
+## Limit of detection
+
+## Small and intragenic deletions
+
+The requirements for the method were to detect whole gene deletions, although 
+intragenic 
+and germline deletions
+can also be detected, which are summarised in @tbl-intragenic-deletions. 
+For the case of a germline *MSH2* deletion, the pipeline
+correctly identified the presence of a deletion, but overestimated the 
+deletion coordinates. This means the pipeline can alert the analyst to 
+the presence of
+intragenic deletions, which then allows the
+analyst to judge the true extent of the deletion.
+
+The ability of the PanSolid pipeline to detect intragenic deletions depends
+on several factors, including the
+size of the deletion, the NCC, the signal-adjusted noise
+of the sample, the fold change of the affected targets, the positioning of 
+targets within the gene and the graining 
+level used, which is determined by the size of the gene. Accepting these 
+caveats, an approximation of the smallest detectable deletion 
+for each gene with a specific graining level can be calculated as a 
+percentage of the total gene size. This shows that the PanSolid pipeline
+could theoretically detect deletions ranging from
+`r min(gene_target_counts$percent_del)`
+to `r max(gene_target_counts$percent_del)`% of the genes of interest (@tbl-deletion-gene-targets, Appendix).
 
 ## DNA contamination
 
