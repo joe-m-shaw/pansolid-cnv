@@ -2721,7 +2721,7 @@ wgs_ncc_plot
 
 ```
 
-### Updated sensitivity for amplification detection
+### Updated sensitivity for amplification detection {#sec-results-wgs-amp}
 
 ```{r}
 #| label: pansolid-vs-wgs-amps
@@ -2772,30 +2772,56 @@ pansolid_vs_wgs_amp_outcomes <- pansolid_vs_wgs_amp |>
                                          "true_negative"
                                          )))
 
-pansolid_vs_wgs_amp_results <- pansolid_vs_wgs_amp_outcomes |> 
+pansolid_vs_wgs_amp_results_all <- pansolid_vs_wgs_amp_outcomes |> 
   group_by(outcome) |> 
   count(outcome, .drop = FALSE)
 
-pansolid_vs_wgs_amp_se_sp <- make_se_sp_table(pansolid_vs_wgs_amp_results$n) |> 
-  mutate(`Cohort` = "Amplifications") |> 
-  relocate(`Cohort`, .before = `True positives`)
+pansolid_vs_wgs_amp_results_diploid <- pansolid_vs_wgs_amp_outcomes |> 
+  filter(nhsno %in% diploid_wgs_samples$nhsno) |> 
+  group_by(outcome) |> 
+  count(outcome, .drop = FALSE)
+
+amp_genes <- unique(del_val_collated_amp_genes$gene)
+
+pansolid_vs_wgs_amp_se_sp_diploid <- make_se_sp_table(pansolid_vs_wgs_amp_results_diploid$n) |> 
+  mutate(`Analysis` = "CNV caller (diploid samples)",
+         `Samples` = (`True positives` + `True negatives` +
+                        `False positives` + `False negatives`) / 
+           length(amp_genes)) 
+
+pansolid_vs_wgs_amp_se_sp_all <- make_se_sp_table(pansolid_vs_wgs_amp_results_all$n) |> 
+  mutate(`Analysis` = "CNV caller",
+         `Samples` = (`True positives` + `True negatives` +
+                        `False positives` + `False negatives`) / 
+           length(amp_genes)) 
+
+wgs_amp_outcome_tbl <- rbind(pansolid_vs_wgs_amp_se_sp_all,
+                             pansolid_vs_wgs_amp_se_sp_diploid) |> 
+  relocate(`Analysis`, .before = `True positives`) |> 
+  relocate(`Samples`, .after = `Analysis`)
 
 ```
 
-The PanSolid results for 
+As the cohort of samples with WGS results in this validation is increased 
+compared to the previous validation of amplifications, the PanSolid results for 
 `r length(unique(del_val_collated_amp_genes$gene))` amplification genes were
 compared against WGS for the same 
 `r length(unique(pansolid_vs_wgs_amp_outcomes$labno.x))`
-samples as for deletions. There were 8 amplifications present in the
-*EGFR* and *MDM2* genes, and the sensitivity and specificity are shown
-in @tbl-pansolid-vs-wgs-amp.
+samples as for deletions. There were amplifications present in the
+*EGFR* and *MDM2* genes, and the updated sensitivity and specificity are shown
+in @tbl-pansolid-vs-wgs-amp. A single false negative was noted for the 
+*EGFR* gene: this sample (23033921) had a tetraploid tumour and WGS measured
+a chromosome 7 copy number of 6, with an *EGFR* copy number of 14. This 
+sample had a borderline *EGFR* fold change of 2.7 and has been previously
+discussed in the validation of amplification detection
+([DOC6283]{custom-style="Strong"}, Table 12).
 
 ```{r}
 #| label: tbl-pansolid-vs-wgs-amp
 #| tbl-cap: "Sensitivity and specificity for amplification detection"
 #| echo: FALSE
 
-kable(pansolid_vs_wgs_amp_se_sp)
+kable(wgs_amp_outcome_tbl)
 
 ```
 
@@ -4539,11 +4565,13 @@ an orthogonal method to PanSolid.
 The validation of detection of deletions and ploidy status is the final 
 component of the validation of CNVs on PanSolid NGS (@tbl-previous-validations). 
 This validation project has used multiple comparative techniques to assess
-the accuracy of the method; the results from this document, 
+the accuracy of the method. @tbl-pansolid-cnv-metrics summarises the results 
+from this document, 
 [DOC6260]{custom-style="Strong"} and
-[DOC6283]{custom-style="Strong"}
-are summarised 
-in @tbl-pansolid-cnv-metrics.
+[DOC6283]{custom-style="Strong"}. The sensitivity and specificity for 
+amplification detection measured against WGS are taken from
+@sec-results-wgs-amp
+of this document.
 
 ```{r}
 #| label: pansolid-cnv-metrics-collation
@@ -4555,11 +4583,20 @@ previous_validation_summary <- read_excel(
                 "previous_validation_summary.xlsx")) |> 
 select(-`Source`)
 
-wgs_metrics <- wgs_outcome_table |> 
+wgs_del_metrics <- wgs_outcome_table |> 
   filter(`Analysis` == "CNV caller with manual review (diploid samples)") |> 
    mutate(`Genes` = "34 tumour suppressor genes",
           `Secondary technique` = "WGS",
           `Variant type` = "Deletions") |> 
+  relocate(c(`Variant type`,
+             `Secondary technique`, `Genes`,
+             `Analysis`), .before = `Samples`) 
+
+wgs_amp_metrics <- wgs_amp_outcome_tbl |> 
+  filter(`Analysis` == "CNV caller (diploid samples)") |>
+  mutate(`Genes` = "13 oncogenes",
+          `Secondary technique` = "WGS",
+          `Variant type` = "Amplifications") |> 
   relocate(c(`Variant type`,
              `Secondary technique`, `Genes`,
              `Analysis`), .before = `Samples`) 
@@ -4606,7 +4643,8 @@ mmr_merged_metrics <- pansolid_vs_merged_metrics |>
 
 tbl_pansolid_cnv_metrics <- rbind(
   previous_validation_summary,
-  wgs_metrics, 
+  wgs_amp_metrics,
+  wgs_del_metrics, 
   ddpcr_metrics,
   nf2_loh_metrics,
   mmr_merged_metrics) |>  
@@ -4614,6 +4652,7 @@ tbl_pansolid_cnv_metrics <- rbind(
          `PanSolid analysis` = `Analysis`) |> 
   select(-c(`True positives`, `False positives`, `False negatives`,
             `True negatives`))
+
 ```
 
 ```{r}
