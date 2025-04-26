@@ -1369,29 +1369,52 @@ plot_calls_by_cancer_type
 ### Manual review of deletions {#sec-results-manual-review}
 
 ```{r}
-#| label: manual-review-p-values
+#| label: manual-review
 #| include: FALSE
 
-sig_cnvs_with_qc_mod_pval_cat <- sig_cnvs_with_manual_review |> 
-  mutate(p_value_category  = case_when(
-    p_value == 0 ~"0",
-    p_value > 0 ~"Above 0"
-  ),
-  analyst_result = case_when(
-    analyst_result == "no deletion" ~"manual review: no deletion",
-    analyst_result == "deletion" ~"manual review: deletion"
-  )) 
+manually_reviewed_deletions <- sig_cnvs_with_qc |> 
+  filter(stdev_noise <= 0.7 &
+           percent_138x >= 75) |> 
+  filter(consequence == "Loss") |> 
+  filter(check_1 != "fail; contamination") |> 
+  filter(!labno %in% lod_mixed_dna_samples)
 
-del_calls_manual_review_summary <- sig_cnvs_with_qc_mod_pval_cat |> 
-  group_by(analyst_result, p_value_category) |> 
-  summarise(n = n()) |>   
+del_calls_manual_review_summary <- manually_reviewed_deletions |> 
+  group_by(analyst_result) |> 
+  count() |> 
+  ungroup() |> 
+  mutate(percent = round((n/sum(n)) * 100, 0)) |> 
+  rename(`Percentage (%)` = percent,
+         `Number of deletion calls` = n,
+         `Manual review` = analyst_result) |> 
   adorn_totals()
 
-manual_review_false_pos <- sig_cnvs_with_manual_review |> 
+manual_review_false_pos <- manually_reviewed_deletions |> 
   filter(analyst_result == "no deletion")
 
 percent_false_pos_calls <- round((nrow(manual_review_false_pos) /
-                                    nrow(sig_cnvs_with_qc_mod_pval_cat))*100, 0)
+                                    nrow(manually_reviewed_deletions))*100, 0)
+
+```
+
+```{r}
+#| label: manual-review-p-values
+#| include: FALSE
+
+sig_cnvs_with_qc_mod_pval_cat <- manually_reviewed_deletions |> 
+  mutate(p_value_category  = case_when(
+    p_value == 0 ~"0",
+    p_value > 0 ~"Above 0"
+  )) 
+
+del_calls_manual_review_pvalue_summary <- sig_cnvs_with_qc_mod_pval_cat |> 
+  filter(analyst_result != "fail") |> 
+  group_by(analyst_result, p_value_category) |> 
+  summarise(n = n()) |>   
+  rename(`Manual review` = analyst_result,
+         `P value category` = p_value_category,
+         `Number of deletion calls` = n) |> 
+  adorn_totals()
 
 ```
 
@@ -1459,11 +1482,13 @@ fold change threshold of-1.25."
 ![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-neg height=5in}
 
 Of the 
-`r nrow(sig_cnvs_with_manual_review)`
-significant CNVs called, 
+`r nrow(manually_reviewed_deletions)`
+significant deletions detected in samples which passed the quality control
+metrics, 
 `r nrow(manual_review_false_pos)`
+(`r percent_false_pos_calls`%)
 were categorised as not being deletions on
-manual review. The p values of the CNV calls ranged from
+manual review (@tbl-manual-review-summary). The p values of the CNV calls ranged from
 `r min(sig_cnvs_with_manual_review$p_value)` to
 `r max(round(sig_cnvs_with_manual_review$p_value, 3))`, and CNVs with p values
 above 0 were more likely to be classified as not being deletions on manual
@@ -1472,13 +1497,21 @@ were not considered significant CNVs.
 
 ```{r}
 #| label: tbl-manual-review-summary
-#| tbl-cap: "Summary of manual review of deletion calls and p values"
+#| tbl-cap: "Summary of manual review of deletion calls for samples passing
+#| quality control metrics"
 #| echo: FALSE
 
-kable(del_calls_manual_review_summary |> 
-        rename(`Result` = analyst_result,
-               `P value category` = p_value_category,
-               `Number of deletion calls` = n))
+kable(del_calls_manual_review_summary)
+
+```
+
+```{r}
+#| label: tbl-manual-review-p-values
+#| tbl-cap: "Summary of manual review stratified by p value categories (fail 
+#| results excluded)"
+#| echo: FALSE
+
+kable(del_calls_manual_review_pvalue_summary)
 
 ```
 
@@ -2721,7 +2754,7 @@ wgs_ncc_plot
 
 ```
 
-### Updated sensitivity for amplification detection {#sec-results-wgs-amp}
+### Updated sensitivity and specificity for amplification detection {#sec-results-wgs-amp}
 
 ```{r}
 #| label: pansolid-vs-wgs-amps
