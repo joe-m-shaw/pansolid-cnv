@@ -293,7 +293,7 @@ solid tumours at the
 North West GLH, and to expand the list of genes and variant types detected in 
 line with the NHS National Genomic Test Directory for Cancer. In this document,
 the testing workflow comprising of the PanSolid v2 QIAseq enrichment panel
-followed by analysis with the PanSolid CLCpipeline (v2.4) will be referred to
+followed by analysis with the PanSolid CLC pipeline (v2.4) will be referred to
 as "PanSolid NGS" for brevity.
 
 ```{r}
@@ -346,8 +346,8 @@ for the repair contains a deleterious variant, such as a pathogenic sequence
 variant or a gene deletion, the genotype of the cell changes
 from being monoallelic for the variant to being biallelic. Copy-neutral LOH
 is a frequent pathogenic mechanism in multiple cancer types, including
-colorectal cancer [@melcher2007], and is similar but distinct from the copy-loss
-LOH which accompanies a gene deletion. In this way, LOH is an attribute of 
+colorectal cancer [@melcher2007], and is similar but distinct from copy-loss
+LOH. In this way, LOH is an attribute of 
 particular ploidy states, as shown in @tbl-clc-ploidy-states,
 which is reproduced from the 
 [Qiagen CLC manual](https://resources.qiagenbioinformatics.com/manuals/biomedicalgenomicsanalysis/2400/index.php?manual=Detect_Regional_Ploidy.html).
@@ -439,7 +439,7 @@ tbl_cdkna_details <- tibble::tribble(
   mutate(length_kb = round(abs(end-start)/1000, 1)) |> 
   select(-c(start, end)) |> 
   relocate(length_kb, .after = "Coordinates (GRCh38)") |> 
-  rename("Legnth (kb)" = length_kb)
+  rename("Length (kb)" = length_kb)
 
 kable(tbl_cdkna_details)
 
@@ -547,7 +547,7 @@ Due to their proximity, *CDKN2A* and *CDKN2B* are frequently deleted together,
 and this co-deletion of these loci may be abbreviated to *CDKN2A/B*. However
 there are less common cases where only one gene is deleted. For example, 
 @gonzálezgil2021 reported that in 20% of acute lymphoblastic leukaemia only 
-one of *CDKN2A* or *CDKN2B* was lost. biallelic *CDKN2A/B* deletion is
+one of *CDKN2A* or *CDKN2B* was lost. Biallelic *CDKN2A/B* deletion is
 included in the fifth edition 
 of the World Health Organisation Classification
 of Tumours of the Central Nervous System [@louis2021], and is associated with
@@ -567,7 +567,7 @@ carcinoma [@jafri2015]. Germline deletions spanning both *CDKN2A* and
 ### *PTEN*
 
 The *PTEN* gene is deleted in many different cancer types [@alvarezgarcia2019].
-Germline mutations in *PTEN* cause PTEN hamartoma tumor syndrome [@yehia2020],
+Germline mutations in *PTEN* cause PTEN hamartoma tumour syndrome [@yehia2020],
 and germline deletions in *PTEN* can either encompass the whole gene or 
 include only certain exons [@zhou2003]. 
 
@@ -632,7 +632,7 @@ sequencing coverage [@steiert2023].
 
 ### Approaches
 
-Purity, ploidy and intratumoural heterogeneity create a problem: the analysis 
+Purity, ploidy and intra-tumoural heterogeneity create a problem: the analysis 
 method must take data from a bulk-sequenced sample and attempt to separate out,
 or "deconvolute", 
 the underlying genomic complexity [@gao2020; @chandramohan2022]. A pragmatic 
@@ -651,7 +651,7 @@ to distinguish between somatic and germline variants [@jones2015]. Other
 approaches which have shown promise for solving the challenges of purity, 
 ploidy and heterogeneity deconvolution include multiple tumour sequencing 
 [@zaccaria2020] and single-cell genome sequencing [@baslan2020]. However, these 
-techniques are expensive and experimental, and consequently have not yet been
+techniques are expensive and experimental and consequently have not yet been
 clinically implemented. Notably, the WHO guidelines do not specify a technology 
 for CNV detection, which reflects the diversity of approaches used in clinical 
 laboratories [@neill2020].
@@ -762,9 +762,9 @@ kable(tbl_cns_cancer_types)
 
 Samples were processed on the PanSolid v2 enrichment (CDHS-48608Z-11752)
 and sequenced with 2 x 150bp paired-end sequencing on an
-Illumina Novaseq
-([DOC6278]{custom-style="Strong"})
-. The PanSolid panel is a QIAseq enrichment containing primers
+Illumina Novaseq 6000
+([DOC6278]{custom-style="Strong"}). 
+The PanSolid panel is a QIAseq enrichment containing primers
 for `r nrow(target_df)` genomic targets. 
 `r nrow(target_df[target_df$target_type == "gene target",])` targets lie within
 specific genes related to cancer, and a further 
@@ -880,8 +880,9 @@ at 50% NCC. Following initial testing of samples, this was modified to
 #| neoplastic cell content (NCC) for different dosage states. The plot Y axis
 #| is limited to -5, but the relationship for biallelic deletions is exponential
 #| and generates very negative fold change values when the NCC is 80% or 
-#| greater. The horiztonal dashed line shows 
-#| the original fold change threshold, which was set as the expected fold change
+#| greater. The horizontal dashed line shows 
+#| the original fold change threshold (-1.33), 
+#| which was set as the expected fold change
 #| for a monoallelic deletion at 50% NCC."
 #| echo: FALSE
 
@@ -990,7 +991,7 @@ the *ERBB2* amplification validation and is described in detail in
 [DOC6260]{custom-style="Strong"}. In addition,
 the percentage of the panel BED targets covered at 138X or higher was used as
 a further quality metric. A threshold of 75% was set for this metric following
-*in silico* downsampling experiments performed for 
+*in silico* down-sampling experiments performed for 
 [INC9967]{custom-style="Strong"}.
 
 ## Orthogonal testing
@@ -1494,8 +1495,8 @@ manual review (@tbl-manual-review-summary). The p values of the CNV calls ranged
 `r min(sig_cnvs_with_manual_review$p_value)` to
 `r max(round(sig_cnvs_with_manual_review$p_value, 3))`, and CNVs with p values
 above 0 were more likely to be classified as not being deletions on manual
-review (@tbl-manual-review-summary). CNVs with p values above 0.05 
-were not considered significant CNVs.
+review (@tbl-manual-review-summary). The PanSolid pipeline does not report
+CNVs with p values above 0.05 as significant CNVs. 
 
 ```{r}
 #| label: tbl-manual-review-summary
@@ -1723,7 +1724,7 @@ there were multiple ploidy
 states predicted within the same gene. @fig-ploidy-caller-results shows the
 frequency of different ploidy state predictions across the 6 genes. A 
 similar pattern of ploidy state frequencies is seen for *LZTR1*, *SMARCB1* and
-*NF2* as these genes are located closer to each other on chromosome 22q.
+*NF2* as these genes are located close to each other on chromosome 22q.
 
 ```{r}
 #| label: fig-ploidy-caller-results
@@ -1836,7 +1837,7 @@ cnv_ploidy_caller_disagreements_summary <- cnv_ploidy_caller_disagreements |>
 ```
 
 Detection of deletions and ploidy states are performed by two separate, but
-connected, components of the PanSolid CLC pipleine (@fig-clc-pipeline). Whilst
+connected, components of the PanSolid CLC pipeline (@fig-clc-pipeline). Whilst
 the CNV caller predicts deletions based on fold change alone, the ploidy caller
 can also classify regions as deletions based on fold change values and SNP
 frequencies. In `r nrow(cnv_vs_ploidy_caller)` results for
@@ -2120,7 +2121,7 @@ pansolid_vs_wgs_outcomes |>
 The CLC Detect Regional Ploidy Tool does not calculate ploidy at the whole
 genome level. The WGS sample cohort was deliberately selected to represent a range of 
 genome ploidy states, with the Genomics England pipeline detecting whole
-genome ploidy ranging from hexpaloidy (overall ploidy: 
+genome ploidy ranging from hexaploidy (overall ploidy: 
 `r max(del_val_wgs_html_ids$calculated_overall_ploidy)`) to a sample
 with haploidy (overall ploidy: 
 `r min(del_val_wgs_html_ids$calculated_overall_ploidy)`) 
@@ -3031,7 +3032,7 @@ enrichment and is located at GRCh38 chr5:78000522-78294698 (5q14.1)
 between PanSolid
 targets "chr5:76.7Mb" and "chr5:77.7Mb". Another sample (24047809) with an
 intragenic *PTEN* deletion detected on PanSolid was coded as "no deletion" 
-because the deletion coordinates did not overlap with the coordinartes of the
+because the deletion coordinates did not overlap with the coordinates of the
 *PTEN* exon 1 ddPCR assay.
 There was wide variation 
 in the copy numbers determined within the control 
@@ -3709,7 +3710,7 @@ fig_repeat_24018518_loss
 ```{r}
 #| label: fig-repeat-24045597-fc-loss
 #| fig-cap: "24045597 repeatability results for each of the deletion genes.
-#| Points marked in red had CNVs with p values lower than 0.05 detected, and
+#| Points marked in red had CNVs with p values lower than 0.05 detected and
 #| were classified by the PanSolid pipeline as significant losses."
 #| echo: FALSE
 #| fig-width: 6
@@ -3849,7 +3850,7 @@ The second DNA sample
 was from an inflammatory myofibroblastic tumour (24053299, v2PANSOLID) 
 with no copy number changes
 detected on chromosomes 9 or 10 on WGS (24058699, R24-1H6C). WGS detected overall 
-genome ploidies of 2 and 1.9 for thes two tumours, respectively. The Ccube
+genome ploidies of 2 and 1.9 for these two tumours, respectively. The Ccube
 algorithm within the WGS analysis pipeline detected an NCC 
 of 84% for sample 24028153, and an NCC of less than 6% for 24058699, 
 indicating the sample 
@@ -4335,7 +4336,7 @@ across the sample's genome, but did not identify genes as being deleted.
 
 The Genomics England WGS pipeline uses the Canvas algorithm for 
 ploidy calling, which includes the prediction of whole genome ploidy and 
-was was optimised using
+was optimised using
 a cohort of tumour-normal samples with known ploidy and NCC values
 (@roller2016, supplementary information, page 17). Conversely, the CLC Detect
 Regional Ploidy tool used by the PanSolid pipeline does not include a 
@@ -4571,7 +4572,7 @@ and 40% NCC for monoallelic deletions. There was evidence from WGS
 analysis that true biallelic deletions could be 
 detected by PanSolid NGS in samples with NCC values as low as
 `r min(wgs_biallelic_true_positive$ccube_ncc)`% as measured by the
-Ccube alogorithm, and for true monoallelic deletions could be detected in
+Ccube algorithm, and for true monoallelic deletions could be detected in
 samples with NCC values as low as 
 `r min(wgs_monoallelic_true_positive$ccube_ncc)`%. As a result, the true 
 limit of detection for deletions is likely between the lower theoretical
