@@ -2837,12 +2837,15 @@ wgs_amp_outcome_tbl <- rbind(pansolid_vs_wgs_amp_se_sp_all,
 
 ```
 
-As the cohort of samples with WGS results in this validation is increased 
-compared to the previous validation of amplifications, the PanSolid results for 
+The cohort of samples with WGS results tested in this validation is increased 
+compared to the previous validation of amplification detection
+([DOC6283]{custom-style="Strong"}). To update the sensitivity and specificity
+metrics for amplification detection, the PanSolid results for 
 `r length(unique(del_val_collated_amp_genes$gene))` amplification genes were
 compared against WGS for the same 
 `r length(unique(pansolid_vs_wgs_amp_outcomes$labno.x))`
-samples as for deletions. There were amplifications present in the
+samples as for the deletion detection comparison.
+There were amplifications present in the
 *EGFR* and *MDM2* genes, and the updated sensitivity and specificity are shown
 in @tbl-pansolid-vs-wgs-amp. A single false negative was noted for the 
 *EGFR* gene: this sample (23033921) had a tetraploid tumour and WGS measured
@@ -3691,7 +3694,7 @@ draw_repeat_plot2 <- function(df = repeat_data_long, labno) {
 
 ```{r}
 #| label: fig-repeat-24018518-fc-loss
-#| fig-cap: "24018518 repeatability results"
+#| fig-cap: "24018518 repeatability results for each of the deletion genes."
 #| echo: FALSE
 #| fig-width: 6
 #| fig-height: 7
@@ -3705,7 +3708,9 @@ fig_repeat_24018518_loss
 
 ```{r}
 #| label: fig-repeat-24045597-fc-loss
-#| fig-cap: "24045597 repeatability results"
+#| fig-cap: "24045597 repeatability results for each of the deletion genes.
+#| Points marked in red had CNVs with p values lower than 0.05 detected, and
+#| were classified by the PanSolid pipeline as significant losses."
 #| echo: FALSE
 #| fig-width: 6
 #| fig-height: 7
@@ -3719,7 +3724,7 @@ fig_repeat_24045597_loss
 
 ```{r}
 #| label: fig-repeat-24054282-fc-loss
-#| fig-cap: "24054282 repeatability results"
+#| fig-cap: "24054282 repeatability results for each of the deletion genes."
 #| echo: FALSE
 #| fig-width: 6
 #| fig-height: 7
@@ -3864,21 +3869,20 @@ used in the limit of detection experiment."
 
 ![`r lod_image_caption`](`r paste0(image_folderpath, "lod_wgs_plots.png")`){#fig-lod-wgs-plots}
 
-The results for chromosome 9 are shown in @fig-lod-chr9, demonstrating that the
-biallelic *CDKN2A* loss could be detected as low as the 20% simulated NCC
-sample. However, for chromosome 10 there was a false positive result for 
-part of the q arm, including *PTEN*, when no glioma sample was added
-(@fig-lod-chr10). Consequently, whilst there was a pattern of copy loss extending for
-the majority of chromosome 10q, this could not reliably be differentiated 
-from the background when the simulated NCC fell below 60%. In a clinical 
-sample the VAF pattern could be used to interpret borderline cases such as 
-these (@sec-results-manual-review). However this was not possible for the limit
-of detection experiment as the mixtures contained DNA from 2 different
-patients, rather than DNA from the germline and somatic genomes of a single patient,
-and this generated multiple VAF levels.
+The raw log2 ratios for each target on chromosome 9 in the different mixtures 
+are shown in @fig-lod-chr9, demonstrating that the biallelic *CDKN2A* 
+loss had a fold 
+change below -1.25 down to a simulated NCC of 20%. However, the *CDKN2A* region 
+was not classified as a significant CNV by the PanSolid pipeline for the 20%
+simulated NCC sample, as it had a P value above 0.05. Hence whilst the 
+deleted region was distinguishable in the log2 ratios of the 20% simulated 
+NCC sample, the PanSolid pipeline could only detect the deletion as significant 
+at 40% simulated NCC. As the simulated NCC was reduced, multiple CNV regions
+were detected across the *CDKN2A* locus, and there was variation in the number
+of targets impacted (@tbl-lod-cdkn2a-calls).
 
 ```{r}
-#| label: lod-results
+#| label: lod-results-log2ratios
 #| include: FALSE
 #| warning: FALSE
 
@@ -3950,11 +3954,62 @@ lod_df_with_coordinates <- extract_pansolid_cnv_coordinates(df = lod_df,
 
 ```
 
+
+```{r}
+#| label: lod-results-cnv-calls
+#| include: FALSE
+#| warning: FALSE
+
+tbl_lod_cdkn2a_calls <- del_val_collated_sig_cnvs |> 
+  filter(labno_suffix %in% c("24026628a", "24026628b", "24026628c",
+                             "24026628d") &
+           gene == "CDKN2A") |> 
+  select(labno_suffix, gene, cnv_co_ordinates, cnv_length,
+         fold_change, p_value, no_targets) |>  
+  mutate(id = case_when(
+    labno_suffix == "24026628a" ~"84% NCC; 100% glioma sample",
+    labno_suffix == "24026628b" ~"60% NCC; 71% glioma sample",
+    labno_suffix == "24026628c" ~"40% NCC; 53% glioma sample",
+    labno_suffix == "24026628d" ~"20% NCC; 24% glioma sample")) |> 
+  relocate(id, .before = labno_suffix) |> 
+  rename(`Mixture` = id,
+         `Identifier` = labno_suffix,
+         `Gene` = gene,
+         `Coordinates` = cnv_co_ordinates,
+         `CNV length` = cnv_length,
+         `Fold change` = fold_change,
+         `P value` = p_value,
+         `Number of targets` = no_targets)
+
+```
+
+```{r}
+#| label: tbl-lod-cdkn2a-calls
+#| tbl-cap: "Limit of detection mixtures: detected *CDKN2A* CNVs"
+#| echo: FALSE
+
+kable(tbl_lod_cdkn2a_calls)
+
+```
+
+The results for chromosome 10 were complicated by a false positive result 
+for part of the q arm, including *PTEN*, when no glioma sample was added
+(@fig-lod-chr10). Consequently, whilst there was a pattern of copy loss extending for
+the majority of chromosome 10q for the 40% and 20% simulated NCC mixtures,
+this could not reliably be differentiated 
+from the background. In a clinical 
+sample the VAF pattern could be used to interpret borderline cases such as 
+these (@sec-results-manual-review). However this was not possible for the limit
+of detection experiment as the mixtures contained DNA from 2 different
+patients, rather than DNA from the germline and somatic genomes of a 
+single patient. Consequently, the limit of detection
+for monoallelic deletions from this experiment was 60% simulated NCC.
+
 ```{r}
 #| label: fig-lod-chr9
 #| fig-cap: "The plots show the results of the limit of detection experiment for
 #| chromosome 9. Red points show the target regions which fell below the 
-#| -1.25 fold change threshold and were classified as deletions."
+#| -1.25 fold change threshold."
 #| echo: FALSE
 #| fig-width: 6
 #| fig-height: 7
@@ -3983,7 +4038,7 @@ chr9_lod_plot
 #| label: fig-lod-chr10
 #| fig-cap: "The plots show the results of the limit of detection experiment for
 #| chromosome 10. Red points show the target regions which fell below the 
-#| -1.25 fold change threshold and were classified as deletions. For the 
+#| -1.25 fold change threshold. For the 
 #| normal (0% glioma) sample, there is background noise on chromosome 10q."
 #| echo: FALSE
 #| fig-width: 6
@@ -4014,7 +4069,7 @@ As shown in
 *CDKN2B* broadly follow the trajectory predicted for a biallelic deletion. 
 On the other hand, a similar relationship with the predicted values for a 
 monoallelic deletion is only observed for certain genes on chromosome 10q
-(*BMPR1A*, *FGFR2* and *SUFU*) but not for *PTEN* 
+(*BMPR1A* and *SUFU*) but not for *PTEN* 
 (@fig-chr10-lod-fold-change-plot).
 
 ```{r}
@@ -4496,23 +4551,31 @@ wgs_biallelic <- pansolid_vs_wgs_outcomes |>
 wgs_biallelic_true_positive <- wgs_biallelic |> 
   filter(outcome_combined == "true_positive")
 
-
-
 ```
 
-The limit of detection experiment showed that a biallelic CDKN2A deletion 
-could be detected as low as 40% simulated NCC.
+The limit of detection experiment was complicated by false positive CNV calls in
+the the sample chosen to simulate a normal genome (24053299). This sample had
+no CNVs detected on WGS (24058699, R24-1H6C) but had several false positive
+deletion calls when tested on PanSolid NGS; this may have been due to a
+combination of low NCC and slightly elevated signal-adjusted noise (0.39).
+In addition, the DNA mixtures did not reflect the expected VAF patterns for a 
+clinical sample, as they contained DNA from 2 different patients.
+Consequently, the conclusions that can be drawn from this experiment must
+acknowledge these caveats. The biallelic *CDKN2A* deletion 
+could be detected as low as 40% simulated NCC, and the pattern of chromosome
+10 monoallelic loss was visible as low as the 60% simulated NCC sample.
 
-There was evidence from WGS analysis that biallelic deletions could be 
-detected as low as
-`r min(wgs_biallelic_true_positive$ccube_ncc)`% NCC.
-
-In the samples tested by both PanSolid and WGS, monoallelic deletions were 
-detected by both methods (True positives) in samples with NCC values ranging 
-from `r max(wgs_monoallelic_true_positive$ccube_ncc)`%
-down to 
-`r min(wgs_monoallelic_true_positive$ccube_ncc)`%, as measured by the 
-Ccube algorithm.
+Both these results are higher than the predicted theoretical limit 
+of detection, which would be 20% NCC for biallelic
+and 40% NCC for monoallelic deletions. There was evidence from WGS 
+analysis that true biallelic deletions could be 
+detected by PanSolid NGS in samples with NCC values as low as
+`r min(wgs_biallelic_true_positive$ccube_ncc)`% as measured by the
+Ccube alogorithm, and for true monoallelic deletions could be detected in
+samples with NCC values as low as 
+`r min(wgs_monoallelic_true_positive$ccube_ncc)`%. As a result, the true 
+limit of detection for deletions is likely between the lower theoretical
+limits and the limits from the experiment with simulated NCC DNA mixtures.
 
 ## Small and intragenic deletions
 
@@ -4580,7 +4643,7 @@ following limitations:
 - The classification of deletions based solely on fold change can lead to
 false positive results in which the the VAF pattern in a region marked as a 
 deletion is not consistent with a deletion (@sec-results-manual-review). In the 
-validation cohort, this occured for
+validation cohort, this occurred for
 `r percent_false_pos_calls`% of deletion calls.
 
 - The predictions of the CNV Detection tool and the Detect Regional Ploidy tool
@@ -4632,6 +4695,10 @@ is located on a different chromosome to the targeted genes, *CDKN2A* and *PTEN*
 Instead, samples were
 used which had been sequenced with the Merged QIAseq enrichment, which is not
 an orthogonal method to PanSolid.
+
+- The sample chosen as a negative control for the limit of detection 
+experiment had false positive deletion calls, which were likely due to poor
+sample quality and low NCC.
 
 ## Overall performance of CNV detection using PanSolid NGS 
 
@@ -4772,6 +4839,12 @@ to
 `r max(pansolid_vs_wgs_outcomes$calculated_tumour_content, na.rm = TRUE)`
 (@sec-results-bi-mono-deletions).
 
+In a limit of detection experiment with DNA mixtures, the limit of 
+detection was 40% NCC for biallelic deletions and 60% for 
+monoallelic deletions. These thresholds are conservative due the limitations
+of the experiment, and the comparison with WGS showed that deletions could
+be detected below these thresholds in clinical samples.
+
 **Quality control:** the test should have clear quality control thresholds
 for deciding when the test results should be reported and when the test has 
 failed.
@@ -4822,8 +4895,9 @@ for consistency against the results shown in the HTML file, in order to
 identify the low percentage of cases where the outputs differ from 
 PCR-based LOH testing (@tbl-nf2-metrics-with-qc).
 
-- The test has a limit of detection for biallelic deletions of at least 
-20% NCC (@sec-results-lod). In practice, this may be further reduced by the
+- According to an experiment with DNA mixtures, the test has a
+limit of detection for biallelic deletions of
+40% NCC and a limit of detection for monoallelic deletions of 60% NCC (@sec-results-lod). In practice, this may be further reduced by the
 technique's uncertainty of measurement.
 
 - Samples where the referral form states that the NCC is below 20% should be
