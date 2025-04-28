@@ -120,7 +120,7 @@ source(here("functions/pansolid_cnv_excel_functions.R"))
 
 #source(here("scripts/del_val_collate_ddpcr_csvs.R"))
 
-#source(here("scripts/del_val_collate_pansolid_results.R"))
+source(here("scripts/del_val_collate_pansolid_results.R"))
 
 #source(here("scripts/del_val_get_patient_info.R"))
 
@@ -1820,19 +1820,44 @@ cnv_ploidy_caller_disagreements <- cnv_vs_ploidy_caller |>
            ploidy_state %in% c("Deletion", "Bi-allelic deletion"))) |> 
   left_join(noise_138x_ncc |> 
               select(filepath, stdev_noise, percent_138x, pred_ncc),
-            by = "filepath")
+            by = "filepath") |> 
+  mutate(outcome_manual_review  = case_when(
+    ploidy_state == "Deletion" & 
+      analyst_comment == "deletion" ~"agrees with ploidy caller",
+    ploidy_state == "Normal diploid" & 
+      analyst_comment == "diploid" ~"agrees with ploidy caller",
+    ploidy_state == "Uniparental disomy" & 
+      analyst_comment == "copy-neutral LOH" ~"agrees with ploidy caller",
+    ploidy_state == "Duplication" &
+      analyst_comment == "gain" ~"agrees with ploidy caller",
+    ploidy_state == "Normal diploid, Deletion" &
+      analyst_comment == "diploid" ~"agrees with ploidy caller",
+    ploidy_state == "Whole genome duplication" &
+      analyst_comment == "diploid" ~"agrees with ploidy caller",
+    pansolid_result == "deletion" & 
+      analyst_comment == "deletion" ~"agrees with CNV caller",
+    pansolid_result == "no deletion" & 
+      analyst_comment == "diploid" ~"agrees with CNV caller",
+    pansolid_result == "no deletion" & 
+      analyst_comment == "copy-neutral LOH" ~"agrees with CNV caller",
+    
+))
 
 cnv_ploidy_caller_disagreements_summary <- cnv_ploidy_caller_disagreements |> 
-  group_by(pansolid_result, ploidy_state) |> 
-  summarise(n = n()) |> 
+  group_by(pansolid_result, ploidy_state, analyst_comment,
+           outcome_manual_review) |> 
+  count() |> 
   ungroup() |> 
   mutate(percent = round((n / sum(n))*100, 1)) |> 
-  arrange(desc(n)) |> 
+  arrange(outcome_manual_review, desc(n)) |> 
   adorn_totals() |> 
   rename(`CNV caller result` = pansolid_result,
+         `Manual review` = analyst_comment,
+         `Manual review result` = outcome_manual_review,
          `Ploidy caller result` = ploidy_state,
          `Cases` = n,
          `Percentage (%)` = percent)
+
 
 ```
 
