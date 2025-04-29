@@ -120,7 +120,7 @@ source(here("functions/pansolid_cnv_excel_functions.R"))
 
 #source(here("scripts/del_val_collate_ddpcr_csvs.R"))
 
-source(here("scripts/del_val_collate_pansolid_results.R"))
+#source(here("scripts/del_val_collate_pansolid_results.R"))
 
 #source(here("scripts/del_val_get_patient_info.R"))
 
@@ -619,7 +619,7 @@ missing or misinterpreting the contributions from low-level, but
 clinically significant, cell populations.
 
 In addition, depth-of-coverage methods for CNV detection are also impacted by
-technical variation within samples:
+technical variation within samples, including, but not limited to:
 
 - **GC content:** the GC content of DNA fragments can alter the read count
 in short-read NGS in a non-linear fashion, with both high and low GC contents
@@ -941,7 +941,7 @@ fig_fold_change_vs_cn
 
 ```
 
-### Ploidy state detection
+### Ploidy state detection {#sec-methods-ploidy-detection}
 
 The ploidy status of copy number segments was predicted using the CLC
 "Detect Regional Ploidy" tool with the "Region-level Ploidy Track". This uses
@@ -1872,7 +1872,9 @@ genes, there were
 (`r round((nrow(cnv_ploidy_caller_disagreements) / nrow(cnv_vs_ploidy_caller))*100, 1)`%)
 instances for the 
 where the results of the ploidy caller
-contradicted the results of the CNV caller (@tbl-ploidy-cnv-disagreements).
+contradicted the results of the CNV caller. The results of these
+disagreements are shown in @tbl-ploidy-cnv-disagreements, with manual review
+agreeing with the ploidy caller in the majority of cases.
 
 ```{r}
 #| label: tbl-ploidy-cnv-disagreements
@@ -2375,7 +2377,10 @@ wgs_discrepant_results <- pansolid_vs_wgs_outcomes |>
          `WGS DNA number` = wgs_labno,
          `Gene` = gene,
          `WGS result` = wgs_result,
-         `Outcome` = outcome_combined) |> 
+         `Outcome` = outcome_combined,
+         `Ccube NCC (%)` = calculated_tumour_content.y,
+         `Signal-adjusted noise` = stdev_noise,
+         `Percentage coverage at 138X` = percent_138x) |> 
   select(-min_region_fold_change)
   
 kable(wgs_discrepant_results)
@@ -2698,9 +2703,13 @@ ncc_comp_diff_dnas <- pansolid_vs_wgs_ncc |>
 make_ncc_plot <- function(df) {
   
   plot <- ggplot(df, aes(x = pred_ncc, y = ccube_ncc)) +
+    annotate('rect', xmin = 0, xmax = 20, ymin = 0, 
+             ymax = 100, fill='grey') +
     geom_point(shape = 21, size = 2) +
-    ylim(0, 100) +
-    xlim(0, 100) +
+    scale_y_continuous(limits = c(0, 100),
+                       breaks = seq(0, 100, by = 20)) +
+    scale_x_continuous(limits = c(0, 100),
+                       breaks = seq(0, 100, by = 20)) +
     geom_abline(linetype = "dashed") +
     theme_bw() +
     labs(x = "CLC predicted NCC (%)", 
@@ -2747,7 +2756,8 @@ ncc_24053299 <- pansolid_vs_wgs_ncc |>
 ```
 
 The CLC Regional Ploidy Tool predicts the NCC of a sample as part of its HMM 
-approach to deconvoluting ploidy states. The NCC predictions from CLC were 
+approach to deconvoluting ploidy states, with the mininum NCC threshold set
+at 20% (@sec-methods-ploidy-detection). The NCC predictions from CLC were 
 compared to the predictions from the WGS results, which were calculated using
 the Ccube algorithm [@fig-wgs-ncc-comparison]. There was a positive correlation
 between the two predictions in all comparisons, although there were significant
@@ -2762,8 +2772,7 @@ on @fig-wgs-ncc-comparison with a WGS NCC value of 6%. As with the
 NCC result for the Seraseq® TNA (DNA) WT Mix reference material 
 (@sec-results-overall-ncc),
 this result indicates that the Detect Regional Ploidy tool may not be 
-accurate at predicting NCC in samples where the tumour content is low or
-absent.
+accurate at predicting NCC in samples where the tumour content is below 20%.
 
 ```{r}
 #| label: fig-wgs-ncc-comparison
@@ -2773,7 +2782,10 @@ absent.
 #| the same tumour (PanSolid: FFPE sample; WGS: fresh frozen sample) or whether
 #| the same DNA from a fresh frozen sample was used for both methods. The 
 #| comparison is also split by the whole genome ploidy of the tumour, with
-#| diploidy defined as a ploidy between 1.5-2.5."
+#| diploidy defined as a ploidy between 1.5-2.5. The grey shaded region
+#| shows the area from 0-20%: no NCC values are predicted in this region
+#| by the PanSolid CLC pipeline, as 20% was set as the lowest NCC
+#| threshold."
 #| fig-width: 6
 #| fig-height: 6
 #| echo: FALSE
@@ -3271,7 +3283,8 @@ result from manual review (@tbl-pansolid-ddpcr-metrics-pipeline and
 @tbl-pansolid-ddpcr-metrics-combined). As with WGS, the specificity comparative
 to ddPCR improved with manual review, and the number of false positives was
 reduced. However, even with manual review there remained
-`r sum(ddpcr_remaining_discrepancies$n)` discrepancies.
+`r sum(ddpcr_remaining_discrepancies$n)` discrepancies. The details of these
+discrepancies are summarised in @tbl-pansolid-ddpcr-discrepancies.
 
 ```{r}
 #| label: tbl-pansolid-ddpcr-metrics-pipeline
@@ -3288,6 +3301,35 @@ kable(pipeline_vs_ddpcr_metrics)
 #| echo: FALSE
 
 kable(combined_vs_ddpcr_metrics)
+
+```
+
+```{r}
+#| label: tbl-pansolid-ddpcr-discrepancies
+#| tbl-cap: "Discrepant results between PanSolid NGS and ddPCR"
+#| echo: FALSE
+
+pansolid_ddpcr_discrepant_results <- pansolid_vs_ddpcr_outcomes |> 
+  left_join(noise_138x_ncc |> 
+              select(labno_suffix_worksheet, 
+                     stdev_noise, percent_138x,
+                     pred_ncc),
+            by = "labno_suffix_worksheet") |> 
+  filter(outcome_combined %in% c("false_positive", "false_negative")) |> 
+  select(sample, gene, cnv, min_region_fold_change, pred_ncc,
+         stdev_noise, percent_138x) |> 
+  mutate(`Fold change` = round(min_region_fold_change, 2),
+         `Percentage coverage at 138X` = round(percent_138x, 2),
+         `Signal-adjusted noise` = round(stdev_noise, 2)) |> 
+  select(-c(min_region_fold_change,
+            percent_138x,
+            stdev_noise)) |> 
+  rename(`DNA number` = sample,
+         `Gene` = gene,
+         `ddPCR copy number` = cnv,
+         `Predicted NCC (%)` = pred_ncc)
+
+kable(pansolid_ddpcr_discrepant_results)
 
 ```
 
@@ -4233,7 +4275,7 @@ intragenic_del_results <- del_val_collated_sig_cnvs |>
   
 intragenic_del_orthogonal <- tribble(
   ~gene, ~`Orthogonal method`, ~`R number`, ~`Description`,
-  "MSH2", "Targetted NGS and MLPA", "R24-1HBV-1", "NM_000251.1 (exons 1-7)",
+  "MSH2", "Targeted NGS and MLPA", "R24-1HBV-1", "NM_000251.1 (exons 1-7)",
   "CDKN2A", "WGS", "R24-1C6B-1", "NM_000077.5 (exons 1a-3)")
 
 tbl_intragenic_deletions <- intragenic_del_results |> 
@@ -4602,6 +4644,9 @@ samples with NCC values as low as
 `r min(wgs_monoallelic_true_positive$ccube_ncc)`%. As a result, the true 
 limit of detection for deletions is likely between the lower theoretical
 limits and the limits from the experiment with simulated NCC DNA mixtures.
+However the most conservative thresholds, 40% NCC for biallelic
+deletions and 60% NCC for monoallelic deletions, will be included as caveats in
+the test information box on clinical reports for this method.
 
 ## Small and intragenic deletions
 
@@ -4707,8 +4752,9 @@ This validation has the following limitations:
 tumours (@tbl-cancer-types) and hence had higher numbers of deletions
 impacting these types of cancer.
 
-- An intra-control normalisation of the 25 samples of control tissue used
-for copy number calling was not performed (@sec-results-ddpcr).
+- We did not perform an intra-control normalisation in which the
+copy number profile of the 25 samples in the normal control cohort was 
+assessed using the PanSolid pipeline (@sec-results-ddpcr).
 
 - No true positive or true negative samples were tested for *PMS2* LOH
 (@sec-results-nf2-loh and @sec-results-mmr-ngs).
@@ -4717,8 +4763,8 @@ for copy number calling was not performed (@sec-results-ddpcr).
 is located on a different chromosome to the targeted genes, *CDKN2A* and *PTEN*
 (@sec-results-ddpcr).
 
-- Positive controls for *MLH1*, *MSH2* or *MSH6* LOH could not be not sourced. 
-Instead, samples were
+- Samples with LOH for *MLH1*, *MSH2* or *MSH6* confirmed by an orthogonal
+method could not be sourced. Instead, samples were
 used which had been sequenced with the Merged QIAseq enrichment, which is not
 an orthogonal method to PanSolid.
 
