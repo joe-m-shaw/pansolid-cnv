@@ -6,7 +6,7 @@ source(here::here("functions/filename_functions.R"))
 
 ws_files <- list.files(path = paste0(
   "S:/central shared/Genetics/Repository/WorksheetAnalysedData/",
-  "WS152758"),
+  "WS152872"),
   pattern = "Annotated.*.xlsx",
   recursive = TRUE,
   full.names = TRUE)
@@ -19,7 +19,7 @@ parse_filename_panel <- function(filename) {
     patient_name = c(parse_filename(filename, 4))) |> 
     dplyr::mutate(
       panel = str_extract(string = filename,
-                          pattern = "Annotated_(v2b.*_PS)_WS.*.xlsx",
+                          pattern = "Annotated_(v2.*_PS)_WS.*.xlsx",
                           group = 1)) |> 
     relocate(panel, .after = worksheet)
   
