@@ -1,5 +1,5 @@
-source(here("functions/extract_pansolid_cnv_coordinates.R"))
-source(here("functions/filename_functions.R"))
+source(here::here("functions/extract_pansolid_cnv_coordinates.R"))
+source(here::here("functions/filename_functions.R"))
 
 get_full_amp_sheet <- function(file, sheet = "Amplifications") {
   
@@ -223,4 +223,4 @@ get_amp_sheetname <- function(filepath) {
   
 }
 
-source(here("tests/test_filename_functions.R"))
+source(here::here("tests/test_filename_functions.R"))
