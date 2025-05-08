@@ -2,6 +2,16 @@
 
 This repository contains R scripts used in the validation and monitoring of copy number variant (CNV) detection on the "Pan Solid" Qiaseq primer panel at the North West Genomic Laboratory Hub (GLH) in Manchester.
 
+## Project Overview
+
+This project was split into multiple sub-projects focussed on validating different CNV types.
+
+| Variant category                     | Validation document | Date of live service | First worksheet |
+|:-------------------------------------|:--------------------|:---------------------|:----------------|
+| Amplifications for *ERBB2*           | DOC6260             | 2024-04-02           | WS140721        |
+| Amplifications for 8 more oncogenes  | DOC6283             | 2024-11-18           | WS147437        |
+| Deletions and ploidy states          | DOC6567             | 2024-04-28           | WS152758        |
+
 ## Project Structure
 
 ### data
@@ -25,3 +35,6 @@ Automated tests for functions. Where functions are designed to identify patient 
 ### vignettes
 
 The vignettes folder contains Quarto markdown documents (.qmd) for validation (DOC prefix) and incident investigation (INC prefex) analyses.
+
+
+
