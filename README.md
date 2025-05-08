@@ -10,7 +10,7 @@ This project was split into multiple sub-projects focussed on validating differe
 |:-------------------------------------|:--------------------|:---------------------|:----------------|
 | Amplifications for *ERBB2*           | DOC6260             | 2024-04-02           | WS140721        |
 | Amplifications for 8 more oncogenes  | DOC6283             | 2024-11-18           | WS147437        |
-| Deletions and ploidy states          | DOC6567             | 2024-04-28           | WS152758        |
+| Deletions and ploidy states          | DOC6567             | 2025-04-28           | WS152758        |
 
 ## Project Structure
 
