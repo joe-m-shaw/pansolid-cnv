@@ -34,7 +34,7 @@ filename_to_df <- function(file) {
   
   #' Convert PanSolid results Excel filename identifiers to a dataframe
   #'
-  #' @param file The filename of full filepath
+  #' @param file The filename or full filepath
   #'
   #' @return A dataframe of patient filename identifiers
   #'
