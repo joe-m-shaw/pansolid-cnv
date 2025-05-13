@@ -8,11 +8,11 @@ This project was split into multiple sub-projects focussed on validating differe
 
 | Variant category                     | Validation document | Date of live service | First worksheet |
 |:-------------------------------------|:--------------------|:---------------------|:----------------|
-| Amplifications for *ERBB2*           | DOC6260             | 2024-04-02           | WS140721        |
+| Amplifications of *ERBB2*            | DOC6260             | 2024-04-02           | WS140721        |
 | Amplifications for 8 more oncogenes  | DOC6283             | 2024-11-18           | WS147437        |
 | Deletions and ploidy states          | DOC6567             | 2025-04-28           | WS152758        |
 
-## Project Structure
+## Project File Structure
 
 ### data
 
@@ -36,5 +36,12 @@ Automated tests for functions. Where functions are designed to identify patient 
 
 The vignettes folder contains Quarto markdown documents (.qmd) for validation (DOC prefix) and incident investigation (INC prefex) analyses.
 
+## Instructions for Use
 
+To use the scripts in this directory:
 
+1. Download this repo into a local folder on your computer.
+2. Check you can access the data folder on the S drive. If the filepath to this folder is slightly different on your computer, update the "data_folderpath" value in the local version of the `config.yml` file.
+3. (Optional) Set up an ODBC connection with the version of the DNA Database saved on the SQL server. This is required for analyses that use the `connect_to_dna_db.R` script. Email Joe Shaw for specific instructions on how to do this. This step is not required to rerun the analyses in the validation Quarto files, which have "DOC*.qmd" filenames.
+
+Collated CNV information for samples tested in the live clinical service can be updated by running the `monitor_pansolid_cnv_service.R` script. This script requires an ODBC connection to DNA Database.
