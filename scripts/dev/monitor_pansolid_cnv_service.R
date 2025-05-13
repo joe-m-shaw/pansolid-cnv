@@ -14,10 +14,12 @@ all_worksheets <- dna_db_worksheets |>
   collect() |> 
   mutate(worksheet = paste0("WS", pcrid))
 
+stopifnot(nrow(all_worksheets) > 0)
+
 ps_ws_info <- all_worksheets |> 
   # New CNV Excel layout started with WS152758
   filter(pcrid >= 152758) |> 
-  filter(grepl(pattern = "pansolid", 
+  filter(grepl(pattern = "pansolid|pan-solid|pan_solid|pan solid", 
                x = description,
                ignore.case = TRUE)) |> 
   mutate(ps_category = case_when(
@@ -81,13 +83,32 @@ del_genes_live <- read_csv(paste0(collated_data_folder,
 loh_live <- read_csv(paste0(collated_data_folder,
                                   "loh_live.csv"))
 
+# Identify files without CNV tabs -----------------------------------------
+
+# Some samples have such low coverage that a CNV tab is not included in 
+# the output Excel. These files will cause an error message at the data 
+# collation stage if they are included.
+
+files_without_cnv_tabs <- c("WS152872_25022765")
+
 # Identify files not already collated -------------------------------------
 
 ps_new_filepath_df <- ps_filepath_df |> 
-  filter(!filename %in% stdev_live$filename)
+  mutate(worksheet = parse_filename(filename, 1),
+         labno = parse_filename(filename, 2),
+         worksheet_labno = str_c(worksheet, "_", labno)) |> 
+  # Filename (not filepath) is used to check if a file has been collated
+  # before. This is to avoid duplication of data when files have been 
+  # moved into different folders.
+  filter(!filename %in% stdev_live$filename) |> 
+  filter(!worksheet_labno %in% files_without_cnv_tabs)
 
-message(paste0(length(ps_new_filepath_df$filepath),
+if(length(ps_new_filepath_df) > 0) {
+  message(paste0(length(ps_new_filepath_df$filepath),
                " new files identified"))
+} else {
+  stop("No new files identified")
+}
 
 # Prepare raw data folder -------------------------------------------------
 
@@ -96,10 +117,14 @@ raw_folder_path <- paste0(config::get("data_folderpath"),
 
 if(length(list.files(raw_folder_path)) != 0){
   stop("Raw file folder is not empty")
+} else {
+  message("Raw data folder is empty")
 }
 
 # Copy new files to raw data folder ---------------------------------------
 
+# Files have to be copied prior to data collation, as read_excel() cannot be
+# used when someone has the file open
 file.copy(from = ps_new_filepath_df$filepath,
           to = raw_folder_path)
 
@@ -111,6 +136,8 @@ message(paste0(length(new_filepaths), " files copied into raw data folder"))
 
 # Collate data from new files ---------------------------------------------
 
+message("Collating raw data files")
+
 cnv_new <- new_filepaths |> 
   map(\(new_filepaths) extract_cnv_tbls(new_filepaths, 
                                         sheet_regex = "CNVs_"))
@@ -120,6 +147,11 @@ loh_new <- new_filepaths |>
   list_rbind() 
 
 message(paste0(length(new_filepaths), " CNV and LOH results collated"))
+
+# Split into separate dataframes ------------------------------------------
+
+# Filename column added to allow later rbind step with previoulsy 
+# collated data.
 
 stdev_new <- map(cnv_new, ~ .x[["stdev"]]) |> 
   list_rbind() |>
@@ -165,6 +197,8 @@ stopifnot(anyNA.data.frame(stdev_new) == FALSE)
 
 stopifnot(min(stdev_new$stdev_noise) >= 0)
 
+stopifnot(typeof(stdev_new$stdev_noise) == "double")
+
 # Percentage coverage at 138X
 
 stopifnot(anyNA.data.frame(percent_138x_new) == FALSE)
@@ -173,6 +207,8 @@ stopifnot(min(percent_138x_new$percent_138x) >= 0)
 
 stopifnot(max(percent_138x_new$percent_138x) <= 100)
 
+stopifnot(typeof(percent_138x_new$percent_138x) == "double")
+
 # Predicted NCC
 
 stopifnot(anyNA.data.frame(pred_ncc_new) == FALSE)
@@ -180,6 +216,8 @@ stopifnot(anyNA.data.frame(pred_ncc_new) == FALSE)
 stopifnot(min(pred_ncc_new$pred_ncc) >= 20)
 
 stopifnot(max(pred_ncc_new$pred_ncc) <= 100)
+
+stopifnot(typeof(pred_ncc_new$pred_ncc) == "double")
 
 # Significant CNVs
 
@@ -192,9 +230,15 @@ stopifnot(anyNA.data.frame(sig_cnvs_new |>
 
 stopifnot(anyNA.data.frame(amp_genes_new) == FALSE)
 
+stopifnot(typeof(amp_genes_new$max_region_fold_change) == "double" &
+  typeof(amp_genes_new$min_region_fold_change) == "double")
+ 
 # Deletion genes
 
 stopifnot(anyNA.data.frame(del_genes_new) == FALSE)
+
+stopifnot(typeof(del_genes_new$max_region_fold_change) == "double" &
+            typeof(del_genes_new$min_region_fold_change) == "double")
 
 # LOH
 
@@ -202,6 +246,8 @@ stopifnot(anyNA.data.frame(loh_new |>
                              select(-c(check_1, check_2))) == FALSE)
 
 # Check all tables have been read from each file
+
+stopifnot(anyDuplicated(stdev_new$filepath) == FALSE)
 
 stopifnot(length(setdiff(stdev_new$filepath, percent_138x_new$filepath)) == 0)
 
@@ -263,8 +309,7 @@ message("Deleting new raw files")
 
 file.remove(new_filepaths)
 
-if(length(list.files(paste0(config::get("data_folderpath"),
-                            "live_service/raw/"))) == 0){
+if(length(list.files(raw_folder_path)) == 0){
   message("Raw file folder is empty")
 }
 
