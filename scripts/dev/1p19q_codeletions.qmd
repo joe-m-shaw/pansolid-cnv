@@ -1,0 +1,64 @@
+---
+title: "1p19q co-deletion detection"
+format: 
+    pdf:
+      link-citations: true
+toc: true
+toc-title: "Table of Contents"
+bibliography: pansolid_cnv_references.bib
+csl: harvard-manchester-metropolitan-university.csl
+fig-align: "left"
+fig-wdith: 6
+---
+
+# Background
+
+## 1p19q co-deletion
+
+Co-deletion of 1 and 19q, as determined by PCR-based LOH testing, was shown to
+be associated with a good response to chemotherapy
+in oligodendrogliomas [@cairncross1998]. The biological mechanism for this
+observation remains unknown.
+
+Later cytogenetic studies using Giemsa-banding and FISH showed that the 
+co-deletion of 1p and 19q was due to a recurrent translocation between the
+two chromosomes. A derivative der(1;19)(q10;p10) chromosome was observed 
+within glioma cells, whilst the reciprocal der(1;19)(p10;q10) chromosome is 
+absent and presumably lost [@jenkins2006; @griffin2006].
+
+1p19q codeletion testing is required by the World Health Organisation 
+guidelines [@louis2021] and the recommendations of the National Institute for
+Health and Care Excellence (NICE) [@nice2021].
+
+## Techniques
+
+Multiple techniques can be used to detect 1p19q codeletions and there is no
+gold-standard method. @brandner2022 performed a metanalysis of detection
+comparisons. In 6 studies comparing NGS with FISH, the overall sensitivity 
+and specificity were 94% and 100%.
+
+@sharaf2021 compared detection of the 1p19q codeletion with NGS and FISH.
+
+## Complexities
+
+1p19q testing is complicated by the following factors:
+
+- Deletions can be absolute (1p19q copy number of 0 against a diploid genome
+background) or relative (1p19q copy number above 0 but lower than the
+polyploid genome background). 1p19q codeletion with polysomy has been reported
+to have a poorer prognosis than 1p19q codeletion without polysomy [@chen2019].
+
+- Deletions can include the entire chromosome arms, or may only include certain
+chromosome arm regions. @vogazianou2010 showed that 1p19q alterations 
+that do not include total 1p and
+19q loss do not have a good response to chemotherapy.
+
+- Tumours may contain multiple clones, only some of which contain 
+1p19q co deletion. These patterns are sometimes referred to as "complex" 
+patterns on FISH testing [@brandner2022].
+
+- There can be a lack of clarity in how chromosomal patterns are named. For 
+example, a chromosome with monosomy 1 may be reported as having a 1p deletion.
+
+::: {#refs}
+:::
