@@ -166,15 +166,9 @@ make_snp_plot <- function(sample1_ws, sample1_labno,
 
 ## Identifying contamination
 
-One way to identify contamination is to plot the SNP frequencies within a 
-sample (sample 1) and then colour the data by the genotypes of the SNPs in 
-the sample which 
-is suspected of being the contaminant (sample 2).
+One way to identify contamination is to plot the SNP frequencies within a sample (sample 1) and then colour the data by the genotypes of the SNPs in the sample which is suspected of being the contaminant (sample 2).
 
-If sample 1 is not contaminated with sample 2, then there should be no 
-pattern to the colouring. Here is an example from the limit of detection 
-experiment: sample 24026628 was analysed on it's own as "24026628a". Here are the
-results coloured by a random sample from the same worksheet (25008651).
+If sample 1 is not contaminated with sample 2, then there should be no pattern to the colouring. Here is an example from the limit of detection experiment: sample 24026628 was analysed on it's own as "24026628a". Here are the results coloured by a random sample from the same worksheet (25008651).
 
 ```{r}
 #| label: plot-24026628b-no-cont
@@ -187,8 +181,7 @@ plot_24026628b_no_cont
 
 ```
 
-Now here's what the plot looks like if the SNP data is coloured by the genotypes
-in sample 24053299, which was deliberately mixed into 24026628b.
+Now here's what the plot looks like if the SNP data is coloured by the genotypes in sample 24053299, which was deliberately mixed into 24026628b.
 
 ```{r}
 #| label: plot-24026628b-cont
@@ -198,20 +191,6 @@ plot_24026628b_cont <- make_snp_plot("WS150465", "24026628b",
               "WS150529", "24053299")[1]
 
 plot_24026628b_cont
-
-```
-
-
-```{r}
-
-WS146642_labnos <- all_snp_data |> 
-  filter(worksheet == "WS146642")
-
-unique(WS146642_labnos$labno)
-
-make_snp_plot("WS146642", "24054291",
-              "WS146642", "24057739")[1]
-
 
 ```
 
@@ -230,6 +209,8 @@ fig_25009458 <- make_snp_plot("WS150808", "25009458",
 
 fig_25009458
 
+
+
 ```
 
 {{< pagebreak >}}
@@ -241,3 +222,10 @@ I've checked all samples on WS150302. None seem to match the allelic pattern.
 ## 25003615
 
 I've checked all samples on WS149784. None seem to match the allelic pattern.
+
+## 24054291
+
+I've checked all samples WS146642. None seem to match the allelic pattern.
+One sample 24057199 does not have any SNP data because it failed on low
+coverage, so I wasn't able to check it.
+

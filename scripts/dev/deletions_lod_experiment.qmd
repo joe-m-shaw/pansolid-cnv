@@ -104,11 +104,6 @@ std_df <- data.frame(
       total_concentration_check = round(((vol_24026628 * dna_conc_24026628) +
         (vol_24053299 * dna_conc_24053299)) / (total_volume_check), 1))
 
-
-
-
-
-
 write_csv(lod_df, paste0(config::get("data_folderpath"),
                         "validation/DOC6567_deletions/limit_of_detection/",
                         "lod_df.csv"))
