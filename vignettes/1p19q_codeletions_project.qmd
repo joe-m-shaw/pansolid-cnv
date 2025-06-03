@@ -36,7 +36,7 @@ gold-standard method. @brandner2022 performed a metanalysis of detection
 comparisons. In 6 studies comparing NGS with FISH, the overall sensitivity 
 and specificity were 94% and 100%.
 
-@sharaf2021 compared detection of the 1p19q codeletion with NGS and FISH.
+{{< pagebreak >}}
 
 ## Complexities
 
@@ -69,15 +69,46 @@ results for the tumour, including TERT, ARTX and IDH results.
 - Why do the clinicians need 1p19q testing by NGS if 1p19q testing via FISH is
 already reported?
 
-- Will the clinicians trust 1p19q testing by NGS? Why should they believe 
-that our new NGS method is any better than the previous one (which was
-stopped in July 2023).
+- Will the clinicians trust 1p19q testing by NGS? What evidence will they 
+need to see to convince them that PanSolid NGS is suitable to detect
+1p19q codeletion? The previous QIAseq Core NGS method for detecting 1p19q
+codeletion was stopped in July 2023.
 
 - Will the NGS method replace the FISH method? If so, do we need to inform 
-the Liverpool lab?
+the Liverpool lab? Will we have a transition period where live results from
+NGS and FISH will be audited?
 
 - How will the results be reported? As a binary classifier of "1p19q deleted" \
 "1p19q not deleted" or will more detail be needed?
+
+- What percentage agreement with FISH will clinicians be happy with? 
+
+- How would the cancer scientists like to analyse the results? Do they want
+an additional table or are they happy with the HTML visualisation?
+
+## Plan
+
+- Focus the project on 1p19q codeletions
+
+- Compare PanSolid NGS to FISH testing
+
+- Aim for at least 40 samples with a range of results on FISH, including complex
+cases with polysomy and multiclonality
+
+- Analyse the results in relation to the categorisation of the tumour (ARTX, 
+IDH etc)
+
+There are different options for the analysis method:
+
+1. Keep the analysis Excel and HTML exactly as they are
+
+2. Add chromosome ideograms to the HTML whole genome view
+
+3. Add another tab or table in the Excel for large deletion calls from the
+ploidy caller
+
+4. Add a calculation for the percentage of 1p and 19q targets involved in a
+deletion call
 
 # References
 
