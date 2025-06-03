@@ -6,8 +6,6 @@ library(here)
 library(rvest)
 library(docstring)
 
-source(here("scripts/set_shared_drive_filepath.R"))
-
 # Export functions ------------------------------------------------------------------
 
 csv_timestamp <- function(table, folder) {
@@ -37,17 +35,18 @@ csv_timestamp <- function(table, folder) {
   )
 }
 
-dna_db_export <- function(input) {
-  write.csv(input,
-            file = here::here(paste0(
-              "data/dna_db_queries/",
+dna_db_export <- function(input, folder) {
+  write_csv(input,
+            file = paste0(
+              folder,
               deparse(substitute(input)), ".csv"
-            )),
-            row.names = FALSE
-  )
+            ))
 }
 
-plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi = 300,
+plot_timestamp <- function(input_plot, 
+                           input_width = 15, 
+                           input_height = 12, 
+                           dpi = 300,
                            folder) {
   
   #' Save a plot with a timestamp
@@ -423,9 +422,3 @@ add_case_group <- function(df) {
   return(output)
   
 }
-
-
-# PanSolid functions ----------------------------------------------------------------
-
-
-

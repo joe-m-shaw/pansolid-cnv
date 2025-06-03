@@ -28,7 +28,8 @@ library(ggpubr)
 library(patchwork)
 library(ggvenn)
 
-source(here::here("functions/cnv_functions.R"))
+source(here("functions/erbb2_functions.R"))
+source(here("functions/fold_change_functions.R"))
 
 ```
 
@@ -41,7 +42,12 @@ The overlap of primers between the PanSolid and Core enrichment panels is too gr
 #| echo: FALSE
 #| message: FALSE
 
-pan_solid_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+erbb2_data_folder <- paste0(config::get("data_folderpath"),
+                            "validation/DOC6260_ERBB2/")
+
+pan_solid_only <- read_excel(paste0(erbb2_data_folder,
+                                    "primers/",
+                                    "Primer and Gene Comparison.xlsx"),
                              sheet = "Primer Overlap",
                              range = "A2:D11024",
                              col_names = c("chromosome", "coordinates", "sequence",
@@ -50,7 +56,9 @@ pan_solid_only <- read_excel(here::here("data/primers/Primer and Gene Comparison
   mutate(category = "Unique to 44038Z-11379",
          text = "PanSolid only")
 
-core_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+core_only <- read_excel(paste0(erbb2_data_folder,
+                                    "primers/",
+                               "Primer and Gene Comparison.xlsx"),
                         sheet = "Primer Overlap",
                         range = "G2:J595",
                         col_names = c("chromosome", "coordinates", "sequence",
@@ -59,7 +67,9 @@ core_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx
   mutate(category = "Unique to 17500Z-950",
          text = "Core only")
 
-both_panels <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+both_panels <- read_excel(paste0(erbb2_data_folder,
+                                "primers/",
+                                "Primer and Gene Comparison.xlsx"),
                           sheet = "Primer Overlap",
                           range = "L2:O357",
                           col_names = c("chromosome", "coordinates", "sequence",
@@ -101,7 +111,9 @@ table_ERBB2_Qiaseq_Primers <- primer_table |>
 
 knitr::kable(table_ERBB2_Qiaseq_Primers) 
 
-csv_timestamp(table_ERBB2_Qiaseq_Primers)
+csv_timestamp(table = table_ERBB2_Qiaseq_Primers,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -111,14 +123,20 @@ csv_timestamp(table_ERBB2_Qiaseq_Primers)
 #| message: FALSE
 
 # Design file sent by Qiagen
-pansolid_v2 <- read_table(here::here("data/primers/QIAseq.CDHS-48608z-11752.primers3.txt"),
+pansolid_v2 <- read_table(paste0(erbb2_data_folder,
+                                 "primers/",
+                                 "QIAseq.CDHS-48608z-11752.primers3.txt"),
            col_names = c("chromosome", "coordinate", "strand", "sequence"))
 
 # Design file from PanSolid validation document (DOC6024)
-pansolid_v1 <- read_table(here::here("data/primers/407C7BF1.txt"),
+pansolid_v1 <- read_table(paste0(erbb2_data_folder,
+                                 "primers/",
+                                 "407C7BF1.txt"),
            col_names = c("chromosome", "coordinate", "strand", "sequence"))
 
-core_panel <- read_table(here::here("data/primers/CDHS-17500Z-950.primer3.txt"),
+core_panel <- read_table(paste0(erbb2_data_folder,
+                                 "primers/",
+                                 "CDHS-17500Z-950.primer3.txt"),
            col_names = c("chromosome", "coordinate", "strand", "sequence"))
 
 primer_comparison <- list("PanSolidv1.2" = pansolid_v1$sequence, 
@@ -134,7 +152,9 @@ plot_primer_venn <- ggvenn(primer_comparison,
 
 plot_primer_venn
 
-plot_timestamp(plot_primer_venn)
+plot_timestamp(input_plot = plot_primer_venn,
+               folder = paste0(erbb2_data_folder,
+                              "outputs/plots/"))
 
 ```
 
@@ -152,7 +172,7 @@ fold_change_threshold <- 2.9
 
 fc_vs_ncc <- data.frame(ncc = seq(0, 100, by = 0.1)) |> 
   mutate(target_copies = calculate_target_copies(fold_change = fold_change_threshold,
-                                                 ncc_percent = ncc))
+                                                 tcc_percent = ncc))
 
 plot_fold_change_detection_limit <- fc_vs_ncc |> 
   filter(target_copies <= 100) |> 
@@ -171,7 +191,9 @@ plot_fold_change_detection_limit <- fc_vs_ncc |>
 
 plot_fold_change_detection_limit
 
-plot_timestamp(plot_fold_change_detection_limit)
+plot_timestamp(plot_fold_change_detection_limit,
+               folder = paste0(erbb2_data_folder,
+                              "outputs/plots/"))
 
 ```
 
