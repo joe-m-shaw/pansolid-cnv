@@ -30,6 +30,7 @@ library(ggvenn)
 
 source(here("functions/erbb2_functions.R"))
 source(here("functions/fold_change_functions.R"))
+source(here("functions/pansolid_cnv_excel_functions.R"))
 
 ```
 
@@ -203,7 +204,7 @@ plot_timestamp(plot_fold_change_detection_limit,
 
 table_ncc_increments <- fc_vs_ncc |> 
   mutate(target_copies_2_8 = calculate_target_copies(fold_change = 2.8,
-                                                 ncc_percent = ncc)) |> 
+                                                 tcc_percent = ncc)) |> 
   filter(ncc %in% seq(10,100, by = 10)) |> 
   mutate("Lowest number of theoretically detectable target copies (fold change threshold 2.9)" = round(target_copies, 1),
          "Lowest number of theoretically detectable target copies (fold change threshold 2.8)" = round(target_copies_2_8, 1)) |>
@@ -212,7 +213,9 @@ table_ncc_increments <- fc_vs_ncc |>
 
 knitr::kable(table_ncc_increments)
 
-csv_timestamp(table_ncc_increments)
+csv_timestamp(table = table_ncc_increments,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -228,7 +231,8 @@ The files in the "clc_processed_outputs" folder are all the processed files gene
 #| label: load-processed-clc-results
 #| include: FALSE
 
-processed_files <- list.files(path = here::here("data/clc_processed_outputs"), 
+processed_files <- list.files(path = paste0(erbb2_data_folder,
+                                            "clc_processed_outputs"), 
                               full.names = TRUE,
                               pattern = ".xlsx")
 
@@ -308,7 +312,8 @@ To make sure I am identifying the correct samples as "controls" I have exported 
 #| label: load-clc-controls
 #| include: FALSE
 
-cobas_control_files <- list.files(here::here("data/controls/cobas_control_data/"),
+cobas_control_files <- list.files(paste0(erbb2_data_folder,
+                                         "controls/cobas_control_data/"),
                             full.names = TRUE, pattern = ".csv")
 
 cobas_control_info <- cobas_control_files |> 
@@ -317,13 +322,17 @@ cobas_control_info <- cobas_control_files |>
   mutate(sample_group = "cobas control",
          sample_subgroup = case_when(
            
-           patient_name %in% grep(pattern = "biobank", x = patient_name,
-                                  ignore.case = TRUE, value = TRUE) ~"MCRC control",
+           patient_name %in% grep(pattern = "biobank", 
+                                  x = patient_name,
+                                  ignore.case = TRUE, 
+                                  value = TRUE) ~"MCRC control",
            
            TRUE ~"MSI-normal control"))
 
-qiasymphony_control_files <- list.files(here::here("data/controls/qiasymphony_control_data/"),
-                                       full.names = TRUE, pattern = ".csv")
+qiasymphony_control_files <- list.files(
+  paste0(erbb2_data_folder, "controls/qiasymphony_control_data/"),
+  full.names = TRUE, 
+  pattern = ".csv")
 
 qiasymphony_control_info <- qiasymphony_control_files |> 
   map(\(qiasymphony_control_files) filename_to_df(file = qiasymphony_control_files)) |> 
@@ -352,7 +361,9 @@ I have used the following convention to describe different kinds of data:
 #| label: extraction-types
 #| echo: FALSE
 
-sample_extraction_details <- read_csv(here::here("data/dna_db_queries/sample_extraction_details.csv"),
+sample_extraction_details <- read_csv(
+  paste0(erbb2_data_folder,
+         "dna_db_queries/sample_extraction_details.csv"),
                                     col_types = "cc") |> 
   # Change format to be consistent with validation document
   mutate(extraction_method = case_when(
@@ -372,7 +383,9 @@ sample_extraction_details <- read_csv(here::here("data/dna_db_queries/sample_ext
 #| label: sample-genders
 #| include: FALSE
 
-sample_gender <- read_csv(here::here("data/dna_db_queries/sample_gender.csv"),
+sample_gender <- read_csv(
+  paste0(erbb2_data_folder,
+         "dna_db_queries/sample_gender.csv"),
                           col_types = "cc")
 
 ```
@@ -381,7 +394,8 @@ sample_gender <- read_csv(here::here("data/dna_db_queries/sample_gender.csv"),
 #| label: worksheets
 #| include: FALSE
 
-pansolid_ws_details <- read_csv(here::here("data/dna_db_queries/pansolid_ws_details.csv"),
+pansolid_ws_details <- read_csv(
+  paste0(erbb2_data_folder, "dna_db_queries/pansolid_ws_details.csv"),
                              show_col_types = FALSE) |> 
   # WS139890 is the only PanSolidv2 worksheet in this dataset
   mutate(pansolid_version = ifelse(pcrid == 139890, "2", "1"),
@@ -393,7 +407,8 @@ pansolid_ws_details <- read_csv(here::here("data/dna_db_queries/pansolid_ws_deta
 #| label: sample-types
 #| echo: FALSE
 
-sample_types <- read_csv(here::here("data/dna_db_queries/sample_types.csv"),
+sample_types <- read_csv(
+  paste0(erbb2_data_folder, "dna_db_queries/sample_types.csv"),
                                     col_types = "cc")
 
 ```
@@ -404,10 +419,12 @@ Neoplastic cell content can be parsed from the "comments" section of DNA Databas
 #| label: ncc
 #| echo: FALSE
 
-sample_ncc <- read_csv(here::here("data/dna_db_queries/sample_ncc.csv"),
+sample_ncc <- read_csv(
+  paste0(erbb2_data_folder, "dna_db_queries/sample_ncc.csv"),
                                     col_types = "ccc")
 
-manual_ncc_check <- read_excel(here::here("data/manual_ncc_check.xlsx"),
+manual_ncc_check <- read_excel(
+  paste0(erbb2_data_folder, "manual_ncc_check.xlsx"),
                                col_types = c("text", "text"))
 
 over_20_variants <- c(">30%", ">20%", "20-30%")
@@ -432,7 +449,8 @@ Initially I attempted to use the DISCODE field in DNA Database to identify the d
 #| label: tumour-sources
 #| echo: FALSE
 
-sample_tissue_sources <- read_csv(here::here("data/cnv_validation_labnos_and_tissue_sources.csv"),
+sample_tissue_sources <- read_csv(
+  paste0(erbb2_data_folder, "cnv_validation_labnos_and_tissue_sources.csv"),
                                     col_types = "cc")
 
 cns <- c("glioma", "brain", "central nervous system", "meningioma", "glioblastoma",
