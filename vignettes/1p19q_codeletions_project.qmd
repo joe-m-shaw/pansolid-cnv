@@ -1,10 +1,9 @@
 ---
 title: "1p19q co-deletion detection"
+author: "Joe M. Shaw, Clinical Scientist (CS20980)"
 format: 
     pdf:
       link-citations: true
-toc: true
-toc-title: "Table of Contents"
 bibliography: pansolid_cnv_references.bib
 csl: harvard-manchester-metropolitan-university.csl
 fig-align: "left"
@@ -59,6 +58,28 @@ patterns on FISH testing [@brandner2022].
 
 - There can be a lack of clarity in how chromosomal patterns are named. For 
 example, a chromosome with monosomy 1 may be reported as having a 1p deletion.
+
+- The results need to be reviewed within the context of other pathology
+results for the tumour, including TERT, ARTX and IDH results.
+
+# Project Plan
+
+## Questions to answer
+
+- Why do the clinicians need 1p19q testing by NGS if 1p19q testing via FISH is
+already reported?
+
+- Will the clinicians trust 1p19q testing by NGS? Why should they believe 
+that our new NGS method is any better than the previous one (which was
+stopped in July 2023).
+
+- Will the NGS method replace the FISH method? If so, do we need to inform 
+the Liverpool lab?
+
+- How will the results be reported? As a binary classifier of "1p19q deleted" \
+"1p19q not deleted" or will more detail be needed?
+
+# References
 
 ::: {#refs}
 :::
