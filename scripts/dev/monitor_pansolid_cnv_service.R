@@ -89,7 +89,8 @@ loh_live <- read_csv(paste0(collated_data_folder,
 # the output Excel. These files will cause an error message at the data 
 # collation stage if they are included.
 
-files_without_cnv_tabs <- c("WS152872_25022765")
+files_without_cnv_tabs <- c("WS152872_25022765",
+                            "WS153248_25026440")
 
 # Identify files not already collated -------------------------------------
 
