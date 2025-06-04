@@ -1580,7 +1580,10 @@ plot_cobas_qs_noise <- dual_extracted_data_for_plot |>
 plot_fc_noise_joined <- plot_cobas_qs_fold_change + plot_cobas_qs_noise +
   plot_layout(ncol = 1, guides = "collect")
 
-plot_timestamp(plot_fc_noise_joined, input_height = 16)
+plot_timestamp(input_plot = plot_fc_noise_joined, 
+               input_height = 16,
+               folder = paste0(erbb2_data_folder,
+                              "outputs/plots/"))
 
 ```
 
@@ -1592,13 +1595,16 @@ dual_extracted_erbb2 <- pos_cnv_results |>
   filter(gene == "ERBB2") |> 
   filter(nhsno %in% pansolid_qiasymphony_v2$nhsno) |> 
   mutate(pathno_extraction = str_c(nhsno, "_", extraction_method)) |> 
-  make_labno_plot(yaxis = pathno_extraction)
+  make_labno_cnv_plot(yaxis = pathno_extraction,
+                      gene = "ERBB2")
 
-plot_dual_extracted_erbb2_calls <- make_cnv_triptych(dual_extracted_erbb2)
+plot_dual_extracted_erbb2_calls <- make_cnv_triptych_plot(dual_extracted_erbb2)
 
 plot_dual_extracted_erbb2_calls
 
-plot_timestamp(plot_dual_extracted_erbb2_calls)
+plot_timestamp(input_plot = plot_dual_extracted_erbb2_calls,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1645,7 +1651,10 @@ plot_cobas_v1_2 <- plot_cobas_v1_2_fold_change +
   plot_cobas_v1_v2_noise +
   plot_layout(ncol = 1, guides = "collect")
 
-plot_timestamp(plot_cobas_v1_2, input_height = 16)
+plot_timestamp(input_plot = plot_cobas_v1_2, 
+               input_height = 16,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1658,13 +1667,16 @@ dual_tested_erbb2 <- pos_cnv_results |>
   filter(labno %in% pansolid_cobas_v2$labno) |>
   mutate(labno_pansolid_version = str_c(labno,"_Pansolid_v", pansolid_version)) |> 
   arrange(labno_pansolid_version) |> 
-  make_labno_plot(yaxis = labno_pansolid_version)
+  make_labno_cnv_plot(yaxis = labno_pansolid_version,
+                      gene = "ERBB2")
 
-plot_dual_tested_erbb2_calls <- make_cnv_triptych(dual_tested_erbb2)
+plot_dual_tested_erbb2_calls <- make_cnv_triptych_plot(dual_tested_erbb2)
 
 plot_dual_tested_erbb2_calls
 
-plot_timestamp(plot_dual_tested_erbb2_calls)
+plot_timestamp(input_plot = plot_dual_tested_erbb2_calls,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1674,7 +1686,8 @@ plot_timestamp(plot_dual_tested_erbb2_calls)
 #| label: comparison-to-core
 #| echo: FALSE
 
-core_result_info <- read_csv(here::here("data/dna_db_queries/core_result_info.csv"),
+core_result_info <- read_csv(paste0(erbb2_data_folder,
+                                    "dna_db_queries/core_result_info.csv"),
                              col_types = "ccdccc")
   
 core_erbb2_calls <- extract_cnv_calls(df = core_result_info, input_gene = "ERBB2")
@@ -1711,7 +1724,9 @@ table_pansolid_vs_core_panel_erbb2_results <- make_confusion_matrix(
 
 knitr::kable(table_pansolid_vs_core_panel_erbb2_results[[1]])
 
-csv_timestamp(table_pansolid_vs_core_panel_erbb2_results[[1]])
+csv_timestamp(table = table_pansolid_vs_core_panel_erbb2_results[[1]],
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -1731,7 +1746,9 @@ erbb2_validation_dataset_for_export <- all_amp_gene_results |>
          pansolid_call, pansolid_version, extraction_method,
          ncc, tissue_source, tissue_code, panel, stock_qubit)
 
-csv_timestamp(erbb2_validation_dataset_for_export)
+csv_timestamp(table = erbb2_validation_dataset_for_export,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -1749,7 +1766,9 @@ The files in the "clc_initial_outputs" folder were generated prior to the work d
 #| message: FALSE
 #| warning: FALSE
 
-all_patient_files <- list.files(path = here::here("data/clc_initial_outputs/"), full.names = TRUE, recursive = TRUE,
+all_patient_files <- list.files(path = paste0(
+  erbb2_data_folder,
+  "clc_initial_outputs/"), full.names = TRUE, recursive = TRUE,
                 pattern = "*.xlsx")
 
 qc_data <- all_patient_files |>
@@ -1763,22 +1782,6 @@ qc_data_with_ids <- qc_data |>
             by = "labno_suffix_worksheet")
 
 sample_number <- length(unique(qc_data_with_ids$labno_suffix_worksheet))
-
-
-make_noise_plot <- function(df = qc_data_with_ids, x_axis) {
-  
-      plot <- ggplot(qc_data_with_ids, aes(x = {{ x_axis }}, 
-                  y = st_dev_signal_adjusted_log2_ratios)) +
-      geom_point(pch = 21) +
-      theme_bw() +
-      scale_y_continuous(limits = c(0, 1.25),
-                         breaks = seq(0, 1.2, by = 0.2)) +
-      labs(y = "Signal-adjusted noise") +
-      geom_hline(yintercept = 1, linetype = "dashed")
-      
-      return(plot)
-
-}
 
 p1 <- make_noise_plot(x_axis = percent_target_region_pos_cov_greaterorequal_138) +
   labs(x = "Percentage target positions covered to greater or equal to 138x") +
@@ -1796,6 +1799,9 @@ p3 <- make_noise_plot(x_axis = median_coverage) +
 qc_plot_combined <- p1 + p2 + p3 +
   plot_layout(ncol = 1)
 
-plot_timestamp(qc_plot_combined, input_height = 20)
+plot_timestamp(input_plot = qc_plot_combined, 
+               input_height = 20,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```

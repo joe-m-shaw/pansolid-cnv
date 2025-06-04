@@ -449,3 +449,39 @@ draw_lod_gene_plot <- function(df, chromosome, gene) {
   
 }
 
+calculate_pooled_sd <- function(df, group = labno, target_col, round_places = 2) {
+  
+  output_table <- df |> 
+    group_by( {{ group }}) |> 
+    summarise(sd = sd( {{ target_col }} ),
+              max = max( {{ target_col }} ),
+              min = min( {{ target_col }} ),
+              range = max - min,
+              n = n(),
+              z = (n-1)*sd^2)
+  
+  pooled_sd <- round(sqrt(sum(output_table$z) / 
+                            (sum(output_table$n))), round_places)
+  
+  range <- str_c(round(min(output_table$range), round_places), 
+                 "-", 
+                 round(max(output_table$range), round_places))
+  
+  return(list(output_table, pooled_sd, range))
+  
+}
+
+make_noise_plot <- function(df = qc_data_with_ids, x_axis) {
+  
+  plot <- ggplot(qc_data_with_ids, aes(x = {{ x_axis }}, 
+                                       y = st_dev_signal_adjusted_log2_ratios)) +
+    geom_point(pch = 21) +
+    theme_bw() +
+    scale_y_continuous(limits = c(0, 1.25),
+                       breaks = seq(0, 1.2, by = 0.2)) +
+    labs(y = "Signal-adjusted noise") +
+    geom_hline(yintercept = 1, linetype = "dashed")
+  
+  return(plot)
+  
+}
