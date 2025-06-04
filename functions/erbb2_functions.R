@@ -424,3 +424,28 @@ add_case_group <- function(df) {
   return(output)
   
 }
+
+draw_lod_gene_plot <- function(df, chromosome, gene) {
+  
+  plot_limit_of_detection <- df |> 
+    filter(chromosome == {{ chromosome }}) |> 
+    ggplot(aes(x = start, y = fold_change_adjusted)) +
+    geom_point(pch = 21) +
+    geom_point(data = df |> 
+                 filter(name == {{ gene }}), fill = safe_red, 
+               pch = 21, size = 2) +
+    facet_wrap(~ncc) +
+    theme_bw() +
+    scale_y_continuous(limits = c(-3, 6),
+                       breaks = c(-3, -2, -1, 0, 1, 2, 2.8, 4, 5, 6)) +
+    geom_hline(yintercept = 2.8, linetype = "dashed") +
+    labs(x = str_c("Chromosome ", {{ chromosome }}),
+         y = "Target fold change",
+         title = str_c("Limit of detection results: ", {{ gene }}),
+         caption = "Seracare +12 copies control spiked into Seracare wild type control",
+         subtitle = str_c({{ gene }}, " in red"))
+  
+  return(plot_limit_of_detection)
+  
+}
+

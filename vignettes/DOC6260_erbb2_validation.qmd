@@ -1344,7 +1344,9 @@ plot_lod_erbb2 <- draw_lod_gene_plot(df = lod_target_results, chromosome = "17.0
 
 plot_lod_erbb2
 
-plot_timestamp(plot_lod_erbb2)
+plot_timestamp(input_plot = plot_lod_erbb2,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1393,7 +1395,9 @@ plot_signal_adjusted_noise_threshold <- ggplot(pos_cnv_results_with_sd, aes(x = 
 
 plot_signal_adjusted_noise_threshold
 
-plot_timestamp(plot_signal_adjusted_noise_threshold)
+plot_timestamp(input_plot = plot_signal_adjusted_noise_threshold,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1453,9 +1457,13 @@ knitr::kable(table_inter_run_repeat_results)
 
 knitr::kable(table_intra_run_repeat_results)
 
-csv_timestamp(table_inter_run_repeat_results)
+csv_timestamp(table = table_inter_run_repeat_results,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
-csv_timestamp(table_intra_run_repeat_results)
+csv_timestamp(table = table_intra_run_repeat_results,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
