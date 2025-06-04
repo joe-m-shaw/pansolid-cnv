@@ -777,15 +777,21 @@ ddPCR data was analysed on Quantasoft and the results for each plate were export
 
 ws138419 <- read_biorad_ddpcr_csv(paste0(erbb2_data_folder,
                                          "ddpcr_data/",
-                                         "WS138419_analysed.csv"))
+                                         "WS138419_analysed.csv")) |> 
+  mutate(worksheet = "WS138419_analysed.csv",
+         labno = sample)
 
 ws138579 <- read_biorad_ddpcr_csv(paste0(erbb2_data_folder,
                                          "ddpcr_data/",
-                                         "WS138579_analysed.csv"))
+                                         "WS138579_analysed.csv")) |> 
+  mutate(worksheet = "WS138579_analysed.csv",
+         labno = sample)
 
 ws138765 <- read_biorad_ddpcr_csv(paste0(erbb2_data_folder,
                                          "ddpcr_data/",
-                                         "WS138765_analysed.csv"))
+                                         "WS138765_analysed.csv")) |> 
+  mutate(worksheet = "WS138765_analysed.csv",
+         labno = sample)
 
 ddpcr_erbb2 <- rbind(ws138579, ws138765) |> 
   filter(target_type == "Ch1Unknown")
@@ -818,7 +824,9 @@ table_impact_of_hindiii_digestion <- rbind(ws138419, ws138579) |>
 
 knitr::kable(table_impact_of_hindiii_digestion)
 
-csv_timestamp(table_impact_of_hindiii_digestion)
+csv_timestamp(table = table_impact_of_hindiii_digestion,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -881,7 +889,9 @@ table_cobas_results_by_tumour_type_total <- rbind(table_cobas_results_by_tumour_
 
 knitr::kable(table_cobas_results_by_tumour_type_total)
 
-csv_timestamp(table_cobas_results_by_tumour_type_total)
+csv_timestamp(table = table_cobas_results_by_tumour_type_total,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -940,7 +950,9 @@ table_erbb2_results_psv1_vs_ddpcr <- make_confusion_matrix(df = pansolid_cobas_v
 
 knitr::kable(table_erbb2_results_psv1_vs_ddpcr[[1]])
 
-csv_timestamp(table_erbb2_results_psv1_vs_ddpcr[[1]])
+csv_timestamp(table = table_erbb2_results_psv1_vs_ddpcr[[1]],
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -957,13 +969,18 @@ table_erbb2_ddpcr_opa <- data.frame(
 
 knitr::kable(table_erbb2_ddpcr_opa)
 
-csv_timestamp(table_erbb2_ddpcr_opa)
+csv_timestamp(table = table_erbb2_ddpcr_opa,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
 ```{r}
 #| label: fold-change-vs-ddpcr
 #| echo: FALSE
+
+safe_blue <- "#56B4E9"
+safe_red <- "#D55E00"
 
 discrepant_samples <- c(23001095, 23002258, 23008380)
 
@@ -990,7 +1007,9 @@ plot_fold_change_vs_ddpcr_copy_number <- pansolid_cobas_v1_ddpcr |>
 
 plot_fold_change_vs_ddpcr_copy_number
 
-plot_timestamp(plot_fold_change_vs_ddpcr_copy_number)
+plot_timestamp(input_plot = plot_fold_change_vs_ddpcr_copy_number,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
