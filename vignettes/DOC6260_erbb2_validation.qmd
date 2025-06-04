@@ -32,6 +32,7 @@ source(here("functions/erbb2_functions.R"))
 source(here("functions/fold_change_functions.R"))
 source(here("functions/pansolid_cnv_excel_functions.R"))
 source(here("functions/ddpcr_functions.R"))
+source(here("functions/cnv_plot_functions.R"))
 
 ```
 
@@ -1032,17 +1033,20 @@ erbb2_cobas_v1_factorise <- pos_cnv_results |>
   mutate(labno_suffix_worksheet_factor = factor(labno_suffix_worksheet,
                                                 levels = labno_suffix_worksheet))
 
-plot_erbb2_cobas_v1 <- make_labno_plot(df = erbb2_cobas_v1_factorise, 
+plot_erbb2_cobas_v1 <- make_labno_cnv_plot(df = erbb2_cobas_v1_factorise, 
                 gene = "ERBB2",
                 interval = 20000, 
                 buffer = 5000, 
                 yaxis = labno_suffix_worksheet_factor)
 
-plot_all_erbb2_cobas_v1_triptych <- make_cnv_triptych(plot_erbb2_cobas_v1)
+plot_all_erbb2_cobas_v1_triptych <- make_cnv_triptych_plot(plot_erbb2_cobas_v1)
 
 plot_all_erbb2_cobas_v1_triptych
 
-plot_timestamp(plot_all_erbb2_cobas_v1_triptych, input_height = 18)
+plot_timestamp(input_plot = plot_all_erbb2_cobas_v1_triptych, 
+               input_height = 18,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1053,17 +1057,20 @@ plot_timestamp(plot_all_erbb2_cobas_v1_triptych, input_height = 18)
 short_erbb2_calls <- erbb2_cobas_v1_factorise |> 
                                  filter(cnv_length < 100000)
 
-plot_erbb2_cobas_v1_zoom <- make_labno_plot(df = short_erbb2_calls, 
+plot_erbb2_cobas_v1_zoom <- make_labno_cnv_plot(df = short_erbb2_calls, 
                       gene = "ERBB2",
                       interval = 20000, 
                       buffer = 5000,
                       yaxis = labno_suffix_worksheet_factor)
 
-plot_erbb2_amplification_accuracy <- make_cnv_triptych(plot_erbb2_cobas_v1_zoom)
+plot_erbb2_amplification_accuracy <- make_cnv_triptych_plot(plot_erbb2_cobas_v1_zoom)
 
 plot_erbb2_amplification_accuracy
 
-plot_timestamp(plot_erbb2_amplification_accuracy, input_height = 15)
+plot_timestamp(input_plot = plot_erbb2_amplification_accuracy, 
+               input_height = 15,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1088,9 +1095,10 @@ Making plots for the SeraCare controls is quite verbose because I designed the t
 #| label: seracare-results-pansolid-v1
 #| echo: FALSE
 
-copies_3v1 <- make_fold_change_plot(df = pos_cnv_results |> 
+copies_3v1 <- make_fold_change_cnv_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002064" & pansolid_version == "1"),
-                      ymax = 15)
+                      ymax = 15,
+                      gene = "ERBB2")
 
 copies_3v1_plot <- copies_3v1[[4]] +
   labs(title = "+3 copies (v1)")
@@ -1106,9 +1114,10 @@ copies_3v1_exon <- make_exon_plot(plot_xmin = copies_3v1[[1]],
                   chromosome = copies_3v1[[5]]) +
   labs(x = "")
 
-copies_6v1 <- make_fold_change_plot(df = pos_cnv_results |> 
+copies_6v1 <- make_fold_change_cnv_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002067" & pansolid_version == "1"),
-                      ymax = 15)
+                      ymax = 15,
+                      gene = "ERBB2")
 
 copies_6v1_plot <- copies_6v1[[4]] +
   labs(title = "+6 copies (v1)")
@@ -1124,9 +1133,10 @@ copies_6v1_exon <- make_exon_plot(plot_xmin = copies_6v1[[1]],
                   chromosome = copies_6v1[[5]]) +
   labs(x = "Genome coordinate")
 
-copies_12v1 <- make_fold_change_plot(df = pos_cnv_results |> 
+copies_12v1 <- make_fold_change_cnv_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002071" & pansolid_version == "1"),
-                      ymax = 15)
+                      ymax = 15,
+                      gene = "ERBB2")
 
 copies_12v1_plot <- copies_12v1[[4]] +
   labs(title = "+12 copies (v1)")
@@ -1151,7 +1161,10 @@ plot_seracare_controls_erbb2_results_v1 <- copies_3v1_plot + copies_6v1_plot + c
 
 plot_seracare_controls_erbb2_results_v1
 
-plot_timestamp(plot_seracare_controls_erbb2_results_v1, input_width = 16)
+plot_timestamp(input_plot  = plot_seracare_controls_erbb2_results_v1, 
+               input_width = 16,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1159,9 +1172,10 @@ plot_timestamp(plot_seracare_controls_erbb2_results_v1, input_width = 16)
 #| label: seracare-results-pansolid-v2
 #| echo: FALSE
 
-copies_3v2 <- make_fold_change_plot(df = pos_cnv_results |> 
+copies_3v2 <- make_fold_change_cnv_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002064" & pansolid_version == "2"),
-                      ymax = 15)
+                      ymax = 15,
+                      gene = "ERBB2")
 
 copies_3v2_plot <- copies_3v2[[4]] +
   labs(title = "+3 copies (v2)")
@@ -1177,9 +1191,10 @@ copies_3v2_exon <- make_exon_plot(plot_xmin = copies_3v2[[1]],
                   chromosome = copies_3v2[[5]]) +
   labs(x = "")
 
-copies_6v2 <- make_fold_change_plot(df = pos_cnv_results |> 
+copies_6v2 <- make_fold_change_cnv_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002067" & pansolid_version == "2"),
-                      ymax = 15)
+                      ymax = 15,
+                      gene = "ERBB2")
 
 copies_6v2_plot <- copies_6v2[[4]] +
   labs(title = "+6 copies (v2)")
@@ -1195,9 +1210,10 @@ copies_6v2_exon <- make_exon_plot(plot_xmin = copies_6v2[[1]],
                   chromosome = copies_6v2[[5]]) +
   labs(x = "Genome coordinate")
 
-copies_12v2 <- make_fold_change_plot(df = pos_cnv_results |> 
+copies_12v2 <- make_fold_change_cnv_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002071" & pansolid_version == "2"),
-                      ymax = 15)
+                      ymax = 15,
+                      gene = "ERBB2")
 
 copies_12v2_plot <- copies_12v2[[4]] +
   labs(title = "+12 copies (v2)")
@@ -1222,7 +1238,10 @@ plot_seracare_controls_erbb2_v2 <- copies_3v2_plot + copies_6v2_plot + copies_12
 
 plot_seracare_controls_erbb2_v2
 
-plot_timestamp(plot_seracare_controls_erbb2_v2, input_width = 16)
+plot_timestamp(input_plot = plot_seracare_controls_erbb2_v2, 
+               input_width = 16,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
