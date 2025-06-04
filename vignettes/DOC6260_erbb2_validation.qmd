@@ -1250,9 +1250,11 @@ plot_timestamp(input_plot = plot_seracare_controls_erbb2_v2,
 #| echo: FALSE
 
 # Values taken from technical product reports
-seracare_erbb2_copies <- read_excel(path = here::here("data/seracare_erbb2_copies.xlsx"),
-                                    col_types = c("text", "numeric", "numeric",
-                                                  "text"))
+seracare_erbb2_copies <- read_excel(path = paste0(
+  erbb2_data_folder,
+  "seracare_erbb2_copies.xlsx"),
+  col_types = c("text", "numeric", "numeric",
+                "text"))
 
 table_ngs_seracare_comparison <- pos_cnv_results |> 
   filter(gene == "ERBB2") |> 
@@ -1273,7 +1275,9 @@ table_ngs_seracare_comparison <- pos_cnv_results |>
 
 knitr::kable(table_ngs_seracare_comparison)
 
-csv_timestamp(table_ngs_seracare_comparison)
+csv_timestamp(table = table_ngs_seracare_comparison,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -1301,7 +1305,9 @@ table_ddpcr_seracare_comparison <- seracare_ddpcr_results |>
 
 knitr::kable(table_ddpcr_seracare_comparison)
 
-csv_timestamp(table_ddpcr_seracare_comparison)
+csv_timestamp(table = table_ddpcr_seracare_comparison,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -1311,7 +1317,8 @@ csv_timestamp(table_ddpcr_seracare_comparison)
 #| label: limit-of-detection
 #| echo: FALSE
 
-target_data_files <- list.files(here::here("data/clc_target_level_outputs/"), 
+target_data_files <- list.files(paste0(erbb2_data_folder,
+                                       "clc_target_level_outputs/"), 
                                 full.names = TRUE, 
                                 pattern = ".xlsx")
 
@@ -1323,6 +1330,7 @@ lod_percents <- data.frame(
             "6.25% tumour content mimic", "0% tumour content mimic")) |> 
   mutate(ncc = factor(ncc, levels = c("25% tumour content mimic", "12.5% tumour content mimic",
             "6.25% tumour content mimic", "0% tumour content mimic")))
+
 
 lod_target_results <- lod_files |>
   map(\(lod_files) read_clc_target_calls(
