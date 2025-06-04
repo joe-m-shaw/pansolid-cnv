@@ -37,12 +37,14 @@ csv_timestamp <- function(table, folder) {
   )
 }
 
-dna_db_export <- function(input, folder) {
+dna_db_export <- function(input) {
   write_csv(input,
-            file = paste0(
-              folder,
-              deparse(substitute(input)), ".csv"
-            ))
+            file = paste0(config::get("data_folderpath"),
+                          "validation/DOC6260_ERBB2/",
+                          "dna_db_queries/",
+                          deparse(substitute(input)), 
+                          ".csv")
+            )
 }
 
 plot_timestamp <- function(input_plot, 

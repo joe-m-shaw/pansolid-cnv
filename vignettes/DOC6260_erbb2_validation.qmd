@@ -350,7 +350,7 @@ if (anyNA(qiasymphony_control_info)) { stop("NAs in QIAsymphony control informat
 
 ### Load sample information
 
-The sample information from the DNA Database was extracted using the erbb2_validation_dna_db_queries.R script which uses an ODBC connection. The information was exported as csv files so that this Quarto document should render without the user needing an ODBC connection to the DNA Database.
+The sample information from the DNA Database was extracted using the erbb2_val_dna_db_queries.R script which uses an ODBC connection. The information was exported as csv files so that this Quarto document should render without the user needing an ODBC connection to the DNA Database.
 
 I have used the following convention to describe different kinds of data:
 

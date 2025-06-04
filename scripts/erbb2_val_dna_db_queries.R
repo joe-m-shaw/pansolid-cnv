@@ -3,16 +3,19 @@
 # Packages --------------------------------------------------------------------------
 
 library(here)
+library(tidyverse)
 
 # Source functions ------------------------------------------------------------------
 
-source(here::here("functions/dna_database_functions.R"))
-
-source(here::here("functions/cnv_functions.R"))
+source(here("scripts/connect_to_dna_db.R"))
+source(here("functions/dna_db_functions.R"))
+source(here("functions/erbb2_functions.R"))
 
 # ERBB2 lab numbers -----------------------------------------------------------------
 
-labno_df <- read_csv(file = here::here("data/cnv_validation_labnos_and_tissue_sources.csv"),
+labno_df <- read_csv(file = paste0(config::get("data_folderpath"),
+                                   "validation/DOC6260_ERBB2/",
+                                   "cnv_validation_labnos_and_tissue_sources.csv"),
                            col_types = "c")
 
 sample_labnos <- labno_df$labno
