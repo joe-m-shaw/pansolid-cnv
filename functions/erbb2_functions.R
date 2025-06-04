@@ -6,6 +6,8 @@ library(here)
 library(rvest)
 library(docstring)
 
+source(here("functions/extract_pansolid_cnv_coordinates.R"))
+
 # Export functions ------------------------------------------------------------------
 
 csv_timestamp <- function(table, folder) {
@@ -345,7 +347,7 @@ read_clc_target_calls <- function(file) {
   relocate(worksheet, labno, suffix, labno_suffix, patient_name,
            labno_suffix_worksheet)
   
-  output <- extract_cnv_coordinates(df = results,
+  output <- extract_pansolid_cnv_coordinates(df = results,
                                     cnv_coord_col = region)
   
   return(output)
