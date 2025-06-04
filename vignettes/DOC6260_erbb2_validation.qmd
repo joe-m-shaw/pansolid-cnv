@@ -31,6 +31,7 @@ library(ggvenn)
 source(here("functions/erbb2_functions.R"))
 source(here("functions/fold_change_functions.R"))
 source(here("functions/pansolid_cnv_excel_functions.R"))
+source(here("functions/ddpcr_functions.R"))
 
 ```
 
@@ -482,7 +483,46 @@ The DNA concentrations I've pulled from the submission sheets for the PanSolid w
 #| message: FALSE
 #| warning: FALSE
 
-pansolid_submissions <- join_pansolid_submission_sheets()
+pansolid_submission_2022 <- read_excel(path = paste0(
+  erbb2_data_folder, 
+  "dna_submission_sheets/",
+  # Pansolid began in 2022 so the initial runs were recorded on 
+  # the Qiaseq spreadsheet
+  "QIAseq DNA PanSolid Sample Submission 2022.xlsx")) |> 
+    janitor::clean_names() |> 
+    rename(date_submitted = date_sample_submitted,
+           stock_qubit = stock_qubit_ng_m_l) |> 
+    mutate(submission_sheet = "2022",
+           labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
+    select(date_submitted, labno, sample_name,
+           panel, enrichment, stock_qubit, submission_sheet)
+
+pansolid_submission_2023 <- read_excel(path = paste0(
+  erbb2_data_folder, 
+  "dna_submission_sheets/",
+  "DNA PanSolid QIAseq Submission Sheet 2023.xlsx")) |> 
+    janitor::clean_names() |> 
+    rename(stock_qubit = stock_qubit_ng_m_l) |> 
+    mutate(submission_sheet = "2023",
+           labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
+    select(date_submitted, labno, sample_name,
+           panel, enrichment, stock_qubit, submission_sheet)
+  
+pansolid_submission_2024 <- read_excel(path = paste0(
+  erbb2_data_folder, 
+  "dna_submission_sheets/",
+  "PanSolid Submission sheet 2024.xlsx"),
+  sheet = "PanSolid samples") |> 
+    janitor::clean_names()  |> 
+    rename(stock_qubit = stock_qubit_ng_m_l) |> 
+    mutate(submission_sheet = "2024",
+           labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
+    select(date_submitted, labno, sample_name,
+           panel, enrichment, stock_qubit, submission_sheet)
+
+pansolid_submissions <- rbind(pansolid_submission_2024,
+                              pansolid_submission_2023,
+                              pansolid_submission_2022)
 
 sample_dna_concentrations <- pansolid_submissions |> 
   filter(labno %in% sample_tissue_sources$labno) |> 
@@ -494,7 +534,9 @@ sample_dna_concentrations <- pansolid_submissions |>
 #| label: path-block-numbers
 #| include: FALSE
 
-sample_pathnos <- read_csv(here::here("data/dna_db_queries/sample_pathnos.csv"),
+sample_pathnos <- read_csv(paste0(erbb2_data_folder,
+                                  "dna_db_queries/",
+                                  "sample_pathnos.csv"),
                            col_types = "cc")
 
 ```
@@ -505,7 +547,9 @@ NHS numbers can be pulled off DLMS although annoyingly for two lab numbers they 
 #| label: nhs-numbers
 #| include: FALSE
 
-sample_nhs_no <- read_csv(here::here("data/dna_db_queries/sample_nhs_no.csv"),
+sample_nhs_no <- read_csv(paste0(erbb2_data_folder,
+                                  "dna_db_queries/",
+                                  "sample_nhs_no.csv"),
                           col_types = "cc")
 
 ```
@@ -558,7 +602,11 @@ table_sample_extractions <- sample_extraction_details |>
 
 knitr::kable(table_sample_extractions)
 
-csv_timestamp(table_sample_extractions)
+csv_timestamp(table = table_sample_extractions,
+              folder = paste0(
+                erbb2_data_folder,
+                "outputs/tables/"
+              ))
 
 ```
 
@@ -582,7 +630,9 @@ table_tumour_sources_total <- rbind(table_tumour_sources, total_line)
 
 knitr::kable(table_tumour_sources_total)
 
-csv_timestamp(table_tumour_sources_total)
+csv_timestamp(table = table_tumour_sources_total,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -622,7 +672,9 @@ table_neoplastic_cell_content_total <- rbind(table_neoplastic_cell_content, tota
 
 knitr::kable(table_neoplastic_cell_content_total)
 
-csv_timestamp(table_neoplastic_cell_content_total)
+csv_timestamp(table = table_neoplastic_cell_content_total,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -647,7 +699,9 @@ table_sample_types_total <- rbind(table_sample_types, total_line)
 
 knitr::kable(table_sample_types_total)
 
-csv_timestamp(table_sample_types_total)
+csv_timestamp(table = table_sample_types_total,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -707,7 +761,9 @@ table_qs_control_sources_total <- rbind(table_qs_control_sources, total_line)
 
 knitr::kable(table_qs_control_sources_total)
 
-csv_timestamp(table_qs_control_sources_total)
+csv_timestamp(table = table_qs_control_sources_total,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -719,11 +775,17 @@ ddPCR data was analysed on Quantasoft and the results for each plate were export
 #| label: load-ddpcr
 #| include: FALSE
 
-ws138419 <- read_biorad_csv("WS138419_analysed.csv")
+ws138419 <- read_biorad_ddpcr_csv(paste0(erbb2_data_folder,
+                                         "ddpcr_data/",
+                                         "WS138419_analysed.csv"))
 
-ws138579 <- read_biorad_csv("WS138579_analysed.csv")
+ws138579 <- read_biorad_ddpcr_csv(paste0(erbb2_data_folder,
+                                         "ddpcr_data/",
+                                         "WS138579_analysed.csv"))
 
-ws138765 <- read_biorad_csv("WS138765_analysed.csv")
+ws138765 <- read_biorad_ddpcr_csv(paste0(erbb2_data_folder,
+                                         "ddpcr_data/",
+                                         "WS138765_analysed.csv"))
 
 ddpcr_erbb2 <- rbind(ws138579, ws138765) |> 
   filter(target_type == "Ch1Unknown")
