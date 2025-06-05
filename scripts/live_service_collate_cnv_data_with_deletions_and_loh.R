@@ -3,8 +3,6 @@
 # Connect to DLIMS
 source(here::here("scripts/connect_to_dna_db.R"))
 
-source(here::here("functions/pansolid_excel_functions.R"))
-
 source(here::here("functions/pansolid_cnv_excel_functions.R"))
 
 # Get a list of PanSolid worksheets ---------------------------------------
