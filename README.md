@@ -31,6 +31,12 @@ The repo has changed over time in response to the developing needs of the projec
 The ERBB2 valiation was performed by generating tables and plots from a Quarto markdown document (`DOC6260_erbb2_validation.qmd`) which were then copied and pasted into a Word document. 
 Subsequent validations have been performed by rendering the final Word document entirely from Quarto markdown (`DOC6283_pansolid_gene_amplifications_validation.qmd` and `DOC6567_pansolid_gene_deletions_validation.qmd` ).
 
+## Where to start
+
+The best place to start is `vignettes/DOC6567_pansolid_gene_deletions_validation.qmd`. 
+This markdown produces the final validation documentation for the deletions project. 
+This also demonstrates the general structure of the repo: markdown scripts (vignettes folder) source data-processing scripts (scripts folder), which in turn source specific functions (functions folder), which in turn source automated tests of those functions (tests folder).
+
 ## Folder Structure
 
 ### data
