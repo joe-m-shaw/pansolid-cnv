@@ -9,12 +9,11 @@ library(here)
 
 source(here("functions/ddpcr_functions.R"))
 
-source(here("scripts/set_shared_drive_filepath.R"))
-
 # ddPCR files -----------------------------------------------------------------------
 
 ddpcr_validation_files <- list.files(
-  path = paste0(data_folder, "/validation/raw/ddpcr/"),
+  path = paste0(config::get("data_folderpath"), 
+                "validation/DOC6283_amplifications/raw/ddpcr/"),
   pattern = ".csv",
   full.names = TRUE)
 
@@ -39,7 +38,8 @@ stopifnot(ncol(ddpcr_validation_data) == 66)
 # Save collated results -------------------------------------------------------------
 
 write.csv(x = ddpcr_validation_data,
-          file = paste0(data_folder, 
-                        "validation/processed/",
+          file = paste0(config::get("data_folderpath"), 
+                        "validation/DOC6283_amplifications/",
+                        "processed/",
                         "validation_ddpcr_collated.csv"),
           row.names = FALSE)
