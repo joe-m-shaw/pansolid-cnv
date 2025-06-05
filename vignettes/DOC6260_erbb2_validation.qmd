@@ -627,7 +627,8 @@ cobas_controls <- cobas_control_info |>
   add_dna_db_info()
 
 qiasymphony_controls <- qiasymphony_control_info |> 
-  add_dna_db_info()
+  add_dna_db_info() |> 
+  filter(!duplicated(labno))
 
 ```
 
