@@ -59,7 +59,14 @@ Automated tests for functions. Where functions are designed to identify patient 
 
 The vignettes folder contains Quarto markdown documents (.qmd) for validation (DOC prefix) and incident investigation (INC prefex) analyses.
 
+## File Naming
 
+Scripts are named with prefixes for the part of the project they refer to:
+
+- "erbb2_val": ERBB2 validation - DOC6260
+- "amp_val": amplifications validation - DOC6283
+- "del_val": deletions and LOH validation - DOC6567
+- "live_service": scripts for monitoring the live clinical service
 
 ## 
 
