@@ -25,13 +25,13 @@ This project was split into multiple sub-projects focussed on validating differe
 
 ## Project History
 
-This project began in December 2023 with the aim of making the validation of the PanSolid CNV pipeline transparent and reproducible. 
+This repo began in December 2023 with the aim of making the validation of the PanSolid CNV pipeline transparent and reproducible. 
 The repo has changed over time in response to the developing needs of the project and my own skills with R.
 
 The ERBB2 valiation was performed by generating tables and plots from a Quarto markdown document (`DOC6260_erbb2_validation.qmd`) which were then copied and pasted into a Word document. 
 Subsequent validations have been performed by rendering the final Word document entirely from Quarto markdown (`DOC6283_pansolid_gene_amplifications_validation.qmd` and `DOC6567_pansolid_gene_deletions_validation.qmd` ).
 
-## File Structure
+## Folder Structure
 
 ### data
 
@@ -57,16 +57,19 @@ Automated tests for functions. Where functions are designed to identify patient 
 
 ### vignettes
 
-The vignettes folder contains Quarto markdown documents (.qmd) for validation (DOC prefix) and incident investigation (INC prefex) analyses.
+The vignettes folder contains Quarto markdown documents (.qmd) for validation and incident analyses.
 
 ## File Naming
 
 Scripts are named with prefixes for the part of the project they refer to:
 
-- "erbb2_val": ERBB2 validation - DOC6260
-- "amp_val": amplifications validation - DOC6283
-- "del_val": deletions and LOH validation - DOC6567
-- "live_service": scripts for monitoring the live clinical service
+- erbb2_val: ERBB2 validation - DOC6260
+- amp_val: amplifications validation - DOC6283
+- del_val: deletions and LOH validation - DOC6567
+- live_service: scripts for monitoring the live clinical service
 
-## 
+Markdown documents are named with prefixes used on QPulse:
+
+- DOC: document
+- INC: incident
 
