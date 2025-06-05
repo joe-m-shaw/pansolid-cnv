@@ -104,7 +104,7 @@ source(here("scripts/amp_val_collate_wgs_htmls.R"))
 
 source(here("scripts/amp_val_collate_pansolid_ddpcr_validation_data.R"))
 
-source(here("scripts/collate_pansolid_excel_validation_data.R"))
+source(here("scripts/amp_val_collate_pansolid_excel_validation_data.R"))
 
 # This script collect patient information but requires an ODBC connection to the
 # DNA Database mirror

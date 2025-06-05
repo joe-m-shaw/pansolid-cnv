@@ -225,7 +225,7 @@ get_amp_sheetname <- function(filepath) {
   
 }
 
-## New functions used in deletions validation
+## New functions used in deletions validation (rewritten to be faster)
 
 get_sheetname <- function(filepath, sheet_regex = "CNVs_") {
   
