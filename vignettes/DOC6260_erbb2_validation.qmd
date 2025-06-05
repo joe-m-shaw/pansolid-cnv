@@ -580,19 +580,30 @@ sample_pathnos <- read_csv(paste0(erbb2_data_folder,
 ```
 
 NHS numbers can be pulled off DLMS although annoyingly for two lab numbers 
-they aren't included. 
-The NHS numbers are on different samples for the same patients, so I've manually 
-updated the csv file to prevent hard-coding patient-identifiable information 
+they aren't included (21015264 and 24008372). 
+The NHS numbers are on different samples for the same patients, so I've 
+added the NHS numbers to an additional csv file and added them in below.
+This avoids hard-coding patient-identifiable information 
 into this Quarto.
 
 ```{r}
 #| label: nhs-numbers
 #| include: FALSE
 
+labnos_without_nhs_no <- c("21015264", "24008372")
+
+manual_nhsno_addition <- read_csv(paste0(erbb2_data_folder,
+                                         "manual_nhsno_addition.csv"))
+
 sample_nhs_no <- read_csv(paste0(erbb2_data_folder,
                                   "dna_db_queries/",
                                   "sample_nhs_no.csv"),
-                          col_types = "cc")
+                          col_types = "cc") |> 
+  rbind(manual_nhsno_addition) |> 
+  filter(!(labno %in% labnos_without_nhs_no &
+             is.na(nhsno)))
+
+stopifnot(anyDuplicated(sample_nhs_no$labno) == 0)
 
 ```
 
