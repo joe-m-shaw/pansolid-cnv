@@ -108,9 +108,9 @@ source(here("scripts/amp_val_collate_pansolid_excel_validation_data.R"))
 
 # This script collect patient information but requires an ODBC connection to the
 # DNA Database mirror
-# source(here("scripts/get_patient_information_from_dna_db.R"))
+# source(here("scripts/amp_val_get_patient_info.R"))
 
-source(here("scripts/load_processed_validation_data.R"))
+source(here("scripts/amp_val_load_processed_validation_data.R"))
 
 ```
 
