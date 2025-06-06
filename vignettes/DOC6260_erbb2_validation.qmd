@@ -351,7 +351,7 @@ if (anyNA(qiasymphony_control_info)) { stop("NAs in QIAsymphony control informat
 
 ### Load sample information
 
-The sample information from the DNA Database was extracted using the erbb2_val_dna_db_queries.R script which uses an ODBC connection. 
+The sample information from the DNA Database was extracted using the erbb2_val_dna_db_queries.R script which uses an ODBC connection.
 The information was exported as csv files so that this Quarto document should render without the user needing an ODBC connection to the DNA Database.
 
 I have used the following convention to describe different kinds of data:
@@ -417,7 +417,7 @@ sample_types <- read_csv(
 
 ```
 
-Neoplastic cell content can be parsed from the "comments" section of DNA Database, but often it is missing so I've had to manually created a csv file with the missing information. 
+Neoplastic cell content can be parsed from the "comments" section of DNA Database, but often it is missing so I've had to manually created a csv file with the missing information.
 I got this information by checking the scanned referral forms on DNA Database, which usually have the neoplastic cell content written on.
 
 ```{r}
@@ -448,7 +448,7 @@ ncc_collated <- sample_ncc |>
 
 ```
 
-Initially I attempted to use the DISCODE field in DNA Database to identify the different tumour sources but this wasn't ideal (often multiple tumour sources map to the same disease code). 
+Initially I attempted to use the DISCODE field in DNA Database to identify the different tumour sources but this wasn't ideal (often multiple tumour sources map to the same disease code).
 Then I manually checked the scanned referral forms for each sample on DNA Database and collated the results in the cnv_validation_labnos_and_tissue_sources.csv file.
 
 ```{r}
@@ -480,8 +480,8 @@ sample_tissue_sources_coded <- sample_tissue_sources |>
 
 ```
 
-The DNA concentrations I've pulled from the submission sheets for the PanSolid workflow. 
-This works for most samples except for 3 which for some reason weren't in the standard PanSolid Excels. 
+The DNA concentrations I've pulled from the submission sheets for the PanSolid workflow.
+This works for most samples except for 3 which for some reason weren't in the standard PanSolid Excels.
 I need to chase this up.
 
 ```{r}
@@ -548,8 +548,8 @@ sample_pathnos <- read_csv(paste0(erbb2_data_folder,
 
 ```
 
-NHS numbers can be pulled off DLMS although annoyingly for two lab numbers they aren't included (21015264 and 24008372). 
-The NHS numbers are on different samples for the same patients, so I've added the NHS numbers to an additional csv file and added them in below. 
+NHS numbers can be pulled off DLMS although annoyingly for two lab numbers they aren't included (21015264 and 24008372).
+The NHS numbers are on different samples for the same patients, so I've added the NHS numbers to an additional csv file and added them in below.
 This avoids hard-coding patient-identifiable information into this Quarto.
 
 ```{r}
@@ -575,7 +575,7 @@ stopifnot(anyDuplicated(sample_nhs_no$labno) == 0)
 
 ### Add DNA Database information
 
-Adding on the DNA Database information to each table of results allows these tables to act as the base for downstream analysis. 
+Adding on the DNA Database information to each table of results allows these tables to act as the base for downstream analysis.
 The idea is that each table has all the variables I might want to filter by (DNA extraction method, NHS number, PanSolid version, DNA concentration etc) and so reduces joining with other tables downstream.
 
 ```{r}
@@ -1540,7 +1540,7 @@ reproducibility_fold_change_sd <- calculate_pooled_sd(df = inter_run_results,
                                                     round_places = 2)
 ```
 
-The pooled standard deviation of the ERBB2 fold change in `r length(unique(repeat_results$labno_suffix_worksheet))` repeat replicates of `r length(unique(repeat_results$labno))` DNA samples was `r erb2_fold_change_sd[[2]]`. 
+The pooled standard deviation of the ERBB2 fold change in `r length(unique(repeat_results$labno_suffix_worksheet))` repeat replicates of `r length(unique(repeat_results$labno))` DNA samples was `r erb2_fold_change_sd[[2]]`.
 The pooled standard deviation of the signal-adjusted noise for the same cohort was `r signal_noise_sd[[2]]`.
 
 Pooled standard deviation for intra-run results for fold change (repeatability): `r repeatability_fold_change_sd[[2]]`
