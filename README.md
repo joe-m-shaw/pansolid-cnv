@@ -2,15 +2,25 @@
 
 This repository contains R scripts used in the validation and monitoring of copy number variant (CNV) detection on the "Pan Solid" Qiaseq primer panel at the North West Genomic Laboratory Hub (GLH) in Manchester.
 
+## Purpose
+
+This repo exists so that validation and incident analyses for the PanSolid CNV project are reproducible.
+
+## Where to start
+
+To understand this repo, the best place to start is `vignettes/DOC6567_pansolid_gene_deletions_validation.qmd`. 
+This markdown produces the final validation documentation for the deletions project (see Project Overview). 
+This also demonstrates the general structure of the repo: markdown scripts (vignettes folder) source data-processing scripts (scripts folder), which in turn source specific functions (functions folder), which in turn source automated tests of those functions (tests folder).
+
 ## Instructions for Use
 
-To use the scripts in this directory:
+To rerun validation or incident analyses:
 
 1. Download this repo into a local folder on your computer.
 2. Check you can access the data folder on the GLH's internal S drive. The filepath to this folder is specific in the "data_folderpath" value in the `config.yml` file. If the filepath to this folder is slightly different on your computer, update the "data_folderpath" value in the local version of the `config.yml` file. Alternatively, copy and paste the entire S drive data folder into a local folder and update the `config.yml` file with this local path.
 3. (Optional) Set up an ODBC connection with the version of the DNA Database saved on the SQL server. This is required for analyses that use the `connect_to_dna_db.R` script. Email Joe Shaw for specific instructions on how to do this. This step is not required to rerun the analyses in the validation Quarto files, which have "DOC*.qmd" filenames.
 
-Collated CNV information for samples tested in the live clinical service can be updated by running the `monitor_pansolid_cnv_service.R` script. 
+To collate data from the live clinical service for monitoring of signal-adjusted noise, run `live_service_collate_cnv_data_with_deletions_and_loh.R` in the scripts folder.
 This script requires an ODBC connection to DNA Database.
 
 ## Project Overview
@@ -31,23 +41,17 @@ The repo has changed over time in response to the developing needs of the projec
 The ERBB2 valiation was performed by generating tables and plots from a Quarto markdown document (`DOC6260_erbb2_validation.qmd`) which were then copied and pasted into a Word document. 
 Subsequent validations have been performed by rendering the final Word document entirely from Quarto markdown (`DOC6283_pansolid_gene_amplifications_validation.qmd` and `DOC6567_pansolid_gene_deletions_validation.qmd` ).
 
-## Where to start
-
-The best place to start is `vignettes/DOC6567_pansolid_gene_deletions_validation.qmd`. 
-This markdown produces the final validation documentation for the deletions project. 
-This also demonstrates the general structure of the repo: markdown scripts (vignettes folder) source data-processing scripts (scripts folder), which in turn source specific functions (functions folder), which in turn source automated tests of those functions (tests folder).
-
 ## Folder Structure
 
 ### data
 
 All data is saved internally at the North West GLH, as it contains patient identifiable information. 
 **No data should be available in this Github repository.** 
-The filepath for the data folder is specified in the config.yml file.
+The filepath for the data folder is specified in the `config.yml` file.
 
 ### functions
 
-Related functions are grouped together.
+Related functions are grouped together. Functions written later in the project have automated tests associated with them.
 
 ### scripts
 
@@ -56,6 +60,7 @@ Processed data is saved in the relevant folder on the shared drive.
 
 **dev**: the "dev" subfolder stores scripts that are non-essential for performing the final validation analyses. 
 These are scripts that I use for performing one-off tasks or developing new code.
+Some of these scripts will be out of date and may break when run.
 
 ### tests
 
