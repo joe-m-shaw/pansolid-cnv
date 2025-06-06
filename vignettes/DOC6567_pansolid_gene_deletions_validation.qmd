@@ -17,8 +17,7 @@ fig-wdith: 6
 
 Author: Joe Shaw (CS20980)
 
-Project Lead(s): Joe Shaw, Elizabeth Sollars, Eleanor Baker, Helene Schlecht,
-George Burghel
+Project Lead(s): Joe Shaw, Elizabeth Sollars, Eleanor Baker, Helene Schlecht, George Burghel
 
 Date: `r Sys.Date()`
 
@@ -34,7 +33,8 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
 **CGH:** Comparative Genome Hybridisation
 
-**CLC**: Acronym unknown. CLC Bio was acquired by Qiagen in 2013.
+**CLC**: Acronym unknown.
+CLC Bio was acquired by Qiagen in 2013.
 
 **CNA:** Copy Number Alteration
 
@@ -274,27 +274,14 @@ gene_target_counts <- pansolid_target_loci |>
 
 # Purpose
 
-The purpose of this document is to describe the validation of detection of
-somatic gene deletions and ploidy states
-with the PanSolid v2 QIAseq enrichment panel using the PanSolid CLC 
-pipeline (v2.4) at the North West Genomic Laboratory Hub (GLH).
+The purpose of this document is to describe the validation of detection of somatic gene deletions and ploidy states with the PanSolid v2 QIAseq enrichment panel using the PanSolid CLC pipeline (v2.4) at the North West Genomic Laboratory Hub (GLH).
 
-This validation is the final part of the project to validate copy number
-variants (CNVs) on the PanSolid enrichment panel and pipeline, which comprises a
-primer-based enrichment coupled with Illumina next generation sequencing (NGS)
-[@xu2017]. This document builds on the previous
-validations described in @tbl-previous-validations. Currently, detection of 
-gene deletions and loss of heterozygosity (LOH) is 
-performed on the "Core" and "Merged" QIAseq primer enrichments for different
-tumour types. By validating detection of these variants on the PanSolid QIAseq
-enrichment, this project aims to replace these enrichments with 
-PanSolid. Overall, the aim is to streamline testing of 
-solid tumours at the 
-North West GLH, and to expand the list of genes and variant types detected in 
-line with the NHS National Genomic Test Directory for Cancer. In this document,
-the testing workflow comprising of the PanSolid v2 QIAseq enrichment panel
-followed by analysis with the PanSolid CLC pipeline (v2.4) will be referred to
-as "PanSolid NGS" for brevity.
+This validation is the final part of the project to validate copy number variants (CNVs) on the PanSolid enrichment panel and pipeline, which comprises a primer-based enrichment coupled with Illumina next generation sequencing (NGS) [@xu2017].
+This document builds on the previous validations described in @tbl-previous-validations.
+Currently, detection of gene deletions and loss of heterozygosity (LOH) is performed on the "Core" and "Merged" QIAseq primer enrichments for different tumour types.
+By validating detection of these variants on the PanSolid QIAseq enrichment, this project aims to replace these enrichments with PanSolid.
+Overall, the aim is to streamline testing of solid tumours at the North West GLH, and to expand the list of genes and variant types detected in line with the NHS National Genomic Test Directory for Cancer.
+In this document, the testing workflow comprising of the PanSolid v2 QIAseq enrichment panel followed by analysis with the PanSolid CLC pipeline (v2.4) will be referred to as "PanSolid NGS" for brevity.
 
 ```{r}
 #| label: tbl-previous-validations
@@ -316,41 +303,18 @@ kable(prev_validation_table)
 
 ## Gene deletions and ploidy states
 
-Somatic copy number changes are a common pathogenic mechanism in cancers [@li2020],
-leading to the amplification of expression from proto-oncogenes (addressed in
-[DOC6260]{custom-style="Strong"} and 
-[DOC6283]{custom-style="Strong"}) and the reduction or ablation of expression
-from tumour suppressor genes (TSGs) (addressed in this validation document).
-The loss of expression from a TSG leads to cancer development via a recessive
-two-hit mechanism, requiring two
-events to inactivate both TSG alleles [@knudson1971]. 
+Somatic copy number changes are a common pathogenic mechanism in cancers [@li2020], leading to the amplification of expression from proto-oncogenes (addressed in [DOC6260]{custom-style="Strong"} and [DOC6283]{custom-style="Strong"}) and the reduction or ablation of expression from tumour suppressor genes (TSGs) (addressed in this validation document).
+The loss of expression from a TSG leads to cancer development via a recessive two-hit mechanism, requiring two events to inactivate both TSG alleles [@knudson1971].
 
-Loss of TSG expression can occur through the physical loss of a TSG copy from 
-a cell's genome, which may be due to a focal deletion
-of the gene locus or as part of a much larger chromosomal change, such as
-aneuploidy for a whole chromosome or chromosome arm. Certain cancers have
-specific recurrent aneuploidies leading to TSG loss, such as monosomy of 
-chromosome 10 in glioblastoma [@boström1998] leading to
-loss of *PTEN*, and monosomy of chromosome 22 in meningioma [@neill2020]
-leading to loss of *NF2*. Different combinations of allelic copy numbers at the
-gene, chromosome or whole genome level are described as different 
-ploidy states (@tbl-clc-ploidy-states).
+Loss of TSG expression can occur through the physical loss of a TSG copy from a cell's genome, which may be due to a focal deletion of the gene locus or as part of a much larger chromosomal change, such as aneuploidy for a whole chromosome or chromosome arm.
+Certain cancers have specific recurrent aneuploidies leading to TSG loss, such as monosomy of chromosome 10 in glioblastoma [@boström1998] leading to loss of *PTEN*, and monosomy of chromosome 22 in meningioma [@neill2020] leading to loss of *NF2*.
+Different combinations of allelic copy numbers at the gene, chromosome or whole genome level are described as different ploidy states (@tbl-clc-ploidy-states).
 
-Other mechanisms of loss of TSG expression include 
-pathogenic sequence variants, epigenetic silencing, different types of CNV such as 
-duplications [@li2020], and copy-neutral LOH.
-Copy-neutral LOH arises when a cell repairs DNA damage to a particular allele 
-of a gene by copying the other allele.
-If the allele used
-for the repair contains a deleterious variant, such as a pathogenic sequence 
-variant or a gene deletion, the genotype of the cell changes
-from being monoallelic for the variant to being biallelic. Copy-neutral LOH
-is a frequent pathogenic mechanism in multiple cancer types, including
-colorectal cancer [@melcher2007], and is similar but distinct from copy-loss
-LOH. In this way, LOH is an attribute of 
-particular ploidy states, as shown in @tbl-clc-ploidy-states,
-which is reproduced from the 
-[Qiagen CLC manual](https://resources.qiagenbioinformatics.com/manuals/biomedicalgenomicsanalysis/2400/index.php?manual=Detect_Regional_Ploidy.html).
+Other mechanisms of loss of TSG expression include pathogenic sequence variants, epigenetic silencing, different types of CNV such as duplications [@li2020], and copy-neutral LOH.
+Copy-neutral LOH arises when a cell repairs DNA damage to a particular allele of a gene by copying the other allele.
+If the allele used for the repair contains a deleterious variant, such as a pathogenic sequence variant or a gene deletion, the genotype of the cell changes from being monoallelic for the variant to being biallelic.
+Copy-neutral LOH is a frequent pathogenic mechanism in multiple cancer types, including colorectal cancer [@melcher2007], and is similar but distinct from copy-loss LOH.
+In this way, LOH is an attribute of particular ploidy states, as shown in @tbl-clc-ploidy-states, which is reproduced from the [Qiagen CLC manual](https://resources.qiagenbioinformatics.com/manuals/biomedicalgenomicsanalysis/2400/index.php?manual=Detect_Regional_Ploidy.html).
 
 ```{r}
 #| label: tbl-clc-ploidy-states
@@ -371,60 +335,30 @@ kable(tbl_clc_ploidy_states)
 
 ```
 
-Different mechanisms of loss of TSG expression can combine within the same
-cell to cause cancer. One example is the common inactivation of the 
-*TP53* gene through a
-missense variant on one allele and a mono-allelic loss of
-chromosome 17p on the other allele [@bendavid2020; @levine2020]. 
-Conversely, a gene loss may be due to a 
-biallelic event, such as the recurrent focal bi-allelic deletion of 
-the *CDKN2A* and *CDKN2B* genes in
-central nervous system tumours [@louis2021].
+Different mechanisms of loss of TSG expression can combine within the same cell to cause cancer.
+One example is the common inactivation of the *TP53* gene through a missense variant on one allele and a mono-allelic loss of chromosome 17p on the other allele [@bendavid2020; @levine2020].
+Conversely, a gene loss may be due to a biallelic event, such as the recurrent focal bi-allelic deletion of the *CDKN2A* and *CDKN2B* genes in central nervous system tumours [@louis2021].
 
 ## Germline variants
 
-Gene deletions can occur in somatic tissues, or
-may be found in a patient's germline, which increases the likelihood of 
-developing cancer. For example, germline deletions in the DNA mis-match repair
-(MMR)  genes *MLH1*, *MSH2*, *MSH6* and *PMS2* cause an increased risk of 
-colorectal cancer, referred to as Lynch syndrome, whilst deletions in the 
-*NF2* gene cause *NF2*-related Schwannomatosis [@hadfield2010].
-Therefore, when a deleterious TSG variant, such as a deletion, is 
-detected in tumour sample, reflex testing of lymphocyte DNA can identify if the
-variant is present in the patient's germline, which would warrant 
-screening for future cancer development. In addition, detection of copy-neutral 
-LOH at a TSG locus within a tumour
-can be helpful when no germline variant has been found, as it provides further 
-evidence that the cancer has arisen sporadically, rather than through an
-undetected germline predisposition.
+Gene deletions can occur in somatic tissues, or may be found in a patient's germline, which increases the likelihood of developing cancer.
+For example, germline deletions in the DNA mis-match repair (MMR) genes *MLH1*, *MSH2*, *MSH6* and *PMS2* cause an increased risk of colorectal cancer, referred to as Lynch syndrome, whilst deletions in the *NF2* gene cause *NF2*-related Schwannomatosis [@hadfield2010].
+Therefore, when a deleterious TSG variant, such as a deletion, is detected in tumour sample, reflex testing of lymphocyte DNA can identify if the variant is present in the patient's germline, which would warrant screening for future cancer development.
+In addition, detection of copy-neutral LOH at a TSG locus within a tumour can be helpful when no germline variant has been found, as it provides further evidence that the cancer has arisen sporadically, rather than through an undetected germline predisposition.
 
 ## Target genes
 
-The aim of this validation was to detect deletions in 
-`r length(unique(del_val_collated_del_genes$gene))`
-TSGs on the PanSolid v2 QIAseq enrichment 
-(@tbl-deletion-gene-targets, Appendix). These genes were
-selected based on the specifications of the 
-[NHS Genomic Test Directory for Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/). Ploidy state was determined for 
-`r length(loh_genes)`
-genes involved with inherited 
-predisposition to colorectal tumours (*MSH2*, *MSH6*, *MLH1* and *PMS2*) and
-Schwannomas (*LZTR1*, *SMARCB1* and *NF2*). 
+The aim of this validation was to detect deletions in `r length(unique(del_val_collated_del_genes$gene))` TSGs on the PanSolid v2 QIAseq enrichment (@tbl-deletion-gene-targets, Appendix).
+These genes were selected based on the specifications of the [NHS Genomic Test Directory for Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/).
+Ploidy state was determined for `r length(loh_genes)` genes involved with inherited predisposition to colorectal tumours (*MSH2*, *MSH6*, *MLH1* and *PMS2*) and Schwannomas (*LZTR1*, *SMARCB1* and *NF2*).
 
-For gene deletions there was a 
-particular focus on *CDKN2A*, *CDKN2B* 
-and *PTEN*, as these 
-deletions are frequently found in glioblastoma samples, which comprised the
-main tumour type in the testing cohort.
+For gene deletions there was a particular focus on *CDKN2A*, *CDKN2B* and *PTEN*, as these deletions are frequently found in glioblastoma samples, which comprised the main tumour type in the testing cohort.
 
 ### *CDKN2A* and *CDKN2B*
 
-The *CDKN2A* and *CDKN2B* genes are adjacent to each other on chromosome 9,
-separated by roughly 20 kilobases (kb). The *CDKN2A* gene encodes 2 key
-transcripts which produce two separate proteins: p16INK4a and p14ARF 
-[@quelle1995] (@tbl-cdkn2a-details). Both proteins have
-important roles in cell growth regulation, and deletion of *CDKN2A* 
-contributes to tumour proliferation [@appay2019]. 
+The *CDKN2A* and *CDKN2B* genes are adjacent to each other on chromosome 9, separated by roughly 20 kilobases (kb).
+The *CDKN2A* gene encodes 2 key transcripts which produce two separate proteins: p16INK4a and p14ARF [@quelle1995] (@tbl-cdkn2a-details).
+Both proteins have important roles in cell growth regulation, and deletion of *CDKN2A* contributes to tumour proliferation [@appay2019].
 
 ```{r}
 #| label: tbl-cdkn2a-details
@@ -543,148 +477,84 @@ fig_cdkn2a_locus
 
 ```
 
-Due to their proximity, *CDKN2A* and *CDKN2B* are frequently deleted together,
-and this co-deletion of these loci may be abbreviated to *CDKN2A/B*. However
-there are less common cases where only one gene is deleted. For example, 
-@gonzálezgil2021 reported that in 20% of acute lymphoblastic leukaemia only 
-one of *CDKN2A* or *CDKN2B* was lost. Biallelic *CDKN2A/B* deletion is
-included in the fifth edition 
-of the World Health Organisation Classification
-of Tumours of the Central Nervous System [@louis2021], and is associated with
-poor prognosis in multiple types of brain tumour [@sievers2020; @yuile2023].
+Due to their proximity, *CDKN2A* and *CDKN2B* are frequently deleted together, and this co-deletion of these loci may be abbreviated to *CDKN2A/B*.
+However there are less common cases where only one gene is deleted.
+For example, @gonzálezgil2021 reported that in 20% of acute lymphoblastic leukaemia only one of *CDKN2A* or *CDKN2B* was lost.
+Biallelic *CDKN2A/B* deletion is included in the fifth edition of the World Health Organisation Classification of Tumours of the Central Nervous System [@louis2021], and is associated with poor prognosis in multiple types of brain tumour [@sievers2020; @yuile2023].
 
-The size of deletions at the *CDKN2A/B* locus vary. @vieler2023 used optical
-genome mapping to characterise *CDKN2A/B* deletions in acute lymphoblastic
-leukaemia, showing deletions ranging from 24 kb to 34 Megabases (Mb). 
-@hamid2019 analysed *CDKN2A* deletions reported on the COSMIC
-database and calculated a median deletion length of 1.2 Mb.
-Germline *CDKN2A* mutations increase predisposition to melanoma 
-[@toussi2020; @ming2020], 
-whilst a single publication links germline mutations in *CDKN2B* to renal cell
-carcinoma [@jafri2015]. Germline deletions spanning both *CDKN2A* and
-*CDKN2B* have been reported [@jensen2022].
+The size of deletions at the *CDKN2A/B* locus vary.
+@vieler2023 used optical genome mapping to characterise *CDKN2A/B* deletions in acute lymphoblastic leukaemia, showing deletions ranging from 24 kb to 34 Megabases (Mb).
+@hamid2019 analysed *CDKN2A* deletions reported on the COSMIC database and calculated a median deletion length of 1.2 Mb.
+Germline *CDKN2A* mutations increase predisposition to melanoma [@toussi2020; @ming2020], whilst a single publication links germline mutations in *CDKN2B* to renal cell carcinoma [@jafri2015].
+Germline deletions spanning both *CDKN2A* and *CDKN2B* have been reported [@jensen2022].
 
 ### *PTEN*
 
 The *PTEN* gene is deleted in many different cancer types [@alvarezgarcia2019].
-Germline mutations in *PTEN* cause PTEN hamartoma tumour syndrome [@yehia2020],
-and germline deletions in *PTEN* can either encompass the whole gene or 
-include only certain exons [@zhou2003]. 
+Germline mutations in *PTEN* cause PTEN hamartoma tumour syndrome [@yehia2020], and germline deletions in *PTEN* can either encompass the whole gene or include only certain exons [@zhou2003].
 
 ## Detection of gene deletions and ploidy states
 
-Somatic deletions were originally characterised using karyotyping and
-fluorescence in-situ hybridisation (FISH). These cytogenetic techniques can
-view cancers at a single-cell resolution. Over the last 25 years, there has
-been increasing development of molecular methods for detection of somatic CNVs
-and ploidy states, beginning with array comparative genome hybridisation
-(CGH) and 
-single-nucleotide polymorphism (SNP)
-microarrays [@das2013; @spence2022], before progressing to 
-Illumina short-read
-NGS of gene-panels [@conroy2021; @glodzik2023], 
-exomes [@zare2017] and genomes [@yi2023; @sosinsky2024]. The majority of NGS 
-approaches use a depth-of-coverage approach:
-the number of sequencing reads mapping to a locus is used to infer the copy
-number of that locus within the sample. This approach was based on initial
-array approaches, in which the signal intensity from a probe was used to infer
-the locus copy number [@teo2012].
+Somatic deletions were originally characterised using karyotyping and fluorescence in-situ hybridisation (FISH).
+These cytogenetic techniques can view cancers at a single-cell resolution.
+Over the last 25 years, there has been increasing development of molecular methods for detection of somatic CNVs and ploidy states, beginning with array comparative genome hybridisation (CGH) and single-nucleotide polymorphism (SNP) microarrays [@das2013; @spence2022], before progressing to Illumina short-read NGS of gene-panels [@conroy2021; @glodzik2023], exomes [@zare2017] and genomes [@yi2023; @sosinsky2024].
+The majority of NGS approaches use a depth-of-coverage approach: the number of sequencing reads mapping to a locus is used to infer the copy number of that locus within the sample.
+This approach was based on initial array approaches, in which the signal intensity from a probe was used to infer the locus copy number [@teo2012].
 
 ### Challenges
 
-Whilst array and NGS approaches can define genomic losses more precisely than
-previous cytogenetic techniques, they do not allow single-cell resolution.
-Instead, DNA from millions of cancer and stromal cells is homogenised and
-analysed simultaneously within the same experiment. As a result, identifying
-somatic CNVs and ploidy states by these methods is confounded by 
-three biological factors:
+Whilst array and NGS approaches can define genomic losses more precisely than previous cytogenetic techniques, they do not allow single-cell resolution.
+Instead, DNA from millions of cancer and stromal cells is homogenised and analysed simultaneously within the same experiment.
+As a result, identifying somatic CNVs and ploidy states by these methods is confounded by three biological factors:
 
-- **Neoplastic cell content (NCC):** the neoplastic cell content is the 
-proportion of tumour cells within a sample. NCC may also be referred to as 
-tumour purity or cancer cell fraction. The NCC can vary significantly and this 
-impacts the sensitivity  of any copy-number technique. In addition, the normal 
-tissue may contain  germline genetic variation which may mask or alter the
-signal of somatic variation.
+-   **Neoplastic cell content (NCC):** the neoplastic cell content is the proportion of tumour cells within a sample.
+    NCC may also be referred to as tumour purity or cancer cell fraction.
+    The NCC can vary significantly and this impacts the sensitivity of any copy-number technique.
+    In addition, the normal tissue may contain germline genetic variation which may mask or alter the signal of somatic variation.
 
-- **Ploidy:** cancer cells frequently deviate from a standard diploid
-chromosome complement to become polyploid. Polyploidy arises across many
-different cancer types, usually arising after mitotic replication without
-cytokinesis, known as endoreplication, which multiplies the genome within a
-single cell [@conway2024].
+-   **Ploidy:** cancer cells frequently deviate from a standard diploid chromosome complement to become polyploid.
+    Polyploidy arises across many different cancer types, usually arising after mitotic replication without cytokinesis, known as endoreplication, which multiplies the genome within a single cell [@conway2024].
 
-- **Intra-tumoural heterogeneity:** cancers are composed  of diverse
-populations of cells, in which copy number changes may only found in specific
-sub-clones [@dagogojack2018]. Analysing the homogenised DNA of tumours risks
-missing or misinterpreting the contributions from low-level, but
-clinically significant, cell populations.
+-   **Intra-tumoural heterogeneity:** cancers are composed of diverse populations of cells, in which copy number changes may only found in specific sub-clones [@dagogojack2018].
+    Analysing the homogenised DNA of tumours risks missing or misinterpreting the contributions from low-level, but clinically significant, cell populations.
 
-In addition, depth-of-coverage methods for CNV detection are also impacted by
-technical variation within samples, including, but not limited to:
+In addition, depth-of-coverage methods for CNV detection are also impacted by technical variation within samples, including, but not limited to:
 
-- **GC content:** the GC content of DNA fragments can alter the read count
-in short-read NGS in a non-linear fashion, with both high and low GC contents
-associated with reduced sequencing depth [@benjamini2012]. Various statistical
-methods have been developed to attempt to correct for this bias [@teo2012].
+-   **GC content:** the GC content of DNA fragments can alter the read count in short-read NGS in a non-linear fashion, with both high and low GC contents associated with reduced sequencing depth [@benjamini2012].
+    Various statistical methods have been developed to attempt to correct for this bias [@teo2012].
 
-- **Formalin fixation:** the process of fixing tumour samples in formalin
-chemically modifies DNA, leading to shorter DNA fragments and non-uniform 
-sequencing coverage [@steiert2023]. 
+-   **Formalin fixation:** the process of fixing tumour samples in formalin chemically modifies DNA, leading to shorter DNA fragments and non-uniform sequencing coverage [@steiert2023].
 
 ### Approaches
 
-Purity, ploidy and intra-tumoural heterogeneity create a problem: the analysis 
-method must take data from a bulk-sequenced sample and attempt to separate out,
-or "deconvolute", 
-the underlying genomic complexity [@gao2020; @chandramohan2022]. A pragmatic 
-approach is to combine sequence dosage and allele-frequency 
-analysis, which was 
-first introduced by combining array CGH and SNP-arrays [@zhao2004; @vanloo2010; 
-@gardina2008] and has since been adopted for NGS approaches [@carter2012]. These
-approaches frequently employ Hidden Markov Models (HMMs): statistical models
-which use raw data to select the most likely copy number and ploidy state 
-from a series of
-possible states [@seiser2014].
+Purity, ploidy and intra-tumoural heterogeneity create a problem: the analysis method must take data from a bulk-sequenced sample and attempt to separate out, or "deconvolute", the underlying genomic complexity [@gao2020; @chandramohan2022].
+A pragmatic approach is to combine sequence dosage and allele-frequency analysis, which was first introduced by combining array CGH and SNP-arrays [@zhao2004; @vanloo2010; @gardina2008] and has since been adopted for NGS approaches [@carter2012].
+These approaches frequently employ Hidden Markov Models (HMMs): statistical models which use raw data to select the most likely copy number and ploidy state from a series of possible states [@seiser2014].
 
-NGS analysis can be performed on a tumour sample ("tumour-only") or paired tumour 
-and germline samples, with paired analysis having the advantage of being able 
-to distinguish between somatic and germline variants [@jones2015]. Other 
-approaches which have shown promise for solving the challenges of purity, 
-ploidy and heterogeneity deconvolution include multiple tumour sequencing 
-[@zaccaria2020] and single-cell genome sequencing [@baslan2020]. However, these 
-techniques are expensive and experimental and consequently have not yet been
-clinically implemented. Notably, the WHO guidelines do not specify a technology 
-for CNV detection, which reflects the diversity of approaches used in clinical 
-laboratories [@neill2020].
+NGS analysis can be performed on a tumour sample ("tumour-only") or paired tumour and germline samples, with paired analysis having the advantage of being able to distinguish between somatic and germline variants [@jones2015].
+Other approaches which have shown promise for solving the challenges of purity, ploidy and heterogeneity deconvolution include multiple tumour sequencing [@zaccaria2020] and single-cell genome sequencing [@baslan2020].
+However, these techniques are expensive and experimental and consequently have not yet been clinically implemented.
+Notably, the WHO guidelines do not specify a technology for CNV detection, which reflects the diversity of approaches used in clinical laboratories [@neill2020].
 
 ## Requirements {#sec-requirements}
 
 The requirements for this new method are as follows:
 
-1. **Results:** the test should provide clear results for the presence of 
-whole-gene deletion in the `r length(del_genes)` specified TSGs. The test
-should also provide results for the ploidy state, including copy-neutral
-LOH, of the following genes:
-*MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*.
+1.  **Results:** the test should provide clear results for the presence of whole-gene deletion in the `r length(del_genes)` specified TSGs.
+    The test should also provide results for the ploidy state, including copy-neutral LOH, of the following genes: *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*.
 
-2. **Analytical validity:** the test should have a defined sensitivity and 
-specificity, calculated by comparison with orthogonal methods.
+2.  **Analytical validity:** the test should have a defined sensitivity and specificity, calculated by comparison with orthogonal methods.
 
-3. **Dosage accuracy:** it should be shown how accurate the test is at detecting 
-monoallelic and biallelic deletions, in samples with a range of NCC values.
+3.  **Dosage accuracy:** it should be shown how accurate the test is at detecting monoallelic and biallelic deletions, in samples with a range of NCC values.
 
-4. **Quality control:** the test should have clear quality control thresholds
-for deciding when the test results should be reported and when the test has 
-failed.
+4.  **Quality control:** the test should have clear quality control thresholds for deciding when the test results should be reported and when the test has failed.
 
-5. **Variability:** the test should have defined variation for detection of 
-deletions. Analysis of this variation should then be used to derive the 
-uncertainty of measurement for the test.
+5.  **Variability:** the test should have defined variation for detection of deletions.
+    Analysis of this variation should then be used to derive the uncertainty of measurement for the test.
 
-6. **Visualisation:** the results should be presented in a clear and visual 
-manner.
+6.  **Visualisation:** the results should be presented in a clear and visual manner.
 
-7. **Analysis:** there should be a clear procedure for analysis for gene 
-deletions by laboratory staff.
+7.  **Analysis:** there should be a clear procedure for analysis for gene deletions by laboratory staff.
 
 {{< pagebreak >}}
 
@@ -707,12 +577,9 @@ samples_tested <- del_val_sample_patient_info |>
 
 ```
 
-Tumour samples from NHS cancer patients were tested at the North West GLH
-(Manchester site) for this validation.
-The majority of DNA samples were extracted from formalin-fixed 
-paraffin-embedded (FFPE) tissue using a QIAsymphony instrument (QIAgen) 
-([DOC6251]{custom-style="Strong"}). The majority of samples were taken from
-brain tumours (@tbl-cancer-types and @tbl-cns-cancer-types).
+Tumour samples from NHS cancer patients were tested at the North West GLH (Manchester site) for this validation.
+The majority of DNA samples were extracted from formalin-fixed paraffin-embedded (FFPE) tissue using a QIAsymphony instrument (QIAgen) ([DOC6251]{custom-style="Strong"}).
+The majority of samples were taken from brain tumours (@tbl-cancer-types and @tbl-cns-cancer-types).
 
 ```{r}
 #| label: tbl-cancer-types
@@ -737,8 +604,7 @@ kable(tbl_cancer_types)
 
 ```
 
-@tbl-cancer-types: this table does not include the SeraCare reference material
-control.
+@tbl-cancer-types: this table does not include the SeraCare reference material control.
 
 ```{r}
 #| label: tbl-cns-cancer-types
@@ -760,37 +626,18 @@ kable(tbl_cns_cancer_types)
 
 ## Next generation sequencing
 
-Samples were processed on the PanSolid v2 enrichment (CDHS-48608Z-11752)
-and sequenced with 2 x 150bp paired-end sequencing on an
-Illumina Novaseq 6000
-([DOC6278]{custom-style="Strong"}). 
-The PanSolid panel is a QIAseq enrichment containing primers
-for `r nrow(target_df)` genomic targets. 
-`r nrow(target_df[target_df$target_type == "gene target",])` targets lie within
-specific genes related to cancer, and a further 
- `r nrow(target_df[target_df$target_type == "genomic backbone",])`
-targets provide a genomic backbone for ploidy state prediction. Samples were
-tested on `r length(unique(del_val_pansolid_worksheet_details$pcrid))` 
-worksheets between 
-`r format.Date(x = min(del_val_pansolid_worksheet_details$date), format = "%B %Y")`
-and
-`r format.Date(x = max(del_val_pansolid_worksheet_details$date), format = "%B %Y")`.
+Samples were processed on the PanSolid v2 enrichment (CDHS-48608Z-11752) and sequenced with 2 x 150bp paired-end sequencing on an Illumina Novaseq 6000 ([DOC6278]{custom-style="Strong"}).
+The PanSolid panel is a QIAseq enrichment containing primers for `r nrow(target_df)` genomic targets.
+`r nrow(target_df[target_df$target_type == "gene target",])` targets lie within specific genes related to cancer, and a further `r nrow(target_df[target_df$target_type == "genomic backbone",])` targets provide a genomic backbone for ploidy state prediction.
+Samples were tested on `r length(unique(del_val_pansolid_worksheet_details$pcrid))` worksheets between `r format.Date(x = min(del_val_pansolid_worksheet_details$date), format = "%B %Y")` and `r format.Date(x = max(del_val_pansolid_worksheet_details$date), format = "%B %Y")`.
 
 ## PanSolid CLC bioinformatics pipeline
 
 A bioinformatics pipeline was built in the CLC Genomics Workbench v23 (Qiagen).
-The details of the pipeline are described in the validation documents for 
-detection of *ERBB2* amplifications ([DOC6260]{custom-style="Strong"}) and 
-8 additional amplifications ([DOC6283]{custom-style="Strong"}).
-The graining level for
-each gene, which defines the resolution of the analysis for detecting CNVs of
-different sizes, was set based on the number of targets present 
-within the gene (@tbl-deletion-gene-targets). 
-The 
-version of the PanSolid CLC pipeline tested in this validation was PanSolid 
-Workflow v2.4. Broadly speaking, the pipeline includes two different 
-components for detection of copy number and ploidy: the CNV Detection tool and
-the Detect Regional Ploidy tool (@fig-clc-pipeline).
+The details of the pipeline are described in the validation documents for detection of *ERBB2* amplifications ([DOC6260]{custom-style="Strong"}) and 8 additional amplifications ([DOC6283]{custom-style="Strong"}).
+The graining level for each gene, which defines the resolution of the analysis for detecting CNVs of different sizes, was set based on the number of targets present within the gene (@tbl-deletion-gene-targets).
+The version of the PanSolid CLC pipeline tested in this validation was PanSolid Workflow v2.4.
+Broadly speaking, the pipeline includes two different components for detection of copy number and ploidy: the CNV Detection tool and the Detect Regional Ploidy tool (@fig-clc-pipeline).
 
 ```{r}
 #| label: clc-pipline-diagram
@@ -806,27 +653,18 @@ of deleted and non-deleted regions."
 
 ```
 
-![`r caption_clc_pipeline`](`r path_clc_pipeline`){#fig-clc-pipeline width=5in}
+![`r caption_clc_pipeline`](`r path_clc_pipeline`){#fig-clc-pipeline width="5in"}
 
 ### Gene lists and graining levels
 
-Deletions were detected in `r length(del_genes)` genes with the graining levels
-specified in @tbl-deletion-gene-targets (Appendix). Detection of amplifications 
-was performed for the 9 genes specified in 
-[DOC6283]{custom-style="Strong"} plus an additional four genes: *CDK12*, 
-*FGFR1*, *FGFR2* and *FGFR3*. Amplification detection for these four genes was
-added to the NHS Genomic Medicine Test Directory since the validation of
-amplification detection on PanSolid NGS. *CDK12* has both 
-tumour-suppressor and oncogenic effects on cancer development
-[@paculova2017] and was analysed for both amplifications and deletions.
+Deletions were detected in `r length(del_genes)` genes with the graining levels specified in @tbl-deletion-gene-targets (Appendix).
+Detection of amplifications was performed for the 9 genes specified in [DOC6283]{custom-style="Strong"} plus an additional four genes: *CDK12*, *FGFR1*, *FGFR2* and *FGFR3*.
+Amplification detection for these four genes was added to the NHS Genomic Medicine Test Directory since the validation of amplification detection on PanSolid NGS. *CDK12* has both tumour-suppressor and oncogenic effects on cancer development [@paculova2017] and was analysed for both amplifications and deletions.
 
 ### Deletion detection by fold change {#sec-methods-fold-change}
 
-The PanSolid CLC pipeline calculates the "fold change" of a copy number region in
-comparison the results from a cohort of 25 normal controls (described in 
-[DOC6260]{custom-style="Strong"}).
-Two separate equations are used for calculating the fold change of copy number
-gains ([@eq-fold-change-gain]) and copy number losses ([@eq-fold-change-loss]).
+The PanSolid CLC pipeline calculates the "fold change" of a copy number region in comparison the results from a cohort of 25 normal controls (described in [DOC6260]{custom-style="Strong"}).
+Two separate equations are used for calculating the fold change of copy number gains ([@eq-fold-change-gain]) and copy number losses ([@eq-fold-change-loss]).
 
 $$
 FCgain = CNsample / CNnormal
@@ -860,19 +698,10 @@ fold_change_df <- data.frame(ncc = seq(0, 100, by = 0.1)) |>
 
 ```
 
-The NCC of a sample and the number of gene copies per cell both impact the total
-measured fold change and copy number of a sample, with fold change providing a 
-greater distinction between biallelic and monoallelic deletions, as shown in 
-@fig-fold-change-vs-ncc and @fig-fold-change-vs-cn. Whilst fold change levels 
-from -1 to -2 can be associated with either monoallelic or biallelic deletions
-depending on the sample NCC, fold changes less than -2 are predicted solely
-for biallelic deletions in samples with 50% NCC or greater.
-Initially, the fold change threshold 
-was set at
-`r round(deletion_fc_threshold_theoretical,2)`
-as this was the predicted fold change for a sample with a monoallelic deletion 
-at 50% NCC. Following initial testing of samples, this was modified to
-`r deletion_fc_threshold` to increase the sensitivity of the technique.
+The NCC of a sample and the number of gene copies per cell both impact the total measured fold change and copy number of a sample, with fold change providing a greater distinction between biallelic and monoallelic deletions, as shown in @fig-fold-change-vs-ncc and @fig-fold-change-vs-cn.
+Whilst fold change levels from -1 to -2 can be associated with either monoallelic or biallelic deletions depending on the sample NCC, fold changes less than -2 are predicted solely for biallelic deletions in samples with 50% NCC or greater.
+Initially, the fold change threshold was set at `r round(deletion_fc_threshold_theoretical,2)` as this was the predicted fold change for a sample with a monoallelic deletion at 50% NCC.
+Following initial testing of samples, this was modified to `r deletion_fc_threshold` to increase the sensitivity of the technique.
 
 ```{r}
 #| label: fig-fold-change-vs-ncc
@@ -943,30 +772,22 @@ fig_fold_change_vs_cn
 
 ### Ploidy state detection {#sec-methods-ploidy-detection}
 
-The ploidy status of copy number segments was predicted using the CLC
-"Detect Regional Ploidy" tool with the "Region-level Ploidy Track". This uses
-a HMM to predict ploidy based on SNP and coverage data, which 
-is influenced by @beroukhim2006. The different ploidy states categorised by the
-ploidy caller are summarised in @tbl-clc-ploidy-states. As part of the prediction
-of ploidy states, the Detect Regional Ploidy tool calculates the predicted
-NCC of the sample. The lower threshold for NCC prediction was set at 20%.
+The ploidy status of copy number segments was predicted using the CLC "Detect Regional Ploidy" tool with the "Region-level Ploidy Track".
+This uses a HMM to predict ploidy based on SNP and coverage data, which is influenced by @beroukhim2006.
+The different ploidy states categorised by the ploidy caller are summarised in @tbl-clc-ploidy-states.
+As part of the prediction of ploidy states, the Detect Regional Ploidy tool calculates the predicted NCC of the sample.
+The lower threshold for NCC prediction was set at 20%.
 
 ### Visualisation
 
-Bespoke scripts were written in the Python programming language to annotate and
-visualise the data output from the CLC pipeline. Results were exported into
-a curated Microsoft Excel file for each sample, which included details of
-detected deletions and ploidy predictions (@fig-24021613-visualisation). In the
-previous validation, an HTML file format was developed to allow 
-analysts to interact with copy number data across the genome for each sample.
-This format was updated to include deletion detection and the predictions of the Detect
-Regional Ploidy tool were used to colour the target log2 ratios
-(@fig-24021613-visualisation section C). A visualisation
-of allele frequency was also added, displaying 
-the read depth percentages of variants filtered by the following criteria:
+Bespoke scripts were written in the Python programming language to annotate and visualise the data output from the CLC pipeline.
+Results were exported into a curated Microsoft Excel file for each sample, which included details of detected deletions and ploidy predictions (@fig-24021613-visualisation).
+In the previous validation, an HTML file format was developed to allow analysts to interact with copy number data across the genome for each sample.
+This format was updated to include deletion detection and the predictions of the Detect Regional Ploidy tool were used to colour the target log2 ratios (@fig-24021613-visualisation section C).
+A visualisation of allele frequency was also added, displaying the read depth percentages of variants filtered by the following criteria:
 
-1) The variant was in a Genome In A Bottle high-confidence region
-2) The variant had a frequency greater than 4%
+1)  The variant was in a Genome In A Bottle high-confidence region
+2)  The variant had a frequency greater than 4%
 
 ```{r}
 #| label: visualisation-image
@@ -980,63 +801,36 @@ CLC pipeline (sample 24021613, WS146523, panel v2PANSOLID)."
 
 ```
 
-![`r caption_24021613`](`r path_24021613`){#fig-24021613-visualisation height=7in}
+![`r caption_24021613`](`r path_24021613`){#fig-24021613-visualisation height="7in"}
 
 {{< pagebreak >}}
 
 ### Quality control
 
-The signal-adjusted noise quality control metric was developed during 
-the *ERBB2* amplification validation and is described in detail in 
-[DOC6260]{custom-style="Strong"}. In addition,
-the percentage of the panel BED targets covered at 138X or higher was used as
-a further quality metric. A threshold of 75% was set for this metric following
-*in silico* down-sampling experiments performed for 
-[INC9967]{custom-style="Strong"}.
+The signal-adjusted noise quality control metric was developed during the *ERBB2* amplification validation and is described in detail in [DOC6260]{custom-style="Strong"}.
+In addition, the percentage of the panel BED targets covered at 138X or higher was used as a further quality metric.
+A threshold of 75% was set for this metric following *in silico* down-sampling experiments performed for [INC9967]{custom-style="Strong"}.
 
 ## Orthogonal testing
 
-Results from the PanSolid NGS process for the sample cohort were compared to
-results from 4 other methods: whole genome sequencing (WGS), droplet digital
-PCR (ddPCR), PCR-based LOH testing and NGS testing on the QIAseq Merged
-enrichment.
+Results from the PanSolid NGS process for the sample cohort were compared to results from 4 other methods: whole genome sequencing (WGS), droplet digital PCR (ddPCR), PCR-based LOH testing and NGS testing on the QIAseq Merged enrichment.
 
 ### Whole genome sequencing
 
-WGS was performed by Illumina Laboratory 
-Services in Cambridge as part of the NHS Genomic
-Medicine Service [@sosinsky2024]
-on paired blood and fresh frozen tumour samples. PanSolid NGS was performed
-on DNA from FFPE samples which were taken from the same tumours as the 
-fresh frozen tissue samples
-tested by WGS, as determined by matching 
-pathology identifiers. Genomics England requires solid tumour samples to 
-NCC values of at least 30% with less than 20% cell necrosis.
-Bioinformatic analysis was
-performed by Genomics England, and HTML reports were downloaded from the 
-Genomics
-England [clinical interpretation portal](https://cipapi.genomicsengland.nhs.uk/interpretationportal/gms/). The
-samples included in this validation are comprised of those previously tested as
-part of the validation of amplification detection 
-[DOC6283]{custom-style="Strong"}, plus additional samples with specific gene
-deletions detected on WGS.
-Within the Genomics England WGS pipeline, tumour ploidy and chromosome 
-count were calculated by the Canvas algorithm [@roller2016].  
-Whilst Canvas predicts tumour purity, the tumour purity stated on the 
-final HTML report is predicted using the Ccube package [@yuan2018]. 
+WGS was performed by Illumina Laboratory Services in Cambridge as part of the NHS Genomic Medicine Service [@sosinsky2024] on paired blood and fresh frozen tumour samples.
+PanSolid NGS was performed on DNA from FFPE samples which were taken from the same tumours as the fresh frozen tissue samples tested by WGS, as determined by matching pathology identifiers.
+Genomics England requires solid tumour samples to NCC values of at least 30% with less than 20% cell necrosis.
+Bioinformatic analysis was performed by Genomics England, and HTML reports were downloaded from the Genomics England [clinical interpretation portal](https://cipapi.genomicsengland.nhs.uk/interpretationportal/gms/).
+The samples included in this validation are comprised of those previously tested as part of the validation of amplification detection [DOC6283]{custom-style="Strong"}, plus additional samples with specific gene deletions detected on WGS.
+Within the Genomics England WGS pipeline, tumour ploidy and chromosome count were calculated by the Canvas algorithm [@roller2016].\
+Whilst Canvas predicts tumour purity, the tumour purity stated on the final HTML report is predicted using the Ccube package [@yuan2018].
 
 ### Droplet digital PCR
 
-ddPCR assays were designed for the *CDKN2A* and 
-*PTEN* genes. ddPCR was performed on a BioRad QX200 system at the North West
-GLH with 20ng DNA input per well.
-The ddPCR
-assays were validated on WS146103 and samples were tested on WS146462 and 
-WS146463.
-The same ddPCR mix volumes and thermocycling conditions were used as for the 
-previous validations of amplification detection, and are detailed in 
-the Supplementary 
-Information of [DOC6283]{custom-style="Strong"}.
+ddPCR assays were designed for the *CDKN2A* and *PTEN* genes.
+ddPCR was performed on a BioRad QX200 system at the North West GLH with 20ng DNA input per well.
+The ddPCR assays were validated on WS146103 and samples were tested on WS146462 and WS146463.
+The same ddPCR mix volumes and thermocycling conditions were used as for the previous validations of amplification detection, and are detailed in the Supplementary Information of [DOC6283]{custom-style="Strong"}.
 
 ### PCR loss of heterozgosity testing: *NF2*
 
@@ -1064,21 +858,11 @@ nf2_loh_targets <- target_df_with_coordinates |>
 
 ```
 
-DNA samples with results from polymerase chain reaction (PCR) 
-microsatellite testing of the *NF2* gene were used to
-validate the ability of the CLC Detect Regional Ploidy tool to detect regions of 
-copy-loss and copy-neutral LOH. At 
-the North West GLH, LOH testing for *NF2* is performed by targeting 4 dinucleotide 
-microsatellite repeat markers (D22S275, NF2CA3, NF2intron10 and
-D22S268) spanning `r nf2_marker_mb` Mb of chromosome 22 (@tbl-nf2-markers).
-The fluorescence-labelled PCR 
-products for paired
-DNA samples from tumour and blood are analysed on an ABI-3130 analyser 
-([LP 000 069: Neurofibromatosis type 2 (NF2): Standard Operating
-Procedure]{custom-style="Strong"}). A relative loss of peak height greater than 
-30% between tumour DNA and blood DNA is used to classify 
-"significant LOH" [@wallace2004]. Results for the NF2 LOH PCR assays were 
-extracted from the DNA Database using a bespoke R script.
+DNA samples with results from polymerase chain reaction (PCR) microsatellite testing of the *NF2* gene were used to validate the ability of the CLC Detect Regional Ploidy tool to detect regions of copy-loss and copy-neutral LOH.
+At the North West GLH, LOH testing for *NF2* is performed by targeting 4 dinucleotide microsatellite repeat markers (D22S275, NF2CA3, NF2intron10 and D22S268) spanning `r nf2_marker_mb` Mb of chromosome 22 (@tbl-nf2-markers).
+The fluorescence-labelled PCR products for paired DNA samples from tumour and blood are analysed on an ABI-3130 analyser ([LP 000 069: Neurofibromatosis type 2 (NF2): Standard Operating Procedure]{custom-style="Strong"}).
+A relative loss of peak height greater than 30% between tumour DNA and blood DNA is used to classify "significant LOH" [@wallace2004].
+Results for the NF2 LOH PCR assays were extracted from the DNA Database using a bespoke R script.
 
 ```{r}
 #| label: tbl-nf2-markers
@@ -1096,22 +880,15 @@ kable(nf2_loh_markers |>
 
 ### NGS loss of heterozygosity testing: *MLH1*, *MSH2* and *MSH6*
 
-4 samples previously tested on the "Merged" QIAseq panel for LOH in the  
-*MLH1*, *MSH2* and *MSH6* genes were tested using the PanSolid enrichment on 
-WS150529.
+4 samples previously tested on the "Merged" QIAseq panel for LOH in the\
+*MLH1*, *MSH2* and *MSH6* genes were tested using the PanSolid enrichment on WS150529.
 
 ## Validation analysis
 
-All data analysis for this validation document was performed in R version 4.4.1
-[@rcore2024] using 
-multiple packages 
-including the tidyverse [@wickham2019]. Sensitivity and specificity metrics
-were calculated using the epiR package [@stevenson2008] and fold change
-conversions performed using the foldchanger package (v1.0.0) [@shaw2024].
-This validation document is written and
-rendered with Quarto [@allaire2024].
-All analysis scripts are saved in a public Github repository:
-[https://github.com/joe-m-shaw/pansolid-cnv](https://github.com/joe-m-shaw/pansolid-cnv)
+All data analysis for this validation document was performed in R version 4.4.1 [@rcore2024] using multiple packages including the tidyverse [@wickham2019].
+Sensitivity and specificity metrics were calculated using the epiR package [@stevenson2008] and fold change conversions performed using the foldchanger package (v1.0.0) [@shaw2024].
+This validation document is written and rendered with Quarto [@allaire2024].
+All analysis scripts are saved in a public Github repository: <https://github.com/joe-m-shaw/pansolid-cnv>
 
 All data analysed in this validation is saved at this file location:
 
@@ -1271,40 +1048,16 @@ sig_cnvs_with_manual_review <- sig_cnvs_with_qc_mod |>
 
 ```
 
-In total, `r nrow(noise_138x_ncc)` replicates from 
-`r length(unique(noise_138x_ncc$labno))` DNA samples were tested on the PanSolid
-enrichment and analysed with the PanSolid CLC pipeline.
-Of these, `r nrow(results_passing_qc)` replicates had signal-adjusted noise 
-values below 0.7 and percentage coverage at 138X greater than 75%.
-There was a clear relationship between the size of the detected deletions and
-their fold changes (@fig-cnv-size-distribution); shorter focal deletions had
-lower fold change values, consistent with biallelic losses, and 95% of regions 
-with fold changes below -2 were less than 10 Megabases (Mb) in length.
+In total, `r nrow(noise_138x_ncc)` replicates from `r length(unique(noise_138x_ncc$labno))` DNA samples were tested on the PanSolid enrichment and analysed with the PanSolid CLC pipeline.
+Of these, `r nrow(results_passing_qc)` replicates had signal-adjusted noise values below 0.7 and percentage coverage at 138X greater than 75%.
+There was a clear relationship between the size of the detected deletions and their fold changes (@fig-cnv-size-distribution); shorter focal deletions had lower fold change values, consistent with biallelic losses, and 95% of regions with fold changes below -2 were less than 10 Megabases (Mb) in length.
 
-`r nrow(sig_cnvs_with_manual_review)` target gene regions with fold changes 
-lower than the 
-`r deletion_fc_threshold` threshold were detected. 
-Deletions were detected in all 
-`r length(unique(del_val_collated_del_genes$gene))` target genes 
-(@fig-cnv-gene-frequency), with fold changes 
-ranging from 
-`r max(sig_cnvs_passing_qc$fold_change)` to
-`r min(sig_cnvs_passing_qc$fold_change)`, and CNV lengths ranging from
-`r round(min(sig_cnvs_passing_qc$cnv_length)/1000,1)` kb to 
-`r round(max(sig_cnvs_passing_qc$cnv_length)/1000000,1)` Mb. 
-In `r intragenic_region_changes` (`r intragenic_region_percent`%) results, 
-there was more than one fold change region detected within a gene. In the results
-passing the quality thresholds, the number of detected deletion regions per
-case ranged from
-`r min(loss_count_df_qc$calls)` to 
-`r max(loss_count_df_qc$calls)` (median
-`r median(loss_count_df_qc$calls)`)
-and there was a marked difference in the number of calls between different
-cancer types (@fig-calls-by-cancer-type). The three 
-genes with the most detected deletions were *PTEN*, *CDKN2A* and *PTEN*. This was
-likely due to ascertainment bias as these deletions are commonly detected in
-brain tumours, which comprised
-`r percent_cns`% of the samples tested (@tbl-cancer-types).
+`r nrow(sig_cnvs_with_manual_review)` target gene regions with fold changes lower than the `r deletion_fc_threshold` threshold were detected.
+Deletions were detected in all `r length(unique(del_val_collated_del_genes$gene))` target genes (@fig-cnv-gene-frequency), with fold changes ranging from `r max(sig_cnvs_passing_qc$fold_change)` to `r min(sig_cnvs_passing_qc$fold_change)`, and CNV lengths ranging from `r round(min(sig_cnvs_passing_qc$cnv_length)/1000,1)` kb to `r round(max(sig_cnvs_passing_qc$cnv_length)/1000000,1)` Mb.
+In `r intragenic_region_changes` (`r intragenic_region_percent`%) results, there was more than one fold change region detected within a gene.
+In the results passing the quality thresholds, the number of detected deletion regions per case ranged from `r min(loss_count_df_qc$calls)` to `r max(loss_count_df_qc$calls)` (median `r median(loss_count_df_qc$calls)`) and there was a marked difference in the number of calls between different cancer types (@fig-calls-by-cancer-type).
+The three genes with the most detected deletions were *PTEN*, *CDKN2A* and *PTEN*.
+This was likely due to ascertainment bias as these deletions are commonly detected in brain tumours, which comprised `r percent_cns`% of the samples tested (@tbl-cancer-types).
 
 ```{r}
 #| label: fig-cnv-size-distribution
@@ -1421,19 +1174,11 @@ del_calls_manual_review_pvalue_summary <- sig_cnvs_with_qc_mod_pval_cat |>
 
 ```
 
-All the deletion calls were manually reviewed using the Excel and HTML for each
-case. In some cases, the copy number statuses provided by the PanSolid 
-CNV caller, which
-are based on fold change, contrasted with the pattern in the SNP allele frequency
-view. For example, the PanSolid pipeline identified certain genes as being 
-deleted with fold changes slightly below the `r deletion_fc_threshold` fold change
-threshold, whilst
-SNP allele frequencies in the same region indicated a normal diploid state.
-In each case the deletion status of the gene was manually annotated
-as not having
-a deletion in the "Check 1" box of the analysis Excel file. 
-An example for 
-the *MUTYH* gene is shown in @fig-24030951-false-positive.
+All the deletion calls were manually reviewed using the Excel and HTML for each case.
+In some cases, the copy number statuses provided by the PanSolid CNV caller, which are based on fold change, contrasted with the pattern in the SNP allele frequency view.
+For example, the PanSolid pipeline identified certain genes as being deleted with fold changes slightly below the `r deletion_fc_threshold` fold change threshold, whilst SNP allele frequencies in the same region indicated a normal diploid state.
+In each case the deletion status of the gene was manually annotated as not having a deletion in the "Check 1" box of the analysis Excel file.
+An example for the *MUTYH* gene is shown in @fig-24030951-false-positive.
 
 ```{r}
 #| label: false-pos-image
@@ -1453,16 +1198,12 @@ block (23018367) did not detect a deletion in *MUTYH*."
 
 ```
 
-![`r caption_24030951`](`r path_24030951`){#fig-24030951-false-positive height=5in}
+![`r caption_24030951`](`r path_24030951`){#fig-24030951-false-positive height="5in"}
 
-In other cases, the reverse scenario was observed: the PanSolid pipeline 
-categorised genes as not being deleted with fold changes slightly above the
-`r deletion_fc_threshold` fold change threshold, whilst
-SNP allele frequencies indicated the loss of a large chromosomal region. An 
-example is shown in @fig-23024575-false-neg. In these cases, the missed genes
-were not manually annotated as having deletions. This was because it is 
-unrealistic to expect analysis staff to manually annotate deletions in this way when
-the pipeline does not draw their attention to a particular genomic region.
+In other cases, the reverse scenario was observed: the PanSolid pipeline categorised genes as not being deleted with fold changes slightly above the `r deletion_fc_threshold` fold change threshold, whilst SNP allele frequencies indicated the loss of a large chromosomal region.
+An example is shown in @fig-23024575-false-neg.
+In these cases, the missed genes were not manually annotated as having deletions.
+This was because it is unrealistic to expect analysis staff to manually annotate deletions in this way when the pipeline does not draw their attention to a particular genomic region.
 
 ```{r}
 #| label: wgs-false-neg-image
@@ -1482,21 +1223,11 @@ fold change threshold of-1.25."
 
 ```
 
-![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-neg height=5in}
+![`r caption_23024575`](`r path_23024575`){#fig-23024575-false-neg height="5in"}
 
-Of the 
-`r nrow(manually_reviewed_deletions)`
-significant deletions detected in samples which passed the quality control
-metrics, 
-`r nrow(manual_review_false_pos)`
-(`r percent_false_pos_calls`%)
-were categorised as not being deletions on
-manual review (@tbl-manual-review-summary). The p values of the CNV calls ranged from
-`r min(sig_cnvs_with_manual_review$p_value)` to
-`r max(round(sig_cnvs_with_manual_review$p_value, 3))`, and CNVs with p values
-above 0 were more likely to be classified as not being deletions on manual
-review (@tbl-manual-review-summary). The PanSolid pipeline does not report
-CNVs with p values above 0.05 as significant CNVs. 
+Of the `r nrow(manually_reviewed_deletions)` significant deletions detected in samples which passed the quality control metrics, `r nrow(manual_review_false_pos)` (`r percent_false_pos_calls`%) were categorised as not being deletions on manual review (@tbl-manual-review-summary).
+The p values of the CNV calls ranged from `r min(sig_cnvs_with_manual_review$p_value)` to `r max(round(sig_cnvs_with_manual_review$p_value, 3))`, and CNVs with p values above 0 were more likely to be classified as not being deletions on manual review (@tbl-manual-review-summary).
+The PanSolid pipeline does not report CNVs with p values above 0.05 as significant CNVs.
 
 ```{r}
 #| label: tbl-manual-review-summary
@@ -1520,24 +1251,11 @@ kable(del_calls_manual_review_pvalue_summary)
 
 ### *CDKN2A/B* and *PTEN* results
 
-A range of different deletions were detected at the *CDKN2A/B* and *PTEN* loci,
-which were both analysed on the fine graining level. Not all deletions at the
-*CDKN2A/B* locus encompassed both genes: there were four samples (24017040,
-24026819, 24029270 and 24048159) in which 
-*CDKN2A* but not *CDKN2B* was deleted, and two samples (24030966 and
-24025266) in which 
-*CDKN2B* was deleted with only exon 1b of the *CDKN2A*  NM_058195.4
-transcript
-(@fig-cdkn2a-results). 
-In some
-cases separate deletion calls were issued for *CDKN2A* and *CDKN2B* in the
-same sample with the same fold change,
-but these likely reflect a single underlying deletion. For *PTEN* the majority 
-of deletions included the entire gene region, but there were 2 samples (24047809 
-and 24034306) which showed small intragenic deletions
-(@fig-pten-results). These deletions appeared
-genuine when manually reviewed, but were not confirmed with ddPCR as the ddPCR
-assay targeted *PTEN* exon 1 which was not included in either deletion call.
+A range of different deletions were detected at the *CDKN2A/B* and *PTEN* loci, which were both analysed on the fine graining level.
+Not all deletions at the *CDKN2A/B* locus encompassed both genes: there were four samples (24017040, 24026819, 24029270 and 24048159) in which *CDKN2A* but not *CDKN2B* was deleted, and two samples (24030966 and 24025266) in which *CDKN2B* was deleted with only exon 1b of the *CDKN2A* NM_058195.4 transcript (@fig-cdkn2a-results).
+In some cases separate deletion calls were issued for *CDKN2A* and *CDKN2B* in the same sample with the same fold change, but these likely reflect a single underlying deletion.
+For *PTEN* the majority of deletions included the entire gene region, but there were 2 samples (24047809 and 24034306) which showed small intragenic deletions (@fig-pten-results).
+These deletions appeared genuine when manually reviewed, but were not confirmed with ddPCR as the ddPCR assay targeted *PTEN* exon 1 which was not included in either deletion call.
 
 ```{r}
 #| label: fig-cdkn2a-results
@@ -1712,19 +1430,10 @@ del_val_collated_loh_split <- del_val_collated_loh_mod |>
 
 ```
 
-Ploidy state regions impacting the  `r length(loh_genes)` target genes ranged from 
-`r min(del_val_collated_loh_split$no_targets_split)`-`r max(del_val_collated_loh_split$no_targets_split)` targets in length (median
-`r median(del_val_collated_loh_split$no_targets_split)`). 
-In 
-`r nrow(multiple_loh_calls)` out of 
-`r nrow(del_val_collated_loh_mod)` 
-results 
-(`r round(nrow(multiple_loh_calls) / nrow(del_val_collated_loh_mod)*100, 1)`%)
-there were multiple ploidy
-states predicted within the same gene. @fig-ploidy-caller-results shows the
-frequency of different ploidy state predictions across the 6 genes. A 
-similar pattern of ploidy state frequencies is seen for *LZTR1*, *SMARCB1* and
-*NF2* as these genes are located close to each other on chromosome 22q.
+Ploidy state regions impacting the `r length(loh_genes)` target genes ranged from `r min(del_val_collated_loh_split$no_targets_split)`-`r max(del_val_collated_loh_split$no_targets_split)` targets in length (median `r median(del_val_collated_loh_split$no_targets_split)`).
+In `r nrow(multiple_loh_calls)` out of `r nrow(del_val_collated_loh_mod)` results (`r round(nrow(multiple_loh_calls) / nrow(del_val_collated_loh_mod)*100, 1)`%) there were multiple ploidy states predicted within the same gene.
+@fig-ploidy-caller-results shows the frequency of different ploidy state predictions across the 6 genes.
+A similar pattern of ploidy state frequencies is seen for *LZTR1*, *SMARCB1* and *NF2* as these genes are located close to each other on chromosome 22q.
 
 ```{r}
 #| label: fig-ploidy-caller-results
@@ -1772,23 +1481,12 @@ ncc_24039975 <- ncc_with_qc |>
 
 ```
 
-As part of the process of ploidy state prediction, the Detect Regional Ploidy
-tool predicts sample NCC within its HMM. The predicted NCC levels ranged from
-`r min(ncc_with_qc$pred_ncc)` to 
-`r max(ncc_with_qc$pred_ncc)`%. No NCCs were predicted below 20%, as this was
-the threshold set within the PanSolid CLC pipeline, even when the
-Seraseq® TNA (DNA) WT Mix reference material was tested
-(SeraCare; product number 0710-1580; DNA number 24039975). 
-This material contains DNA extracted
-from an immortalised male human cell line 
-([GM24385](https://www.coriell.org/0/Sections/Search/Sample_Detail.aspx?Ref=GM24385)) 
-and would be expected to have a predicted
-NCC of 0%. However, the PanSolid pipeline predicted an NCC of 
-`r ncc_24039975[1,2]`% (note: the replicate is named "24039973d" in the results
-because it was used within a limit of detection experiment using reference
-material 24039973 in the validation of amplification detection). This finding
-indicates that the ploidy caller is unreliable when analysing samples with
-low or absent NCC values.
+As part of the process of ploidy state prediction, the Detect Regional Ploidy tool predicts sample NCC within its HMM.
+The predicted NCC levels ranged from `r min(ncc_with_qc$pred_ncc)` to `r max(ncc_with_qc$pred_ncc)`%.
+No NCCs were predicted below 20%, as this was the threshold set within the PanSolid CLC pipeline, even when the Seraseq® TNA (DNA) WT Mix reference material was tested (SeraCare; product number 0710-1580; DNA number 24039975).
+This material contains DNA extracted from an immortalised male human cell line ([GM24385](https://www.coriell.org/0/Sections/Search/Sample_Detail.aspx?Ref=GM24385)) and would be expected to have a predicted NCC of 0%.
+However, the PanSolid pipeline predicted an NCC of `r ncc_24039975[1,2]`% (note: the replicate is named "24039973d" in the results because it was used within a limit of detection experiment using reference material 24039973 in the validation of amplification detection).
+This finding indicates that the ploidy caller is unreliable when analysing samples with low or absent NCC values.
 
 ### Disagreements with CNV caller {#sec-results-cnv-caller-disagreements}
 
@@ -1861,20 +1559,10 @@ cnv_ploidy_caller_disagreements_summary <- cnv_ploidy_caller_disagreements |>
 
 ```
 
-Detection of deletions and ploidy states are performed by two separate, but
-connected, components of the PanSolid CLC pipeline (@fig-clc-pipeline). Whilst
-the CNV caller predicts deletions based on fold change alone, the ploidy caller
-can also classify regions as deletions based on fold change values and SNP
-frequencies. In `r nrow(cnv_vs_ploidy_caller)` results for
-the `r length(loh_genes)` LOH 
-genes, there were 
-`r nrow(cnv_ploidy_caller_disagreements)` 
-(`r round((nrow(cnv_ploidy_caller_disagreements) / nrow(cnv_vs_ploidy_caller))*100, 1)`%)
-instances for the 
-where the results of the ploidy caller
-contradicted the results of the CNV caller. The results of these
-disagreements are shown in @tbl-ploidy-cnv-disagreements, with manual review
-agreeing with the ploidy caller in the majority of cases.
+Detection of deletions and ploidy states are performed by two separate, but connected, components of the PanSolid CLC pipeline (@fig-clc-pipeline).
+Whilst the CNV caller predicts deletions based on fold change alone, the ploidy caller can also classify regions as deletions based on fold change values and SNP frequencies.
+In `r nrow(cnv_vs_ploidy_caller)` results for the `r length(loh_genes)` LOH genes, there were `r nrow(cnv_ploidy_caller_disagreements)` (`r round((nrow(cnv_ploidy_caller_disagreements) / nrow(cnv_vs_ploidy_caller))*100, 1)`%) instances for the where the results of the ploidy caller contradicted the results of the CNV caller.
+The results of these disagreements are shown in @tbl-ploidy-cnv-disagreements, with manual review agreeing with the ploidy caller in the majority of cases.
 
 ```{r}
 #| label: tbl-ploidy-cnv-disagreements
@@ -1967,28 +1655,13 @@ wgs_cnvs_in_target_genes <- wgs_results_for_pansolid_comparison |>
 
 ```
 
-The deletion results for `r length(unique(pansolid_vs_wgs$gene))` genes 
-on `r length(unique(chrom_gene_tbl$chrom_num))` autosomes were
-compared between the PanSolid CLC pipeline and the Genomics England WGS 
-pipeline for 
-`r length(unique(pansolid_vs_wgs$labno.x))` DNA replicates from
-`r length(unique(pansolid_vs_wgs$nhsno))` patients. Deletion calls from the 
-Canvas tool, notated as "LOSS" or "LOH" in the WGS results output, were 
-compared with the deletion calls from the PanSolid pipeline.
-The deleted regions 
-detected by Canvas ranged from 
-`r round(min(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000, 1)` kb to
-`r round(max(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000000, 1)` Mb in
-length. To avoid double-counting for
-samples where DNA was tested following multiple extraction methods 
-(QIAsymphony, Cobas or fresh frozen tissue),
-a single sample of DNA extracted via the QIAsymphony method was
-selected for the comparison. If QIAsymphony-extracted DNA was not available, 
-DNA from fresh frozen tissue was used instead. 
-Results were only compared when
-the noise and coverage metrics were above the quality control thresholds. The
-details of the samples included in the comparison are summarised in
-@tbl-wgs-comparison-sample-summary (Appendix).
+The deletion results for `r length(unique(pansolid_vs_wgs$gene))` genes on `r length(unique(chrom_gene_tbl$chrom_num))` autosomes were compared between the PanSolid CLC pipeline and the Genomics England WGS pipeline for `r length(unique(pansolid_vs_wgs$labno.x))` DNA replicates from `r length(unique(pansolid_vs_wgs$nhsno))` patients.
+Deletion calls from the Canvas tool, notated as "LOSS" or "LOH" in the WGS results output, were compared with the deletion calls from the PanSolid pipeline.
+The deleted regions detected by Canvas ranged from `r round(min(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000, 1)` kb to `r round(max(wgs_cnvs_in_target_genes$wgs_cnv_length)/1000000, 1)` Mb in length.
+To avoid double-counting for samples where DNA was tested following multiple extraction methods (QIAsymphony, Cobas or fresh frozen tissue), a single sample of DNA extracted via the QIAsymphony method was selected for the comparison.
+If QIAsymphony-extracted DNA was not available, DNA from fresh frozen tissue was used instead.
+Results were only compared when the noise and coverage metrics were above the quality control thresholds.
+The details of the samples included in the comparison are summarised in @tbl-wgs-comparison-sample-summary (Appendix).
 
 ```{r}
 #| label: compare-pansolid-to-wgs-results
@@ -2102,16 +1775,9 @@ stopifnot(pansolid_vs_wgs_gene_strings$gene_check == "pass")
 
 ### False positive and false negative results {#sec-results-wgs-false-pos-neg}
 
-The
-CNV regions detected by the PanSolid pipeline were manually reviewed using the
-output Excel spreadsheet and the interactive HTML file to check whether each 
-CNV region appeared to be genuine, as described in 
-@sec-results-manual-review. False positive deletion calls were noted in
-`r nrow(pipeline_manual_discrepancies)`
-gene results in 
-`r length(unique(pipeline_manual_discrepancies$labno_suffix_worksheet))`
-samples. Additional sources of false positives and false negatives were noted
-to be due to sample ploidy.
+The CNV regions detected by the PanSolid pipeline were manually reviewed using the output Excel spreadsheet and the interactive HTML file to check whether each CNV region appeared to be genuine, as described in @sec-results-manual-review.
+False positive deletion calls were noted in `r nrow(pipeline_manual_discrepancies)` gene results in `r length(unique(pipeline_manual_discrepancies$labno_suffix_worksheet))` samples.
+Additional sources of false positives and false negatives were noted to be due to sample ploidy.
 
 ```{r}
 #| label: p-values
@@ -2142,17 +1808,10 @@ pansolid_vs_wgs_outcomes |>
 
 ```
 
-
 ### Haploidy and polyploidy
 
-The CLC Detect Regional Ploidy Tool does not calculate ploidy at the whole
-genome level. The WGS sample cohort was deliberately selected to represent a range of 
-genome ploidy states, with the Genomics England pipeline detecting whole
-genome ploidy ranging from hexaploidy (overall ploidy: 
-`r max(del_val_wgs_html_ids$calculated_overall_ploidy)`) to a sample
-with haploidy (overall ploidy: 
-`r min(del_val_wgs_html_ids$calculated_overall_ploidy)`) 
-(@tbl-wgs-pansolid-ploidy).
+The CLC Detect Regional Ploidy Tool does not calculate ploidy at the whole genome level.
+The WGS sample cohort was deliberately selected to represent a range of genome ploidy states, with the Genomics England pipeline detecting whole genome ploidy ranging from hexaploidy (overall ploidy: `r max(del_val_wgs_html_ids$calculated_overall_ploidy)`) to a sample with haploidy (overall ploidy: `r min(del_val_wgs_html_ids$calculated_overall_ploidy)`) (@tbl-wgs-pansolid-ploidy).
 
 ```{r}
 #| label: wgs-ploidy
@@ -2198,12 +1857,8 @@ kable(tbl_wgs_pansolid_ploidy)
 
 ```
 
-For the haploid sample (24062632, panel: v2PANSOLID), the PanSolid pipeline
-did not account for the reduced chromosome dosage across the majority of the
-genome, and measured gene dosage from this reduced baseline. This led
-to an inversion of the results from WGS: deleted regions
-were detected as normal dosage, and normal dosage regions were detected as 
-gains (@fig-24062632-haploid-false-negative).
+For the haploid sample (24062632, panel: v2PANSOLID), the PanSolid pipeline did not account for the reduced chromosome dosage across the majority of the genome, and measured gene dosage from this reduced baseline.
+This led to an inversion of the results from WGS: deleted regions were detected as normal dosage, and normal dosage regions were detected as gains (@fig-24062632-haploid-false-negative).
 
 ```{r}
 #| label: wgs-false-neg-image-ploidy
@@ -2222,16 +1877,12 @@ false negative results for the genes on these chromosomes."
 
 ```
 
-![`r caption_24062632`](`r path_24062632`){#fig-24062632-haploid-false-negative height=5in}
+![`r caption_24062632`](`r path_24062632`){#fig-24062632-haploid-false-negative height="5in"}
 
-The reverse was observed for 
-`r nrow(tbl_wgs_pansolid_ploidy)-2`
-samples defined by the Genomics England WGS pipeline as being polyploid. In these
-cases, the PanSolid pipeline identified some gene regions as deleted which 
-were not identified as deleted by WGS. This was because, whilst WGS detected
-a relative loss of dosage for these genes compared to the overall genome
-ploidy level, the absolute number of copies was 2 or above. An example is shown
-in @fig-24045841-false-positive-hexaploid.
+The reverse was observed for `r nrow(tbl_wgs_pansolid_ploidy)-2` samples defined by the Genomics England WGS pipeline as being polyploid.
+In these cases, the PanSolid pipeline identified some gene regions as deleted which were not identified as deleted by WGS.
+This was because, whilst WGS detected a relative loss of dosage for these genes compared to the overall genome ploidy level, the absolute number of copies was 2 or above.
+An example is shown in @fig-24045841-false-positive-hexaploid.
 
 ```{r}
 #| label: wgs-false-pos-image-ploidy
@@ -2253,17 +1904,12 @@ identified."
 
 ```
 
-![`r caption_24045841`](`r path_24045841`){#fig-24045841-false-positive-hexaploid height=5in}
+![`r caption_24045841`](`r path_24045841`){#fig-24045841-false-positive-hexaploid height="5in"}
 
-### Sensitivity and specificity 
+### Sensitivity and specificity
 
-The sensitivity and specificity of the PanSolid pipeline compared to WGS were
-calculated in 3 ways: first the initial outputs of the PanSolid pipeline were
-compared; then the results following manual review of each detected CNV, which
-accounted for occasional discrepancies with the SNP allele frequencies
-(@sec-results-wgs-false-pos-neg); and finally for only those samples confirmed
-as diploid (overall ploidy 1.5-2.5) by WGS, which accounted for discrepancies
-due to ploidy. The results are shown in @tbl-pansolid-wgs-metrics. 
+The sensitivity and specificity of the PanSolid pipeline compared to WGS were calculated in 3 ways: first the initial outputs of the PanSolid pipeline were compared; then the results following manual review of each detected CNV, which accounted for occasional discrepancies with the SNP allele frequencies (@sec-results-wgs-false-pos-neg); and finally for only those samples confirmed as diploid (overall ploidy 1.5-2.5) by WGS, which accounted for discrepancies due to ploidy.
+The results are shown in @tbl-pansolid-wgs-metrics.
 
 ```{r}
 #| label: pansolid-wgs-sensitivity
@@ -2324,35 +1970,21 @@ remaining_discrepancy_tbl <- wgs_outcomes_combined_diploid |>
 
 ```
 
-Following manual review of CNV calls in diploid samples, there were 
-`r sum(remaining_discrepancy_tbl$n)`
-discrepant
-results between PanSolid and WGS. These results are summarised in
-@tbl-wgs-discrepant_results and individually reviewed below. The DNA numbers in 
-bold are the identifiers for the PanSolid results.
+Following manual review of CNV calls in diploid samples, there were `r sum(remaining_discrepancy_tbl$n)` discrepant results between PanSolid and WGS.
+These results are summarised in @tbl-wgs-discrepant_results and individually reviewed below.
+The DNA numbers in bold are the identifiers for the PanSolid results.
 
- - **24035922**: PanSolid detected a deletion in *BMPR1A* which was not detected
- on WGS (WGS DNA number: 24036644). WGS instead detected copy-neutral LOH
- for the region of chromosome 10 containing *BMPR1A*, but both methods agreed
- that a deletion of the nearby *PTEN* gene was present.
- 
- - **23013975**: a deletion of chromosome 1p was detected on WGS (WGS DNA
- number: 23013975), and identified
- by the ploidy caller on PanSolid, however the fold change of the *MUTYH* gene
- was slightly above the `r deletion_fc_threshold` threshold and so was not 
- identified as being deleted.
+-   **24035922**: PanSolid detected a deletion in *BMPR1A* which was not detected on WGS (WGS DNA number: 24036644).
+    WGS instead detected copy-neutral LOH for the region of chromosome 10 containing *BMPR1A*, but both methods agreed that a deletion of the nearby *PTEN* gene was present.
 
-- **23024575**: a chromosome 10 deletion was detected on WGS and PanSolid
- (WGS DNA number: 23024547), but
-the fold change of the *SUFU* gene was slightly above the 
-`r deletion_fc_threshold` threshold. This sample is shown in @fig-23024575-false-neg.
+-   **23013975**: a deletion of chromosome 1p was detected on WGS (WGS DNA number: 23013975), and identified by the ploidy caller on PanSolid, however the fold change of the *MUTYH* gene was slightly above the `r deletion_fc_threshold` threshold and so was not identified as being deleted.
 
-- **24019998**: deletions of *FH* (chromosome 1p) and *CDH1* (chromosome 16q) 
-were detected on WGS (WGS DNA number: 24024109), but not on PanSolid. 
-Evidence of chromosomal changes
-at 1p and 16q were visible on PanSolid but had been identified as copy neutral
-LOH and a gain, respectively, by the Detect Regional Ploidy Tool. Deletions in
-12 other target genes were successfully detected for this sample.
+-   **23024575**: a chromosome 10 deletion was detected on WGS and PanSolid (WGS DNA number: 23024547), but the fold change of the *SUFU* gene was slightly above the `r deletion_fc_threshold` threshold.
+    This sample is shown in @fig-23024575-false-neg.
+
+-   **24019998**: deletions of *FH* (chromosome 1p) and *CDH1* (chromosome 16q) were detected on WGS (WGS DNA number: 24024109), but not on PanSolid.
+    Evidence of chromosomal changes at 1p and 16q were visible on PanSolid but had been identified as copy neutral LOH and a gain, respectively, by the Detect Regional Ploidy Tool.
+    Deletions in 12 other target genes were successfully detected for this sample.
 
 ```{r}
 #| label: tbl-wgs-discrepant_results
@@ -2426,18 +2058,10 @@ fig_pansolid_wgs_counts_plot
 
 ### Monoallelic and biallelic deletions {#sec-results-bi-mono-deletions}
 
-There was a clear relationship between the fold change measured by the PanSolid
-pipeline and the overall gene copy number from WGS
-(@fig-copy-number-vs-fold-change). All biallelic gene deletions with copy 
-numbers of 0 on WGS were detected as deletions by PanSolid, even in non-diploid
-samples. The sensitivity 
-values for 
-detection of confirmed monoallelic and biallelic deletions in all samples and
-in confirmed diploid samples 
-are shown in @tbl-bi-mono-del-detection. Notably, biallelic deletions can
-be successfully detected in polyploid samples, whilst the sensitivity for 
-detecting monoallelic deletions is greatly reduced versus the sensitivity for
-diploid samples.
+There was a clear relationship between the fold change measured by the PanSolid pipeline and the overall gene copy number from WGS (@fig-copy-number-vs-fold-change).
+All biallelic gene deletions with copy numbers of 0 on WGS were detected as deletions by PanSolid, even in non-diploid samples.
+The sensitivity values for detection of confirmed monoallelic and biallelic deletions in all samples and in confirmed diploid samples are shown in @tbl-bi-mono-del-detection.
+Notably, biallelic deletions can be successfully detected in polyploid samples, whilst the sensitivity for detecting monoallelic deletions is greatly reduced versus the sensitivity for diploid samples.
 
 ```{r}
 #| label: fig-copy-number-vs-fold-change
@@ -2755,24 +2379,13 @@ ncc_24053299 <- pansolid_vs_wgs_ncc |>
 
 ```
 
-The CLC Regional Ploidy Tool predicts the NCC of a sample as part of its HMM 
-approach to deconvoluting ploidy states, with the mininum NCC threshold set
-at 20% (@sec-methods-ploidy-detection). The NCC predictions from CLC were 
-compared to the predictions from the WGS results, which were calculated using
-the Ccube algorithm [@fig-wgs-ncc-comparison]. There was a positive correlation
-between the two predictions in all comparisons, although there were significant
-outliers. One sample (WGS DNA number: 24058699; PanSolid DNA number: 24053299)
-had no NCC reported by WGS, with the report stating "this sample has a high 
-incidence of somatic variants with a low VAF (<6%) and tumour content cannot 
-be reliably estimated from the genomic data. A high level of variants with 
-low VAF usually indicates that the sample has either very low tumour content
-or high heterogeneity". However, on PanSolid NGS the predicted NCC was 
-`r ncc_24053299[1,2]`%. This sample is shown circled in red 
-on @fig-wgs-ncc-comparison with a WGS NCC value of 6%. As with the
-NCC result for the Seraseq® TNA (DNA) WT Mix reference material 
-(@sec-results-overall-ncc),
-this result indicates that the Detect Regional Ploidy tool may not be 
-accurate at predicting NCC in samples where the tumour content is below 20%.
+The CLC Regional Ploidy Tool predicts the NCC of a sample as part of its HMM approach to deconvoluting ploidy states, with the mininum NCC threshold set at 20% (@sec-methods-ploidy-detection).
+The NCC predictions from CLC were compared to the predictions from the WGS results, which were calculated using the Ccube algorithm [@fig-wgs-ncc-comparison].
+There was a positive correlation between the two predictions in all comparisons, although there were significant outliers.
+One sample (WGS DNA number: 24058699; PanSolid DNA number: 24053299) had no NCC reported by WGS, with the report stating "this sample has a high incidence of somatic variants with a low VAF (<6%) and tumour content cannot be reliably estimated from the genomic data. A high level of variants with low VAF usually indicates that the sample has either very low tumour content or high heterogeneity".
+However, on PanSolid NGS the predicted NCC was `r ncc_24053299[1,2]`%.
+This sample is shown circled in red on @fig-wgs-ncc-comparison with a WGS NCC value of 6%.
+As with the NCC result for the Seraseq® TNA (DNA) WT Mix reference material (@sec-results-overall-ncc), this result indicates that the Detect Regional Ploidy tool may not be accurate at predicting NCC in samples where the tumour content is below 20%.
 
 ```{r}
 #| label: fig-wgs-ncc-comparison
@@ -2875,22 +2488,11 @@ wgs_amp_outcome_tbl <- rbind(pansolid_vs_wgs_amp_se_sp_all,
 
 ```
 
-The cohort of samples with WGS results tested in this validation is increased 
-compared to the previous validation of amplification detection
-([DOC6283]{custom-style="Strong"}). To update the sensitivity and specificity
-metrics for amplification detection, the PanSolid results for 
-`r length(unique(del_val_collated_amp_genes$gene))` amplification genes were
-compared against WGS for the same 
-`r length(unique(pansolid_vs_wgs_amp_outcomes$labno.x))`
-samples as for the deletion detection comparison.
-There were amplifications present in the
-*EGFR* and *MDM2* genes, and the updated sensitivity and specificity are shown
-in @tbl-pansolid-vs-wgs-amp. A single false negative was noted for the 
-*EGFR* gene: this sample (23033921) had a tetraploid tumour and WGS measured
-a chromosome 7 copy number of 6, with an *EGFR* copy number of 14. This 
-sample had a borderline *EGFR* fold change of 2.7 and has been previously
-discussed in the validation of amplification detection
-([DOC6283]{custom-style="Strong"}, Table 12).
+The cohort of samples with WGS results tested in this validation is increased compared to the previous validation of amplification detection ([DOC6283]{custom-style="Strong"}).
+To update the sensitivity and specificity metrics for amplification detection, the PanSolid results for `r length(unique(del_val_collated_amp_genes$gene))` amplification genes were compared against WGS for the same `r length(unique(pansolid_vs_wgs_amp_outcomes$labno.x))` samples as for the deletion detection comparison.
+There were amplifications present in the *EGFR* and *MDM2* genes, and the updated sensitivity and specificity are shown in @tbl-pansolid-vs-wgs-amp.
+A single false negative was noted for the *EGFR* gene: this sample (23033921) had a tetraploid tumour and WGS measured a chromosome 7 copy number of 6, with an *EGFR* copy number of 14.
+This sample had a borderline *EGFR* fold change of 2.7 and has been previously discussed in the validation of amplification detection ([DOC6283]{custom-style="Strong"}, Table 12).
 
 ```{r}
 #| label: tbl-pansolid-vs-wgs-amp
@@ -3050,44 +2652,15 @@ normals_below_ddpcr_threshold <- pansolid_vs_ddpcr_outcomes |>
 
 ```
 
-ddPCR was performed for the *PTEN* and *CDKN2A* genes for all 
-`r ddpcr_sample_summary[1,2]`
-samples used
-in the normal control pool by the PanSolid CLC pipeline, and for 
-`r ddpcr_patients` samples from
-the validation cohort.
-The *CDKN2A* ddPCR assay 
-(amplicon coordinates:  GRCh38 chr9: 21,968,120-21,968,172) 
-targeted exon 1 of *CDKN2A*, which
-is present in both the NM_000077.5 and NM_058195.4 transcripts
-(@fig-cdkn2a-locus). The *PTEN* ddPCR assay
-(amplicon coordinates: GRCh38 chr10: 87,864,384-87,864,484)
-targeted exon 1 of *PTEN*. One sample (24034335) was excluded from the
-analysis due to a copy number gain on chromosome 5 which spanned the locus of 
-the *AP3B1* reference gene. The *AP3B1* gene is not targeted by the PanSolid
-enrichment and is located at GRCh38 chr5:78000522-78294698 (5q14.1) 
-between PanSolid
-targets "chr5:76.7Mb" and "chr5:77.7Mb". Another sample (24047809) with an
-intragenic *PTEN* deletion detected on PanSolid was coded as "no deletion" 
-because the deletion coordinates did not overlap with the coordinates of the
-*PTEN* exon 1 ddPCR assay.
-There was wide variation 
-in the copy numbers determined within the control 
-cohort, ranging from 
-`r round(min(control_ddpcr_results_cdkn2a$cnv), 1)`-
-`r round(max(control_ddpcr_results_cdkn2a$cnv), 1)`
-(mean `r round(median(control_ddpcr_results_cdkn2a$cnv), 1)`) for *CDKN2A*, 
-and from
-`r round(min(control_ddpcr_results_pten$cnv), 1)`-
-`r round(max(control_ddpcr_results_pten$cnv), 1)`
-(median `r round(median(control_ddpcr_results_pten$cnv), 1)`) for *PTEN*. 
-A copy number threshold of 1.4 was used for the categorisation of results as
-normal or deleted, although the *CDKN2A* copy numbers for 2 normal control 
-samples (24012050, R24-0AKB, skin and 24012073, R24-0AJR, prostate) fell
-below this threshold
-(@fig-ddpcr-pansolid-outcomes). @fig-pansolid-fold-change-vs-ddpcr shows the
-dosage correlation between the PanSolid fold changes for each gene and the
-copy number values obtained from ddPCR.
+ddPCR was performed for the *PTEN* and *CDKN2A* genes for all `r ddpcr_sample_summary[1,2]` samples used in the normal control pool by the PanSolid CLC pipeline, and for `r ddpcr_patients` samples from the validation cohort.
+The *CDKN2A* ddPCR assay (amplicon coordinates: GRCh38 chr9: 21,968,120-21,968,172) targeted exon 1 of *CDKN2A*, which is present in both the NM_000077.5 and NM_058195.4 transcripts (@fig-cdkn2a-locus).
+The *PTEN* ddPCR assay (amplicon coordinates: GRCh38 chr10: 87,864,384-87,864,484) targeted exon 1 of *PTEN*.
+One sample (24034335) was excluded from the analysis due to a copy number gain on chromosome 5 which spanned the locus of the *AP3B1* reference gene.
+The *AP3B1* gene is not targeted by the PanSolid enrichment and is located at GRCh38 chr5:78000522-78294698 (5q14.1) between PanSolid targets "chr5:76.7Mb" and "chr5:77.7Mb".
+Another sample (24047809) with an intragenic *PTEN* deletion detected on PanSolid was coded as "no deletion" because the deletion coordinates did not overlap with the coordinates of the *PTEN* exon 1 ddPCR assay.
+There was wide variation in the copy numbers determined within the control cohort, ranging from `r round(min(control_ddpcr_results_cdkn2a$cnv), 1)`- `r round(max(control_ddpcr_results_cdkn2a$cnv), 1)` (mean `r round(median(control_ddpcr_results_cdkn2a$cnv), 1)`) for *CDKN2A*, and from `r round(min(control_ddpcr_results_pten$cnv), 1)`- `r round(max(control_ddpcr_results_pten$cnv), 1)` (median `r round(median(control_ddpcr_results_pten$cnv), 1)`) for *PTEN*.
+A copy number threshold of 1.4 was used for the categorisation of results as normal or deleted, although the *CDKN2A* copy numbers for 2 normal control samples (24012050, R24-0AKB, skin and 24012073, R24-0AJR, prostate) fell below this threshold (@fig-ddpcr-pansolid-outcomes).
+@fig-pansolid-fold-change-vs-ddpcr shows the dosage correlation between the PanSolid fold changes for each gene and the copy number values obtained from ddPCR.
 
 ```{r}
 #| label: fig-ddpcr-pansolid-outcomes
@@ -3277,14 +2850,10 @@ ddpcr_remaining_discrepancies <- combined_ddpcr_all_results |>
 
 ```
 
-Sensitivity and specificity were calculated as for the comparison with WGS, 
-using both the initial result from the PanSolid pipeline, and then the 
-result from manual review (@tbl-pansolid-ddpcr-metrics-pipeline and
-@tbl-pansolid-ddpcr-metrics-combined). As with WGS, the specificity comparative
-to ddPCR improved with manual review, and the number of false positives was
-reduced. However, even with manual review there remained
-`r sum(ddpcr_remaining_discrepancies$n)` discrepancies. The details of these
-discrepancies are summarised in @tbl-pansolid-ddpcr-discrepancies.
+Sensitivity and specificity were calculated as for the comparison with WGS, using both the initial result from the PanSolid pipeline, and then the result from manual review (@tbl-pansolid-ddpcr-metrics-pipeline and @tbl-pansolid-ddpcr-metrics-combined).
+As with WGS, the specificity comparative to ddPCR improved with manual review, and the number of false positives was reduced.
+However, even with manual review there remained `r sum(ddpcr_remaining_discrepancies$n)` discrepancies.
+The details of these discrepancies are summarised in @tbl-pansolid-ddpcr-discrepancies.
 
 ```{r}
 #| label: tbl-pansolid-ddpcr-metrics-pipeline
@@ -3415,19 +2984,10 @@ nf2_loh_discrepant_results <- pansolid_vs_nf2_loh_with_qc |>
 
 ```
 
-`r nrow(pansolid_vs_nf2_loh)` samples were tested on both the PanSolid NGS and 
-NF2 PCR LOH methods. Of these, `r nrow(pansolid_vs_nf2_loh_with_qc)` samples 
-passed both NGS quality thresholds, and outputs of the PanSolid CLC ploidy 
-caller for the *NF2* gene were compared to the results from *NF2* dinucleotide 
-marker PCR LOH testing for these samples. In the majority of cases, the PanSolid
-pipeline correctly identified LOH presence or absence at the *NF2* locus, including
-cases with chromosome 22 deletions and copy-neutral LOH
-(@tbl-nf2-results-with-qc)
-. @fig-24054282-nf2-loh shows an 
-example of LOH detected by both PanSolid and *NF2* PCR for a 
-Schwannoma sample (24054282, panel: v2SchwannAll_PS) which the PanSolid pipeline
-sub-categorised as copy-neutral LOH, and @tbl-nf2-results-with-qc shows the
-comparison of all results with *NF2* LOH PCR.
+`r nrow(pansolid_vs_nf2_loh)` samples were tested on both the PanSolid NGS and NF2 PCR LOH methods.
+Of these, `r nrow(pansolid_vs_nf2_loh_with_qc)` samples passed both NGS quality thresholds, and outputs of the PanSolid CLC ploidy caller for the *NF2* gene were compared to the results from *NF2* dinucleotide marker PCR LOH testing for these samples.
+In the majority of cases, the PanSolid pipeline correctly identified LOH presence or absence at the *NF2* locus, including cases with chromosome 22 deletions and copy-neutral LOH (@tbl-nf2-results-with-qc) .
+@fig-24054282-nf2-loh shows an example of LOH detected by both PanSolid and *NF2* PCR for a Schwannoma sample (24054282, panel: v2SchwannAll_PS) which the PanSolid pipeline sub-categorised as copy-neutral LOH, and @tbl-nf2-results-with-qc shows the comparison of all results with *NF2* LOH PCR.
 
 ```{r}
 #| label: nf2-loh-image
@@ -3447,7 +3007,7 @@ uninformative for marker D22S268, hence these results are not shown."
 
 ```
 
-![`r caption_24054282`](`r path_24054282`){#fig-24054282-nf2-loh height=5in}
+![`r caption_24054282`](`r path_24054282`){#fig-24054282-nf2-loh height="5in"}
 
 ```{r}
 #| label: tbl-nf2-results-with-qc
@@ -3468,17 +3028,11 @@ knitr::kable(tbl_nf2_results_with_qc)
 
 ```
 
-As with the WGS results,
-the annotations by the CLC ploidy caller were manually reviewed. There were
-`r nrow(nf2_loh_discrepant_results)`
- cases in which the analyst and the ploidy caller disagreed. In each case
-the ploidy caller had categorised the *NF2* locus as having a biallelic 
-deletion, with no LOH present according to the logic in @tbl-clc-ploidy-states,
-whilst the SNP frequency and log2 dosage were consistent with mono-allelic 
-chromosome 22 loss (@fig-24044746-loh-false-negative). In both cases,
-LOH PCR confirmed that the LOH was present at the *NF2* locus. Resolving these
-discrepancies through manual review raised the sensitivity and specificity
-to 100% (@tbl-nf2-metrics-with-qc).
+As with the WGS results, the annotations by the CLC ploidy caller were manually reviewed.
+There were `r nrow(nf2_loh_discrepant_results)` cases in which the analyst and the ploidy caller disagreed.
+In each case the ploidy caller had categorised the *NF2* locus as having a biallelic deletion, with no LOH present according to the logic in @tbl-clc-ploidy-states, whilst the SNP frequency and log2 dosage were consistent with mono-allelic chromosome 22 loss (@fig-24044746-loh-false-negative).
+In both cases, LOH PCR confirmed that the LOH was present at the *NF2* locus.
+Resolving these discrepancies through manual review raised the sensitivity and specificity to 100% (@tbl-nf2-metrics-with-qc).
 
 ```{r}
 #| label: loh-false-negative-image
@@ -3496,7 +3050,7 @@ the PanSolid CNV caller."
 
 ```
 
-![`r caption_24044746`](`r path_24044746`){#fig-24044746-loh-false-negative height=5in}
+![`r caption_24044746`](`r path_24044746`){#fig-24044746-loh-false-negative height="5in"}
 
 ```{r}
 #| label: tbl-nf2-metrics-with-qc
@@ -3532,14 +3086,8 @@ kable(nf2_sens_spec)
 ## Comparison to *MLH1*, *MSH2* and *MSH6* NGS LOH testing {#sec-results-mmr-ngs}
 
 DNA from 4 colorectal cancer samples was also tested on the PanSolid enrichment.
-These DNA samples had previously tested at the North West GLH on the 
-tumour Lynch (tLynch) panel of the QIAseq Merged
-enrichment using a Microsoft Excel-based method for LOH detection
-(described in [DOC3339]{custom-style="Strong"}) in the MMR genes *MLH1*,
-*MSH2* and *MSH6*. There was complete concordance between the two methods for
-each gene, shown in @tbl-pansolid-vs-merged, resulting in 100% sensitivity and
-specificity, albeit with wide confidence intervals due to the low number of
-samples tested (@tbl-pansolid-vs-merged-metrics).
+These DNA samples had previously tested at the North West GLH on the tumour Lynch (tLynch) panel of the QIAseq Merged enrichment using a Microsoft Excel-based method for LOH detection (described in [DOC3339]{custom-style="Strong"}) in the MMR genes *MLH1*, *MSH2* and *MSH6*.
+There was complete concordance between the two methods for each gene, shown in @tbl-pansolid-vs-merged, resulting in 100% sensitivity and specificity, albeit with wide confidence intervals due to the low number of samples tested (@tbl-pansolid-vs-merged-metrics).
 
 ```{r}
 #| label: tbl-pansolid-vs-merged
@@ -3607,15 +3155,10 @@ kable(pansolid_vs_merged_metrics)
 
 ## Repeat testing {#sec-results-repeat-testing}
 
-To assess repeat variation of the method, 3 DNA samples were tested on 3 different
-worksheets. All 3 samples were from Schwannoma tumours with results from *NF2*
-PCR LOH testing: 24018518, 24045597 and 24054282 (v2aSchwannAll_PS). These are
-different samples than the samples used in the validation of gene amplification
-detection ([DOC6283]{custom-style="Strong"}). Different samples were used because
-several replicates in the original repeatability data fell below the 
-`r percent_138x_qc_threshold`% coverage at 138x threshold, which was only 
-established during [INC9967]{custom-style="Strong"} after 
-the validation of amplification detection.
+To assess repeat variation of the method, 3 DNA samples were tested on 3 different worksheets.
+All 3 samples were from Schwannoma tumours with results from *NF2* PCR LOH testing: 24018518, 24045597 and 24054282 (v2aSchwannAll_PS).
+These are different samples than the samples used in the validation of gene amplification detection ([DOC6283]{custom-style="Strong"}).
+Different samples were used because several replicates in the original repeatability data fell below the `r percent_138x_qc_threshold`% coverage at 138x threshold, which was only established during [INC9967]{custom-style="Strong"} after the validation of amplification detection.
 
 ```{r}
 #| label: repeat-data
@@ -3644,30 +3187,15 @@ del_uom <- round(define_uom(all_sd, 2), 3)
 
 ### Deletion detection
 
-Gene fold changes 
-greater than 1 were converted to the fold change loss equation, and the
-standard deviations were calculated for each gene within each series of DNA
-replicates. The pooled standard deviations and
-uncertainty of measurement were then calculated (@tbl-uom), demonstrating that for 
-this dataset, a fold change measurement below -1 has an uncertainty of 
-measurement of ±`r del_uom` (± 2 x `r all_sd`) at a confidence level
-of 95%.
+Gene fold changes greater than 1 were converted to the fold change loss equation, and the standard deviations were calculated for each gene within each series of DNA replicates.
+The pooled standard deviations and uncertainty of measurement were then calculated (@tbl-uom), demonstrating that for this dataset, a fold change measurement below -1 has an uncertainty of measurement of ±`r del_uom` (± 2 x `r all_sd`) at a confidence level of 95%.
 
-For each sample, the fold changes of each gene were reviewed to check whether
-variation between repeats crossed the the `r deletion_fc_threshold` fold
-change threshold (@fig-repeat-24018518-fc-loss, @fig-repeat-24045597-fc-loss
-and @fig-repeat-24054282-fc-loss). This occurred for 4 genes within sample 
-24018518 (*MUTYH*, *RAD51C*, *RNF43* and
-*STK11*) which showed fold changes below the `r deletion_fc_threshold` threshold 
-in the second replicate only. The cause of this discrepancy was likely the increased
-signal-adjusted noise (0.43) for this replicate. However, the p value for each
-region was above 0.05, and consequently these regions were not identified by the
-pipeline as significant CNVs and are coloured white in 
-@fig-repeat-24018518-fc-loss. This means that in a clinical scenario they would
-not be analysed or reported, and that the overall results for each sample were
-consistent across each replicate. This is in contrast sample 24045597, in which 
-deletions in *CHEK2* and *NF2* were reported as significant CNVs in each 
-replicate (@fig-repeat-24045597-fc-loss).
+For each sample, the fold changes of each gene were reviewed to check whether variation between repeats crossed the the `r deletion_fc_threshold` fold change threshold (@fig-repeat-24018518-fc-loss, @fig-repeat-24045597-fc-loss and @fig-repeat-24054282-fc-loss).
+This occurred for 4 genes within sample 24018518 (*MUTYH*, *RAD51C*, *RNF43* and *STK11*) which showed fold changes below the `r deletion_fc_threshold` threshold in the second replicate only.
+The cause of this discrepancy was likely the increased signal-adjusted noise (0.43) for this replicate.
+However, the p value for each region was above 0.05, and consequently these regions were not identified by the pipeline as significant CNVs and are coloured white in @fig-repeat-24018518-fc-loss.
+This means that in a clinical scenario they would not be analysed or reported, and that the overall results for each sample were consistent across each replicate.
+This is in contrast sample 24045597, in which deletions in *CHEK2* and *NF2* were reported as significant CNVs in each replicate (@fig-repeat-24045597-fc-loss).
 
 ```{r}
 #| label: tbl-uom
@@ -3808,11 +3336,8 @@ fig_repeat_24054282_loss
 
 ### Ploidy state detection
 
-The results for the ploidy state of the `r length(loh_genes)` LOH genes were
-also consistent between each replicate, except for the *LZTR1* gene in sample
-24054282 which had ploidy states of uniparental disomy (2 copies of one allele) and
-"(0,3)" (3 copies of one allele) on different worksheets. The other genes on
-chromosome 22 all had consistent predictions of uniparental disomy.
+The results for the ploidy state of the `r length(loh_genes)` LOH genes were also consistent between each replicate, except for the *LZTR1* gene in sample 24054282 which had ploidy states of uniparental disomy (2 copies of one allele) and "(0,3)" (3 copies of one allele) on different worksheets.
+The other genes on chromosome 22 all had consistent predictions of uniparental disomy.
 
 ```{r}
 #| label: loh-repeatability
@@ -3898,33 +3423,18 @@ ncc_repeat_plot
 
 ```
 
-
 {{< pagebreak >}}
 
 ## Limit of detection {#sec-results-lod}
 
-DNA from two samples with WGS results was mixed
-together to simulate different levels of NCC as a limit of detection experiment. 
-Dilutions were prepared on worksheet WS150454 and tested on the PanSolid
-enrichment on WS150465.
-The first DNA sample (24026628, v2PANSOLID) was
-from a glioma FFPE sample. WGS on fresh frozen tissue from the same
-pathology block (24028153, R24-0QQJ) had detected a biallelic loss of *CDKN2A*, 
-a monoallelic loss of the proximal section of chromosome 9q, and a 
-monoallelic loss of most of chromosome 10q, including the *PTEN* gene
-(@fig-lod-wgs-plots).
-The second DNA sample
-was from an inflammatory myofibroblastic tumour (24053299, v2PANSOLID) 
-with no copy number changes
-detected on chromosomes 9 or 10 on WGS (24058699, R24-1H6C). WGS detected overall 
-genome ploidies of 2 and 1.9 for these two tumours, respectively. The Ccube
-algorithm within the WGS analysis pipeline detected an NCC 
-of 84% for sample 24028153, and an NCC of less than 6% for 24058699, 
-indicating the sample 
-was mostly composed of normal tissue.
-DNA mixes were prepared to simulate NCC states of 60%, 40% and 20%, 
-accounting for the 16% proportion 
-of DNA from normal cells in the original undiluted glioma sample.
+DNA from two samples with WGS results was mixed together to simulate different levels of NCC as a limit of detection experiment.
+Dilutions were prepared on worksheet WS150454 and tested on the PanSolid enrichment on WS150465.
+The first DNA sample (24026628, v2PANSOLID) was from a glioma FFPE sample.
+WGS on fresh frozen tissue from the same pathology block (24028153, R24-0QQJ) had detected a biallelic loss of *CDKN2A*, a monoallelic loss of the proximal section of chromosome 9q, and a monoallelic loss of most of chromosome 10q, including the *PTEN* gene (@fig-lod-wgs-plots).
+The second DNA sample was from an inflammatory myofibroblastic tumour (24053299, v2PANSOLID) with no copy number changes detected on chromosomes 9 or 10 on WGS (24058699, R24-1H6C).
+WGS detected overall genome ploidies of 2 and 1.9 for these two tumours, respectively.
+The Ccube algorithm within the WGS analysis pipeline detected an NCC of 84% for sample 24028153, and an NCC of less than 6% for 24058699, indicating the sample was mostly composed of normal tissue.
+DNA mixes were prepared to simulate NCC states of 60%, 40% and 20%, accounting for the 16% proportion of DNA from normal cells in the original undiluted glioma sample.
 
 ```{r}
 #| label: lod-image-caption
@@ -3937,17 +3447,10 @@ used in the limit of detection experiment."
 
 ![`r lod_image_caption`](`r paste0(image_folderpath, "lod_wgs_plots.png")`){#fig-lod-wgs-plots}
 
-The raw log2 ratios for each target on chromosome 9 in the different mixtures 
-are shown in @fig-lod-chr9, demonstrating that the biallelic *CDKN2A* 
-loss had a fold 
-change below -1.25 down to a simulated NCC of 20%. However, the *CDKN2A* region 
-was not classified as a significant CNV by the PanSolid pipeline for the 20%
-simulated NCC sample, as it had a P value above 0.05. Hence whilst the 
-deleted region was distinguishable in the log2 ratios of the 20% simulated 
-NCC sample, the PanSolid pipeline could only detect the deletion as significant 
-at 40% simulated NCC. As the simulated NCC was reduced, multiple CNV regions
-were detected across the *CDKN2A* locus, and there was variation in the number
-of targets impacted (@tbl-lod-cdkn2a-calls).
+The raw log2 ratios for each target on chromosome 9 in the different mixtures are shown in @fig-lod-chr9, demonstrating that the biallelic *CDKN2A* loss had a fold change below -1.25 down to a simulated NCC of 20%.
+However, the *CDKN2A* region was not classified as a significant CNV by the PanSolid pipeline for the 20% simulated NCC sample, as it had a P value above 0.05.
+Hence whilst the deleted region was distinguishable in the log2 ratios of the 20% simulated NCC sample, the PanSolid pipeline could only detect the deletion as significant at 40% simulated NCC.
+As the simulated NCC was reduced, multiple CNV regions were detected across the *CDKN2A* locus, and there was variation in the number of targets impacted (@tbl-lod-cdkn2a-calls).
 
 ```{r}
 #| label: lod-results-log2ratios
@@ -4022,7 +3525,6 @@ lod_df_with_coordinates <- extract_pansolid_cnv_coordinates(df = lod_df,
 
 ```
 
-
 ```{r}
 #| label: lod-results-cnv-calls
 #| include: FALSE
@@ -4060,18 +3562,11 @@ kable(tbl_lod_cdkn2a_calls)
 
 ```
 
-The results for chromosome 10 were complicated by a false positive result 
-for part of the q arm, including *PTEN*, when no glioma sample was added
-(@fig-lod-chr10). Consequently, whilst there was a pattern of copy loss extending for
-the majority of chromosome 10q for the 40% and 20% simulated NCC mixtures,
-this could not reliably be differentiated 
-from the background. In a clinical 
-sample the VAF pattern could be used to interpret borderline cases such as 
-these (@sec-results-manual-review). However this was not possible for the limit
-of detection experiment as the mixtures contained DNA from 2 different
-patients, rather than DNA from the germline and somatic genomes of a 
-single patient. Consequently, the limit of detection
-for monoallelic deletions from this experiment was 60% simulated NCC.
+The results for chromosome 10 were complicated by a false positive result for part of the q arm, including *PTEN*, when no glioma sample was added (@fig-lod-chr10).
+Consequently, whilst there was a pattern of copy loss extending for the majority of chromosome 10q for the 40% and 20% simulated NCC mixtures, this could not reliably be differentiated from the background.
+In a clinical sample the VAF pattern could be used to interpret borderline cases such as these (@sec-results-manual-review).
+However this was not possible for the limit of detection experiment as the mixtures contained DNA from 2 different patients, rather than DNA from the germline and somatic genomes of a single patient.
+Consequently, the limit of detection for monoallelic deletions from this experiment was 60% simulated NCC.
 
 ```{r}
 #| label: fig-lod-chr9
@@ -4132,13 +3627,8 @@ chr10_lod_plot
   
 ```
 
-As shown in 
-@fig-chr9-lod-fold-change-plot, the results for *CDKN2A* and
-*CDKN2B* broadly follow the trajectory predicted for a biallelic deletion. 
-On the other hand, a similar relationship with the predicted values for a 
-monoallelic deletion is only observed for certain genes on chromosome 10q
-(*BMPR1A* and *SUFU*) but not for *PTEN* 
-(@fig-chr10-lod-fold-change-plot).
+As shown in @fig-chr9-lod-fold-change-plot, the results for *CDKN2A* and *CDKN2B* broadly follow the trajectory predicted for a biallelic deletion.
+On the other hand, a similar relationship with the predicted values for a monoallelic deletion is only observed for certain genes on chromosome 10q (*BMPR1A* and *SUFU*) but not for *PTEN* (@fig-chr10-lod-fold-change-plot).
 
 ```{r}
 #| label: lod-dot-plots
@@ -4215,7 +3705,6 @@ chr9_lod_dosage_plot
 
 ```
 
-
 ```{r}
 #| label: fig-chr10-lod-fold-change-plot
 #| fig-cap: "The plot shows the predicted (grey lines) versus actual
@@ -4288,20 +3777,12 @@ tbl_intragenic_deletions <- intragenic_del_results |>
 
 ```
 
-2 cases of small germline deletions in the *MSH2* and *CDKN2A* genes
-were detected by the PanSolid pipeline. These
-cases are summarised in @tbl-intragenic-deletions and demonstrate that the 
-pipeline can detect intragenic deletions on both the coarse (*MSH2*) and
-fine (*CDKN2A*) graining levels. For the *MSH2* deletion, the PanSolid pipeline
-overestimated the coordinates of the deletion: 7 targets were impacted,
-which is below the resolution of the "coarse" graining level,
-but a deletion call was returned for 13 targets. Examining the HTML file and
-raw target fold changes for this case showed the true deletion coordinates
-are GRCh38 chr2: 47403187-47429946 (@fig-msh2-del). For sample 24048159, 
-a deletion impacting only the NM_000077.5 transcript of
-the *CDKN2A* was detected, which agreed with the results from somatic and
-germline WGS analysis. This case demonstrated the suitability of the fine
-graining level for *CDKN2A*.
+2 cases of small germline deletions in the *MSH2* and *CDKN2A* genes were detected by the PanSolid pipeline.
+These cases are summarised in @tbl-intragenic-deletions and demonstrate that the pipeline can detect intragenic deletions on both the coarse (*MSH2*) and fine (*CDKN2A*) graining levels.
+For the *MSH2* deletion, the PanSolid pipeline overestimated the coordinates of the deletion: 7 targets were impacted, which is below the resolution of the "coarse" graining level, but a deletion call was returned for 13 targets.
+Examining the HTML file and raw target fold changes for this case showed the true deletion coordinates are GRCh38 chr2: 47403187-47429946 (@fig-msh2-del).
+For sample 24048159, a deletion impacting only the NM_000077.5 transcript of the *CDKN2A* was detected, which agreed with the results from somatic and germline WGS analysis.
+This case demonstrated the suitability of the fine graining level for *CDKN2A*.
 
 ```{r}
 #| label: tbl-intragenic-deletions
@@ -4328,24 +3809,12 @@ both show the ture extent of the deleted region."
 
 ## DNA contamination {#sec-results-contamination}
 
-During the validation, it was noticed that the SNP allele frequency plot of the 
-interactive HTML allowed the detection of DNA contamination between samples.
-This was initially noted in sample 24030962; the SNP frequency profile was 
-similar to the profiles from the limit of detection experiment, when DNA from 
-two patients was deliberately mixed together. Microsatellite instability 
-testing on 24030962 with the OncoMate™ MSI Dx kit (Promega) showed
-the presence of additional alleles at two 
-pentanucleotide markers, indicating that a contaminating sample comprised 
-approximately 10% of the total DNA (@fig-24030962-dna-contamination). 
-Following this discovery, all the
-samples in the cohort were reviewed: 2 further samples (24030945 and 
-24054291) were found to have similar profiles, and were excluded from the 
-validation analysis. The signal-adjusted noise and percentage coverage above
-138X were of acceptable quality for each sample.
-This demonstrates that visual inspection of PanSolid 
-pipeline results can detected DNA contamination at least as low as 10%, and
-the source of contamination is being followed up as a quality incident
-([INC10288]{custom-style="Strong"}).
+During the validation, it was noticed that the SNP allele frequency plot of the interactive HTML allowed the detection of DNA contamination between samples.
+This was initially noted in sample 24030962; the SNP frequency profile was similar to the profiles from the limit of detection experiment, when DNA from two patients was deliberately mixed together.
+Microsatellite instability testing on 24030962 with the OncoMate™ MSI Dx kit (Promega) showed the presence of additional alleles at two pentanucleotide markers, indicating that a contaminating sample comprised approximately 10% of the total DNA (@fig-24030962-dna-contamination).
+Following this discovery, all the samples in the cohort were reviewed: 2 further samples (24030945 and 24054291) were found to have similar profiles, and were excluded from the validation analysis.
+The signal-adjusted noise and percentage coverage above 138X were of acceptable quality for each sample.
+This demonstrates that visual inspection of PanSolid pipeline results can detected DNA contamination at least as low as 10%, and the source of contamination is being followed up as a quality incident ([INC10288]{custom-style="Strong"}).
 
 ```{r}
 #| label: dna-contamination-image
@@ -4361,7 +3830,7 @@ additional low-level alleles (black arrows)."
 
 ```
 
-![`r caption_24030962`](`r path_24030962`){#fig-24030962-dna-contamination height=5in}
+![`r caption_24030962`](`r path_24030962`){#fig-24030962-dna-contamination height="5in"}
 
 {{< pagebreak >}}
 
@@ -4379,44 +3848,20 @@ haploid_genome_bp <- (3.2*10^9)
 
 ## Whole genome sequencing
 
-Detection of gene deletions with the PanSolid pipeline compares favourably with
-WGS using the Genomics England pipeline, which uses the Canvas tool for CNV 
-calling. The two pipelines for PanSolid and WGS differ in several ways, which are
-summarised in @tbl-pipeline-metrics. The close agreement between PanSolid and 
-WGS for detection of large chromosomal changes is impressive given the 
-discrepancy in sequence data generated by each method: WGS sequences the
-majority of non-repetitive genomic regions, whilst PanSolid uses a targeted
-QIAseq enrichment for regions summing to 
-`r round(pansolid_bed_bp/1000, 1)` kb; only
-`r round((pansolid_bed_bp / haploid_genome_bp)*100, 2)`% of the 3.2 Gigabase
-human genome.
+Detection of gene deletions with the PanSolid pipeline compares favourably with WGS using the Genomics England pipeline, which uses the Canvas tool for CNV calling.
+The two pipelines for PanSolid and WGS differ in several ways, which are summarised in @tbl-pipeline-metrics.
+The close agreement between PanSolid and WGS for detection of large chromosomal changes is impressive given the discrepancy in sequence data generated by each method: WGS sequences the majority of non-repetitive genomic regions, whilst PanSolid uses a targeted QIAseq enrichment for regions summing to `r round(pansolid_bed_bp/1000, 1)` kb; only `r round((pansolid_bed_bp / haploid_genome_bp)*100, 2)`% of the 3.2 Gigabase human genome.
 
-A key source of false positives and
-false negatives in deletion detection were discrepancies relating to 
-characterisation of ploidy. For example, a glioma sample was tested which had
-near whole-genome haploidy with normal dosage of certain chromosomes, including
-chromosome 7 (24062632). This karyotype is often observed in glioma samples
-[@baker2020; @ahrendsen2022] and this sample was deliberately tested to 
-understand how the PanSolid CLC pipeline would classify near-whole-genome loss
-of chromosome material. The PanSolid pipeline identified LOH 
-across the sample's genome, but did not identify genes as being deleted. 
+A key source of false positives and false negatives in deletion detection were discrepancies relating to characterisation of ploidy.
+For example, a glioma sample was tested which had near whole-genome haploidy with normal dosage of certain chromosomes, including chromosome 7 (24062632).
+This karyotype is often observed in glioma samples [@baker2020; @ahrendsen2022] and this sample was deliberately tested to understand how the PanSolid CLC pipeline would classify near-whole-genome loss of chromosome material.
+The PanSolid pipeline identified LOH across the sample's genome, but did not identify genes as being deleted.
 
-The Genomics England WGS pipeline uses the Canvas algorithm for 
-ploidy calling, which includes the prediction of whole genome ploidy and 
-was optimised using
-a cohort of tumour-normal samples with known ploidy and NCC values
-(@roller2016, supplementary information, page 17). Conversely, the CLC Detect
-Regional Ploidy tool used by the PanSolid pipeline does not include a 
-prediction of whole genome ploidy. 
-This lack of accounting for 
-non-diploid states also led to false
-positive results from the PanSolid pipeline in tumours with high ploidy. A 
-similar scenario was described by @gardina2008: when ploidy was not accounted for,
-SNP-array analysis mistakenly reported a loss of chromosome 10 in 
-several tetraploid glioblastoma samples which in fact had chromosome 10 trisomy, 
-due to the relative dosage of chromosome 10 versus the rest the polyploid genome.
-Similarly @glodzik2023 reported discrepancies in ploidy prediction between
-targeted NGS and WGS.
+The Genomics England WGS pipeline uses the Canvas algorithm for ploidy calling, which includes the prediction of whole genome ploidy and was optimised using a cohort of tumour-normal samples with known ploidy and NCC values (@roller2016, supplementary information, page 17).
+Conversely, the CLC Detect Regional Ploidy tool used by the PanSolid pipeline does not include a prediction of whole genome ploidy.
+This lack of accounting for non-diploid states also led to false positive results from the PanSolid pipeline in tumours with high ploidy.
+A similar scenario was described by @gardina2008: when ploidy was not accounted for, SNP-array analysis mistakenly reported a loss of chromosome 10 in several tetraploid glioblastoma samples which in fact had chromosome 10 trisomy, due to the relative dosage of chromosome 10 versus the rest the polyploid genome.
+Similarly @glodzik2023 reported discrepancies in ploidy prediction between targeted NGS and WGS.
 
 ```{r}
 #| label: tbl-pipeline-metrics
@@ -4438,114 +3883,56 @@ knitr::kable(pipeline_metric_tbl)
 
 ```
 
-Even accounting for the differences in ploidy calculation, there were still
-discrepant results between PanSolid CLC and WGS analysis for monoallelic gene
-losses. Manual inspection of
-the HTML files for each result showed that in each case the correct result 
-could be interpreted from viewing the log2 ratios and the SNP track 
-simultaneously, which would prevent these results being reported in a clinical
-service. During the optimisation phase of the project, the fold change
-threshold was deliberately set to be permissive, with the intention that this
-would bias the pipeline towards false positives rather than false negatives.
-Manual review of the detected CNVs then identified and removed false positives, 
-which increased the specificity. However the sensitivity was not increased 
-by manual review because often false negatives were due to
-certain genes being slightly above the fold change threshold when whole chromosome
-or chromosome arm losses were seen. It is not realistic to expect scientists to
-remember the chromosomal locations of `r length(del_genes)`
-different genes and to be able to 
-manually correct where the pipeline has omitted a gene deletion result.
-Consequently, manual review reduces the number of false positives, but will not
-reduce the low number of false negatives.
+Even accounting for the differences in ploidy calculation, there were still discrepant results between PanSolid CLC and WGS analysis for monoallelic gene losses.
+Manual inspection of the HTML files for each result showed that in each case the correct result could be interpreted from viewing the log2 ratios and the SNP track simultaneously, which would prevent these results being reported in a clinical service.
+During the optimisation phase of the project, the fold change threshold was deliberately set to be permissive, with the intention that this would bias the pipeline towards false positives rather than false negatives.
+Manual review of the detected CNVs then identified and removed false positives, which increased the specificity.
+However the sensitivity was not increased by manual review because often false negatives were due to certain genes being slightly above the fold change threshold when whole chromosome or chromosome arm losses were seen.
+It is not realistic to expect scientists to remember the chromosomal locations of `r length(del_genes)` different genes and to be able to manually correct where the pipeline has omitted a gene deletion result.
+Consequently, manual review reduces the number of false positives, but will not reduce the low number of false negatives.
 
 ## ddPCR
 
-The variation in normal controls for *CDKN2A* and *PTEN* ddPCR also reflects 
-the range for *ERBB2* ddPCR reported in [DOC6260]{custom-style="Strong"}, 
-which varied from 0.77-6 (median: 1.61) in control DNA extracted by the 
-Cobas method. It is unlikely that either the *CDKN2A* or
-*PTEN* ddPCR assays were systematically
-biased, as pooled control lymphocyte DNA showed normal dosage for 
-both assays (C3, WS146103). One possibility is that the range of ddPCR results for 
-the normal controls reflects actual dosage variation in this cohort. This was
-not anticipated, as these DNA samples were extracted tissue judged as
-non-neoplastic by histological review, and hence were assumed not to have 
-significant copy number variation. An intra-control normalisation, which may have
-revealed dosage outliers, was not performed, and this reflects a key limitation
-of this validation. 
-A limitation of the ddPCR approach taken was
-to use the *AP3B1* gene as a reference, which lies on a different chromosome
-to *CDKN2A* and *PTEN*. Given the complex nature of cancer genomes, variation
-in the dosage of the *AP3B1* reference gene is a potential cause of 
-discrepancies between ddPCR and PanSolid NGS.
+The variation in normal controls for *CDKN2A* and *PTEN* ddPCR also reflects the range for *ERBB2* ddPCR reported in [DOC6260]{custom-style="Strong"}, which varied from 0.77-6 (median: 1.61) in control DNA extracted by the Cobas method.
+It is unlikely that either the *CDKN2A* or *PTEN* ddPCR assays were systematically biased, as pooled control lymphocyte DNA showed normal dosage for both assays (C3, WS146103).
+One possibility is that the range of ddPCR results for the normal controls reflects actual dosage variation in this cohort.
+This was not anticipated, as these DNA samples were extracted tissue judged as non-neoplastic by histological review, and hence were assumed not to have significant copy number variation.
+An intra-control normalisation, which may have revealed dosage outliers, was not performed, and this reflects a key limitation of this validation.
+A limitation of the ddPCR approach taken was to use the *AP3B1* gene as a reference, which lies on a different chromosome to *CDKN2A* and *PTEN*.
+Given the complex nature of cancer genomes, variation in the dosage of the *AP3B1* reference gene is a potential cause of discrepancies between ddPCR and PanSolid NGS.
 
-The variation in normal controls and reduced specificity with ddPCR are notable,
-but are consistent with published studies. @mcfadden2023 reported a 
-sensitivity and specificity of 94% and 90% when using 
-ddPCR for *CDKN2A* deletion detection in 28 FFPE samples, using a copy number 
-threshold of 1.7 with a singleplex assay [@mcfadden2023], and then sensitivity
-and specificity of 
-80% and 100% using a threshold of 1.6 in 17 different samples [@mcfadden2024].
+The variation in normal controls and reduced specificity with ddPCR are notable, but are consistent with published studies.
+@mcfadden2023 reported a sensitivity and specificity of 94% and 90% when using ddPCR for *CDKN2A* deletion detection in 28 FFPE samples, using a copy number threshold of 1.7 with a singleplex assay [@mcfadden2023], and then sensitivity and specificity of 80% and 100% using a threshold of 1.6 in 17 different samples [@mcfadden2024].
 
 ## *NF2* LOH PCR
 
-To assess the accuracy of the PanSolid ploidy caller for detecting LOH, 
-`r sum(nf2_pipeline_results$n)` samples were tested with known LOH statuses from
-PCR-based testing for the *NF2* gene. Determining LOH for *NF2* by 
-PCR is a well-established technique at the North West 
-GLH as part of the *NF2*-related Schwannamatosis clinical service [@wallace2004]. 
-The Regional Ploidy Caller showed close agreement with the results from *NF2*
-PCR testing, and revealed cases where LOH was due to loss of chromosome 22 and
-copy-neutral LOH. This demonstrates a key advantage of this approach, as 
-PCR-based testing does not distinguish between these two forms of LOH.
-Moreover, the ploidy caller was able to identify a case with an
-intragenic *NF2* deletion on a background
-of copy neutral LOH (24031162; R24-0TDP).
+To assess the accuracy of the PanSolid ploidy caller for detecting LOH, `r sum(nf2_pipeline_results$n)` samples were tested with known LOH statuses from PCR-based testing for the *NF2* gene.
+Determining LOH for *NF2* by PCR is a well-established technique at the North West GLH as part of the *NF2*-related Schwannamatosis clinical service [@wallace2004].
+The Regional Ploidy Caller showed close agreement with the results from *NF2* PCR testing, and revealed cases where LOH was due to loss of chromosome 22 and copy-neutral LOH.
+This demonstrates a key advantage of this approach, as PCR-based testing does not distinguish between these two forms of LOH.
+Moreover, the ploidy caller was able to identify a case with an intragenic *NF2* deletion on a background of copy neutral LOH (24031162; R24-0TDP).
 
-However, there were cases where the ploidy caller switched between ploidy states 
-when the VAF pattern indicated that only one was present.
-Another limitation of the ploidy caller is that classified deleted regions as
-biallelic deletions in 2 cases, which are not associated with LOH and led to
-false negative results when compared to *NF2* PCR. Manual review of each call 
-was able to correct for this behaviour, 
-and increase the sensitivity to 100%.
+However, there were cases where the ploidy caller switched between ploidy states when the VAF pattern indicated that only one was present.
+Another limitation of the ploidy caller is that classified deleted regions as biallelic deletions in 2 cases, which are not associated with LOH and led to false negative results when compared to *NF2* PCR. Manual review of each call was able to correct for this behaviour, and increase the sensitivity to 100%.
 
 ## QIAseq Merged panel
 
-The accuracy of the Detect Regional Ploidy tool was also checked against results
-from the QIAseq Merged enrichment panel, which is currently used for LOH 
-detection in MMR genes at the North West GLH. As the enrichment and sequencing
-methods are the same as for PanSolid NGS, the Merged NGS process cannot be 
-considered orthogonal, and was used due to the unavailability of samples 
-tested for MMR gene LOH by other means. The two methods agreed on the LOH
-status of the *MSH2*, *MSH6* and *MLH1* genes in each sample.
+The accuracy of the Detect Regional Ploidy tool was also checked against results from the QIAseq Merged enrichment panel, which is currently used for LOH detection in MMR genes at the North West GLH. As the enrichment and sequencing methods are the same as for PanSolid NGS, the Merged NGS process cannot be considered orthogonal, and was used due to the unavailability of samples tested for MMR gene LOH by other means.
+The two methods agreed on the LOH status of the *MSH2*, *MSH6* and *MLH1* genes in each sample.
 
-Despite the shared QIAseq enrichment principle, the two methods differ in the
-numbers of SNPs available for analysis.
-The LOH analysis on the QIAseq Merged panel analyses 84 SNPs in and 
-around the *MSH2* and *MSH6* 
-genes on chromosome 2 (GRCh37, chr2:47593094-48199845) and 62 SNPs in and around the 
-*MLH1* gene on chromosome 3 (GRCh37, chr3:37016953-37141732). Comparatively,
-the LOH analysis on the QIAseq PanSolid panel may have only a few or no SNPs
-within the region of each gene. 
-This is due to the design of the PanSolid enrichment, 
-and raises the potential that a focal region of copy neutral LOH could be 
-missed by this method. However, this is biologically unlikely, as LOH regions 
-are usually several Megabases in size.
-The QIAseq Merged panel does not provide results for the *PMS2* gene, so there
-are no gold standard results for comparison with PanSolid. Analysis of *PMS2* is
-complicated by the presence of 15 pseudogenes which presents a technical
-challenge for confirming the coordinates of any apparent CNV [@blount2018].
+Despite the shared QIAseq enrichment principle, the two methods differ in the numbers of SNPs available for analysis.
+The LOH analysis on the QIAseq Merged panel analyses 84 SNPs in and around the *MSH2* and *MSH6* genes on chromosome 2 (GRCh37, chr2:47593094-48199845) and 62 SNPs in and around the *MLH1* gene on chromosome 3 (GRCh37, chr3:37016953-37141732).
+Comparatively, the LOH analysis on the QIAseq PanSolid panel may have only a few or no SNPs within the region of each gene.
+This is due to the design of the PanSolid enrichment, and raises the potential that a focal region of copy neutral LOH could be missed by this method.
+However, this is biologically unlikely, as LOH regions are usually several Megabases in size.
+The QIAseq Merged panel does not provide results for the *PMS2* gene, so there are no gold standard results for comparison with PanSolid.
+Analysis of *PMS2* is complicated by the presence of 15 pseudogenes which presents a technical challenge for confirming the coordinates of any apparent CNV [@blount2018].
 
 ## Repeat testing
 
-The uncertainty of measurement of the fold change metric for deleted regions
-was calculated as ±`r del_uom` at 95% confidence. This value is 
-roughly equivalent to the value of 0.17 calculated for amplifications 
-([DOC6283]{custom-style="Strong"}). There was no difference in the number
-of significant CNVs detected within each replicate, although 4 genes on 
-one replicate of sample 24018518 had fold changes below 
-`r deletion_fc_threshold` but with non-significant p values. 
+The uncertainty of measurement of the fold change metric for deleted regions was calculated as ±`r del_uom` at 95% confidence.
+This value is roughly equivalent to the value of 0.17 calculated for amplifications ([DOC6283]{custom-style="Strong"}).
+There was no difference in the number of significant CNVs detected within each replicate, although 4 genes on one replicate of sample 24018518 had fold changes below `r deletion_fc_threshold` but with non-significant p values.
 
 ```{r}
 #| label: deletion-threshold-with-uom
@@ -4574,32 +3961,12 @@ current_threshold_del_percent <- (current_threshold_del_results /
 
 ```
 
-For the amplifications
-validation, we modified the amplification fold change threshold to account for the
-uncertainty of measurement, lowering it from 3 to 2.8. 
-We chose not to replicate this approach for deletion
-detection, as accounting for the uncertainty of measurement in the deletion 
-fold change threshold would have raised the threshold to 
-`r round(deletion_fc_threshold_theoretical + del_uom, 2)`
-(`r round(deletion_fc_threshold_theoretical, 2)` + `r del_uom`). Despite the 
-increase of only 0.4 versus the 
-`r deletion_fc_threshold` threshold, applying the
-`r round(deletion_fc_threshold_theoretical + del_uom, 2)` threshold
-to our validation cohort would have led to 
-`r round(new_threshold_del_percent, 1)`%
-of all gene dosage results being classed as deletions, compared to
-`r round(current_threshold_del_percent, 1)`% with the 
-`r deletion_fc_threshold`
-threshold. This increased impact of a small change in detection threshold is
-expected for deletions rather than amplifications, as explained in CLC
-manual (Qiagen):
+For the amplifications validation, we modified the amplification fold change threshold to account for the uncertainty of measurement, lowering it from 3 to 2.8.
+We chose not to replicate this approach for deletion detection, as accounting for the uncertainty of measurement in the deletion fold change threshold would have raised the threshold to `r round(deletion_fc_threshold_theoretical + del_uom, 2)` (`r round(deletion_fc_threshold_theoretical, 2)` + `r del_uom`).
+Despite the increase of only 0.4 versus the `r deletion_fc_threshold` threshold, applying the `r round(deletion_fc_threshold_theoretical + del_uom, 2)` threshold to our validation cohort would have led to `r round(new_threshold_del_percent, 1)`% of all gene dosage results being classed as deletions, compared to `r round(current_threshold_del_percent, 1)`% with the `r deletion_fc_threshold` threshold.
+This increased impact of a small change in detection threshold is expected for deletions rather than amplifications, as explained in CLC manual (Qiagen):
 
-*"The fact that the same percent-wise change in coverage (copy number) leads* 
-*to a higher fold change for deletions than for amplifications means that*
-*given the same amplification and deletion fold change cutoff there is a *
-*higher risk of calling false positive deletions than amplifications*
-*- it takes less coverage fluctuation to pass the fold change cutoff*
-*for deletions."* [@qiagen2023]
+*"The fact that the same percent-wise change in coverage (copy number) leads* *to a higher fold change for deletions than for amplifications means that* *given the same amplification and deletion fold change cutoff there is a* *higher risk of calling false positive deletions than amplifications* *- it takes less coverage fluctuation to pass the fold change cutoff* *for deletions."* [@qiagen2023]
 
 ## Limit of detection
 
@@ -4621,58 +3988,26 @@ wgs_biallelic_true_positive <- wgs_biallelic |>
 
 ```
 
-The limit of detection experiment was complicated by false positive CNV calls in
-the the sample chosen to simulate a normal genome (24053299). This sample had
-no CNVs detected on WGS (24058699, R24-1H6C) but had several false positive
-deletion calls when tested on PanSolid NGS; this may have been due to a
-combination of low NCC and slightly elevated signal-adjusted noise (0.39).
-In addition, the DNA mixtures did not reflect the expected VAF patterns for a 
-clinical sample, as they contained DNA from 2 different patients.
-Consequently, the conclusions that can be drawn from this experiment must
-acknowledge these caveats. The biallelic *CDKN2A* deletion 
-could be detected as low as 40% simulated NCC, and the pattern of chromosome
-10 monoallelic loss was visible as low as the 60% simulated NCC sample.
+The limit of detection experiment was complicated by false positive CNV calls in the the sample chosen to simulate a normal genome (24053299).
+This sample had no CNVs detected on WGS (24058699, R24-1H6C) but had several false positive deletion calls when tested on PanSolid NGS; this may have been due to a combination of low NCC and slightly elevated signal-adjusted noise (0.39).
+In addition, the DNA mixtures did not reflect the expected VAF patterns for a clinical sample, as they contained DNA from 2 different patients.
+Consequently, the conclusions that can be drawn from this experiment must acknowledge these caveats.
+The biallelic *CDKN2A* deletion could be detected as low as 40% simulated NCC, and the pattern of chromosome 10 monoallelic loss was visible as low as the 60% simulated NCC sample.
 
-Both these results are higher than the predicted theoretical limit 
-of detection, which would be 20% NCC for biallelic
-and 40% NCC for monoallelic deletions. There was evidence from WGS 
-analysis that true biallelic deletions could be 
-detected by PanSolid NGS in samples with NCC values as low as
-`r min(wgs_biallelic_true_positive$ccube_ncc)`% as measured by the
-Ccube algorithm, and for true monoallelic deletions could be detected in
-samples with NCC values as low as 
-`r min(wgs_monoallelic_true_positive$ccube_ncc)`%. As a result, the true 
-limit of detection for deletions is likely between the lower theoretical
-limits and the limits from the experiment with simulated NCC DNA mixtures.
-However the most conservative thresholds, 40% NCC for biallelic
-deletions and 60% NCC for monoallelic deletions, will be included as caveats in
-the test information box on clinical reports for this method.
+Both these results are higher than the predicted theoretical limit of detection, which would be 20% NCC for biallelic and 40% NCC for monoallelic deletions.
+There was evidence from WGS analysis that true biallelic deletions could be detected by PanSolid NGS in samples with NCC values as low as `r min(wgs_biallelic_true_positive$ccube_ncc)`% as measured by the Ccube algorithm, and for true monoallelic deletions could be detected in samples with NCC values as low as `r min(wgs_monoallelic_true_positive$ccube_ncc)`%.
+As a result, the true limit of detection for deletions is likely between the lower theoretical limits and the limits from the experiment with simulated NCC DNA mixtures.
+However the most conservative thresholds, 40% NCC for biallelic deletions and 60% NCC for monoallelic deletions, will be included as caveats in the test information box on clinical reports for this method.
 
 ## Small and intragenic deletions
 
-The requirements for the method were to detect whole gene deletions, although 
-intragenic 
-and germline deletions
-can also be detected, which are summarised in @tbl-intragenic-deletions. 
-For the case of a germline *MSH2* deletion, the pipeline
-correctly identified the presence of a deletion, but overestimated the 
-deletion coordinates. This means the pipeline can alert the analyst to 
-the presence of
-intragenic deletions, which then allows the
-analyst to judge the true extent of the deletion.
+The requirements for the method were to detect whole gene deletions, although intragenic and germline deletions can also be detected, which are summarised in @tbl-intragenic-deletions.
+For the case of a germline *MSH2* deletion, the pipeline correctly identified the presence of a deletion, but overestimated the deletion coordinates.
+This means the pipeline can alert the analyst to the presence of intragenic deletions, which then allows the analyst to judge the true extent of the deletion.
 
-The ability of the PanSolid pipeline to detect intragenic deletions depends
-on several factors, including the
-size of the deletion, the NCC, the signal-adjusted noise
-of the sample, the fold change of the affected targets, the positioning of 
-targets within the gene and the graining 
-level used, which is determined by the size of the gene. Accepting these 
-caveats, an approximation of the smallest detectable deletion 
-for each gene with a specific graining level can be calculated as a 
-percentage of the total gene size. This shows that the PanSolid pipeline
-could theoretically detect deletions ranging from
-`r min(gene_target_counts$percent_del)`
-to `r max(gene_target_counts$percent_del)`% of the genes of interest (@tbl-deletion-gene-targets, Appendix).
+The ability of the PanSolid pipeline to detect intragenic deletions depends on several factors, including the size of the deletion, the NCC, the signal-adjusted noise of the sample, the fold change of the affected targets, the positioning of targets within the gene and the graining level used, which is determined by the size of the gene.
+Accepting these caveats, an approximation of the smallest detectable deletion for each gene with a specific graining level can be calculated as a percentage of the total gene size.
+This shows that the PanSolid pipeline could theoretically detect deletions ranging from `r min(gene_target_counts$percent_del)` to `r max(gene_target_counts$percent_del)`% of the genes of interest (@tbl-deletion-gene-targets, Appendix).
 
 ## DNA contamination
 
@@ -4686,104 +4021,57 @@ contamination_rate <- round((length(contaminated_labnos) / total_samples)*100, 1
 
 ```
 
-An unexpected consequence of visualising whole genome variant allele frequencies
-was the ability to detection patient-to-patient specimen contamination, termed
-allocontamination [@sehn2015]. 
-`r length(contaminated_labnos)`
-samples out of
-`r total_samples` 
-(`r contamination_rate`%) had evidence of DNA contamination at approximately
-10% when measured by short tandem repeat genotyping.
-This finding is being investigated
-at the time of writing ([INC10288]{custom-style="Strong"}), due to the risk for
-incorrect results to be reported and impact patient care. Allocontamination of
-specimens can occur at many points during preparation of FFPE samples 
-[@hodgson2020] and a study by @sehn2015 showed that significant allocontamination,
-defined as greater than 5% presence of an alternate haplotype on short tandem
-repeat analysis, 
-occurred in 3% (9/296) of cases. The authors note that lower level contamination
-may be more prevalent.
+An unexpected consequence of visualising whole genome variant allele frequencies was the ability to detection patient-to-patient specimen contamination, termed allocontamination [@sehn2015].
+`r length(contaminated_labnos)` samples out of `r total_samples` (`r contamination_rate`%) had evidence of DNA contamination at approximately 10% when measured by short tandem repeat genotyping.
+This finding is being investigated at the time of writing ([INC10288]{custom-style="Strong"}), due to the risk for incorrect results to be reported and impact patient care.
+Allocontamination of specimens can occur at many points during preparation of FFPE samples [@hodgson2020] and a study by @sehn2015 showed that significant allocontamination, defined as greater than 5% presence of an alternate haplotype on short tandem repeat analysis, occurred in 3% (9/296) of cases.
+The authors note that lower level contamination may be more prevalent.
 
 ## Limitations
 
 ### Limitations of the method
 
-This validation has shown that the PanSolid NGS technique has the 
-following limitations:
+This validation has shown that the PanSolid NGS technique has the following limitations:
 
-- The classification of deletions based solely on fold change can lead to
-false positive results in which the the VAF pattern in a region marked as a 
-deletion is not consistent with a deletion (@sec-results-manual-review). In the 
-validation cohort, this occurred for
-`r percent_false_pos_calls`% of deletion calls.
+-   The classification of deletions based solely on fold change can lead to false positive results in which the the VAF pattern in a region marked as a deletion is not consistent with a deletion (@sec-results-manual-review).
+    In the validation cohort, this occurred for `r percent_false_pos_calls`% of deletion calls.
 
-- The predictions of the CNV Detection tool and the Detect Regional Ploidy tool
-contradict each other in a limited number of cases
-(@sec-results-cnv-caller-disagreements). 
+-   The predictions of the CNV Detection tool and the Detect Regional Ploidy tool contradict each other in a limited number of cases (@sec-results-cnv-caller-disagreements).
 
-- Haploidy will not be identified as a genome-wide 
-loss of copy dosage (@fig-24062632-haploid-false-negative) and 
-higher genome-wide ploidy states
-may not be correctly characterised (@fig-24045841-false-positive-hexaploid).
+-   Haploidy will not be identified as a genome-wide loss of copy dosage (@fig-24062632-haploid-false-negative) and higher genome-wide ploidy states may not be correctly characterised (@fig-24045841-false-positive-hexaploid).
 
-- NCC predictions from the Detect Regional Ploidy tool were broadly consistent
-with WGS using the Ccube tool (R = 0.71, @fig-wgs-ncc-comparison), 
-but there were discrepancies with 
-low NCC samples (@sec-results-wgs-ncc)
-and an NCC value of `r ncc_24039975[1,2]`% was predicted for a cell line 
-reference material (@sec-results-overall-ncc). As the pipeline has a lower
-threshold of 20% for NCC prediction, NCC levels lower than 20% will not be
-predicted. This significantly limits the utility and accuracy of these
-predictions for samples with low or absent NCC.
+-   NCC predictions from the Detect Regional Ploidy tool were broadly consistent with WGS using the Ccube tool (R = 0.71, @fig-wgs-ncc-comparison), but there were discrepancies with low NCC samples (@sec-results-wgs-ncc) and an NCC value of `r ncc_24039975[1,2]`% was predicted for a cell line reference material (@sec-results-overall-ncc).
+    As the pipeline has a lower threshold of 20% for NCC prediction, NCC levels lower than 20% will not be predicted.
+    This significantly limits the utility and accuracy of these predictions for samples with low or absent NCC.
 
-- The Detect Regional Ploidy tool predicts LOH with high accuracy comparative
-to PCR-based (@sec-results-nf2-loh) and NGS-based methods (@sec-results-mmr-ngs).
-However, due to the spacing of SNPs within the PanSolid enrichment, a focal or
-intragenic region of copy neutral LOH could be missed.
+-   The Detect Regional Ploidy tool predicts LOH with high accuracy comparative to PCR-based (@sec-results-nf2-loh) and NGS-based methods (@sec-results-mmr-ngs).
+    However, due to the spacing of SNPs within the PanSolid enrichment, a focal or intragenic region of copy neutral LOH could be missed.
 
-- The resolution of the ploidy caller depends on genomic spacing of SNPs with 
-VAF greater than 4%, which will vary between samples.
+-   The resolution of the ploidy caller depends on genomic spacing of SNPs with VAF greater than 4%, which will vary between samples.
 
 ### Limitations of the validation
 
 This validation has the following limitations:
 
-- The sample cohort is composed mainly of central nervous system 
-tumours (@tbl-cancer-types) and hence had higher numbers of deletions
-impacting these types of cancer.
+-   The sample cohort is composed mainly of central nervous system tumours (@tbl-cancer-types) and hence had higher numbers of deletions impacting these types of cancer.
 
-- We did not perform an intra-control normalisation in which the
-copy number profile of the 25 samples in the normal control cohort was 
-assessed using the PanSolid pipeline (@sec-results-ddpcr).
+-   We did not perform an intra-control normalisation in which the copy number profile of the 25 samples in the normal control cohort was assessed using the PanSolid pipeline (@sec-results-ddpcr).
 
-- No true positive or true negative samples were tested for *PMS2* LOH
-(@sec-results-nf2-loh and @sec-results-mmr-ngs).
+-   No true positive or true negative samples were tested for *PMS2* LOH (@sec-results-nf2-loh and @sec-results-mmr-ngs).
 
-- Only a single reference gene, *AP3B1*, was used for ddPCR CNV testing, which
-is located on a different chromosome to the targeted genes, *CDKN2A* and *PTEN*
-(@sec-results-ddpcr).
+-   Only a single reference gene, *AP3B1*, was used for ddPCR CNV testing, which is located on a different chromosome to the targeted genes, *CDKN2A* and *PTEN* (@sec-results-ddpcr).
 
-- Samples with LOH for *MLH1*, *MSH2* or *MSH6* confirmed by an orthogonal
-method could not be sourced. Instead, samples were
-used which had been sequenced with the Merged QIAseq enrichment, which is not
-an orthogonal method to PanSolid.
+-   Samples with LOH for *MLH1*, *MSH2* or *MSH6* confirmed by an orthogonal method could not be sourced.
+    Instead, samples were used which had been sequenced with the Merged QIAseq enrichment, which is not an orthogonal method to PanSolid.
 
-- The sample chosen as a negative control for the limit of detection 
-experiment had false positive deletion calls, which were likely due to poor
-sample quality and low NCC.
+-   The sample chosen as a negative control for the limit of detection experiment had false positive deletion calls, which were likely due to poor sample quality and low NCC.
 
-## Overall performance of CNV detection using PanSolid NGS 
+## Overall performance of CNV detection using PanSolid NGS
 
-The validation of detection of deletions and ploidy status is the final 
-component of the validation of CNVs on PanSolid NGS (@tbl-previous-validations). 
-This validation project has used multiple comparative techniques to assess
-the accuracy of the method. @tbl-pansolid-cnv-metrics summarises the results 
-from this document, 
-[DOC6260]{custom-style="Strong"} and
-[DOC6283]{custom-style="Strong"}. The sensitivity and specificity for 
-amplification detection measured against WGS are taken from
-@sec-results-wgs-amp
-of this document.
+The validation of detection of deletions and ploidy status is the final component of the validation of CNVs on PanSolid NGS (@tbl-previous-validations).
+This validation project has used multiple comparative techniques to assess the accuracy of the method.
+@tbl-pansolid-cnv-metrics summarises the results from this document, [DOC6260]{custom-style="Strong"} and [DOC6283]{custom-style="Strong"}.
+The sensitivity and specificity for amplification detection measured against WGS are taken from @sec-results-wgs-amp of this document.
 
 ```{r}
 #| label: pansolid-cnv-metrics-collation
@@ -4880,108 +4168,59 @@ kable(tbl_pansolid_cnv_metrics)
 
 The test requirements specified in @sec-requirements have been met:
 
-**Results:** the test should provide clear results for the presence of 
-whole-gene deletion in the `r length(del_genes)` specified TSGs. The test
-should also provide results for the ploidy state, including copy-neutral
-LOH, of the following genes:
-*MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*.
+**Results:** the test should provide clear results for the presence of whole-gene deletion in the `r length(del_genes)` specified TSGs.
+The test should also provide results for the ploidy state, including copy-neutral LOH, of the following genes: *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*.
 
-Clear results for each gene are provided in the Excel 
-output of the pipeline.
+Clear results for each gene are provided in the Excel output of the pipeline.
 
-**Analytical validity:** the test should have a defined sensitivity and 
-specificity, calculated by comparison with orthogonal methods.
+**Analytical validity:** the test should have a defined sensitivity and specificity, calculated by comparison with orthogonal methods.
 
-The PanSolid pipeline has been compared
-to WGS and ddPCR for deletion detection, and to *NF2* PCR and QIAseq NGS for 
-LOH detection. The sensitivity and specificity values for these comparisons
-are shown in @tbl-pansolid-cnv-metrics.
+The PanSolid pipeline has been compared to WGS and ddPCR for deletion detection, and to *NF2* PCR and QIAseq NGS for LOH detection.
+The sensitivity and specificity values for these comparisons are shown in @tbl-pansolid-cnv-metrics.
 
-**Dosage accuracy:** it should be shown how accurate the test is at detecting 
-monoallelic and biallelic deletions, in samples with a range of NCC values.
+**Dosage accuracy:** it should be shown how accurate the test is at detecting monoallelic and biallelic deletions, in samples with a range of NCC values.
 
-The sensitivities of the PanSolid pipeline for detecting biallelic and monoallelic 
-deletions in comparison to WGS for diploid samples are 
-`r substr(bi_mono_allelic_results_diploid[1, 5], 1, 3)`% and
-`r substr(bi_mono_allelic_results_diploid[2, 5], 1, 4)`%, respectively. 
-The NCC values 
-for these samples ranged from
-`r min(pansolid_vs_wgs_outcomes$calculated_tumour_content, na.rm = TRUE)`
-to
-`r max(pansolid_vs_wgs_outcomes$calculated_tumour_content, na.rm = TRUE)`
-(@sec-results-bi-mono-deletions).
+The sensitivities of the PanSolid pipeline for detecting biallelic and monoallelic deletions in comparison to WGS for diploid samples are `r substr(bi_mono_allelic_results_diploid[1, 5], 1, 3)`% and `r substr(bi_mono_allelic_results_diploid[2, 5], 1, 4)`%, respectively.
+The NCC values for these samples ranged from `r min(pansolid_vs_wgs_outcomes$calculated_tumour_content, na.rm = TRUE)` to `r max(pansolid_vs_wgs_outcomes$calculated_tumour_content, na.rm = TRUE)` (@sec-results-bi-mono-deletions).
 
-In a limit of detection experiment with DNA mixtures, the limit of 
-detection was 40% NCC for biallelic deletions and 60% for 
-monoallelic deletions. These thresholds are conservative due the limitations
-of the experiment, and the comparison with WGS showed that deletions could
-be detected below these thresholds in clinical samples.
+In a limit of detection experiment with DNA mixtures, the limit of detection was 40% NCC for biallelic deletions and 60% for monoallelic deletions.
+These thresholds are conservative due the limitations of the experiment, and the comparison with WGS showed that deletions could be detected below these thresholds in clinical samples.
 
-**Quality control:** the test should have clear quality control thresholds
-for deciding when the test results should be reported and when the test has 
-failed.
+**Quality control:** the test should have clear quality control thresholds for deciding when the test results should be reported and when the test has failed.
 
-Consistent with current service thresholds for amplification detection, the 
-detection of deletions and ploidy states requires signal-adjusted noise metrics
-below 1, and optimally below 0.7, and the percentage coverage at 138X should
-be 75% or greater. The SNP allelic frequency profile can identify DNA 
-contamination down to at least 10% (@sec-results-contamination), 
-and should be checked for every sample.
+Consistent with current service thresholds for amplification detection, the detection of deletions and ploidy states requires signal-adjusted noise metrics below 1, and optimally below 0.7, and the percentage coverage at 138X should be 75% or greater.
+The SNP allelic frequency profile can identify DNA contamination down to at least 10% (@sec-results-contamination), and should be checked for every sample.
 
-**Variability:** the test should have defined variation for detection of 
-deletions. Analysis of this variation should then be used to derive the 
-uncertainty of measurement for the test.
+**Variability:** the test should have defined variation for detection of deletions.
+Analysis of this variation should then be used to derive the uncertainty of measurement for the test.
 
-The variation for fold change is
-`r all_sd`, and the uncertainty of measurement for fold
-change is `r del_uom` at 95% confidence (@sec-results-repeat-testing).
+The variation for fold change is `r all_sd`, and the uncertainty of measurement for fold change is `r del_uom` at 95% confidence (@sec-results-repeat-testing).
 
-**Visualisation:** the results should be presented in a clear and visual 
-manner.
+**Visualisation:** the results should be presented in a clear and visual manner.
 
-A new Excel visualisation and HTML output were designed for viewing
-deletion, amplification and ploidy state results from the PanSolid 
-pipeline (@fig-24021613-visualisation).
+A new Excel visualisation and HTML output were designed for viewing deletion, amplification and ploidy state results from the PanSolid pipeline (@fig-24021613-visualisation).
 
-**Analysis:** there should be a clear procedure for analysis for gene 
-deletions by laboratory staff.
+**Analysis:** there should be a clear procedure for analysis for gene deletions by laboratory staff.
 
-A new standard operating procedure (SOP) 
-([DOC6720]{custom-style="Strong"}) has been written to describe the
-steps for analysing PanSolid NGS outputs for gene deletions and ploidy states.
+A new standard operating procedure (SOP) ([DOC6720]{custom-style="Strong"}) has been written to describe the steps for analysing PanSolid NGS outputs for gene deletions and ploidy states.
 
 # Requirements for clinical implementation
 
-Given the findings of this validation, the PanSolid NGS pipeline for detection
-of gene deletions and ploidy states is accepted for clinical implementation, with 
-the following requirements:
+Given the findings of this validation, the PanSolid NGS pipeline for detection of gene deletions and ploidy states is accepted for clinical implementation, with the following requirements:
 
-- Any deletion calls from the PanSolid pipeline which are to be clinically 
-reported should be viewed in the HTML
-file to check the log2 and SNP allele-frequency profiles are consistent with a
-deletion. This is because a proportion of deletion calls are false positives.
+-   Any deletion calls from the PanSolid pipeline which are to be clinically reported should be viewed in the HTML file to check the log2 and SNP allele-frequency profiles are consistent with a deletion.
+    This is because a proportion of deletion calls are false positives.
 
-- The outputs of the Detect Regional Ploidy tool for the 
-*MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2* should be checked
-for consistency against the results shown in the HTML file, in order to 
-identify the low percentage of cases where the outputs differ from 
-PCR-based LOH testing (@tbl-nf2-metrics-with-qc).
+-   The outputs of the Detect Regional Ploidy tool for the *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2* should be checked for consistency against the results shown in the HTML file, in order to identify the low percentage of cases where the outputs differ from PCR-based LOH testing (@tbl-nf2-metrics-with-qc).
 
-- According to an experiment with DNA mixtures, the test has a
-limit of detection for biallelic deletions of
-40% NCC and a limit of detection for monoallelic deletions of 60% NCC (@sec-results-lod). In practice, this may be further reduced by the
-technique's uncertainty of measurement.
+-   According to an experiment with DNA mixtures, the test has a limit of detection for biallelic deletions of 40% NCC and a limit of detection for monoallelic deletions of 60% NCC (@sec-results-lod).
+    In practice, this may be further reduced by the technique's uncertainty of measurement.
 
-- Samples where the referral form states that the NCC is below 20% should be
-analysed with caution, and may need to be reported with the caveat that
-detection of deletions is not possible at NCC levels below 20%.
+-   Samples where the referral form states that the NCC is below 20% should be analysed with caution, and may need to be reported with the caveat that detection of deletions is not possible at NCC levels below 20%.
 
 # Conclusion
 
-The PanSolid NGS enrichment v2 and PanSolid CLC pipeline v2.4 has been validated 
-for the detection of deletions in
-`r length(unique(del_val_collated_del_genes$gene))` genes, and for the prediction
-of ploidy states in *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*.
+The PanSolid NGS enrichment v2 and PanSolid CLC pipeline v2.4 has been validated for the detection of deletions in `r length(unique(del_val_collated_del_genes$gene))` genes, and for the prediction of ploidy states in *MSH2*, *MSH6*, *MLH1*, *PMS2*, *LZTR1*, *SMARCB1* and *NF2*.
 
 {{< pagebreak >}}
 
