@@ -9,18 +9,13 @@ editor: visual
 
 # Introduction
 
-This Quarto document performs the analysis for the validation of somatic *ERBB2* 
-gene amplifications.
+This Quarto document performs the analysis for the validation of somatic *ERBB2* gene amplifications.
 
-Exported tables and plots have the prefix "plot" or "table" and should be named 
-as they appear in the validation document ("ERBB2 Somatic Amplifications 
-Validation Document.docx") for ease of reference.
+Exported tables and plots have the prefix "plot" or "table" and should be named as they appear in the validation document ("ERBB2 Somatic Amplifications Validation Document.docx") for ease of reference.
 
-Plots do not have titles to avoid confusion with the figure titles in the Word 
-document.
+Plots do not have titles to avoid confusion with the figure titles in the Word document.
 
-The script should run with the files in the associated data folders, without 
-requiring a connection to the DNA Database.
+The script should run with the files in the associated data folders, without requiring a connection to the DNA Database.
 
 ```{r}
 #| label: packages
@@ -43,9 +38,7 @@ source(here("functions/cnv_plot_functions.R"))
 
 ## QiaSeq primers
 
-The overlap of primers between the PanSolid and Core enrichment panels is too 
-great to allow Core panel results to be used for the validation of the PanSolid 
-enrichment.
+The overlap of primers between the PanSolid and Core enrichment panels is too great to allow Core panel results to be used for the validation of the PanSolid enrichment.
 
 ```{r}
 #| label: qiaseq-primers
@@ -168,15 +161,11 @@ plot_timestamp(input_plot = plot_primer_venn,
 
 ```
 
-PanSolidv2 contains 
-`r length(pansolid_v2$sequence) - length(pansolid_v1$sequence)` 
-more primers than PanSolidv1.
+PanSolidv2 contains `r length(pansolid_v2$sequence) - length(pansolid_v1$sequence)` more primers than PanSolidv1.
 
 ## Fold change threshold
 
-The theoretical limit of detection of the PanSolid pipeline varies with the 
-neoplastic cell content of the sample and the number of copies of the target 
-gene within the tumour cells.
+The theoretical limit of detection of the PanSolid pipeline varies with the neoplastic cell content of the sample and the number of copies of the target gene within the tumour cells.
 
 ```{r}
 #| label: fold-change-threshold-plot
@@ -236,14 +225,10 @@ csv_timestamp(table = table_ncc_increments,
 
 ### Load PanSolid results
 
-PanSolid results are taken from the formatted Excel (.xlsx) files which are 
-exported from the PanSolid 1.6dev pipeline.
+PanSolid results are taken from the formatted Excel (.xlsx) files which are exported from the PanSolid 1.6dev pipeline.
 
-The files in the "clc_processed_outputs" folder are all the processed files 
-generated for samples extracted via cobas® or QIAsymphony extractions, and 
-tested on PanSolid version 1 or version 2. 
-These files are structured in the agreed format we finally decided on for 
-analysis, with the tables and plots described in the SOP (DOC6261).
+The files in the "clc_processed_outputs" folder are all the processed files generated for samples extracted via cobas® or QIAsymphony extractions, and tested on PanSolid version 1 or version 2.
+These files are structured in the agreed format we finally decided on for analysis, with the tables and plots described in the SOP (DOC6261).
 
 ```{r}
 #| label: load-processed-clc-results
@@ -324,8 +309,7 @@ excluded_cases <- c("23034646", "23000087")
 
 ### Load control information
 
-To make sure I am identifying the correct samples as "controls" I have exported
-the coverage files for the controls from the CLC pipeline.
+To make sure I am identifying the correct samples as "controls" I have exported the coverage files for the controls from the CLC pipeline.
 
 ```{r}
 #| label: load-clc-controls
@@ -367,21 +351,15 @@ if (anyNA(qiasymphony_control_info)) { stop("NAs in QIAsymphony control informat
 
 ### Load sample information
 
-The sample information from the DNA Database was extracted using the 
-erbb2_val_dna_db_queries.R script which uses an ODBC connection. 
-The information was exported as csv files so that this Quarto document should 
-render without the user needing an ODBC connection to the DNA Database.
+The sample information from the DNA Database was extracted using the erbb2_val_dna_db_queries.R script which uses an ODBC connection. 
+The information was exported as csv files so that this Quarto document should render without the user needing an ODBC connection to the DNA Database.
 
 I have used the following convention to describe different kinds of data:
 
--   **Sample**: generic term for any DNA that was tested during this validation.
-Samples can be cases, controls or reference materials.
+-   **Sample**: generic term for any DNA that was tested during this validation. Samples can be cases, controls or reference materials.
 -   **Case**: an FFPE sample from a patient with cancer
--   **Control**: any sample used as a normal reference for CNV calling. This 
-includes samples with normal microsatellite instability results, samples from 
-the Manchester Cancer Research Centre biobank and samples of normal tissue.
--   **Reference material**: artificial samples of mixed cell-line and plasmid 
-vector DNA purchased from the company SeraCare.
+-   **Control**: any sample used as a normal reference for CNV calling. This includes samples with normal microsatellite instability results, samples from the Manchester Cancer Research Centre biobank and samples of normal tissue.
+-   **Reference material**: artificial samples of mixed cell-line and plasmid vector DNA purchased from the company SeraCare.
 
 ```{r}
 #| label: extraction-types
@@ -439,11 +417,8 @@ sample_types <- read_csv(
 
 ```
 
-Neoplastic cell content can be parsed from the "comments" section of DNA 
-Database, but often it is missing so I've had to manually created a csv file 
-with the missing information. 
-I got this information by checking the scanned referral forms on DNA Database,
-which usually have the neoplastic cell content written on.
+Neoplastic cell content can be parsed from the "comments" section of DNA Database, but often it is missing so I've had to manually created a csv file with the missing information. 
+I got this information by checking the scanned referral forms on DNA Database, which usually have the neoplastic cell content written on.
 
 ```{r}
 #| label: ncc
@@ -473,12 +448,8 @@ ncc_collated <- sample_ncc |>
 
 ```
 
-Initially I attempted to use the DISCODE field in DNA Database to identify the
-different tumour sources but this wasn't ideal (often multiple tumour sources 
-map to the same disease code). 
-Then I manually checked the scanned referral forms for each sample on DNA 
-Database and collated the results in the 
-cnv_validation_labnos_and_tissue_sources.csv file.
+Initially I attempted to use the DISCODE field in DNA Database to identify the different tumour sources but this wasn't ideal (often multiple tumour sources map to the same disease code). 
+Then I manually checked the scanned referral forms for each sample on DNA Database and collated the results in the cnv_validation_labnos_and_tissue_sources.csv file.
 
 ```{r}
 #| label: tumour-sources
@@ -509,10 +480,8 @@ sample_tissue_sources_coded <- sample_tissue_sources |>
 
 ```
 
-The DNA concentrations I've pulled from the submission sheets for the PanSolid 
-workflow. 
-This works for most samples except for 3 which for some reason weren't in the 
-standard PanSolid Excels. 
+The DNA concentrations I've pulled from the submission sheets for the PanSolid workflow. 
+This works for most samples except for 3 which for some reason weren't in the standard PanSolid Excels. 
 I need to chase this up.
 
 ```{r}
@@ -579,12 +548,9 @@ sample_pathnos <- read_csv(paste0(erbb2_data_folder,
 
 ```
 
-NHS numbers can be pulled off DLMS although annoyingly for two lab numbers 
-they aren't included (21015264 and 24008372). 
-The NHS numbers are on different samples for the same patients, so I've 
-added the NHS numbers to an additional csv file and added them in below.
-This avoids hard-coding patient-identifiable information 
-into this Quarto.
+NHS numbers can be pulled off DLMS although annoyingly for two lab numbers they aren't included (21015264 and 24008372). 
+The NHS numbers are on different samples for the same patients, so I've added the NHS numbers to an additional csv file and added them in below. 
+This avoids hard-coding patient-identifiable information into this Quarto.
 
 ```{r}
 #| label: nhs-numbers
@@ -609,11 +575,8 @@ stopifnot(anyDuplicated(sample_nhs_no$labno) == 0)
 
 ### Add DNA Database information
 
-Adding on the DNA Database information to each table of results allows these 
-tables to act as the base for downstream analysis. 
-The idea is that each table has all the variables I might want to filter by 
-(DNA extraction method, NHS number, PanSolid version, DNA concentration etc) 
-and so reduces joining with other tables downstream.
+Adding on the DNA Database information to each table of results allows these tables to act as the base for downstream analysis. 
+The idea is that each table has all the variables I might want to filter by (DNA extraction method, NHS number, PanSolid version, DNA concentration etc) and so reduces joining with other tables downstream.
 
 ```{r}
 #| label: add-dna-db-information
@@ -643,9 +606,7 @@ qiasymphony_controls <- qiasymphony_control_info |>
 
 ```
 
-Samples were tested across 
-`r length(unique(stdev_results$worksheet))` 
-worksheets between `r min(stdev_results$date)` and `r max(stdev_results$date)`.
+Samples were tested across `r length(unique(stdev_results$worksheet))` worksheets between `r min(stdev_results$date)` and `r max(stdev_results$date)`.
 
 ### Make sample tables for validation document
 
@@ -765,8 +726,7 @@ csv_timestamp(table = table_sample_types_total,
 
 ```
 
-These sample numbers should match the numbers given in the flow diagram in 
-the validation document.
+These sample numbers should match the numbers given in the flow diagram in the validation document.
 
 ```{r}
 #| label: sample-numbers
@@ -830,8 +790,7 @@ csv_timestamp(table = table_qs_control_sources_total,
 
 ### Load droplet digital PCR (ddPCR) data
 
-ddPCR data was analysed on Quantasoft and the results for each plate were 
-exported as a single csv file.
+ddPCR data was analysed on Quantasoft and the results for each plate were exported as a single csv file.
 
 ```{r}
 #| label: load-ddpcr
@@ -860,9 +819,7 @@ ddpcr_erbb2 <- rbind(ws138579, ws138765) |>
 
 ```
 
-ERBB2 concentrations measured via ddPCR ranged from 
-`r min(ddpcr_erbb2$copies_per20u_l_well)` to 
-`r max(ddpcr_erbb2$copies_per20u_l_well)` copies per ul.
+ERBB2 concentrations measured via ddPCR ranged from `r min(ddpcr_erbb2$copies_per20u_l_well)` to `r max(ddpcr_erbb2$copies_per20u_l_well)` copies per ul.
 
 ```{r}
 #| label: impact-of-enzyme
@@ -898,14 +855,11 @@ csv_timestamp(table = table_impact_of_hindiii_digestion,
 
 ## ERBB2 NGS results
 
-Because of the new processed Excel format, ERBB2 results can be viewed in 
-two ways:
+Because of the new processed Excel format, ERBB2 results can be viewed in two ways:
 
-1)  At the level of the gene region, with maximum and minimum fold changes 
-("all_amp_gene_results" table).
+1)  At the level of the gene region, with maximum and minimum fold changes ("all_amp_gene_results" table).
 
-2)  At the level of the CNV call, which includes the CNV coordinates 
-("pos_cnv_results" table).
+2)  At the level of the CNV call, which includes the CNV coordinates ("pos_cnv_results" table).
 
 ```{r}
 #| label: erbb2-calls-per-sample
@@ -925,17 +879,9 @@ cobas_v1_erbb2_amps <- cobas_v1_erbb2_results[cobas_v1_erbb2_results$pansolid_ca
 
 ```
 
-Out of `r nrow(cobas_v1_erbb2_results)` samples extracted by cobas and 
-tested with PanSolidv1, there were 
-`r nrow(cobas_v1_erbb2_results[cobas_v1_erbb2_results$pansolid_call == "amplification", ])` 
-with ERBB2 amplifications detected, with fold changes ranging from 
-`r round(min(cobas_v1_erbb2_amps$max_region_fold_change), 1)` 
-to 
-`r round(max(cobas_v1_erbb2_amps$max_region_fold_change), 1)`.
+Out of `r nrow(cobas_v1_erbb2_results)` samples extracted by cobas and tested with PanSolidv1, there were `r nrow(cobas_v1_erbb2_results[cobas_v1_erbb2_results$pansolid_call == "amplification", ])` with ERBB2 amplifications detected, with fold changes ranging from `r round(min(cobas_v1_erbb2_amps$max_region_fold_change), 1)` to `r round(max(cobas_v1_erbb2_amps$max_region_fold_change), 1)`.
 
-In the cases where an ERBB2 amplification was called, the number of CNV calls 
-in ERBB2 ranged from `r max(erbb2_cases_per_sample$n)` to 
-`r min(erbb2_cases_per_sample$n)`.
+In the cases where an ERBB2 amplification was called, the number of CNV calls in ERBB2 ranged from `r max(erbb2_cases_per_sample$n)` to `r min(erbb2_cases_per_sample$n)`.
 
 ```{r}
 #| label: calls-by-tumour-type
@@ -1010,10 +956,7 @@ if (anyNA(cobas_controls_ddpcr$cnv)) { stop("Not all cobas controls have a ddPCR
 
 ```
 
-ddPCR ERBB2 copy number in normal controls ranged from 
-`r min(cobas_controls_ddpcr$cnv)` to 
-`r max(cobas_controls_ddpcr$cnv)` 
-(median: `r median(cobas_controls_ddpcr$cnv)`).
+ddPCR ERBB2 copy number in normal controls ranged from `r min(cobas_controls_ddpcr$cnv)` to `r max(cobas_controls_ddpcr$cnv)` (median: `r median(cobas_controls_ddpcr$cnv)`).
 
 ```{r}
 #| label: ngs-ddpcr-confusion-matrix
@@ -1164,14 +1107,11 @@ erbb2_long_calls <- erbb2_cobas_v1_factorise |>
 
 ```
 
-The long calls varied from 
-`r round(min(erbb2_long_calls$cnv_length)/1000, 1)` 
-to `r round(max(erbb2_long_calls$cnv_length)/1000, 1)` kilobases.
+The long calls varied from `r round(min(erbb2_long_calls$cnv_length)/1000, 1)` to `r round(max(erbb2_long_calls$cnv_length)/1000, 1)` kilobases.
 
 ## Limit of detection
 
-Making plots for the SeraCare controls is quite verbose because I designed the 
-triptych functions for the sample cohort more generally.
+Making plots for the SeraCare controls is quite verbose because I designed the triptych functions for the sample cohort more generally.
 
 ```{r}
 #| label: seracare-results-pansolid-v1
@@ -1451,14 +1391,7 @@ qiasymphony_stdev <-  stdev_results |>
 
 ```
 
-The signal-adjusted noise for log2 ratios in the cobas®-extracted sample cohort ranged from to 
-`r round(min(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to 
-`r round(max(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` 
-(median: `r round(median(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)`), 
-and in the QIAsymphony-extracted cohort ranged from 
-`r round(min(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` 
-to `r round(max(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` 
-(median: `r round(median(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)`).
+The signal-adjusted noise for log2 ratios in the cobas®-extracted sample cohort ranged from to `r round(min(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to `r round(max(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` (median: `r round(median(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)`), and in the QIAsymphony-extracted cohort ranged from `r round(min(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to `r round(max(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` (median: `r round(median(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)`).
 
 ```{r}
 #| label: qc-threshold
@@ -1607,27 +1540,18 @@ reproducibility_fold_change_sd <- calculate_pooled_sd(df = inter_run_results,
                                                     round_places = 2)
 ```
 
-The pooled standard deviation of the ERBB2 fold change in 
-`r length(unique(repeat_results$labno_suffix_worksheet))` 
-repeat replicates of `r length(unique(repeat_results$labno))` 
-DNA samples was `r erb2_fold_change_sd[[2]]`. 
-The pooled standard deviation of the signal-adjusted noise for the same cohort 
-was `r signal_noise_sd[[2]]`.
+The pooled standard deviation of the ERBB2 fold change in `r length(unique(repeat_results$labno_suffix_worksheet))` repeat replicates of `r length(unique(repeat_results$labno))` DNA samples was `r erb2_fold_change_sd[[2]]`. 
+The pooled standard deviation of the signal-adjusted noise for the same cohort was `r signal_noise_sd[[2]]`.
 
-Pooled standard deviation for intra-run results for fold change (repeatability):
-`r repeatability_fold_change_sd[[2]]`
+Pooled standard deviation for intra-run results for fold change (repeatability): `r repeatability_fold_change_sd[[2]]`
 
-Pooled standard deviation for inter-run results for fold change (reproducibility):
-`r reproducibility_fold_change_sd[[2]]`
+Pooled standard deviation for inter-run results for fold change (reproducibility): `r reproducibility_fold_change_sd[[2]]`
 
 ## cobas®-EZ1 workflow vs QIAsymphony workflow
 
-I prefer not to use NHS number for the joining of these samples, but the 
-pathology number is manually entered into DNA database and so there are lots 
-of inconsistent formatting issues.
+I prefer not to use NHS number for the joining of these samples, but the pathology number is manually entered into DNA database and so there are lots of inconsistent formatting issues.
 
-So I have decided to modify the pathology numbers individually to make them 
-consistent, as this avoids having NHS numbers printed on the X axes of these plots.
+So I have decided to modify the pathology numbers individually to make them consistent, as this avoids having NHS numbers printed on the X axes of these plots.
 
 ```{r}
 #| label: samples-dual-extracted
@@ -1859,14 +1783,11 @@ csv_timestamp(table = erbb2_validation_dataset_for_export,
 
 ## Signal-adjusted noise and other quality metrics
 
-Eleanor also asked me to compare the signal-adjusted noise against other 
-quality metrics.
+Eleanor also asked me to compare the signal-adjusted noise against other quality metrics.
 
-For this I only had access to the summarised quality metrics for the 
-cobas®-extracted samples tested on PanSolidv1.
+For this I only had access to the summarised quality metrics for the cobas®-extracted samples tested on PanSolidv1.
 
-The files in the "clc_initial_outputs" folder were generated prior to the 
-work done by Lizzy on adding plots to the Excel outputs.
+The files in the "clc_initial_outputs" folder were generated prior to the work done by Lizzy on adding plots to the Excel outputs.
 
 ```{r}
 #| label: coverage-vs-noise
