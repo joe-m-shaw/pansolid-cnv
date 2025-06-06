@@ -25,7 +25,7 @@ FASTQ files were downsampled to different levels to assess how coverage impacts 
 library(tidyverse)
 library(here)
 
-source(here("functions/pansolid_excel_functions.R"))
+source(here("functions/pansolid_cnv_excel_functions.R"))
 source(here("functions/clc_raw_excel_functions.R"))
 source(here("functions/cnv_plot_functions.R"))
 source(here("functions/extract_pansolid_cnv_coordinates.R"))
@@ -33,7 +33,7 @@ source(here("scripts/connect_to_dna_db.R"))
 
 ds_filepath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Downsampling/"
 
-data_folder <- config::get("data_filepath")
+data_folder <- config::get("data_folderpath")
 
 col_data_folder <- paste0(data_folder, "live_service/INC9967_downsampling/",
                           "collated_data/")
@@ -1140,7 +1140,7 @@ Noise was 0.58 and percent at 138X was 64%.
 
 Both the fresh frozen sample for WGS (24044301) and the FFPE sample tested with PanSolid NGS (24042074) were from the same tumour block (24BR102).
 
-![Chromosome 22 loss detection for samples 24035924 and 24042074](%60r%20paste0(data_folder,%20%22live_service/INC9967_downsampling/images/%22,%20%22chr22_loss_detection.png%22)%60){#fig-chr22-detection}
+![Chromosome 22 loss detection for samples 24035924 and 24042074](`r paste0(data_folder, "live_service/INC9967_downsampling/images/chr22_loss_detection.png")`){#fig-chr22-detection}
 
 {{< pagebreak >}}
 
