@@ -32,7 +32,7 @@ jbrca_ws_to_check <- jbrca_ws_df |>
 ws_to_check_bind <- rbind(pansolid_ws_to_check,
                           jbrca_ws_to_check)
 
-worksheet_list <- list(ws_to_check_bind$worksheet)
+worksheet_list <- list(c("WS153962", "WS153994", "WS154037", "WS154119"))
 
 get_html_filepaths <- function(
     repository_path = "S:/central shared/Genetics/Repository/WorksheetAnalysedData/",
