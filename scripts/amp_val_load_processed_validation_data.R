@@ -7,16 +7,16 @@ library(here)
 
 # Scripts and functions --------------------------------------------------------------------------
 
-source(here("scripts/set_shared_drive_filepath.R"))
 source(here("functions/gene_table_functions.R"))
-
 
 # Load data --------------------------------------------------------------------------------------
 
 amp_genes <- load_pansolid_gene_table("Amplifications")
 
-amp_validation_all_amp_gene_results_collated <- read_csv(paste0(data_folder, 
-                                                            "validation/processed/",
+amp_validation_all_amp_gene_results_collated <- read_csv(paste0(config::get("data_folderpath"), 
+                                                            "validation/",
+                                                            "DOC6283_amplifications/",
+                                                            "processed/",
                                                             "amp_validation_all_amp_gene_results_collated.csv"),
                                                      col_types = list(
                                                        "worksheet" = col_character(),
@@ -31,8 +31,10 @@ amp_validation_all_amp_gene_results_collated <- read_csv(paste0(data_folder,
                                                        "pansolid_call" = col_character()
                                                      ))
 
-amp_validation_pos_cnv_results_collated <- read_csv(paste0(data_folder, 
-                                                       "validation/processed/",
+amp_validation_pos_cnv_results_collated <- read_csv(paste0(config::get("data_folderpath"), 
+                                                           "validation/",
+                                                           "DOC6283_amplifications/",
+                                                           "processed/",
                                                        "amp_validation_pos_cnv_results_collated.csv"),
                                                 col_types = list(
                                                   "worksheet" = col_character(),
@@ -54,8 +56,10 @@ amp_validation_pos_cnv_results_collated <- read_csv(paste0(data_folder,
                                                   "end" = col_double()
                                                 ))
 
-amp_validation_stdev_results_collated <- read_csv(paste0(data_folder, 
-                                                     "validation/processed/",
+amp_validation_stdev_results_collated <- read_csv(paste0(config::get("data_folderpath"), 
+                                                         "validation/",
+                                                         "DOC6283_amplifications/",
+                                                         "processed/",
                                                      "amp_validation_stdev_results_collated.csv"),
                                               col_types = list(
                                                 "worksheet" = col_character(),
@@ -67,8 +71,10 @@ amp_validation_stdev_results_collated <- read_csv(paste0(data_folder,
                                                 "filepath" = col_character(),
                                                 "st_dev_signal_adjusted_log2_ratios" = col_double()))
 
-amp_validation_percent_138_collated <- read_csv(paste0(data_folder, 
-                                                   "validation/processed/",
+amp_validation_percent_138_collated <- read_csv(paste0(config::get("data_folderpath"), 
+                                                       "validation/",
+                                                       "DOC6283_amplifications/",
+                                                       "processed/",
                                                    "amp_validation_percent_138_collated.csv"),
                                             col_types = list(
                                               "worksheet" = col_character(),
@@ -80,8 +86,10 @@ amp_validation_percent_138_collated <- read_csv(paste0(data_folder,
                                               "filepath" = col_character(),
                                               "percent_whole_panel_covered_at_138x" = col_double()))
 
-validation_sample_patient_info <- read_csv(paste0(data_folder, 
-                                                  "validation/processed/",
+validation_sample_patient_info <- read_csv(paste0(config::get("data_folderpath"), 
+                                                  "validation/",
+                                                  "DOC6283_amplifications/",
+                                                  "processed/",
                                                   "validation_sample_patient_info.csv"),
                                            col_types = list(
                                              "labno" = col_character(),
@@ -98,21 +106,27 @@ validation_sample_patient_info <- read_csv(paste0(data_folder,
                                              "method_name" = col_character()
                                            ))
 
-validation_ddpcr_collated <- read_csv(paste0(data_folder, 
-                                             "validation/processed/",
+validation_ddpcr_collated <- read_csv(paste0(config::get("data_folderpath"), 
+                                             "validation/",
+                                             "DOC6283_amplifications/",
+                                             "processed/",
                                              "validation_ddpcr_collated.csv"),
                                       col_types = list(
                                         "sample" = col_character()
                                       ))
 
 
-wgs_html_cnvs <- read_csv(paste0(data_folder,
-                                 "validation/processed/",
+wgs_html_cnvs <- read_csv(paste0(config::get("data_folderpath"), 
+                                 "validation/",
+                                 "DOC6283_amplifications/",
+                                 "processed/",
                                  "wgs_html_cnvs.csv"),
                           show_col_types = FALSE)
 
-wgs_html_ids <- read_csv(paste0(data_folder,
-                                 "validation/processed/",
+wgs_html_ids <- read_csv(paste0(config::get("data_folderpath"), 
+                                "validation/",
+                                "DOC6283_amplifications/",
+                                "processed/",
                                  "wgs_html_ids.csv"),
                          col_types = list(
                            "nhsno" = col_character(),

@@ -7,13 +7,14 @@ library(here)
 
 # Functions -------------------------------------------------------------------------
 
-source(here("functions/pansolid_excel_functions.R"))
-
-source(here("scripts/set_shared_drive_filepath.R"))
+source(here("functions/pansolid_cnv_excel_functions.R"))
 
 # Files -----------------------------------------------------------------------------
 
-amp_cohort_filepaths <- list.files(path = paste0(data_folder, "validation/raw/",
+amp_cohort_filepaths <- list.files(path = paste0(config::get("data_folderpath"),
+                                                 "validation/",
+                                                 "DOC6283_amplifications/",
+                                                 "raw/",
                                                  "pansolid_ngs_amplifications/"), 
                                full.names = TRUE,
                                recursive = TRUE,
@@ -151,8 +152,9 @@ if(
 
 # Save collated results -------------------------------------------------------------
 
-processed_validation_data_folder <- paste0(data_folder, 
-                                          "validation/processed/")
+processed_validation_data_folder <- paste0(config::get("data_folderpath"), 
+                                          "validation/DOC6283_amplifications/",
+                                          "processed/")
 
 write.csv(x = pos_cnv_results_collated,
           file = paste0(processed_validation_data_folder, 

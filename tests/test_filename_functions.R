@@ -99,6 +99,25 @@ test_that("parse_filename handles new format with panel and without patient name
   
 })
 
+test_that("parse_filename handles .csv filetype", {
+  
+  x <- paste0(test_datapath,
+              "All ROI Coverage Table-UMI Read Mapping-WS123790_22000209_NikolaiLEVIN_S25_R1_001.csv")
+  
+  expect_equal(parse_filename(x, 1),
+               "WS123790")
+  
+  expect_equal(parse_filename(x, 2),
+               "22000209")
+  
+  expect_equal(parse_filename(x, 3),
+               "")
+  
+  expect_equal(parse_filename(x, 4),
+               "NikolaiLEVIN")
+  
+})
+
 # filename_to_df
 
 test_that("filename_to_df handles filename input", {

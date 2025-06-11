@@ -12,11 +12,13 @@ fig-pos: H
 
 # Introduction
 
-A clear quality threshold was not provided for the "% Whole Panel Covered at 138X" metric for the analysis of gene amplifications on the PanSolid CLC pipeline. A coverage downsampling experiment was performed to assess the how coverage impacted accuracy for detecting gene amplifications and deletions.
+A clear quality threshold was not provided for the "% Whole Panel Covered at 138X" metric for the analysis of gene amplifications on the PanSolid CLC pipeline.
+A coverage downsampling experiment was performed to assess the how coverage impacted accuracy for detecting gene amplifications and deletions.
 
 # Methods
 
-FASTQ files were downsampled to different levels to assess how coverage impacts CNV calling for 5 samples. 1 sample was the SeraSeq +12 copies control, and the other 4 samples had previous results from WGS testing.
+FASTQ files were downsampled to different levels to assess how coverage impacts CNV calling for 5 samples.
+1 sample was the SeraSeq +12 copies control, and the other 4 samples had previous results from WGS testing.
 
 ```{r}
 #| label: packages-and-functions
@@ -25,7 +27,7 @@ FASTQ files were downsampled to different levels to assess how coverage impacts 
 library(tidyverse)
 library(here)
 
-source(here("functions/pansolid_excel_functions.R"))
+source(here("functions/pansolid_cnv_excel_functions.R"))
 source(here("functions/clc_raw_excel_functions.R"))
 source(here("functions/cnv_plot_functions.R"))
 source(here("functions/extract_pansolid_cnv_coordinates.R"))
@@ -33,7 +35,7 @@ source(here("scripts/connect_to_dna_db.R"))
 
 ds_filepath <- "S:/central shared/Genetics/NGS/Bioinformatics/1_Pan-solid-Cancer/CNV/Downsampling/"
 
-data_folder <- config::get("data_filepath")
+data_folder <- config::get("data_folderpath")
 
 col_data_folder <- paste0(data_folder, "live_service/INC9967_downsampling/",
                           "collated_data/")
@@ -245,7 +247,8 @@ validation/DOC6567_deletions/raw/wgs/
 
 ## Noise and coverage
 
-Reducing the coverage for each sample led to a minor increase in the signal-adjusted noise metric (@fig-quality-metrics). The maximum increase in signal-adjusted noise was 0.05 (@tbl-quality-metrics).
+Reducing the coverage for each sample led to a minor increase in the signal-adjusted noise metric (@fig-quality-metrics).
+The maximum increase in signal-adjusted noise was 0.05 (@tbl-quality-metrics).
 
 ```{r}
 #| label: fig-quality-metrics
@@ -366,7 +369,8 @@ knitr::kable(qc_summary |> filter(labno == "24002071"))
 
 ```
 
-Reducing coverage meant the SeraSeq control sample lost the intragenic CNV call in EGFR. This indicates that coverage below 95% at 138X will not allow calling of intragenic CNVs.
+Reducing coverage meant the SeraSeq control sample lost the intragenic CNV call in EGFR.
+This indicates that coverage below 95% at 138X will not allow calling of intragenic CNVs.
 
 ```{r}
 #| label: repeatability-24002071
@@ -497,7 +501,8 @@ knitr::kable(qc_summary |> filter(labno == "24002071"))
 
 ```
 
-Downsampling did not impact the coordinates of the amplifications detected, except for the *EGFR* gene which had 2 CNV calls when no downsampling was performed. This extra call is the region of the overlap between two synthetic DNA constructs used in the manufacture of the SeraSeq control.
+Downsampling did not impact the coordinates of the amplifications detected, except for the *EGFR* gene which had 2 CNV calls when no downsampling was performed.
+This extra call is the region of the overlap between two synthetic DNA constructs used in the manufacture of the SeraSeq control.
 
 Plots for each amplification gene were created and checked, but are not included for brevity.
 
@@ -560,7 +565,9 @@ knitr::kable(qc_summary |> filter(labno == "24030945"))
 
 ```
 
-This sample has a WGS result with an EGFR amplification. The EGFR amplification was detected at all downsampling levels. The EGFR amplification was the only amplification detected on PanSolid.
+This sample has a WGS result with an EGFR amplification.
+The EGFR amplification was detected at all downsampling levels.
+The EGFR amplification was the only amplification detected on PanSolid.
 
 ```{r}
 #| label: fig-24030945-egfr
@@ -588,7 +595,8 @@ knitr::kable(qc_summary |> filter(labno == "23032153"))
 
 ```
 
-This sample has a WGS result with an amplification in MDM2. The MDM2 amplification was detected at all downsampling levels.
+This sample has a WGS result with an amplification in MDM2.
+The MDM2 amplification was detected at all downsampling levels.
 
 The sample also has polysomy of chromosome 7, which led to false positive calls of BRAF, MET and SMO amplifications due to the higher noise for this sample (plots not shown).
 
@@ -648,7 +656,8 @@ knitr::kable(qc_summary |> filter(labno == "24017319"))
 
 ```
 
-This sample had no amplifications detected on WGS. No amplifications were detected at any downsampling level.
+This sample had no amplifications detected on WGS.
+No amplifications were detected at any downsampling level.
 
 {{< pagebreak >}}
 
@@ -661,7 +670,8 @@ knitr::kable(qc_summary |> filter(labno == "24035924"))
 
 ```
 
-This sample had an EGFR amplification which was also detected on WGS. The EGFR amplification was detected at all downsampling levels, even as low as 5% 138X coverage.
+This sample had an EGFR amplification which was also detected on WGS.
+The EGFR amplification was detected at all downsampling levels, even as low as 5% 138X coverage.
 
 ```{r}
 #| label: fig-24035924-egfr
@@ -699,7 +709,8 @@ knitr::kable(qc_summary |> filter(labno == "24002071"))
 
 ```
 
-The SeraCare control had no reported deletions. No deletions were detected at either graining level at any downsampling level.
+The SeraCare control had no reported deletions.
+No deletions were detected at either graining level at any downsampling level.
 
 ```{r}
 #| label: 24002071-del-results
@@ -828,7 +839,8 @@ knitr::kable(qc_summary |> filter(labno == "23032153"))
 
 This is a tetraploid sample on WGS, with high noise (0.8) on PanSolid, leading to many false positive deletion calls.
 
-WGS shows a PTEN copy number of 0. This is detected at all coverage levels.
+WGS shows a PTEN copy number of 0.
+This is detected at all coverage levels.
 
 ```{r}
 #| label: fig-23032153-pten
@@ -859,7 +871,8 @@ coarse_23032153_pten | fine_23032153_pten
 
 {{< pagebreak >}}
 
-However, on WGS BMPR1A has a copy number of 2, which should show up as a relative loss on the PanSolid analysis. BMPR1A is not listed as a deletion at any coverage level, whilst other genes are listed as deleted which are not deleted in the WGS data.
+However, on WGS BMPR1A has a copy number of 2, which should show up as a relative loss on the PanSolid analysis.
+BMPR1A is not listed as a deletion at any coverage level, whilst other genes are listed as deleted which are not deleted in the WGS data.
 
 Deletions are called for TP53, RAD51D, STK11, MSH2, MLH1 and CDH1 - these genes are not identified by WGS as being deleted.
 
@@ -889,11 +902,13 @@ knitr::kable(qc_summary |> filter(labno == "24017319"))
 
 ```
 
-This sample has a WGS result with no amplifications. WGS showed homozygous CDKN2A deletion and a copy number of 1 for chromosomes 10 (including PTEN and BMPR1A) and a section of chromosome 17 (including RAD51D and BRCA1).
+This sample has a WGS result with no amplifications.
+WGS showed homozygous CDKN2A deletion and a copy number of 1 for chromosomes 10 (including PTEN and BMPR1A) and a section of chromosome 17 (including RAD51D and BRCA1).
 
 However there was variation in the coordinates for CDKN2A and PTEN calls with different downsampling levels.
 
-The RAD51D and BRCA1 deletions were not detected on the "coarse" setting when the coverage was reduced. However, WGS reported an NCC of only 32.5% for this sample, so any heterozygous deletion would not be expected to be detected by the PanSolid pipeline.
+The RAD51D and BRCA1 deletions were not detected on the "coarse" setting when the coverage was reduced.
+However, WGS reported an NCC of only 32.5% for this sample, so any heterozygous deletion would not be expected to be detected by the PanSolid pipeline.
 
 ```{r}
 #| label: fig-24017319-cdkn2a
@@ -1134,13 +1149,14 @@ coarse_24035924_chek2 | fine_24035924_chek2
 
 This sample was not part of the downsampling experiment but is important to be aware of.
 
-It has a loss of chromosome 22, similar to sample 24035924. However, for sample 24042074 the loss of CHEK2 was not detected on PanSolid.
+It has a loss of chromosome 22, similar to sample 24035924.
+However, for sample 24042074 the loss of CHEK2 was not detected on PanSolid.
 
 Noise was 0.58 and percent at 138X was 64%.
 
 Both the fresh frozen sample for WGS (24044301) and the FFPE sample tested with PanSolid NGS (24042074) were from the same tumour block (24BR102).
 
-![Chromosome 22 loss detection for samples 24035924 and 24042074](%60r%20paste0(data_folder,%20%22live_service/INC9967_downsampling/images/%22,%20%22chr22_loss_detection.png%22)%60){#fig-chr22-detection}
+![Chromosome 22 loss detection for samples 24035924 and 24042074](`r paste0(data_folder, "live_service/INC9967_downsampling/images/chr22_loss_detection.png")`){#fig-chr22-detection}
 
 {{< pagebreak >}}
 
@@ -1164,17 +1180,20 @@ Here is a summary of the results:
 
 **Deletions**
 
--   Reducing coverage as low as 30% at 138X did not significantly impact whole-gene fold changes of coordinates for genes with copy numbers of 0 on WGS (CN0). These samples had signal-adjusted noise from 0.2 to 0.8.
+-   Reducing coverage as low as 30% at 138X did not significantly impact whole-gene fold changes of coordinates for genes with copy numbers of 0 on WGS (CN0).
+    These samples had signal-adjusted noise from 0.2 to 0.8.
 
 -   High noise (greater than 0.7) led to false positive deletion calls at all coverage levels.
 
 -   Deletions with a copy number of 1 (CN1) in samples with noise from 0.2 to 0.4 could be detected as low as 5% 138X coverage, but coordinates of the deleted region tended to change when coverage fell below 75% at 138X.
 
--   One sample from the deletions cohort (24042074) had a chr22 loss which was not detected on PanSolid when the noise was 0.58 and the percent coverage at 138X was 64.9%. This indicates that a combination of noise above 0.58 and percent 138X above 65% would be needed to detect CN1 deletions.
+-   One sample from the deletions cohort (24042074) had a chr22 loss which was not detected on PanSolid when the noise was 0.58 and the percent coverage at 138X was 64.9%.
+    This indicates that a combination of noise above 0.58 and percent 138X above 65% would be needed to detect CN1 deletions.
 
 A practical compromise would be noise at 0.7 and 138X coverage at 75%, with the understanding that this is actually very conservative for amplifications and CN0 deletions.
 
-Long term, it may be worth using a different coverage metric for quality control. We have seen samples with 0% coverage at 138X but acceptable signal-adjusted noise (WS148333, 24068563).
+Long term, it may be worth using a different coverage metric for quality control.
+We have seen samples with 0% coverage at 138X but acceptable signal-adjusted noise (WS148333, 24068563).
 
 # Conclusion
 

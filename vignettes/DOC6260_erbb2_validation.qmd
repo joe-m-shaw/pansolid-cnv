@@ -28,7 +28,11 @@ library(ggpubr)
 library(patchwork)
 library(ggvenn)
 
-source(here::here("functions/cnv_functions.R"))
+source(here("functions/erbb2_functions.R"))
+source(here("functions/fold_change_functions.R"))
+source(here("functions/pansolid_cnv_excel_functions.R"))
+source(here("functions/ddpcr_functions.R"))
+source(here("functions/cnv_plot_functions.R"))
 
 ```
 
@@ -41,7 +45,12 @@ The overlap of primers between the PanSolid and Core enrichment panels is too gr
 #| echo: FALSE
 #| message: FALSE
 
-pan_solid_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+erbb2_data_folder <- paste0(config::get("data_folderpath"),
+                            "validation/DOC6260_ERBB2/")
+
+pan_solid_only <- read_excel(paste0(erbb2_data_folder,
+                                    "primers/",
+                                    "Primer and Gene Comparison.xlsx"),
                              sheet = "Primer Overlap",
                              range = "A2:D11024",
                              col_names = c("chromosome", "coordinates", "sequence",
@@ -50,7 +59,9 @@ pan_solid_only <- read_excel(here::here("data/primers/Primer and Gene Comparison
   mutate(category = "Unique to 44038Z-11379",
          text = "PanSolid only")
 
-core_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+core_only <- read_excel(paste0(erbb2_data_folder,
+                                    "primers/",
+                               "Primer and Gene Comparison.xlsx"),
                         sheet = "Primer Overlap",
                         range = "G2:J595",
                         col_names = c("chromosome", "coordinates", "sequence",
@@ -59,7 +70,9 @@ core_only <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx
   mutate(category = "Unique to 17500Z-950",
          text = "Core only")
 
-both_panels <- read_excel(here::here("data/primers/Primer and Gene Comparison.xlsx"),
+both_panels <- read_excel(paste0(erbb2_data_folder,
+                                "primers/",
+                                "Primer and Gene Comparison.xlsx"),
                           sheet = "Primer Overlap",
                           range = "L2:O357",
                           col_names = c("chromosome", "coordinates", "sequence",
@@ -101,7 +114,9 @@ table_ERBB2_Qiaseq_Primers <- primer_table |>
 
 knitr::kable(table_ERBB2_Qiaseq_Primers) 
 
-csv_timestamp(table_ERBB2_Qiaseq_Primers)
+csv_timestamp(table = table_ERBB2_Qiaseq_Primers,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -111,14 +126,20 @@ csv_timestamp(table_ERBB2_Qiaseq_Primers)
 #| message: FALSE
 
 # Design file sent by Qiagen
-pansolid_v2 <- read_table(here::here("data/primers/QIAseq.CDHS-48608z-11752.primers3.txt"),
+pansolid_v2 <- read_table(paste0(erbb2_data_folder,
+                                 "primers/",
+                                 "QIAseq.CDHS-48608z-11752.primers3.txt"),
            col_names = c("chromosome", "coordinate", "strand", "sequence"))
 
 # Design file from PanSolid validation document (DOC6024)
-pansolid_v1 <- read_table(here::here("data/primers/407C7BF1.txt"),
+pansolid_v1 <- read_table(paste0(erbb2_data_folder,
+                                 "primers/",
+                                 "407C7BF1.txt"),
            col_names = c("chromosome", "coordinate", "strand", "sequence"))
 
-core_panel <- read_table(here::here("data/primers/CDHS-17500Z-950.primer3.txt"),
+core_panel <- read_table(paste0(erbb2_data_folder,
+                                 "primers/",
+                                 "CDHS-17500Z-950.primer3.txt"),
            col_names = c("chromosome", "coordinate", "strand", "sequence"))
 
 primer_comparison <- list("PanSolidv1.2" = pansolid_v1$sequence, 
@@ -134,7 +155,9 @@ plot_primer_venn <- ggvenn(primer_comparison,
 
 plot_primer_venn
 
-plot_timestamp(plot_primer_venn)
+plot_timestamp(input_plot = plot_primer_venn,
+               folder = paste0(erbb2_data_folder,
+                              "outputs/plots/"))
 
 ```
 
@@ -152,7 +175,7 @@ fold_change_threshold <- 2.9
 
 fc_vs_ncc <- data.frame(ncc = seq(0, 100, by = 0.1)) |> 
   mutate(target_copies = calculate_target_copies(fold_change = fold_change_threshold,
-                                                 ncc_percent = ncc))
+                                                 tcc_percent = ncc))
 
 plot_fold_change_detection_limit <- fc_vs_ncc |> 
   filter(target_copies <= 100) |> 
@@ -171,7 +194,9 @@ plot_fold_change_detection_limit <- fc_vs_ncc |>
 
 plot_fold_change_detection_limit
 
-plot_timestamp(plot_fold_change_detection_limit)
+plot_timestamp(plot_fold_change_detection_limit,
+               folder = paste0(erbb2_data_folder,
+                              "outputs/plots/"))
 
 ```
 
@@ -181,7 +206,7 @@ plot_timestamp(plot_fold_change_detection_limit)
 
 table_ncc_increments <- fc_vs_ncc |> 
   mutate(target_copies_2_8 = calculate_target_copies(fold_change = 2.8,
-                                                 ncc_percent = ncc)) |> 
+                                                 tcc_percent = ncc)) |> 
   filter(ncc %in% seq(10,100, by = 10)) |> 
   mutate("Lowest number of theoretically detectable target copies (fold change threshold 2.9)" = round(target_copies, 1),
          "Lowest number of theoretically detectable target copies (fold change threshold 2.8)" = round(target_copies_2_8, 1)) |>
@@ -190,7 +215,9 @@ table_ncc_increments <- fc_vs_ncc |>
 
 knitr::kable(table_ncc_increments)
 
-csv_timestamp(table_ncc_increments)
+csv_timestamp(table = table_ncc_increments,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -200,13 +227,15 @@ csv_timestamp(table_ncc_increments)
 
 PanSolid results are taken from the formatted Excel (.xlsx) files which are exported from the PanSolid 1.6dev pipeline.
 
-The files in the "clc_processed_outputs" folder are all the processed files generated for samples extracted via cobas® or QIAsymphony extractions, and tested on PanSolid version 1 or version 2. These files are structured in the agreed format we finally decided on for analysis, with the tables and plots described in the SOP (DOC6261).
+The files in the "clc_processed_outputs" folder are all the processed files generated for samples extracted via cobas® or QIAsymphony extractions, and tested on PanSolid version 1 or version 2.
+These files are structured in the agreed format we finally decided on for analysis, with the tables and plots described in the SOP (DOC6261).
 
 ```{r}
 #| label: load-processed-clc-results
 #| include: FALSE
 
-processed_files <- list.files(path = here::here("data/clc_processed_outputs"), 
+processed_files <- list.files(path = paste0(erbb2_data_folder,
+                                            "clc_processed_outputs"), 
                               full.names = TRUE,
                               pattern = ".xlsx")
 
@@ -286,7 +315,8 @@ To make sure I am identifying the correct samples as "controls" I have exported 
 #| label: load-clc-controls
 #| include: FALSE
 
-cobas_control_files <- list.files(here::here("data/controls/cobas_control_data/"),
+cobas_control_files <- list.files(paste0(erbb2_data_folder,
+                                         "controls/cobas_control_data/"),
                             full.names = TRUE, pattern = ".csv")
 
 cobas_control_info <- cobas_control_files |> 
@@ -295,13 +325,17 @@ cobas_control_info <- cobas_control_files |>
   mutate(sample_group = "cobas control",
          sample_subgroup = case_when(
            
-           patient_name %in% grep(pattern = "biobank", x = patient_name,
-                                  ignore.case = TRUE, value = TRUE) ~"MCRC control",
+           patient_name %in% grep(pattern = "biobank", 
+                                  x = patient_name,
+                                  ignore.case = TRUE, 
+                                  value = TRUE) ~"MCRC control",
            
            TRUE ~"MSI-normal control"))
 
-qiasymphony_control_files <- list.files(here::here("data/controls/qiasymphony_control_data/"),
-                                       full.names = TRUE, pattern = ".csv")
+qiasymphony_control_files <- list.files(
+  paste0(erbb2_data_folder, "controls/qiasymphony_control_data/"),
+  full.names = TRUE, 
+  pattern = ".csv")
 
 qiasymphony_control_info <- qiasymphony_control_files |> 
   map(\(qiasymphony_control_files) filename_to_df(file = qiasymphony_control_files)) |> 
@@ -317,7 +351,8 @@ if (anyNA(qiasymphony_control_info)) { stop("NAs in QIAsymphony control informat
 
 ### Load sample information
 
-The sample information from the DNA Database was extracted using the erbb2_validation_dna_db_queries.R script which uses an ODBC connection. The information was exported as csv files so that this Quarto document should render without the user needing an ODBC connection to the DNA Database.
+The sample information from the DNA Database was extracted using the erbb2_val_dna_db_queries.R script which uses an ODBC connection.
+The information was exported as csv files so that this Quarto document should render without the user needing an ODBC connection to the DNA Database.
 
 I have used the following convention to describe different kinds of data:
 
@@ -330,7 +365,9 @@ I have used the following convention to describe different kinds of data:
 #| label: extraction-types
 #| echo: FALSE
 
-sample_extraction_details <- read_csv(here::here("data/dna_db_queries/sample_extraction_details.csv"),
+sample_extraction_details <- read_csv(
+  paste0(erbb2_data_folder,
+         "dna_db_queries/sample_extraction_details.csv"),
                                     col_types = "cc") |> 
   # Change format to be consistent with validation document
   mutate(extraction_method = case_when(
@@ -350,7 +387,9 @@ sample_extraction_details <- read_csv(here::here("data/dna_db_queries/sample_ext
 #| label: sample-genders
 #| include: FALSE
 
-sample_gender <- read_csv(here::here("data/dna_db_queries/sample_gender.csv"),
+sample_gender <- read_csv(
+  paste0(erbb2_data_folder,
+         "dna_db_queries/sample_gender.csv"),
                           col_types = "cc")
 
 ```
@@ -359,7 +398,8 @@ sample_gender <- read_csv(here::here("data/dna_db_queries/sample_gender.csv"),
 #| label: worksheets
 #| include: FALSE
 
-pansolid_ws_details <- read_csv(here::here("data/dna_db_queries/pansolid_ws_details.csv"),
+pansolid_ws_details <- read_csv(
+  paste0(erbb2_data_folder, "dna_db_queries/pansolid_ws_details.csv"),
                              show_col_types = FALSE) |> 
   # WS139890 is the only PanSolidv2 worksheet in this dataset
   mutate(pansolid_version = ifelse(pcrid == 139890, "2", "1"),
@@ -371,21 +411,25 @@ pansolid_ws_details <- read_csv(here::here("data/dna_db_queries/pansolid_ws_deta
 #| label: sample-types
 #| echo: FALSE
 
-sample_types <- read_csv(here::here("data/dna_db_queries/sample_types.csv"),
+sample_types <- read_csv(
+  paste0(erbb2_data_folder, "dna_db_queries/sample_types.csv"),
                                     col_types = "cc")
 
 ```
 
-Neoplastic cell content can be parsed from the "comments" section of DNA Database, but often it is missing so I've had to manually created a csv file with the missing information. I got this information by checking the scanned referral forms on DNA Database, which usually have the neoplastic cell content written on.
+Neoplastic cell content can be parsed from the "comments" section of DNA Database, but often it is missing so I've had to manually created a csv file with the missing information.
+I got this information by checking the scanned referral forms on DNA Database, which usually have the neoplastic cell content written on.
 
 ```{r}
 #| label: ncc
 #| echo: FALSE
 
-sample_ncc <- read_csv(here::here("data/dna_db_queries/sample_ncc.csv"),
+sample_ncc <- read_csv(
+  paste0(erbb2_data_folder, "dna_db_queries/sample_ncc.csv"),
                                     col_types = "ccc")
 
-manual_ncc_check <- read_excel(here::here("data/manual_ncc_check.xlsx"),
+manual_ncc_check <- read_excel(
+  paste0(erbb2_data_folder, "manual_ncc_check.xlsx"),
                                col_types = c("text", "text"))
 
 over_20_variants <- c(">30%", ">20%", "20-30%")
@@ -404,13 +448,15 @@ ncc_collated <- sample_ncc |>
 
 ```
 
-Initially I attempted to use the DISCODE field in DNA Database to identify the different tumour sources but this wasn't ideal (often multiple tumour sources map to the same disease code). Then I manually checked the scanned referral forms for each sample on DNA Database and collated the results in the cnv_validation_labnos_and_tissue_sources.csv file.
+Initially I attempted to use the DISCODE field in DNA Database to identify the different tumour sources but this wasn't ideal (often multiple tumour sources map to the same disease code).
+Then I manually checked the scanned referral forms for each sample on DNA Database and collated the results in the cnv_validation_labnos_and_tissue_sources.csv file.
 
 ```{r}
 #| label: tumour-sources
 #| echo: FALSE
 
-sample_tissue_sources <- read_csv(here::here("data/cnv_validation_labnos_and_tissue_sources.csv"),
+sample_tissue_sources <- read_csv(
+  paste0(erbb2_data_folder, "cnv_validation_labnos_and_tissue_sources.csv"),
                                     col_types = "cc")
 
 cns <- c("glioma", "brain", "central nervous system", "meningioma", "glioblastoma",
@@ -434,7 +480,9 @@ sample_tissue_sources_coded <- sample_tissue_sources |>
 
 ```
 
-The DNA concentrations I've pulled from the submission sheets for the PanSolid workflow. This works for most samples except for 3 which for some reason weren't in the standard PanSolid Excels. I need to chase this up.
+The DNA concentrations I've pulled from the submission sheets for the PanSolid workflow.
+This works for most samples except for 3 which for some reason weren't in the standard PanSolid Excels.
+I need to chase this up.
 
 ```{r}
 #| label: sample-dna-concentrations
@@ -442,7 +490,46 @@ The DNA concentrations I've pulled from the submission sheets for the PanSolid w
 #| message: FALSE
 #| warning: FALSE
 
-pansolid_submissions <- join_pansolid_submission_sheets()
+pansolid_submission_2022 <- read_excel(path = paste0(
+  erbb2_data_folder, 
+  "dna_submission_sheets/",
+  # Pansolid began in 2022 so the initial runs were recorded on 
+  # the Qiaseq spreadsheet
+  "QIAseq DNA PanSolid Sample Submission 2022.xlsx")) |> 
+    janitor::clean_names() |> 
+    rename(date_submitted = date_sample_submitted,
+           stock_qubit = stock_qubit_ng_m_l) |> 
+    mutate(submission_sheet = "2022",
+           labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
+    select(date_submitted, labno, sample_name,
+           panel, enrichment, stock_qubit, submission_sheet)
+
+pansolid_submission_2023 <- read_excel(path = paste0(
+  erbb2_data_folder, 
+  "dna_submission_sheets/",
+  "DNA PanSolid QIAseq Submission Sheet 2023.xlsx")) |> 
+    janitor::clean_names() |> 
+    rename(stock_qubit = stock_qubit_ng_m_l) |> 
+    mutate(submission_sheet = "2023",
+           labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
+    select(date_submitted, labno, sample_name,
+           panel, enrichment, stock_qubit, submission_sheet)
+  
+pansolid_submission_2024 <- read_excel(path = paste0(
+  erbb2_data_folder, 
+  "dna_submission_sheets/",
+  "PanSolid Submission sheet 2024.xlsx"),
+  sheet = "PanSolid samples") |> 
+    janitor::clean_names()  |> 
+    rename(stock_qubit = stock_qubit_ng_m_l) |> 
+    mutate(submission_sheet = "2024",
+           labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
+    select(date_submitted, labno, sample_name,
+           panel, enrichment, stock_qubit, submission_sheet)
+
+pansolid_submissions <- rbind(pansolid_submission_2024,
+                              pansolid_submission_2023,
+                              pansolid_submission_2022)
 
 sample_dna_concentrations <- pansolid_submissions |> 
   filter(labno %in% sample_tissue_sources$labno) |> 
@@ -454,25 +541,42 @@ sample_dna_concentrations <- pansolid_submissions |>
 #| label: path-block-numbers
 #| include: FALSE
 
-sample_pathnos <- read_csv(here::here("data/dna_db_queries/sample_pathnos.csv"),
+sample_pathnos <- read_csv(paste0(erbb2_data_folder,
+                                  "dna_db_queries/",
+                                  "sample_pathnos.csv"),
                            col_types = "cc")
 
 ```
 
-NHS numbers can be pulled off DLMS although annoyingly for two lab numbers they aren't included. The NHS numbers are on different samples for the same patients, so I've manually updated the csv file to prevent hard-coding patient-identifiable information into this Quarto.
+NHS numbers can be pulled off DLMS although annoyingly for two lab numbers they aren't included (21015264 and 24008372).
+The NHS numbers are on different samples for the same patients, so I've added the NHS numbers to an additional csv file and added them in below.
+This avoids hard-coding patient-identifiable information into this Quarto.
 
 ```{r}
 #| label: nhs-numbers
 #| include: FALSE
 
-sample_nhs_no <- read_csv(here::here("data/dna_db_queries/sample_nhs_no.csv"),
-                          col_types = "cc")
+labnos_without_nhs_no <- c("21015264", "24008372")
+
+manual_nhsno_addition <- read_csv(paste0(erbb2_data_folder,
+                                         "manual_nhsno_addition.csv"))
+
+sample_nhs_no <- read_csv(paste0(erbb2_data_folder,
+                                  "dna_db_queries/",
+                                  "sample_nhs_no.csv"),
+                          col_types = "cc") |> 
+  rbind(manual_nhsno_addition) |> 
+  filter(!(labno %in% labnos_without_nhs_no &
+             is.na(nhsno)))
+
+stopifnot(anyDuplicated(sample_nhs_no$labno) == 0)
 
 ```
 
 ### Add DNA Database information
 
-Adding on the DNA Database information to each table of results allows these tables to act as the base for downstream analysis. The idea is that each table has all the variables I might want to filter by (DNA extraction method, NHS number, PanSolid version, DNA concentration etc) and so reduces joining with other tables downstream.
+Adding on the DNA Database information to each table of results allows these tables to act as the base for downstream analysis.
+The idea is that each table has all the variables I might want to filter by (DNA extraction method, NHS number, PanSolid version, DNA concentration etc) and so reduces joining with other tables downstream.
 
 ```{r}
 #| label: add-dna-db-information
@@ -497,7 +601,8 @@ cobas_controls <- cobas_control_info |>
   add_dna_db_info()
 
 qiasymphony_controls <- qiasymphony_control_info |> 
-  add_dna_db_info()
+  add_dna_db_info() |> 
+  filter(!duplicated(labno))
 
 ```
 
@@ -518,7 +623,11 @@ table_sample_extractions <- sample_extraction_details |>
 
 knitr::kable(table_sample_extractions)
 
-csv_timestamp(table_sample_extractions)
+csv_timestamp(table = table_sample_extractions,
+              folder = paste0(
+                erbb2_data_folder,
+                "outputs/tables/"
+              ))
 
 ```
 
@@ -542,7 +651,9 @@ table_tumour_sources_total <- rbind(table_tumour_sources, total_line)
 
 knitr::kable(table_tumour_sources_total)
 
-csv_timestamp(table_tumour_sources_total)
+csv_timestamp(table = table_tumour_sources_total,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -582,7 +693,9 @@ table_neoplastic_cell_content_total <- rbind(table_neoplastic_cell_content, tota
 
 knitr::kable(table_neoplastic_cell_content_total)
 
-csv_timestamp(table_neoplastic_cell_content_total)
+csv_timestamp(table = table_neoplastic_cell_content_total,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -607,7 +720,9 @@ table_sample_types_total <- rbind(table_sample_types, total_line)
 
 knitr::kable(table_sample_types_total)
 
-csv_timestamp(table_sample_types_total)
+csv_timestamp(table = table_sample_types_total,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -667,7 +782,9 @@ table_qs_control_sources_total <- rbind(table_qs_control_sources, total_line)
 
 knitr::kable(table_qs_control_sources_total)
 
-csv_timestamp(table_qs_control_sources_total)
+csv_timestamp(table = table_qs_control_sources_total,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -679,11 +796,23 @@ ddPCR data was analysed on Quantasoft and the results for each plate were export
 #| label: load-ddpcr
 #| include: FALSE
 
-ws138419 <- read_biorad_csv("WS138419_analysed.csv")
+ws138419 <- read_biorad_ddpcr_csv(paste0(erbb2_data_folder,
+                                         "ddpcr_data/",
+                                         "WS138419_analysed.csv")) |> 
+  mutate(worksheet = "WS138419_analysed.csv",
+         labno = sample)
 
-ws138579 <- read_biorad_csv("WS138579_analysed.csv")
+ws138579 <- read_biorad_ddpcr_csv(paste0(erbb2_data_folder,
+                                         "ddpcr_data/",
+                                         "WS138579_analysed.csv")) |> 
+  mutate(worksheet = "WS138579_analysed.csv",
+         labno = sample)
 
-ws138765 <- read_biorad_csv("WS138765_analysed.csv")
+ws138765 <- read_biorad_ddpcr_csv(paste0(erbb2_data_folder,
+                                         "ddpcr_data/",
+                                         "WS138765_analysed.csv")) |> 
+  mutate(worksheet = "WS138765_analysed.csv",
+         labno = sample)
 
 ddpcr_erbb2 <- rbind(ws138579, ws138765) |> 
   filter(target_type == "Ch1Unknown")
@@ -716,7 +845,9 @@ table_impact_of_hindiii_digestion <- rbind(ws138419, ws138579) |>
 
 knitr::kable(table_impact_of_hindiii_digestion)
 
-csv_timestamp(table_impact_of_hindiii_digestion)
+csv_timestamp(table = table_impact_of_hindiii_digestion,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -779,7 +910,9 @@ table_cobas_results_by_tumour_type_total <- rbind(table_cobas_results_by_tumour_
 
 knitr::kable(table_cobas_results_by_tumour_type_total)
 
-csv_timestamp(table_cobas_results_by_tumour_type_total)
+csv_timestamp(table = table_cobas_results_by_tumour_type_total,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -838,7 +971,9 @@ table_erbb2_results_psv1_vs_ddpcr <- make_confusion_matrix(df = pansolid_cobas_v
 
 knitr::kable(table_erbb2_results_psv1_vs_ddpcr[[1]])
 
-csv_timestamp(table_erbb2_results_psv1_vs_ddpcr[[1]])
+csv_timestamp(table = table_erbb2_results_psv1_vs_ddpcr[[1]],
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -855,13 +990,18 @@ table_erbb2_ddpcr_opa <- data.frame(
 
 knitr::kable(table_erbb2_ddpcr_opa)
 
-csv_timestamp(table_erbb2_ddpcr_opa)
+csv_timestamp(table = table_erbb2_ddpcr_opa,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
 ```{r}
 #| label: fold-change-vs-ddpcr
 #| echo: FALSE
+
+safe_blue <- "#56B4E9"
+safe_red <- "#D55E00"
 
 discrepant_samples <- c(23001095, 23002258, 23008380)
 
@@ -878,8 +1018,10 @@ plot_fold_change_vs_ddpcr_copy_number <- pansolid_cobas_v1_ddpcr |>
          caption = str_c("Samples 23001095, 23002258 and 23008380 in red. Data for ",
                          nrow(pansolid_cobas_v1_ddpcr |> 
                                 filter(!duplicated(labno))), " samples displayed.")) +
-  scale_y_continuous(limits = c(0, 85), breaks = c(0, 6, 20, 40, 60, 80))  +
-  scale_x_continuous(limits = c(-20, 60), breaks = c(-20, 0, fold_change_threshold, 20, 40, 60)) +
+  scale_y_continuous(limits = c(0, 85), 
+                     breaks = c(0, 6, 20, 40, 60, 80))  +
+  scale_x_continuous(limits = c(-20, 60), 
+                     breaks = c(-20, 0, fold_change_threshold, 20, 40, 60)) +
   geom_point(data = pansolid_cobas_v1_ddpcr |> 
                filter(!duplicated(labno)) |>
                filter(sample %in% discrepant_samples), size = 3, fill = safe_red,
@@ -888,7 +1030,9 @@ plot_fold_change_vs_ddpcr_copy_number <- pansolid_cobas_v1_ddpcr |>
 
 plot_fold_change_vs_ddpcr_copy_number
 
-plot_timestamp(plot_fold_change_vs_ddpcr_copy_number)
+plot_timestamp(input_plot = plot_fold_change_vs_ddpcr_copy_number,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -911,17 +1055,20 @@ erbb2_cobas_v1_factorise <- pos_cnv_results |>
   mutate(labno_suffix_worksheet_factor = factor(labno_suffix_worksheet,
                                                 levels = labno_suffix_worksheet))
 
-plot_erbb2_cobas_v1 <- make_labno_plot(df = erbb2_cobas_v1_factorise, 
+plot_erbb2_cobas_v1 <- make_labno_cnv_plot(df = erbb2_cobas_v1_factorise, 
                 gene = "ERBB2",
                 interval = 20000, 
                 buffer = 5000, 
                 yaxis = labno_suffix_worksheet_factor)
 
-plot_all_erbb2_cobas_v1_triptych <- make_cnv_triptych(plot_erbb2_cobas_v1)
+plot_all_erbb2_cobas_v1_triptych <- make_cnv_triptych_plot(plot_erbb2_cobas_v1)
 
 plot_all_erbb2_cobas_v1_triptych
 
-plot_timestamp(plot_all_erbb2_cobas_v1_triptych, input_height = 18)
+plot_timestamp(input_plot = plot_all_erbb2_cobas_v1_triptych, 
+               input_height = 18,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -932,17 +1079,20 @@ plot_timestamp(plot_all_erbb2_cobas_v1_triptych, input_height = 18)
 short_erbb2_calls <- erbb2_cobas_v1_factorise |> 
                                  filter(cnv_length < 100000)
 
-plot_erbb2_cobas_v1_zoom <- make_labno_plot(df = short_erbb2_calls, 
+plot_erbb2_cobas_v1_zoom <- make_labno_cnv_plot(df = short_erbb2_calls, 
                       gene = "ERBB2",
                       interval = 20000, 
                       buffer = 5000,
                       yaxis = labno_suffix_worksheet_factor)
 
-plot_erbb2_amplification_accuracy <- make_cnv_triptych(plot_erbb2_cobas_v1_zoom)
+plot_erbb2_amplification_accuracy <- make_cnv_triptych_plot(plot_erbb2_cobas_v1_zoom)
 
 plot_erbb2_amplification_accuracy
 
-plot_timestamp(plot_erbb2_amplification_accuracy, input_height = 15)
+plot_timestamp(input_plot = plot_erbb2_amplification_accuracy, 
+               input_height = 15,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -967,9 +1117,10 @@ Making plots for the SeraCare controls is quite verbose because I designed the t
 #| label: seracare-results-pansolid-v1
 #| echo: FALSE
 
-copies_3v1 <- make_fold_change_plot(df = pos_cnv_results |> 
+copies_3v1 <- make_fold_change_cnv_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002064" & pansolid_version == "1"),
-                      ymax = 15)
+                      ymax = 15,
+                      gene = "ERBB2")
 
 copies_3v1_plot <- copies_3v1[[4]] +
   labs(title = "+3 copies (v1)")
@@ -985,9 +1136,10 @@ copies_3v1_exon <- make_exon_plot(plot_xmin = copies_3v1[[1]],
                   chromosome = copies_3v1[[5]]) +
   labs(x = "")
 
-copies_6v1 <- make_fold_change_plot(df = pos_cnv_results |> 
+copies_6v1 <- make_fold_change_cnv_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002067" & pansolid_version == "1"),
-                      ymax = 15)
+                      ymax = 15,
+                      gene = "ERBB2")
 
 copies_6v1_plot <- copies_6v1[[4]] +
   labs(title = "+6 copies (v1)")
@@ -1003,9 +1155,10 @@ copies_6v1_exon <- make_exon_plot(plot_xmin = copies_6v1[[1]],
                   chromosome = copies_6v1[[5]]) +
   labs(x = "Genome coordinate")
 
-copies_12v1 <- make_fold_change_plot(df = pos_cnv_results |> 
+copies_12v1 <- make_fold_change_cnv_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002071" & pansolid_version == "1"),
-                      ymax = 15)
+                      ymax = 15,
+                      gene = "ERBB2")
 
 copies_12v1_plot <- copies_12v1[[4]] +
   labs(title = "+12 copies (v1)")
@@ -1021,7 +1174,8 @@ copies_12v1_exon <- make_exon_plot(plot_xmin = copies_12v1[[1]],
                   chromosome = copies_12v1[[5]]) +
   labs(x = "")
 
-plot_seracare_controls_erbb2_results_v1 <- copies_3v1_plot + copies_6v1_plot + copies_12v1_plot +
+plot_seracare_controls_erbb2_results_v1 <- copies_3v1_plot + copies_6v1_plot + 
+  copies_12v1_plot +
   copies_3v1_primer + copies_6v1_primer + copies_12v1_primer +
   copies_3v1_exon + copies_6v1_exon + copies_12v1_exon +
   plot_layout(nrow = 3, 
@@ -1030,7 +1184,10 @@ plot_seracare_controls_erbb2_results_v1 <- copies_3v1_plot + copies_6v1_plot + c
 
 plot_seracare_controls_erbb2_results_v1
 
-plot_timestamp(plot_seracare_controls_erbb2_results_v1, input_width = 16)
+plot_timestamp(input_plot  = plot_seracare_controls_erbb2_results_v1, 
+               input_width = 16,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1038,9 +1195,10 @@ plot_timestamp(plot_seracare_controls_erbb2_results_v1, input_width = 16)
 #| label: seracare-results-pansolid-v2
 #| echo: FALSE
 
-copies_3v2 <- make_fold_change_plot(df = pos_cnv_results |> 
+copies_3v2 <- make_fold_change_cnv_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002064" & pansolid_version == "2"),
-                      ymax = 15)
+                      ymax = 15,
+                      gene = "ERBB2")
 
 copies_3v2_plot <- copies_3v2[[4]] +
   labs(title = "+3 copies (v2)")
@@ -1056,9 +1214,10 @@ copies_3v2_exon <- make_exon_plot(plot_xmin = copies_3v2[[1]],
                   chromosome = copies_3v2[[5]]) +
   labs(x = "")
 
-copies_6v2 <- make_fold_change_plot(df = pos_cnv_results |> 
+copies_6v2 <- make_fold_change_cnv_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002067" & pansolid_version == "2"),
-                      ymax = 15)
+                      ymax = 15,
+                      gene = "ERBB2")
 
 copies_6v2_plot <- copies_6v2[[4]] +
   labs(title = "+6 copies (v2)")
@@ -1074,9 +1233,10 @@ copies_6v2_exon <- make_exon_plot(plot_xmin = copies_6v2[[1]],
                   chromosome = copies_6v2[[5]]) +
   labs(x = "Genome coordinate")
 
-copies_12v2 <- make_fold_change_plot(df = pos_cnv_results |> 
+copies_12v2 <- make_fold_change_cnv_plot(df = pos_cnv_results |> 
                                      filter(labno == "24002071" & pansolid_version == "2"),
-                      ymax = 15)
+                      ymax = 15,
+                      gene = "ERBB2")
 
 copies_12v2_plot <- copies_12v2[[4]] +
   labs(title = "+12 copies (v2)")
@@ -1092,7 +1252,8 @@ copies_12v2_exon <- make_exon_plot(plot_xmin = copies_12v2[[1]],
                   chromosome = copies_12v2[[5]]) +
   labs(x = "")
 
-plot_seracare_controls_erbb2_v2 <- copies_3v2_plot + copies_6v2_plot + copies_12v2_plot +
+plot_seracare_controls_erbb2_v2 <- copies_3v2_plot + copies_6v2_plot + 
+  copies_12v2_plot +
   copies_3v2_primer + copies_6v2_primer + copies_12v2_primer +
   copies_3v2_exon + copies_6v2_exon + copies_12v2_exon +
   plot_layout(nrow = 3, 
@@ -1101,7 +1262,10 @@ plot_seracare_controls_erbb2_v2 <- copies_3v2_plot + copies_6v2_plot + copies_12
 
 plot_seracare_controls_erbb2_v2
 
-plot_timestamp(plot_seracare_controls_erbb2_v2, input_width = 16)
+plot_timestamp(input_plot = plot_seracare_controls_erbb2_v2, 
+               input_width = 16,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1110,9 +1274,11 @@ plot_timestamp(plot_seracare_controls_erbb2_v2, input_width = 16)
 #| echo: FALSE
 
 # Values taken from technical product reports
-seracare_erbb2_copies <- read_excel(path = here::here("data/seracare_erbb2_copies.xlsx"),
-                                    col_types = c("text", "numeric", "numeric",
-                                                  "text"))
+seracare_erbb2_copies <- read_excel(path = paste0(
+  erbb2_data_folder,
+  "seracare_erbb2_copies.xlsx"),
+  col_types = c("text", "numeric", "numeric",
+                "text"))
 
 table_ngs_seracare_comparison <- pos_cnv_results |> 
   filter(gene == "ERBB2") |> 
@@ -1133,7 +1299,9 @@ table_ngs_seracare_comparison <- pos_cnv_results |>
 
 knitr::kable(table_ngs_seracare_comparison)
 
-csv_timestamp(table_ngs_seracare_comparison)
+csv_timestamp(table = table_ngs_seracare_comparison,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -1161,7 +1329,9 @@ table_ddpcr_seracare_comparison <- seracare_ddpcr_results |>
 
 knitr::kable(table_ddpcr_seracare_comparison)
 
-csv_timestamp(table_ddpcr_seracare_comparison)
+csv_timestamp(table = table_ddpcr_seracare_comparison,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -1171,7 +1341,8 @@ csv_timestamp(table_ddpcr_seracare_comparison)
 #| label: limit-of-detection
 #| echo: FALSE
 
-target_data_files <- list.files(here::here("data/clc_target_level_outputs/"), 
+target_data_files <- list.files(paste0(erbb2_data_folder,
+                                       "clc_target_level_outputs/"), 
                                 full.names = TRUE, 
                                 pattern = ".xlsx")
 
@@ -1181,8 +1352,11 @@ lod_percents <- data.frame(
   "labno_suffix" = c("24002060a", "24002060b", "24002060c", "24002060d"),
   "ncc" = c("25% tumour content mimic", "12.5% tumour content mimic",
             "6.25% tumour content mimic", "0% tumour content mimic")) |> 
-  mutate(ncc = factor(ncc, levels = c("25% tumour content mimic", "12.5% tumour content mimic",
+  mutate(ncc = factor(ncc, 
+                      levels = c("25% tumour content mimic", 
+                                 "12.5% tumour content mimic",
             "6.25% tumour content mimic", "0% tumour content mimic")))
+
 
 lod_target_results <- lod_files |>
   map(\(lod_files) read_clc_target_calls(
@@ -1191,12 +1365,15 @@ lod_target_results <- lod_files |>
   list_rbind() |> 
   left_join(lod_percents, by = "labno_suffix")
 
-plot_lod_erbb2 <- draw_lod_gene_plot(df = lod_target_results, chromosome = "17.0", gene = "ERBB2") +
+plot_lod_erbb2 <- draw_lod_gene_plot(df = lod_target_results, 
+                                     chromosome = "17.0", gene = "ERBB2") +
   labs(title = "", x = "Chromosome 17", subtitle = "")
 
 plot_lod_erbb2
 
-plot_timestamp(plot_lod_erbb2)
+plot_timestamp(input_plot = plot_lod_erbb2,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1214,7 +1391,7 @@ qiasymphony_stdev <-  stdev_results |>
 
 ```
 
-The signal-adjusted noise for log2 ratios in the cobas®-extracted sample cohort ranged from to `r round(min(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to `r round(max(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` (median: `r round(median(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)`), and in the QIAsymphony-extracted cohort ranged from `r round(min(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to `r round(max(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` (median: `r round(median(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)`),
+The signal-adjusted noise for log2 ratios in the cobas®-extracted sample cohort ranged from to `r round(min(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to `r round(max(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)` (median: `r round(median(cobas_stdev$st_dev_signal_adjusted_log2_ratios), 2)`), and in the QIAsymphony-extracted cohort ranged from `r round(min(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` to `r round(max(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)` (median: `r round(median(qiasymphony_stdev$st_dev_signal_adjusted_log2_ratios), 2)`).
 
 ```{r}
 #| label: qc-threshold
@@ -1232,7 +1409,8 @@ pos_cnv_results_with_sd <- pos_cnv_results |>
                                         "BRAF", "EGFR", "MET", "MYC",
                                         "ERBB2")))
 
-plot_signal_adjusted_noise_threshold <- ggplot(pos_cnv_results_with_sd, aes(x = st_dev_signal_adjusted_log2_ratios,
+plot_signal_adjusted_noise_threshold <- ggplot(pos_cnv_results_with_sd, 
+                                               aes(x = st_dev_signal_adjusted_log2_ratios,
                                          y = fold_change)) +
          geom_point(pch = 21, size = 3) +
   theme_bw() +
@@ -1245,7 +1423,9 @@ plot_signal_adjusted_noise_threshold <- ggplot(pos_cnv_results_with_sd, aes(x = 
 
 plot_signal_adjusted_noise_threshold
 
-plot_timestamp(plot_signal_adjusted_noise_threshold)
+plot_timestamp(input_plot = plot_signal_adjusted_noise_threshold,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1305,9 +1485,13 @@ knitr::kable(table_inter_run_repeat_results)
 
 knitr::kable(table_intra_run_repeat_results)
 
-csv_timestamp(table_inter_run_repeat_results)
+csv_timestamp(table = table_inter_run_repeat_results,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
-csv_timestamp(table_intra_run_repeat_results)
+csv_timestamp(table = table_intra_run_repeat_results,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -1356,7 +1540,8 @@ reproducibility_fold_change_sd <- calculate_pooled_sd(df = inter_run_results,
                                                     round_places = 2)
 ```
 
-The pooled standard deviation of the ERBB2 fold change in `r length(unique(repeat_results$labno_suffix_worksheet))` repeat replicates of `r length(unique(repeat_results$labno))` DNA samples was `r erb2_fold_change_sd[[2]]`. The pooled standard deviation of the signal-adjusted noise for the same cohort was `r signal_noise_sd[[2]]`.
+The pooled standard deviation of the ERBB2 fold change in `r length(unique(repeat_results$labno_suffix_worksheet))` repeat replicates of `r length(unique(repeat_results$labno))` DNA samples was `r erb2_fold_change_sd[[2]]`.
+The pooled standard deviation of the signal-adjusted noise for the same cohort was `r signal_noise_sd[[2]]`.
 
 Pooled standard deviation for intra-run results for fold change (repeatability): `r repeatability_fold_change_sd[[2]]`
 
@@ -1424,7 +1609,10 @@ plot_cobas_qs_noise <- dual_extracted_data_for_plot |>
 plot_fc_noise_joined <- plot_cobas_qs_fold_change + plot_cobas_qs_noise +
   plot_layout(ncol = 1, guides = "collect")
 
-plot_timestamp(plot_fc_noise_joined, input_height = 16)
+plot_timestamp(input_plot = plot_fc_noise_joined, 
+               input_height = 16,
+               folder = paste0(erbb2_data_folder,
+                              "outputs/plots/"))
 
 ```
 
@@ -1436,13 +1624,16 @@ dual_extracted_erbb2 <- pos_cnv_results |>
   filter(gene == "ERBB2") |> 
   filter(nhsno %in% pansolid_qiasymphony_v2$nhsno) |> 
   mutate(pathno_extraction = str_c(nhsno, "_", extraction_method)) |> 
-  make_labno_plot(yaxis = pathno_extraction)
+  make_labno_cnv_plot(yaxis = pathno_extraction,
+                      gene = "ERBB2")
 
-plot_dual_extracted_erbb2_calls <- make_cnv_triptych(dual_extracted_erbb2)
+plot_dual_extracted_erbb2_calls <- make_cnv_triptych_plot(dual_extracted_erbb2)
 
 plot_dual_extracted_erbb2_calls
 
-plot_timestamp(plot_dual_extracted_erbb2_calls)
+plot_timestamp(input_plot = plot_dual_extracted_erbb2_calls,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1489,7 +1680,10 @@ plot_cobas_v1_2 <- plot_cobas_v1_2_fold_change +
   plot_cobas_v1_v2_noise +
   plot_layout(ncol = 1, guides = "collect")
 
-plot_timestamp(plot_cobas_v1_2, input_height = 16)
+plot_timestamp(input_plot = plot_cobas_v1_2, 
+               input_height = 16,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1502,13 +1696,16 @@ dual_tested_erbb2 <- pos_cnv_results |>
   filter(labno %in% pansolid_cobas_v2$labno) |>
   mutate(labno_pansolid_version = str_c(labno,"_Pansolid_v", pansolid_version)) |> 
   arrange(labno_pansolid_version) |> 
-  make_labno_plot(yaxis = labno_pansolid_version)
+  make_labno_cnv_plot(yaxis = labno_pansolid_version,
+                      gene = "ERBB2")
 
-plot_dual_tested_erbb2_calls <- make_cnv_triptych(dual_tested_erbb2)
+plot_dual_tested_erbb2_calls <- make_cnv_triptych_plot(dual_tested_erbb2)
 
 plot_dual_tested_erbb2_calls
 
-plot_timestamp(plot_dual_tested_erbb2_calls)
+plot_timestamp(input_plot = plot_dual_tested_erbb2_calls,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```
 
@@ -1518,7 +1715,8 @@ plot_timestamp(plot_dual_tested_erbb2_calls)
 #| label: comparison-to-core
 #| echo: FALSE
 
-core_result_info <- read_csv(here::here("data/dna_db_queries/core_result_info.csv"),
+core_result_info <- read_csv(paste0(erbb2_data_folder,
+                                    "dna_db_queries/core_result_info.csv"),
                              col_types = "ccdccc")
   
 core_erbb2_calls <- extract_cnv_calls(df = core_result_info, input_gene = "ERBB2")
@@ -1555,7 +1753,9 @@ table_pansolid_vs_core_panel_erbb2_results <- make_confusion_matrix(
 
 knitr::kable(table_pansolid_vs_core_panel_erbb2_results[[1]])
 
-csv_timestamp(table_pansolid_vs_core_panel_erbb2_results[[1]])
+csv_timestamp(table = table_pansolid_vs_core_panel_erbb2_results[[1]],
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -1575,7 +1775,9 @@ erbb2_validation_dataset_for_export <- all_amp_gene_results |>
          pansolid_call, pansolid_version, extraction_method,
          ncc, tissue_source, tissue_code, panel, stock_qubit)
 
-csv_timestamp(erbb2_validation_dataset_for_export)
+csv_timestamp(table = erbb2_validation_dataset_for_export,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
 
 ```
 
@@ -1593,7 +1795,9 @@ The files in the "clc_initial_outputs" folder were generated prior to the work d
 #| message: FALSE
 #| warning: FALSE
 
-all_patient_files <- list.files(path = here::here("data/clc_initial_outputs/"), full.names = TRUE, recursive = TRUE,
+all_patient_files <- list.files(path = paste0(
+  erbb2_data_folder,
+  "clc_initial_outputs/"), full.names = TRUE, recursive = TRUE,
                 pattern = "*.xlsx")
 
 qc_data <- all_patient_files |>
@@ -1608,22 +1812,6 @@ qc_data_with_ids <- qc_data |>
 
 sample_number <- length(unique(qc_data_with_ids$labno_suffix_worksheet))
 
-
-make_noise_plot <- function(df = qc_data_with_ids, x_axis) {
-  
-      plot <- ggplot(qc_data_with_ids, aes(x = {{ x_axis }}, 
-                  y = st_dev_signal_adjusted_log2_ratios)) +
-      geom_point(pch = 21) +
-      theme_bw() +
-      scale_y_continuous(limits = c(0, 1.25),
-                         breaks = seq(0, 1.2, by = 0.2)) +
-      labs(y = "Signal-adjusted noise") +
-      geom_hline(yintercept = 1, linetype = "dashed")
-      
-      return(plot)
-
-}
-
 p1 <- make_noise_plot(x_axis = percent_target_region_pos_cov_greaterorequal_138) +
   labs(x = "Percentage target positions covered to greater or equal to 138x") +
   ggpubr::stat_cor(method = "pearson", label.x = 70, label.y = 0.1)
@@ -1634,12 +1822,16 @@ p2 <- make_noise_plot(x_axis = number_target_regions_with_cov_lessthan_138) +
 
 p3 <- make_noise_plot(x_axis = median_coverage) +
   labs(x = "Median coverage (x)",
-       caption = str_c("Data for ", sample_number, " cobas-extracted samples tested on PanSolid v1")) +
+       caption = str_c("Data for ", sample_number, 
+                       " cobas-extracted samples tested on PanSolid v1")) +
   ggpubr::stat_cor(method = "pearson", label.x = 1100, label.y = 0.1)
 
 qc_plot_combined <- p1 + p2 + p3 +
   plot_layout(ncol = 1)
 
-plot_timestamp(qc_plot_combined, input_height = 20)
+plot_timestamp(input_plot = qc_plot_combined, 
+               input_height = 20,
+               folder = paste0(erbb2_data_folder,
+                               "outputs/plots/"))
 
 ```

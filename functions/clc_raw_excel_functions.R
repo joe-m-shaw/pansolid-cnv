@@ -7,7 +7,7 @@
 # versions used by clinical scientists for interpretting copy number variants
 # (CNVs).
 
-source(here("functions/pansolid_excel_functions.R"))
+source(here("functions/pansolid_cnv_excel_functions.R"))
 
 make_empty_cnv_df <- function() {
   

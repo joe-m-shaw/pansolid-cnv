@@ -7,27 +7,31 @@ library(here)
 
 # Source scripts --------------------------------------------------------------------
 
-source(here("scripts/set_shared_drive_filepath.R"))
-
 source(here("scripts/connect_to_dna_db.R"))
 
 source(here("functions/dna_db_functions.R"))
 
 # Get patient information -----------------------------------------------------------
 
-amp_validation_stdev_results_collated <- read_csv(paste0(data_folder, 
-                                                         "validation/processed/",
+amp_validation_stdev_results_collated <- read_csv(paste0(config::get("data_folderpath"), 
+                                                         "validation/",
+                                                         "DOC6283_amplifications/",
+                                                         "processed/",
                                                          "amp_validation_stdev_results_collated.csv"),
                                                   col_types = list(
                                                     "labno" = col_character()))
 
-validation_ddpcr_collated <- read_csv(paste0(data_folder,
-                                             "validation/processed/",
+validation_ddpcr_collated <- read_csv(paste0(config::get("data_folderpath"), 
+                                             "validation/",
+                                             "DOC6283_amplifications/",
+                                             "processed/",
                                              "validation_ddpcr_collated.csv")) |> 
   filter(grepl(pattern = "\\d{8}", x = sample))
 
-wgs_html_ids <- read_csv(paste0(data_folder, 
-                                "validation/processed/",
+wgs_html_ids <- read_csv(paste0(config::get("data_folderpath"), 
+                                "validation/",
+                                "DOC6283_amplifications/",
+                                "processed/",
                                 "wgs_html_ids.csv"),
                          col_types = list(
                            "labno" = col_character()
@@ -67,11 +71,17 @@ patient_ncc_manual <- patient_info_ncc |>
   mutate(ncc_manual = "")
 
 write.csv(x = patient_ncc_manual,
-          file = paste0(data_folder, "validation/processed/", 
+          file = paste0(config::get("data_folderpath"), 
+                        "validation/",
+                        "DOC6283_amplifications/",
+                        "processed/",
                         "patient_ncc_manual.csv"),
           row.names = FALSE)
 
-manual_ncc_values <- read_csv(file = paste0(data_folder, "validation/processed/",
+manual_ncc_values <- read_csv(file = paste0(config::get("data_folderpath"), 
+                                            "validation/",
+                                            "DOC6283_amplifications/",
+                                            "processed/",
                                             "patient_ncc_manual_edit.csv"),
                               col_types = list(
                                 "labno" = col_character(),
@@ -122,11 +132,17 @@ cancer_type_manual <- patient_info_cancer_type |>
   mutate(cancer_group_manual = "")
 
 write.csv(x = cancer_type_manual,
-          file = paste0(data_folder, "validation/processed/", 
+          file = paste0(config::get("data_folderpath"), 
+                        "validation/",
+                        "DOC6283_amplifications/",
+                        "processed/",
                         "cancer_type_manual.csv"),
           row.names = FALSE)
 
-manual_cancer_types <- read_csv(file = paste0(data_folder, "validation/processed/",
+manual_cancer_types <- read_csv(file = paste0(config::get("data_folderpath"), 
+                                              "validation/",
+                                              "DOC6283_amplifications/",
+                                              "processed/",
                                               "cancer_type_manual_edit.csv"),
                                 col_types = list(
                                   "labno" = col_character(),
@@ -179,11 +195,17 @@ validation_sample_patient_info <- patient_info_extraction_method |>
   select(-c(tissue))
 
 write.csv(x = validation_sample_patient_info,
-          file = paste0(data_folder, "validation/processed/", 
+          file = paste0(config::get("data_folderpath"), 
+                        "validation/",
+                        "DOC6283_amplifications/",
+                        "processed/",
                         "validation_sample_patient_info.csv"),
           row.names = FALSE)
 
 write.csv(x = pansolid_worksheet_details,
-          file = paste0(data_folder, "validation/processed/", 
+          file = paste0(config::get("data_folderpath"), 
+                        "validation/",
+                        "DOC6283_amplifications/",
+                        "processed/",
                         "pansolid_worksheet_details.csv"),
           row.names = FALSE)

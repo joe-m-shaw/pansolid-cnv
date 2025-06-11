@@ -10,7 +10,7 @@ library(here)
 
 data_folderpath <- config::get("data_folderpath")
 
-source(here("functions/pansolid_excel_functions.R"))
+source(here("functions/pansolid_cnv_excel_functions.R"))
 
 # S drive filepaths -----------------------------------------------------------------
 

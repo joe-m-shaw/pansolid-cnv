@@ -6,14 +6,13 @@ library(here)
 library(tidyverse)
 library(readxl)
 
-source(here("scripts/set_shared_drive_filepath.R"))
-
 source(here("functions/wgs_html_functions.R"))
 
 # WGS HTML filepaths ----------------------------------------------------------------
 
-wgs_htmls <- list.files(path = paste0(data_folder, 
-                                      "validation/raw/wgs_amplifications/"),
+wgs_htmls <- list.files(path = paste0(config::get("data_folderpath"), 
+                                      "validation/DOC6283_amplifications/",
+                                      "raw/wgs/"),
                         full.names = TRUE,
                         pattern = "*.html")
 
@@ -103,7 +102,8 @@ wgs_tumour_samples <- wgs_htmls |>
     html_filepath = wgs_htmls, 
     div_id = "t_tumour_sample")) |> 
   list_rbind() |> 
-  select(filepath, calculated_overall_ploidy, calculated_chromosome_count, calculated_tumour_content)
+  select(filepath, calculated_overall_ploidy, 
+         calculated_chromosome_count, calculated_tumour_content)
 
 if(anyNA.data.frame(wgs_pids)) {
   stop("NA values in WGS patient IDs")
@@ -115,7 +115,9 @@ if(anyNA.data.frame(wgs_headers)) {
 
 # Get lab numbers -------------------------------------------------------------------
 
-wgs_pathway_tracker <- read_excel(path = paste0(data_folder, "excel_spreadsheets/",
+wgs_pathway_tracker <- read_excel(path = paste0(config::get("data_folderpath"), 
+                                                "validation/DOC6283_amplifications/",
+                                                "excel_spreadsheets/",
                                                 "WGS pathway tracker_copy_2024-07-01.xlsx"),
                                   sheet = "Cancer") |> 
   janitor::clean_names()
@@ -140,7 +142,11 @@ wgs_html_ids <- inner_join(x = wgs_headers, y = wgs_pids, by = "filepath") |>
 # Export collated information -------------------------------------------------------
 
 write_csv(x = wgs_html_ids,
-          file = paste0(data_folder, "validation/processed/wgs_html_ids.csv"))
+          file = paste0(config::get("data_folderpath"), 
+                        "validation/DOC6283_amplifications/",
+                        "processed/wgs_html_ids.csv"))
 
 write_csv(x = wgs_html_cnvs,
-          file = paste0(data_folder, "validation/processed/wgs_html_cnvs.csv"))
+          file = paste0(config::get("data_folderpath"), 
+                        "validation/DOC6283_amplifications/",
+                        "processed/wgs_html_cnvs.csv"))

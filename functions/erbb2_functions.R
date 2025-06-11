@@ -6,7 +6,7 @@ library(here)
 library(rvest)
 library(docstring)
 
-source(here("scripts/set_shared_drive_filepath.R"))
+source(here("functions/extract_pansolid_cnv_coordinates.R"))
 
 # Export functions ------------------------------------------------------------------
 
@@ -38,16 +38,19 @@ csv_timestamp <- function(table, folder) {
 }
 
 dna_db_export <- function(input) {
-  write.csv(input,
-            file = here::here(paste0(
-              "data/dna_db_queries/",
-              deparse(substitute(input)), ".csv"
-            )),
-            row.names = FALSE
-  )
+  write_csv(input,
+            file = paste0(config::get("data_folderpath"),
+                          "validation/DOC6260_ERBB2/",
+                          "dna_db_queries/",
+                          deparse(substitute(input)), 
+                          ".csv")
+            )
 }
 
-plot_timestamp <- function(input_plot, input_width = 15, input_height = 12, dpi = 300,
+plot_timestamp <- function(input_plot, 
+                           input_width = 15, 
+                           input_height = 12, 
+                           dpi = 300,
                            folder) {
   
   #' Save a plot with a timestamp
@@ -346,7 +349,7 @@ read_clc_target_calls <- function(file) {
   relocate(worksheet, labno, suffix, labno_suffix, patient_name,
            labno_suffix_worksheet)
   
-  output <- extract_cnv_coordinates(df = results,
+  output <- extract_pansolid_cnv_coordinates(df = results,
                                     cnv_coord_col = region)
   
   return(output)
@@ -424,8 +427,63 @@ add_case_group <- function(df) {
   
 }
 
+draw_lod_gene_plot <- function(df, chromosome, gene) {
+  
+  plot_limit_of_detection <- df |> 
+    filter(chromosome == {{ chromosome }}) |> 
+    ggplot(aes(x = start, y = fold_change_adjusted)) +
+    geom_point(pch = 21) +
+    geom_point(data = df |> 
+                 filter(name == {{ gene }}), fill = safe_red, 
+               pch = 21, size = 2) +
+    facet_wrap(~ncc) +
+    theme_bw() +
+    scale_y_continuous(limits = c(-3, 6),
+                       breaks = c(-3, -2, -1, 0, 1, 2, 2.8, 4, 5, 6)) +
+    geom_hline(yintercept = 2.8, linetype = "dashed") +
+    labs(x = str_c("Chromosome ", {{ chromosome }}),
+         y = "Target fold change",
+         title = str_c("Limit of detection results: ", {{ gene }}),
+         caption = "Seracare +12 copies control spiked into Seracare wild type control",
+         subtitle = str_c({{ gene }}, " in red"))
+  
+  return(plot_limit_of_detection)
+  
+}
 
-# PanSolid functions ----------------------------------------------------------------
+calculate_pooled_sd <- function(df, group = labno, target_col, round_places = 2) {
+  
+  output_table <- df |> 
+    group_by( {{ group }}) |> 
+    summarise(sd = sd( {{ target_col }} ),
+              max = max( {{ target_col }} ),
+              min = min( {{ target_col }} ),
+              range = max - min,
+              n = n(),
+              z = (n-1)*sd^2)
+  
+  pooled_sd <- round(sqrt(sum(output_table$z) / 
+                            (sum(output_table$n))), round_places)
+  
+  range <- str_c(round(min(output_table$range), round_places), 
+                 "-", 
+                 round(max(output_table$range), round_places))
+  
+  return(list(output_table, pooled_sd, range))
+  
+}
 
-
-
+make_noise_plot <- function(df = qc_data_with_ids, x_axis) {
+  
+  plot <- ggplot(qc_data_with_ids, aes(x = {{ x_axis }}, 
+                                       y = st_dev_signal_adjusted_log2_ratios)) +
+    geom_point(pch = 21) +
+    theme_bw() +
+    scale_y_continuous(limits = c(0, 1.25),
+                       breaks = seq(0, 1.2, by = 0.2)) +
+    labs(y = "Signal-adjusted noise") +
+    geom_hline(yintercept = 1, linetype = "dashed")
+  
+  return(plot)
+  
+}

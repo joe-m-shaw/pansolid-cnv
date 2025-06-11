@@ -13,13 +13,13 @@ parse_filename <- function(input_file, input_group) {
   
   filename_regex <- stringr::regex(
     r"[
-    (WS\d{6})             # Worksheet number
+    (WS\d{6})               # Worksheet number
     _
-    (\d{5,8})             # Lab number
-    (a|b|c|d|)            # Suffix
+    (\d{5,8})               # Lab number
+    (a|b|c|d|)              # Suffix
     _
-    ([:alnum:]{2,30})     # Patient name (or alphanumeric identifier)
-    (.*.xlsx|.xlsx)       # Variable ending                      
+    ([:alnum:]{2,30})       # Patient name (or alphanumeric identifier)
+    (.*.xlsx|.xlsx|.*.csv)  # Variable ending                      
     ]",
     comments = TRUE)
   

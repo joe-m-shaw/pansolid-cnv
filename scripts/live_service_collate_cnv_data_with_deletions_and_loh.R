@@ -3,8 +3,6 @@
 # Connect to DLIMS
 source(here::here("scripts/connect_to_dna_db.R"))
 
-source(here::here("functions/pansolid_excel_functions.R"))
-
 source(here::here("functions/pansolid_cnv_excel_functions.R"))
 
 # Get a list of PanSolid worksheets ---------------------------------------
@@ -90,7 +88,8 @@ loh_live <- read_csv(paste0(collated_data_folder,
 # collation stage if they are included.
 
 files_without_cnv_tabs <- c("WS152872_25022765",
-                            "WS153248_25026440")
+                            "WS153248_25026440",
+                            "WS153962_25031207")
 
 # Identify files not already collated -------------------------------------
 

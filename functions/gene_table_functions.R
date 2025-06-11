@@ -15,16 +15,22 @@ load_pansolid_gene_table <- function(cnv_type) {
   
   if(cnv_type == "Deletions") {
     
-    gene_table <- readr::read_csv(file = paste0(data_folder, 
-                                           "gene_lists/pansolid_deletion_gene_list.csv"),
+    gene_table <- readr::read_csv(file = paste0(config::get("data_folderpath"), 
+                                                "validation/",
+                                                "DOC6283_amplifications/",
+                                                "gene_lists/",
+                                                "pansolid_deletion_gene_list.csv"),
                                   show_col_types = FALSE)
     
   }
   
   if(cnv_type == "Amplifications") {
     
-    gene_table <- readr::read_csv(file = paste0(data_folder, 
-                                           "gene_lists/pansolid_amplification_gene_list.csv"),
+    gene_table <- readr::read_csv(file = paste0(config::get("data_folderpath"), 
+                                                "validation/",
+                                                "DOC6283_amplifications/",
+                                                "gene_lists/",
+                                                "pansolid_amplification_gene_list.csv"),
                                   show_col_types = FALSE)
     
   }

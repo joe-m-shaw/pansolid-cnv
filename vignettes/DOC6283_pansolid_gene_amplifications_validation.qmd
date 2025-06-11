@@ -43,7 +43,8 @@ Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
 
 **BRAF**: B-Rapidly Accelerated Fibrosarcoma
 
-**CLC**: Acronym unknown. CLC Bio was acquired by Qiagen in 2013.
+**CLC**: Acronym unknown.
+CLC Bio was acquired by Qiagen in 2013.
 
 **CNV**: Copy Number Variant
 
@@ -98,21 +99,19 @@ The purpose of this document is to describe the validation of detection of somat
 #| warning: FALSE
 #| include: FALSE
 
-source(here("scripts/set_shared_drive_filepath.R"))
+source(here("scripts/amp_val_collate_gene_transcript_information.R"))
 
-source(here("scripts/collate_gene_transcript_information.R"))
+source(here("scripts/amp_val_collate_wgs_htmls.R"))
 
-source(here("scripts/collate_wgs_htmls.R"))
+source(here("scripts/amp_val_collate_pansolid_ddpcr_validation_data.R"))
 
-source(here("scripts/collate_pansolid_ddpcr_validation_data.R"))
-
-source(here("scripts/collate_pansolid_excel_validation_data.R"))
+source(here("scripts/amp_val_collate_pansolid_excel_validation_data.R"))
 
 # This script collect patient information but requires an ODBC connection to the
 # DNA Database mirror
-# source(here("scripts/get_patient_information_from_dna_db.R"))
+source(here("scripts/amp_val_get_patient_info.R"))
 
-source(here("scripts/load_processed_validation_data.R"))
+source(here("scripts/amp_val_load_processed_validation_data.R"))
 
 ```
 
@@ -123,7 +122,7 @@ source(here("scripts/load_processed_validation_data.R"))
 
 source(here("functions/gene_table_functions.R"))
 
-source(here("functions/pansolid_excel_functions.R"))
+source(here("functions/pansolid_cnv_excel_functions.R"))
 
 source(here("functions/cnv_plot_functions.R"))
 
@@ -144,12 +143,15 @@ source(here("functions/extract_pansolid_cnv_coordinates.R"))
 #| include: FALSE
 #| warning: FALSE
 
-primer_df <- read_csv(paste0(data_folder, 
+DOC6283_folder <- paste0(config::get("data_folderpath"),
+                         "validation/DOC6283_amplifications/")
+
+primer_df <- read_csv(paste0(DOC6283_folder, 
                              "primers/QIAseq.CDHS-48608Z-11752.primers3 (Converted).csv"),
                       col_types = "cccccc") |> 
   clean_names()
 
-target_df <- read_csv(paste0(data_folder,
+target_df <- read_csv(paste0(DOC6283_folder,
                              "bed_files/PanSolidv2_GRCh38_noalt_BED.csv"),
                       col_types = "cccd") |> 
   clean_names() |> 
@@ -167,15 +169,31 @@ if(anyNA.data.frame(target_df)){
 
 # Introduction {#sec-introduction}
 
-At the North West GLH, testing for somatic DNA variants is performed using the QIAseq methodology (Qiagen) [@xu2017] and Illumina next generation sequencing (NGS) using a large enrichment panel of QIAseq primers named "PanSolid". The current PanSolid enrichment, referred to as PanSolidv2 (design identifier: CDHS-48608Z-11752) contains `r length(unique(primer_df$primer))` unique QIAseq primers for `r length(unique(target_df$region))` target regions. Sequencing data from the PanSolid enrichment is analysed with a pipeline built in the Qiagen CLC Genomic Workbench. Detection of single nucleotide variants and indels on PanSolid has previously been validated ([DOC6024 Validation of QIASeq PanSolid Enrichment]{custom-style="Strong"}). Currently, copy number variants (CNVs) are analysed using a separate QIAseq "Core" panel with a bespoke pipeline written in Python, with copy number amplifications reported for 4 genes: *EGFR*, *ERBB2*, *AR* and *MET* ([DOC4914 Validation of QiaSeq UMI Based Copy Number Analysis]{custom-style="Strong"}). The long-term aim is to move all CNV detection to the PanSolid panel and the CLC pipeline.
+At the North West GLH, testing for somatic DNA variants is performed using the QIAseq methodology (Qiagen) [@xu2017] and Illumina next generation sequencing (NGS) using a large enrichment panel of QIAseq primers named "PanSolid".
+The current PanSolid enrichment, referred to as PanSolidv2 (design identifier: CDHS-48608Z-11752) contains `r length(unique(primer_df$primer))` unique QIAseq primers for `r length(unique(target_df$region))` target regions.
+Sequencing data from the PanSolid enrichment is analysed with a pipeline built in the Qiagen CLC Genomic Workbench.
+Detection of single nucleotide variants and indels on PanSolid has previously been validated ([DOC6024 Validation of QIASeq PanSolid Enrichment]{custom-style="Strong"}).
+Currently, copy number variants (CNVs) are analysed using a separate QIAseq "Core" panel with a bespoke pipeline written in Python, with copy number amplifications reported for 4 genes: *EGFR*, *ERBB2*, *AR* and *MET* ([DOC4914 Validation of QiaSeq UMI Based Copy Number Analysis]{custom-style="Strong"}).
+The long-term aim is to move all CNV detection to the PanSolid panel and the CLC pipeline.
 
-The detection of *ERBB2* gene amplifications was validated on the PanSolid enrichment in April 2024 ([DOC6260: Validation of Detecting Somatic *ERBB2* Amplifications with the PanSolid CLC Pipeline]{custom-style="Strong"}). *ERBB2* amplifications were prioritised for validation due to service needs and were validated by comparison with results from droplet digital PCR (ddPCR) testing. The aim of this validation document is to validate additional amplification genes on the PanSolid workflow.
+The detection of *ERBB2* gene amplifications was validated on the PanSolid enrichment in April 2024 ([DOC6260: Validation of Detecting Somatic *ERBB2* Amplifications with the PanSolid CLC Pipeline]{custom-style="Strong"}).
+*ERBB2* amplifications were prioritised for validation due to service needs and were validated by comparison with results from droplet digital PCR (ddPCR) testing.
+The aim of this validation document is to validate additional amplification genes on the PanSolid workflow.
 
 ## Somatic Gene Amplifications {#sec-somatic-gene-amplifications}
 
-Gene amplification is a common mechanism in the development of cancer [@matsui2013]. Additional gene copies can be present on extra-chromosomal DNA rather than their initial chromosomal loci [@verhaak2019], for example *EGFR* amplifications can be present on extrachromosomal DNA (ecDNA) fragments referred to as "double minutes" [@french2019]. "Double minute" refers to a very small ("minute") bodies of chromatin material with two arms ("double") which were originally visualised by chromosome staining [@cox1965], which have been found to be generated by chromothripsis [@shoshani2021]. The location of genes on ecDNA allows them to be copied many times, and uneven inheritance of ecDNA into daughter cells promotes heterogeneity within the tumour which can act as an "evolutionary force" in cancer development [@decarvalho2018]. However increased gene dosage can also be caused by polysomy of the chromosome of origin [@hanna2014; @wilcock2024]. As fluorescence *in-situ* hybridisation (FISH) methods may define gene copy number relative to the copy number of a different locus on the same chromosome, increased gene copy number due to polysomy can be categorised as "non-amplified" [@french2019]. The number of additional gene copies can vary between genes and tumour types, ranging as high as hundreds of gene copies. There is no consistent accepted threshold of copy number to classify a gene as "amplified", although many clinical trials use a threshold of 10 copies as an entry requirement.
+Gene amplification is a common mechanism in the development of cancer [@matsui2013].
+Additional gene copies can be present on extra-chromosomal DNA rather than their initial chromosomal loci [@verhaak2019], for example *EGFR* amplifications can be present on extrachromosomal DNA (ecDNA) fragments referred to as "double minutes" [@french2019].
+"Double minute" refers to a very small ("minute") bodies of chromatin material with two arms ("double") which were originally visualised by chromosome staining [@cox1965], which have been found to be generated by chromothripsis [@shoshani2021].
+The location of genes on ecDNA allows them to be copied many times, and uneven inheritance of ecDNA into daughter cells promotes heterogeneity within the tumour which can act as an "evolutionary force" in cancer development [@decarvalho2018].
+However increased gene dosage can also be caused by polysomy of the chromosome of origin [@hanna2014; @wilcock2024].
+As fluorescence *in-situ* hybridisation (FISH) methods may define gene copy number relative to the copy number of a different locus on the same chromosome, increased gene copy number due to polysomy can be categorised as "non-amplified" [@french2019].
+The number of additional gene copies can vary between genes and tumour types, ranging as high as hundreds of gene copies.
+There is no consistent accepted threshold of copy number to classify a gene as "amplified", although many clinical trials use a threshold of 10 copies as an entry requirement.
 
-Gene amplifications can have clinical relevance for choice of treatment and predicting resistance to treatment, particularly amplifications of genes encoding tyrosine kinase membrane receptors. It is predicted that increasing the gene copy number increases the levels of translated protein, which maintains aberrant cell signalling even in the presence of tyrosine kinase inhibitors (TKIs) [@tanaka2020]. Historically, gene amplifications were detected with FISH and immunohistochemistry (IHC), but NGS methods are being increasingly used.
+Gene amplifications can have clinical relevance for choice of treatment and predicting resistance to treatment, particularly amplifications of genes encoding tyrosine kinase membrane receptors.
+It is predicted that increasing the gene copy number increases the levels of translated protein, which maintains aberrant cell signalling even in the presence of tyrosine kinase inhibitors (TKIs) [@tanaka2020].
+Historically, gene amplifications were detected with FISH and immunohistochemistry (IHC), but NGS methods are being increasingly used.
 
 ### Gene Coordinates {#sec-gene-coordinates}
 
@@ -193,7 +211,8 @@ pansolid_target_loci <- target_df |>
 
 ```
 
-The PanSolid enrichment includes primers targeting `r length(unique(pansolid_target_loci$single_locus))` different gene loci. Of these, there are 9 genes which were selected as having amplifications with clinical relevance (@tbl-amplification-coordinates).
+The PanSolid enrichment includes primers targeting `r length(unique(pansolid_target_loci$single_locus))` different gene loci.
+Of these, there are 9 genes which were selected as having amplifications with clinical relevance (@tbl-amplification-coordinates).
 
 ```{r}
 #| label: tbl-amplification-coordinates
@@ -202,7 +221,8 @@ The PanSolid enrichment includes primers targeting `r length(unique(pansolid_tar
 
 amp_genes <- load_pansolid_gene_table("Amplifications")
 
-gene_tbl <- read_csv(file = paste0(data_folder, "gene_lists/gene_coordinates.csv"),
+gene_tbl <- read_csv(file = paste0(DOC6283_folder, 
+                                   "gene_lists/gene_coordinates.csv"),
                        col_types = "ccccdd")
 
 primer_df_mod <- extract_pansolid_cnv_coordinates(df = primer_df, cnv_coord_col = region) |> 
@@ -262,7 +282,8 @@ The clinical impact of amplifications in these genes is summarised below:
 
 -   ***MYCN***: *MYCN* amplifications are found in several cancer types, including medulloblastoma [@sursal2022], and is associated with high-risk prognosis in neuroblastoma [@cohn2009; @irwin2021].
 
--   ***SMO***: determination of *SMO* copy number by FISH is specified for medulloblastoma on the [NHS National Genomic Test Directory](https://www.england.nhs.uk/publication/national-genomic-test-directories/) (code M194). The SMO protein is a target for several therapeutics [@rimkus2016].
+-   ***SMO***: determination of *SMO* copy number by FISH is specified for medulloblastoma on the [NHS National Genomic Test Directory](https://www.england.nhs.uk/publication/national-genomic-test-directories/) (code M194).
+    The SMO protein is a target for several therapeutics [@rimkus2016].
 
 ## Requirements {#sec-requirements}
 
@@ -318,23 +339,31 @@ pansolid_sample_info <- validation_sample_patient_info |>
 
 ## Samples {#sec-methods-samples}
 
-Samples were received at the North West GLH between 
-`r format.Date(x = min(pansolid_sample_info$date_sample_received), format = "%B %Y")`
-and
-`r format.Date(x = max(pansolid_sample_info$date_sample_received), format = "%B %Y")`. Details of the normal control cohort used for the PanSolid CLC pipeline are given in the *ERBB2* validation document ([DOC6260]{custom-style="Strong"}). In total, `r length(unique(amp_validation_stdev_results_collated$labno))` different DNA samples were tested on the PanSolid v2 enrichment during this validation. Samples were tested from patients with age at sample receipt ranging from `r round(min(pansolid_sample_info$years_at_sample_receipt, na.rm = TRUE), 0)` to `r round(max(pansolid_sample_info$years_at_sample_receipt, na.rm = TRUE), 0)` years (median: `r round(median(pansolid_sample_info$years_at_sample_receipt, na.rm = TRUE), 0)` years), and from reference materials provided by the company SeraCare ([https://www.seracare.com/]()) (@sec-methods-reference-materials). Samples from many different types of cancer were tested, which are summarised in the Supplementary Information (@tbl-cancer-types). The details of the sample types (@tbl-tissue-types) and neoplastic cell contents (NCC) (@tbl-ncc) are also provided in the Supplementary Information.
+Samples were received at the North West GLH between `r format.Date(x = min(pansolid_sample_info$date_sample_received), format = "%B %Y")` and `r format.Date(x = max(pansolid_sample_info$date_sample_received), format = "%B %Y")`.
+Details of the normal control cohort used for the PanSolid CLC pipeline are given in the *ERBB2* validation document ([DOC6260]{custom-style="Strong"}).
+In total, `r length(unique(amp_validation_stdev_results_collated$labno))` different DNA samples were tested on the PanSolid v2 enrichment during this validation.
+Samples were tested from patients with age at sample receipt ranging from `r round(min(pansolid_sample_info$years_at_sample_receipt, na.rm = TRUE), 0)` to `r round(max(pansolid_sample_info$years_at_sample_receipt, na.rm = TRUE), 0)` years (median: `r round(median(pansolid_sample_info$years_at_sample_receipt, na.rm = TRUE), 0)` years), and from reference materials provided by the company SeraCare ([https://www.seracare.com/]()) (@sec-methods-reference-materials).
+Samples from many different types of cancer were tested, which are summarised in the Supplementary Information (@tbl-cancer-types).
+The details of the sample types (@tbl-tissue-types) and neoplastic cell contents (NCC) (@tbl-ncc) are also provided in the Supplementary Information.
 
 ## Reference Materials {#sec-methods-reference-materials}
 
 ### SeraCare reference materials {#sec-seracare-reference-materials}
 
-Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications. Each control consists of DNA extracted from a stable cell line (GM24385), spiked with different quantities of synthetic DNA constructs containing specific genes. The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes. The product information states that, due to their size, the *EGFR*, *BRAF* and *MET* genes are each split between two synthetic DNA constructs. There is an overlap region in each gene which is present in both constructs, which leads to higher quantities of these regions (@tbl-seracare-gene-constructs). The ddPCR assays designed in this validation (@sec-methods-ddpcr) were checked and do not target these regions. The details of the SeraCare reference materials, including DNA numbers and batch numbers, are shown in the Supplementary Information (@tbl-seracare-reference-material-details).
+Reference materials were ordered from the company SeraCare to act as positive controls for different gene amplifications.
+Each control consists of DNA extracted from a stable cell line (GM24385), spiked with different quantities of synthetic DNA constructs containing specific genes.
+The amplified genes included in the SeraCare reference materials are shown in @tbl-seracare-reference-material-genes.
+The product information states that, due to their size, the *EGFR*, *BRAF* and *MET* genes are each split between two synthetic DNA constructs.
+There is an overlap region in each gene which is present in both constructs, which leads to higher quantities of these regions (@tbl-seracare-gene-constructs).
+The ddPCR assays designed in this validation (@sec-methods-ddpcr) were checked and do not target these regions.
+The details of the SeraCare reference materials, including DNA numbers and batch numbers, are shown in the Supplementary Information (@tbl-seracare-reference-material-details).
 
 ```{r}
 #| label: tbl-seracare-reference-material-genes
 #| tbl-cap: "SeraCare reference material genes"
 #| echo: FALSE
 
-seracare_pansolid_gene_df <- read_csv(file = paste0(data_folder, 
+seracare_pansolid_gene_df <- read_csv(file = paste0(DOC6283_folder, 
                                                  "seracare_reference_materials/",
                                                  "seracare_gene_copies.csv"),
                                       col_types = "cccddd") |> 
@@ -343,7 +372,7 @@ seracare_pansolid_gene_df <- read_csv(file = paste0(data_folder,
   mutate(`Targeted within this validation` = ifelse(gene %in% amp_genes$gene, "Yes", "No")) |> 
   rename(`Gene` = gene)
   
-seracare_details <- read_csv(file = paste0(data_folder,
+seracare_details <- read_csv(file = paste0(DOC6283_folder,
                                            "seracare_reference_materials/",
                                            "seracare_sample_details.csv"),
                              col_types = "ccccccc") 
@@ -360,7 +389,7 @@ kable(seracare_pansolid_gene_df)
 target_df_coord_split <- extract_pansolid_cnv_coordinates(df = target_df, 
                                                           cnv_coord_col = region)
 
-seracare_grch38_regions <- read_csv(file = paste0(data_folder, 
+seracare_grch38_regions <- read_csv(file = paste0(DOC6283_folder, 
                                                  "seracare_reference_materials/",
                                                  "seracare_overlap_regions_grch38.csv"),
                                     col_types = "ccddc") |> 
@@ -395,15 +424,22 @@ kable(tbl_seracare_grch38_regions)
 
 ```
 
-@tbl-seracare-gene-constructs: the table shows the details of the overlap regions in the synthetic gene constructs of *BRAF*, *EGFR* and *MET* used in the SeraCare reference materials. The coordinates are provided in genome build GRCh37 on the product information, and have been converted to GRCh38 using the [Ensembl Assembly Converter tool](http://www.ensembl.org/Homo_sapiens/Tools/AssemblyConverter). The gene length quoted for *BRAF* in this table is slightly larger than quoted in @tbl-amplification-coordinates, because the value in this table uses the longer NM_001378474.1 transcript.
+@tbl-seracare-gene-constructs: the table shows the details of the overlap regions in the synthetic gene constructs of *BRAF*, *EGFR* and *MET* used in the SeraCare reference materials.
+The coordinates are provided in genome build GRCh37 on the product information, and have been converted to GRCh38 using the [Ensembl Assembly Converter tool](http://www.ensembl.org/Homo_sapiens/Tools/AssemblyConverter).
+The gene length quoted for *BRAF* in this table is slightly larger than quoted in @tbl-amplification-coordinates, because the value in this table uses the longer NM_001378474.1 transcript.
 
 ### Limit of detection DNA mixtures {#sec-methods-lod-mixtures}
 
-A limit of detection experiment was performed using the Seraseq® Solid Tumor CNV Mix, +12 copies reference material (DNA number 24039973), which represented DNA from tumour cells, and the Seraseq® TNA (DNA) WT Mix (DNA number 24039975), which represented DNA from normal cells. The two reference materials were mixed together to mimic samples with NCCs of 30%, 20%, 10% and 0%. The final volume of each DNA mixture was 20 µl and the total DNA concentration was 6 ng/µl, which is the standard input for the PanSolid NGS workflow. These DNA mixtures were made on worksheet WS144265 and run on the PanSolid version 2 NGS workflow on worksheet WS144291. This limit of detection experiment is different to the limit of detection experiment performed on the PanSolid version 1 workflow for the validation of *ERBB2* amplifications ([DOC6260]{custom-style="Strong"}).
+A limit of detection experiment was performed using the Seraseq® Solid Tumor CNV Mix, +12 copies reference material (DNA number 24039973), which represented DNA from tumour cells, and the Seraseq® TNA (DNA) WT Mix (DNA number 24039975), which represented DNA from normal cells.
+The two reference materials were mixed together to mimic samples with NCCs of 30%, 20%, 10% and 0%.
+The final volume of each DNA mixture was 20 µl and the total DNA concentration was 6 ng/µl, which is the standard input for the PanSolid NGS workflow.
+These DNA mixtures were made on worksheet WS144265 and run on the PanSolid version 2 NGS workflow on worksheet WS144291.
+This limit of detection experiment is different to the limit of detection experiment performed on the PanSolid version 1 workflow for the validation of *ERBB2* amplifications ([DOC6260]{custom-style="Strong"}).
 
 ## DNA extraction {#sec-methods-dna-extraction}
 
-For the majority of samples, DNA was extracted using the QIASymphony extraction method (QIAsymphony DSP DNA Mini Kit, Qiagen) ([DOC6251: QIAsymphony DNA FFPE Extraction Procedure]{custom-style="Strong"}). A minority of samples had DNA extracted using the cobas® DNA Sample Preparation Kit (Roche) ([DOC1300]{custom-style="Strong"}) and the EZ1 DNA Tissue Kit (Qiagen) ([DOC913]{custom-style="Strong"}).
+For the majority of samples, DNA was extracted using the QIASymphony extraction method (QIAsymphony DSP DNA Mini Kit, Qiagen) ([DOC6251: QIAsymphony DNA FFPE Extraction Procedure]{custom-style="Strong"}).
+A minority of samples had DNA extracted using the cobas® DNA Sample Preparation Kit (Roche) ([DOC1300]{custom-style="Strong"}) and the EZ1 DNA Tissue Kit (Qiagen) ([DOC913]{custom-style="Strong"}).
 The summary of DNA extraction methods is shown in the supplementary information (@tbl-extraction-types).
 
 ## Next generation sequencing
@@ -412,22 +448,26 @@ The summary of DNA extraction methods is shown in the supplementary information 
 #| label: pansolid-worksheets
 #| include: FALSE
 
-pansolid_ws <- read_csv(file = paste0(data_folder,
-                                      "validation/processed/",
+pansolid_ws <- read_csv(file = paste0(DOC6283_folder,
+                                      "processed/",
                                       "pansolid_worksheet_details.csv"),
                         show_col_types = FALSE)
 
 ```
 
-Samples were tested on version 2 (CDHS-48608Z-11752) of the PanSolid QIAseq enrichment ([DOC5925: QIAseq PanSolid DNA Panel NGS Library Preparation]{custom-style="Strong"}) with 2 × 150 bp paired-end sequencing on an Illumina Novaseq 6000. The NGS data described in this validation document comes from `r length(unique(pansolid_ws$pcrid))` worksheets performed between `r format.Date(x = min(pansolid_ws$date), format = "%B %Y")` and `r format.Date(x = max(pansolid_ws$date), format = "%B %Y")`.
+Samples were tested on version 2 (CDHS-48608Z-11752) of the PanSolid QIAseq enrichment ([DOC5925: QIAseq PanSolid DNA Panel NGS Library Preparation]{custom-style="Strong"}) with 2 × 150 bp paired-end sequencing on an Illumina Novaseq 6000.
+The NGS data described in this validation document comes from `r length(unique(pansolid_ws$pcrid))` worksheets performed between `r format.Date(x = min(pansolid_ws$date), format = "%B %Y")` and `r format.Date(x = max(pansolid_ws$date), format = "%B %Y")`.
 
 ## Bioinformatic analysis {#sec-methods-bioinformatics}
 
-The CLC pipeline, including details of the methodology and quality metrics, is described in detail in the *ERBB2* amplifications validation document ([DOC6260]{custom-style="Strong"}). The method by which CLC detects CNVs is also described in the  Qiagen Copy Number Variant Detection White Paper [@qiagen2015]. Brief details are provided below.
+The CLC pipeline, including details of the methodology and quality metrics, is described in detail in the *ERBB2* amplifications validation document ([DOC6260]{custom-style="Strong"}).
+The method by which CLC detects CNVs is also described in the Qiagen Copy Number Variant Detection White Paper [@qiagen2015].
+Brief details are provided below.
 
 ### Control cohort
 
-A cohort of 25 normal FFPE samples from various tissue sources was used a control cohort for CNV calling with the pipeline. DNA was extracted from these samples using the QIAsymphony method.
+A cohort of 25 normal FFPE samples from various tissue sources was used a control cohort for CNV calling with the pipeline.
+DNA was extracted from these samples using the QIAsymphony method.
 
 ### Graining level
 
@@ -439,13 +479,18 @@ The CLC Genomics Workbench has 3 "graining levels" which determine the resolutio
 
 **Fine:** most sensitive to CNVs spanning 3 or more targets.
 
-All amplification genes were initially analysed on the "coarse" graining level. Preliminary work showed that the coarse graining level could not identify *MYC* amplifications in positive controls, as *MYC* has only 3 targets on the PanSolid enrichment (@tbl-amplification-coordinates). The "fine" graining level was then used specifically for *MYC* to account for the lower number of QIAseq targets in this gene. *MYCN* was added to the project later and was also analysed on the "fine" graining level. 
+All amplification genes were initially analysed on the "coarse" graining level.
+Preliminary work showed that the coarse graining level could not identify *MYC* amplifications in positive controls, as *MYC* has only 3 targets on the PanSolid enrichment (@tbl-amplification-coordinates).
+The "fine" graining level was then used specifically for *MYC* to account for the lower number of QIAseq targets in this gene.
+*MYCN* was added to the project later and was also analysed on the "fine" graining level.
 
-When the larger genes were analysed on the "fine" graining level, we frequently observed multiple intra-genic CNV regions with slightly different fold changes. Because of this, we decided to analyse the larger genes on the "coarse" graining level, rather than "fine".
+When the larger genes were analysed on the "fine" graining level, we frequently observed multiple intra-genic CNV regions with slightly different fold changes.
+Because of this, we decided to analyse the larger genes on the "coarse" graining level, rather than "fine".
 
 ### Fold change {#sec-methods-fold-change}
 
-The CLC pipeline identifies CNVs according to the fold change of target regions. When the coverage in the sample is greater or equal to the coverage in the baseline normal controls, the fold change is defined in @eq-fold-change-gain, where FC = fold change and CN = copy number.
+The CLC pipeline identifies CNVs according to the fold change of target regions.
+When the coverage in the sample is greater or equal to the coverage in the baseline normal controls, the fold change is defined in @eq-fold-change-gain, where FC = fold change and CN = copy number.
 
 $$
 FCgain = CNsample / CNnormal
@@ -463,7 +508,8 @@ $$
 FCgain = -1 / FCloss
 $$ {#eq-fold-change-conversion}
 
-Because the equation used is dependent on the relative coverage of the sample, the pipeline does not produce fold change values between 1 and -1. This is described fully in the Qiagen CLC User Manual (@qiagen2023, section [Copy number and fold change](https://resources.qiagenbioinformatics.com/manuals/clcgenomicsworkbench/2305/index.php?manual=Copy_number_fold_change.html)) and shown in @fig-fold-change-equations-plot.
+Because the equation used is dependent on the relative coverage of the sample, the pipeline does not produce fold change values between 1 and -1.
+This is described fully in the Qiagen CLC User Manual (@qiagen2023, section [Copy number and fold change](https://resources.qiagenbioinformatics.com/manuals/clcgenomicsworkbench/2305/index.php?manual=Copy_number_fold_change.html)) and shown in @fig-fold-change-equations-plot.
 
 ```{r}
 #| label: fig-fold-change-equations-plot
@@ -503,17 +549,20 @@ fold_change_plot
 
 ### Fold change threshold {#sec-methods-fold-change-threshold}
 
-A fold change threshold of 2.8 was used to classify CNVs as amplifications. The 2.8 threshold was set during the *ERBB2* amplification validation, following a limit of detection experiment ([DOC6260]{custom-style="Strong"}). 
+A fold change threshold of 2.8 was used to classify CNVs as amplifications.
+The 2.8 threshold was set during the *ERBB2* amplification validation, following a limit of detection experiment ([DOC6260]{custom-style="Strong"}).
 
 ### Signal-adjusted noise
 
-The “signal-adjusted noise” metric is a quality control metric developed during the *ERBB2* amplifications validation. It is defined as the standard deviation of target log2ratios when regional fold-changes are excluded. This quality metric was adapted from work performed at the Royal Marsden NHS Foundation Trust (North Thames GLH).
+The “signal-adjusted noise” metric is a quality control metric developed during the *ERBB2* amplifications validation.
+It is defined as the standard deviation of target log2ratios when regional fold-changes are excluded.
+This quality metric was adapted from work performed at the Royal Marsden NHS Foundation Trust (North Thames GLH).
 
 ### Visualisation
 
 Results were visualised using an Excel output as before, and also using a new interactive HTML output (@fig-pansolid-visualisation-png).
 
-![Visualisation of gene amplifications on PanSolid. The upper panel shows the Excel output for sample 24026871 which has a *MYC* amplification. The bottom panel shows the HTML output for the same sample, with tracks for CNV calls, log2 ratios and B-allele frequency.](`r paste0(data_folder, "images/", "pansolid_visualisation_output.png")`){#fig-pansolid-visualisation-png}
+![Visualisation of gene amplifications on PanSolid. The upper panel shows the Excel output for sample 24026871 which has a *MYC* amplification. The bottom panel shows the HTML output for the same sample, with tracks for CNV calls, log2 ratios and B-allele frequency.](`r paste0(DOC6283_folder, "images/", "pansolid_visualisation_output.png")`){#fig-pansolid-visualisation-png}
 
 ### Pipeline version
 
@@ -523,15 +572,25 @@ The version of the PanSolid CLC pipeline tested in this validation was PanSolid 
 
 ### Droplet digital PCR for *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* {#sec-methods-ddpcr}
 
-Amplification results for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes were confirmed using ddPCR. ddPCR assays were designed using the workflow for confirming constitutional CNVs, which involves a universal forward primer and a reference assay for the *AP3B1* gene on chromosome 5 ([DOC4304 CNV Confirmation Using Droplet Digital PCR]{custom-style="Strong"}). ddPCR was performed using a BioRad QX200 system with 5ng DNA input per well. Each assay was validated for use and then used to test DNA from clinical FFPE samples and SeraCare controls. The results for the *ERBB2* ddPCR were previously reported in [DOC6260]{custom-style="Strong"}. Details of the primer and probe sequences (@tbl-ddpcr-primers, @tbl-ap3b1-ddpcr-primers and @tbl-ddpcr-probes), reaction mix (@tbl-ddpcr-mix) and thermocycling conditions (@tbl-ddpcr-thermocycler-programme) are given in the Supplementary Information.
+Amplification results for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes were confirmed using ddPCR.
+ddPCR assays were designed using the workflow for confirming constitutional CNVs, which involves a universal forward primer and a reference assay for the *AP3B1* gene on chromosome 5 ([DOC4304 CNV Confirmation Using Droplet Digital PCR]{custom-style="Strong"}).
+ddPCR was performed using a BioRad QX200 system with 5ng DNA input per well.
+Each assay was validated for use and then used to test DNA from clinical FFPE samples and SeraCare controls.
+The results for the *ERBB2* ddPCR were previously reported in [DOC6260]{custom-style="Strong"}.
+Details of the primer and probe sequences (@tbl-ddpcr-primers, @tbl-ap3b1-ddpcr-primers and @tbl-ddpcr-probes), reaction mix (@tbl-ddpcr-mix) and thermocycling conditions (@tbl-ddpcr-thermocycler-programme) are given in the Supplementary Information.
 
 ### Whole genome sequencing {#sec-methods-wgs}
 
-Samples which had been tested using whole genome sequencing (WGS) were selected for this validation, which included samples from the Tessa Jowell BRAIN MATRIX Platform Study (clinical trial identifier NCT04274283) [@watts2022]. WGS was performed on DNA extracted from fresh-frozen tissue by Illumina Laboratory Services at the Wellcome Trust Sanger Institute in Cambridge, as part of the NHS Genomics Medicine Service. FFPE tissue from the same tumour block as the fresh frozen tissue used for WGS was used as the sample source for PanSolid testing. Samples included in this validation were analysed by WGS between December 2022 to February 2024, using the "somatic variants and pertinent germline findings in cancer susceptibility genes" pipeline version 2.28 to version 3.6.2. WGS results were taken directly from the HTML reports generated by the Genomics England pipeline for domains 1, 2 and 3.
+Samples which had been tested using whole genome sequencing (WGS) were selected for this validation, which included samples from the Tessa Jowell BRAIN MATRIX Platform Study (clinical trial identifier NCT04274283) [@watts2022].
+WGS was performed on DNA extracted from fresh-frozen tissue by Illumina Laboratory Services at the Wellcome Trust Sanger Institute in Cambridge, as part of the NHS Genomics Medicine Service.
+FFPE tissue from the same tumour block as the fresh frozen tissue used for WGS was used as the sample source for PanSolid testing.
+Samples included in this validation were analysed by WGS between December 2022 to February 2024, using the "somatic variants and pertinent germline findings in cancer susceptibility genes" pipeline version 2.28 to version 3.6.2.
+WGS results were taken directly from the HTML reports generated by the Genomics England pipeline for domains 1, 2 and 3.
 
 ## Validation analysis {#sec-methods-validation-analysis}
 
-The validation analysis was performed using the R programming language (version 4.4.1) [@rcore2024] relying mainly on packages from the tidyverse [@wickham2019]. This validation document is written and rendered using Quarto [@Allaire_Quarto_2024] and is publicly available on [Github](https://github.com/joeshaw824/pansolid_cnv_validation).
+The validation analysis was performed using the R programming language (version 4.4.1) [@rcore2024] relying mainly on packages from the tidyverse [@wickham2019].
+This validation document is written and rendered using Quarto [@allaire2024] and is publicly available on [Github](https://github.com/joeshaw824/pansolid_cnv_validation).
 
 ## Data locations {#sec-data-locations}
 
@@ -579,8 +638,9 @@ max_fold_change_detected <- round(max(pos_cnv_results_normals_removed$fold_chang
 
 ```
 
-Overall `r nrow(amp_validation_stdev_results_collated)` replicates from `r length(unique(amp_validation_stdev_results_collated$labno))` different samples were tested using the PanSolid NGS workflow. Of these, `r nrow(good_quality_samples)` had signal-adjusted noise metrics within the acceptable range of 0-0.7. There were 
-`r sum(tbl_amp_gene_summary$Amplifications)` amplifications with fold changes above the threshold of 2.8 (@sec-methods-fold-change) detected in the 9 target genes (@tbl-amp-gene-summary). 
+Overall `r nrow(amp_validation_stdev_results_collated)` replicates from `r length(unique(amp_validation_stdev_results_collated$labno))` different samples were tested using the PanSolid NGS workflow.
+Of these, `r nrow(good_quality_samples)` had signal-adjusted noise metrics within the acceptable range of 0-0.7.
+There were `r sum(tbl_amp_gene_summary$Amplifications)` amplifications with fold changes above the threshold of 2.8 (@sec-methods-fold-change) detected in the 9 target genes (@tbl-amp-gene-summary).
 Amplification fold changes ranged from just above the threshold at `r min_fold_change_detected` to `r max_fold_change_detected` and were detected across a range of different cancer types (@fig-pansolid-results-by-cancer-type-plot).
 
 ```{r}
@@ -643,7 +703,13 @@ results_by_cancer_type
 
 ## Coarse setting: *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* and *SMO* results {#sec-results-coarse-setting}
 
-The CLC coarse setting detected amplifications in all the target genes except the *ALK* gene (@tbl-amp-gene-summary). The 1 amplification detected in the *SMO* gene was a false positive in a sample with a signal-adjusted noise value of 0.89 (DNA number 23032153) (@sec-results-quality-control; @tbl-noisy-amplification-calls). For the remaining genes, a range of amplifications were detected. For each gene, there was variation in the amplified region, which in some cases only included the gene of interest and in others expanded to include additional genomic regions. In nearly all cases, every exon in the canonical RefSeq gene transcript was contained within the amplified region. There were 3 samples where 2 separate amplified regions were detected in the *EGFR* gene, whilst for other samples only a single region call was made. Plots showing the range of amplification coordinates for each gene are included in the Supplementary Information (@fig-egfr-wide to @fig-mdm2-zoom).
+The CLC coarse setting detected amplifications in all the target genes except the *ALK* gene (@tbl-amp-gene-summary).
+The 1 amplification detected in the *SMO* gene was a false positive in a sample with a signal-adjusted noise value of 0.89 (DNA number 23032153) (@sec-results-quality-control; @tbl-noisy-amplification-calls).
+For the remaining genes, a range of amplifications were detected.
+For each gene, there was variation in the amplified region, which in some cases only included the gene of interest and in others expanded to include additional genomic regions.
+In nearly all cases, every exon in the canonical RefSeq gene transcript was contained within the amplified region.
+There were 3 samples where 2 separate amplified regions were detected in the *EGFR* gene, whilst for other samples only a single region call was made.
+Plots showing the range of amplification coordinates for each gene are included in the Supplementary Information (@fig-egfr-wide to @fig-mdm2-zoom).
 
 ## Fine setting: *MYC* and *MYCN* results {#sec-results-fine-setting}
 
@@ -659,7 +725,12 @@ mycn_samples <- amp_validation_pos_cnv_results_collated |>
 
 ```
 
-Due to their reduced size, the *MYC* and *MYCN* genes were analysed on a separate "fine" setting for CNV calling. Amplifications for the *MYC* gene were detected in `r length(unique(myc_samples$labno))` samples (excluding the SeraCare reference materials), with fold changes ranging from `r round(min(myc_samples$fold_change), 1)` to `r round(max(myc_samples$fold_change), 1)`, whilst a *MYCN* amplification was only detected in `r length(unique(mycn_samples$labno))` sample (excluding the SeraCare reference materials) with a fold change of `r round(mycn_samples$fold_change, 1)`. The full width of the *MYC* gene was covered in all calls except for sample 24031627, in which only the latter 2 exons of the gene had an amplification (@fig-myc-zoom). In one sample (24024116) a focal *MYC* amplification was detected on a background of increased fold change across all targets on 8q, indicating an 8q gain (@fig-sample-24024116-whole-genome). This was the only example of an amplification on a background of polysomy detected in the validation cohort. Coordinate plots for the *MYCN* gene are shown in the supplementary information (@fig-mycn-wide and @fig-mycn-zoom).
+Due to their reduced size, the *MYC* and *MYCN* genes were analysed on a separate "fine" setting for CNV calling.
+Amplifications for the *MYC* gene were detected in `r length(unique(myc_samples$labno))` samples (excluding the SeraCare reference materials), with fold changes ranging from `r round(min(myc_samples$fold_change), 1)` to `r round(max(myc_samples$fold_change), 1)`, whilst a *MYCN* amplification was only detected in `r length(unique(mycn_samples$labno))` sample (excluding the SeraCare reference materials) with a fold change of `r round(mycn_samples$fold_change, 1)`.
+The full width of the *MYC* gene was covered in all calls except for sample 24031627, in which only the latter 2 exons of the gene had an amplification (@fig-myc-zoom).
+In one sample (24024116) a focal *MYC* amplification was detected on a background of increased fold change across all targets on 8q, indicating an 8q gain (@fig-sample-24024116-whole-genome).
+This was the only example of an amplification on a background of polysomy detected in the validation cohort.
+Coordinate plots for the *MYCN* gene are shown in the supplementary information (@fig-mycn-wide and @fig-mycn-zoom).
 
 ```{r}
 #| label: myc-amplification-plots
@@ -723,7 +794,7 @@ myc_zoom_triptych
 
 ```
 
-![*MYC* amplification with a chromosome 8q gain in sample 24024116. This demonstrates the pipeline's ability to detect focal amplifications against a background of raised copy number.](`r paste0(data_folder, "images/", "sample_24024116_myc_amp.png")`){#fig-sample-24024116-whole-genome}
+![*MYC* amplification with a chromosome 8q gain in sample 24024116. This demonstrates the pipeline's ability to detect focal amplifications against a background of raised copy number.](`r paste0(DOC6283_folder, "images/", "sample_24024116_myc_amp.png")`){#fig-sample-24024116-whole-genome}
 
 {{< pagebreak >}}
 
@@ -733,7 +804,7 @@ myc_zoom_triptych
 #| label: getting-erbb2-labnos
 #| include: FALSE
 
-erbb2_pansolid_cobas_labnos <- read_csv(str_c(data_folder,
+erbb2_pansolid_cobas_labnos <- read_csv(str_c(DOC6283_folder,
                                               "erbb2_pansolid_cobas_labnos.csv"),
                                         col_types = "ccc")
 
@@ -841,12 +912,12 @@ ddpcr_pansolid_correct_proportion <- filter(ddpcr_pansolid_metrics, Metric == "C
 
 ```
 
-ddPCR was performed for a selection of samples for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes. The *ERBB2* ddPCR work was performed as part of the separate validation of *ERBB2* amplification detection ([DOC6260]{custom-style="Strong"}), which included DNA extracted on the Cobas and QIAsymphony methods. 11 *ERBB2* samples extracted with the QIAsymphony method and tested on PanSolid version 2 are included in this validation analysis and compared to the ddPCR results for their corresponding Cobas extractions. The QIAsymphony method was validated as the sole DNA extraction method for FFPE tissue at the Manchester GLH in April 2024. A copy number threshold of 5 was used to classify ddPCR results as "amplified" and "non-amplified". There was good agreement between ddPCR and PanSolid, with only 
-`r sum(pansolid_vs_ddpcr_summary$"False negatives") + sum(pansolid_vs_ddpcr_summary$"False positives")`
-discrepant results out of 
-`r sum(pansolid_vs_ddpcr_summary$Samples)`
-samples (@tbl-ddpcr-vs-pansolid) and an overall sensitivity of
-`r ddpcr_pansolid_sensitivity`% (@tbl-ddpcr-vs-pansolid-metrics).
+ddPCR was performed for a selection of samples for the *BRAF*, *EGFR*, *ERBB2*, *MET* and *MYC* genes.
+The *ERBB2* ddPCR work was performed as part of the separate validation of *ERBB2* amplification detection ([DOC6260]{custom-style="Strong"}), which included DNA extracted on the Cobas and QIAsymphony methods.
+11 *ERBB2* samples extracted with the QIAsymphony method and tested on PanSolid version 2 are included in this validation analysis and compared to the ddPCR results for their corresponding Cobas extractions.
+The QIAsymphony method was validated as the sole DNA extraction method for FFPE tissue at the Manchester GLH in April 2024.
+A copy number threshold of 5 was used to classify ddPCR results as "amplified" and "non-amplified".
+There was good agreement between ddPCR and PanSolid, with only `r sum(pansolid_vs_ddpcr_summary$"False negatives") + sum(pansolid_vs_ddpcr_summary$"False positives")` discrepant results out of `r sum(pansolid_vs_ddpcr_summary$Samples)` samples (@tbl-ddpcr-vs-pansolid) and an overall sensitivity of `r ddpcr_pansolid_sensitivity`% (@tbl-ddpcr-vs-pansolid-metrics).
 
 ```{r}
 #| label: tbl-ddpcr-vs-pansolid
@@ -869,7 +940,8 @@ kable(ddpcr_pansolid_metrics)
 
 ### ddPCR dosage correlation {#sec-ddpcr-dosage-correlation}
 
-There was a good correlation in the dosage quantification between the two techniques for each gene, as measured using Pearson's coefficient (@fig-ddpcr-vs-pansolid-ngs). For the *MYC* gene, this correlation was consistent to copy numbers above 150.
+There was a good correlation in the dosage quantification between the two techniques for each gene, as measured using Pearson's coefficient (@fig-ddpcr-vs-pansolid-ngs).
+For the *MYC* gene, this correlation was consistent to copy numbers above 150.
 
 ```{r}
 #| label: fig-ddpcr-vs-pansolid-ngs
@@ -907,11 +979,12 @@ ddpcr_ngs_plot
 
 ### ddPCR discordant results {#sec-ddpcr-discordant-results}
 
-`r sum(pansolid_vs_ddpcr_summary$"False negatives") + sum(pansolid_vs_ddpcr_summary$"False positives")`
-samples had a discordant result from ddPCR when compared to the PanSolid NGS result. 
-`r sum(pansolid_vs_ddpcr_summary$"False positives")` samples were false positives for *ERBB2* amplifications, which were already detected in the *ERBB2* validation ([DOC6260]{custom-style="Strong"}), and the remaining
-`r sum(pansolid_vs_ddpcr_summary$"False negatives")`
-samples were apparent false negatives. Two of these samples (24002064 and 23033921) had borderline results on both ddPCR and PanSolid NGS. The remaining sample (24037724) had a *MYC* copy number of 9 on ddPCR, with a fold change of only 2.2 detected on PanSolid NGS (@tbl-ddpcr-discordant-results). The whole genome plot for this sample showed a deletion at chromosome 5q, including the location of the *AP3B1* ddPCR reference gene (5q14.1), which was confirmed by checking the target-level fold change information. This loss impacting the *AP3B1* reference gene therefore caused an artificially high ddPCR copy number for *MYC* (@fig-sample-24037724-whole-genome). As this does not represent a true false negative, the performance metrics for PanSolid NGS vs ddPCR were re-calculated with this sample removed (@tbl-ddpcr-comparison-updated-metrics).
+`r sum(pansolid_vs_ddpcr_summary$"False negatives") + sum(pansolid_vs_ddpcr_summary$"False positives")` samples had a discordant result from ddPCR when compared to the PanSolid NGS result.
+`r sum(pansolid_vs_ddpcr_summary$"False positives")` samples were false positives for *ERBB2* amplifications, which were already detected in the *ERBB2* validation ([DOC6260]{custom-style="Strong"}), and the remaining `r sum(pansolid_vs_ddpcr_summary$"False negatives")` samples were apparent false negatives.
+Two of these samples (24002064 and 23033921) had borderline results on both ddPCR and PanSolid NGS. The remaining sample (24037724) had a *MYC* copy number of 9 on ddPCR, with a fold change of only 2.2 detected on PanSolid NGS (@tbl-ddpcr-discordant-results).
+The whole genome plot for this sample showed a deletion at chromosome 5q, including the location of the *AP3B1* ddPCR reference gene (5q14.1), which was confirmed by checking the target-level fold change information.
+This loss impacting the *AP3B1* reference gene therefore caused an artificially high ddPCR copy number for *MYC* (@fig-sample-24037724-whole-genome).
+As this does not represent a true false negative, the performance metrics for PanSolid NGS vs ddPCR were re-calculated with this sample removed (@tbl-ddpcr-comparison-updated-metrics).
 
 ```{r}
 #| label: tbl-ddpcr-discordant-results
@@ -933,8 +1006,7 @@ kable(ddpcr_false_discordant_table)
 
 ```
 
-![Whole genome plot for sample 24037724. The black arrow indicates a large copy number loss on chromosome 5, where the *AP3B1* ddPCR reference gene is located. ](
-`r paste0(data_folder, "images/", "sample_24037724_whole_genome.png")`){#fig-sample-24037724-whole-genome}
+![Whole genome plot for sample 24037724. The black arrow indicates a large copy number loss on chromosome 5, where the *AP3B1* ddPCR reference gene is located.](`r paste0(DOC6283_folder, "images/", "sample_24037724_whole_genome.png")`){#fig-sample-24037724-whole-genome}
 
 ```{r}
 #| label: update-ddpcr-metrics
@@ -999,7 +1071,8 @@ pansolid_wgs_samples_ff <- pansolid_wgs_samples |>
 
 DNA from patient samples previously tested by WGS was also tested using PanSolid NGS. In total, there were `r length(unique(pansolid_wgs_samples$labno))` samples tested from `r length(unique(pansolid_wgs_samples$nhsno))` patients, using 3 different extraction methods: `r nrow(pansolid_wgs_samples_qs)` had DNA extracted from FFPE tissue via the QIAsymphony method, `r nrow(pansolid_wgs_samples_cobas)` had DNA extracted from FFPE tissue via the Cobas method and `r nrow(pansolid_wgs_samples_ff)` had DNA extracted from fresh frozen tissue.
 
-The PanSolid NGS amplification results for the `r length(amp_genes$gene)` target genes (@tbl-amplification-coordinates) were compared against the results from WGS for the same genes where the variant type was listed as "DUP" or "GAIN". WGS did detect copy number losses and regions of loss of heterozygosity in some target genes, but these were excluded as the current aim of the PanSolid CLC pipeline is to detect gene amplifications.
+The PanSolid NGS amplification results for the `r length(amp_genes$gene)` target genes (@tbl-amplification-coordinates) were compared against the results from WGS for the same genes where the variant type was listed as "DUP" or "GAIN".
+WGS did detect copy number losses and regions of loss of heterozygosity in some target genes, but these were excluded as the current aim of the PanSolid CLC pipeline is to detect gene amplifications.
 
 ```{r}
 #| label: compare-pansolid-and-wgs
@@ -1059,9 +1132,11 @@ pansolid_vs_wgs_amps_selection <- pansolid_vs_wgs_amps |>
 
 ```
 
-Results were compared for samples extracted using the QIAsymphony method, as this is now the validated DNA extraction method for FFPE samples at the North West GLH (Manchester site). 
+Results were compared for samples extracted using the QIAsymphony method, as this is now the validated DNA extraction method for FFPE samples at the North West GLH (Manchester site).
 
-One sample (PanSolid NGS lab number: 24018922; WGS lab number: 24015386) was excluded from the comparison as the FFPE shavings used for QIAsymphony extraction had a different pathology block identifier to the fresh frozen samples used for WGS. Another sample (PanSolid NGS lab number: 24030364) was excluded from the comparison as it had a signal adjusted noise value above 1. There were two DNA samples (24030945 and 24030946) extracted by the QIAsymphony method from the same pathology block; the PanSolid results were the same for each and sample 24030946 was chosen for the comparison to WGS.
+One sample (PanSolid NGS lab number: 24018922; WGS lab number: 24015386) was excluded from the comparison as the FFPE shavings used for QIAsymphony extraction had a different pathology block identifier to the fresh frozen samples used for WGS.
+Another sample (PanSolid NGS lab number: 24030364) was excluded from the comparison as it had a signal adjusted noise value above 1.
+There were two DNA samples (24030945 and 24030946) extracted by the QIAsymphony method from the same pathology block; the PanSolid results were the same for each and sample 24030946 was chosen for the comparison to WGS.
 
 ```{r}
 #| label: wgs-cnv-gains-dups
@@ -1072,7 +1147,9 @@ wgs_cnvs_gains_dups <- wgs_html_cnvs |>
 
 ```
 
-In the WGS results, there were `r nrow(wgs_cnvs_gains_dups)` copy number gains in the targeted genes, with copy numbers ranging from `r min(wgs_cnvs_gains_dups$cnv_copy_number)`-`r max(wgs_cnvs_gains_dups$cnv_copy_number)`. As with ddPCR, CNVs detected on WGS with copy numbers greater or equal to 5 were categorised as amplifications. The results from the PanSolid pipeline compared to the results from WGS are shown in @tbl-wgs-comparison, and the sensitivity and specificity metrics are shown in @tbl-wgs-comparison-metrics.
+In the WGS results, there were `r nrow(wgs_cnvs_gains_dups)` copy number gains in the targeted genes, with copy numbers ranging from `r min(wgs_cnvs_gains_dups$cnv_copy_number)`-`r max(wgs_cnvs_gains_dups$cnv_copy_number)`.
+As with ddPCR, CNVs detected on WGS with copy numbers greater or equal to 5 were categorised as amplifications.
+The results from the PanSolid pipeline compared to the results from WGS are shown in @tbl-wgs-comparison, and the sensitivity and specificity metrics are shown in @tbl-wgs-comparison-metrics.
 
 ```{r}
 #| label: wgs-comparison-for-qs-samples
@@ -1160,7 +1237,10 @@ kable(wgs_pansolid_metrics)
 
 ### WGS discordant results and ploidy {#sec-wgs-discordant-results}
 
-There were 8 apparent false negative results in the *BRAF*, *EGFR*, *MET* and *SMO* genes for 2 WGS samples. All 4 genes are on chromosome 7, and all but one CNV had a copy number of 6 on WGS (@tbl-wgs-false-negative-ploidy). Inspection of the WGS reports for these two samples revealed that both had been identified as tetraploid, with a copy number of 6 predicted for the entire length of chromosome 7 (@fig-tetraploid-genome-23018367 and @fig-tetraploid-genome-23033921). The current PanSolid NGS pipeline assumes that the sample is diploid and measures copy number relative to this baseline, which explains why these relative gains of 2 copies from a tetraploid genome were not identified as significant.
+There were 8 apparent false negative results in the *BRAF*, *EGFR*, *MET* and *SMO* genes for 2 WGS samples.
+All 4 genes are on chromosome 7, and all but one CNV had a copy number of 6 on WGS (@tbl-wgs-false-negative-ploidy).
+Inspection of the WGS reports for these two samples revealed that both had been identified as tetraploid, with a copy number of 6 predicted for the entire length of chromosome 7 (@fig-tetraploid-genome-23018367 and @fig-tetraploid-genome-23033921).
+The current PanSolid NGS pipeline assumes that the sample is diploid and measures copy number relative to this baseline, which explains why these relative gains of 2 copies from a tetraploid genome were not identified as significant.
 
 ```{r}
 #| label: tbl-wgs-false-negative-ploidy
@@ -1181,13 +1261,16 @@ kable(wgs_discordant_results)
 
 ```
 
-![Comparison of results from WGS and PanSolid NGS for WGS sample 23018367. The WGS result (top) identified the base chromosome count as 4, with 90% tumour cell content, with chromosome 7 having a copy number of 6. Conversely, PanSolid NGS (bottom) does not currently detect different ploidy states, and the *BRAF*, *EGFR*, *MET* and *SMO* genes were not identified as having increased copy numbers.](`r paste0(data_folder, "images/", "tetraploid_genome_comparison_23018367.png")`){#fig-tetraploid-genome-23018367}
+![Comparison of results from WGS and PanSolid NGS for WGS sample 23018367. The WGS result (top) identified the base chromosome count as 4, with 90% tumour cell content, with chromosome 7 having a copy number of 6. Conversely, PanSolid NGS (bottom) does not currently detect different ploidy states, and the *BRAF*, *EGFR*, *MET* and *SMO* genes were not identified as having increased copy numbers.](`r paste0(DOC6283_folder, "images/", "tetraploid_genome_comparison_23018367.png")`){#fig-tetraploid-genome-23018367}
 
-![Comparison of results from WGS and PanSolid NGS for WFS sample 23033921. The WGS result (top) identified the base chromosome count as 4, with 43.8% tumour cell content.](`r paste0(data_folder, "images/", "tetraploid_genome_comparison_23033921.png")`){#fig-tetraploid-genome-23033921}
+![Comparison of results from WGS and PanSolid NGS for WFS sample 23033921. The WGS result (top) identified the base chromosome count as 4, with 43.8% tumour cell content.](`r paste0(DOC6283_folder, "images/", "tetraploid_genome_comparison_23033921.png")`){#fig-tetraploid-genome-23033921}
 
-There was a remaining apparent false negative result with a WGS copy number above 6: for sample 24030962, PanSolid NGS did not detect an amplification for *EGFR*, whilst WGS detected an *EGFR* amplification of 14 copies, 10 copies above the genome ploidy of 4. The same DNA from fresh-frozen tissue showed a borderline *EGFR* fold change of 2.7 when tested using PanSolid NGS. This fold change level is consistent with what would be expected, given the NCC value determined by WGS was 43.8%.
+There was a remaining apparent false negative result with a WGS copy number above 6: for sample 24030962, PanSolid NGS did not detect an amplification for *EGFR*, whilst WGS detected an *EGFR* amplification of 14 copies, 10 copies above the genome ploidy of 4.
+The same DNA from fresh-frozen tissue showed a borderline *EGFR* fold change of 2.7 when tested using PanSolid NGS. This fold change level is consistent with what would be expected, given the NCC value determined by WGS was 43.8%.
 
-Both DNA samples were then tested by ddPCR for *EGFR*. The ddPCR showed similar results to PanSolid NGS, with the QIAsymphony-extracted DNA having a normal *EGFR* result whilst the DNA from fresh-frozen tissue had a borderline *EGFR* amplification. This indicates that the discrepancy between the PanSolid NGS result for QIAsymphony-extracted DNA and the WGS result is due to intra-tumour heterogeneity for *EGFR* copy number in the specimens used for DNA extraction.
+Both DNA samples were then tested by ddPCR for *EGFR*.
+The ddPCR showed similar results to PanSolid NGS, with the QIAsymphony-extracted DNA having a normal *EGFR* result whilst the DNA from fresh-frozen tissue had a borderline *EGFR* amplification.
+This indicates that the discrepancy between the PanSolid NGS result for QIAsymphony-extracted DNA and the WGS result is due to intra-tumour heterogeneity for *EGFR* copy number in the specimens used for DNA extraction.
 
 ```{r}
 #| label: wgs-false-negative
@@ -1244,7 +1327,7 @@ kable(false_neg_collated)
 
 ```
 
-![Chromosome 7 for discordant sample viewed on HTML plot. The *EGFR* locus is circled in black and is visibly different between the FFPE and the fresh tissue extraction.](`r paste0(data_folder, "images/", "egfr_discrepant_result_chr7_view.png")`){#fig-egfr-discrepant-result}
+![Chromosome 7 for discordant sample viewed on HTML plot. The *EGFR* locus is circled in black and is visibly different between the FFPE and the fresh tissue extraction.](`r paste0(DOC6283_folder, "images/", "egfr_discrepant_result_chr7_view.png")`){#fig-egfr-discrepant-result}
 
 ### Comparison to WGS without tetraploid samples {#sec-wgs-comparison-without-tetraploidy}
 
@@ -1307,7 +1390,8 @@ kable(adjusted_wgs_pansolid_metrics)
 
 ### WGS coordinate correlation {#sec-wgs-coordinate-correlation}
 
-There were 5 amplifications in the *EGFR* and *MDMD2* genes detected by both WGS and PanSolid. @fig-egfr-wgs-pansolid and @fig-mdm2-wgs-pansolid show that the PanSolid pipeline identified shorter amplified regions than WGS, which correspond to the regions targeted by PanSolid QIAseq primers.
+There were 5 amplifications in the *EGFR* and *MDMD2* genes detected by both WGS and PanSolid.
+@fig-egfr-wgs-pansolid and @fig-mdm2-wgs-pansolid show that the PanSolid pipeline identified shorter amplified regions than WGS, which correspond to the regions targeted by PanSolid QIAseq primers.
 
 ```{r}
 #| label: wgs-coordinate-accuracy
@@ -1429,13 +1513,16 @@ mdm2_wgs_triptych
 
 ### *EGFR* version 3 {#sec-results-egfr-v3}
 
-In a sample from pathology block N23.0626 (PanSolid NGS lab number: 24030966; WGS lab number: 23034780), PanSolid NGS showed 2 amplified regions in the *EGFR* gene, with a boundary at the end of *EGFR* exon 7. Inspection of the interactive HTML showed that this was caused by a loss of log2 ratios in the region between exons 2 to 7 (@fig-egfr-viii-html), indicating the presence of the *EGFR* version 3 transcript. This was confirmed by examining the PanSolid target level fold change results, and the *EGFR* version 3 transcript was confirmed by WGS.
+In a sample from pathology block N23.0626 (PanSolid NGS lab number: 24030966; WGS lab number: 23034780), PanSolid NGS showed 2 amplified regions in the *EGFR* gene, with a boundary at the end of *EGFR* exon 7.
+Inspection of the interactive HTML showed that this was caused by a loss of log2 ratios in the region between exons 2 to 7 (@fig-egfr-viii-html), indicating the presence of the *EGFR* version 3 transcript.
+This was confirmed by examining the PanSolid target level fold change results, and the *EGFR* version 3 transcript was confirmed by WGS.
 
-![EGFR vIII visible in the interactive HTML whole genome plot generated for sample 24030966](`r paste0(data_folder, "images/", "egfr_viii_html.png")`){#fig-egfr-viii-html}
+![EGFR vIII visible in the interactive HTML whole genome plot generated for sample 24030966](`r paste0(DOC6283_folder, "images/", "egfr_viii_html.png")`){#fig-egfr-viii-html}
 
 ### WGS dosage correlation {#sec-wgs-dosage-correlation}
 
-There were only 5 samples with amplifications detected on PanSolid and WGS, which is not enough to perform a robust correlation analysis on. However, there was a general agreement between the two methods on the dosage of each gene (Supplementary Information @fig-wgs-pansolid-dosage).
+There were only 5 samples with amplifications detected on PanSolid and WGS, which is not enough to perform a robust correlation analysis on.
+However, there was a general agreement between the two methods on the dosage of each gene (Supplementary Information @fig-wgs-pansolid-dosage).
 
 ```{r}
 #| label: wgs-dosage-accuracy
@@ -1483,7 +1570,8 @@ repeat_schedule <- tibble(
 
 ```
 
-Intra-run variation (repeatability) and inter-run variation (reproducibility) were investigated for 3 samples using the testing structure shown in @tbl-repeat-schedule. Sample 24017319 had no amplifications detected, whilst sample 24020998 had amplifications in *EGFR* and *MDM2*, and sample 24027774 had amplifications in *MYC* and *MET*. 
+Intra-run variation (repeatability) and inter-run variation (reproducibility) were investigated for 3 samples using the testing structure shown in @tbl-repeat-schedule.
+Sample 24017319 had no amplifications detected, whilst sample 24020998 had amplifications in *EGFR* and *MDM2*, and sample 24027774 had amplifications in *MYC* and *MET*.
 
 ```{r}
 #| label: tbl-repeat-schedule
@@ -1539,7 +1627,7 @@ repeat_all_amp_data <- amp_validation_all_amp_gene_results_collated |>
 #| label: repeat-worksheet-details
 #| include: FALSE
 
-tech_progress_excel <- read_excel(path = paste0(data_folder, 
+tech_progress_excel <- read_excel(path = paste0(DOC6283_folder, 
                                                 "excel_spreadsheets/",
                                                 "NGS Technical Team Progress Sheet - 2024 August 2024.xlsx"),
                                   sheet = "QIAseq DNA PanSolid") |> 
@@ -1720,26 +1808,38 @@ fold_change_uom_lower <- theoretical_fold_change_threshold - (2 * inter_pooled_s
 
 ```
 
-There were `r nrow(repeat_noise_data)` replicates for inclusion in the repeat testing study. Sample replicate 24017319c on worksheet WS144291 failed due to poor coverage.
+There were `r nrow(repeat_noise_data)` replicates for inclusion in the repeat testing study.
+Sample replicate 24017319c on worksheet WS144291 failed due to poor coverage.
 
 For the calculation of uncertainty of measurement, the data was altered in the following ways:
 
-- The *MYC* results for sample 24027774 were excluded because the fold changes were all over 75 and there was much greater variability than for lower fold changes (@fig-repeatability-plot-24027774). 
+-   The *MYC* results for sample 24027774 were excluded because the fold changes were all over 75 and there was much greater variability than for lower fold changes (@fig-repeatability-plot-24027774).
 
-- The maximum fold change for each gene in each replicate was used.
+-   The maximum fold change for each gene in each replicate was used.
 
-- Any fold changes lower than -1, which were calculated using @eq-fold-change-loss, were converted to the output of @eq-fold-change-gain using @eq-fold-change-conversion. This is because when the coverage of the sample is less than the coverage in the control dataset, a different equation is used to calculate the fold change (@sec-methods-fold-change). Converting fold changes below -1 was performed to avoid the change in equation being misinterpreted as sample variation, which would over-estimate the uncertainty of measurement.
+-   Any fold changes lower than -1, which were calculated using @eq-fold-change-loss, were converted to the output of @eq-fold-change-gain using @eq-fold-change-conversion.
+    This is because when the coverage of the sample is less than the coverage in the control dataset, a different equation is used to calculate the fold change (@sec-methods-fold-change).
+    Converting fold changes below -1 was performed to avoid the change in equation being misinterpreted as sample variation, which would over-estimate the uncertainty of measurement.
 
-This left `r nrow(repeat_data_fold_change_range)` data points. 
-Fold changes between genes or samples were not compared, as each gene within each sample will have a different dosage. Instead, the standard deviation of fold change values was calculated for each gene within each sample. The pooled standard deviation for all genes across all samples was then calculated using the method from @harris2019 (Section 8.4, page 211). 
+This left `r nrow(repeat_data_fold_change_range)` data points.
+Fold changes between genes or samples were not compared, as each gene within each sample will have a different dosage.
+Instead, the standard deviation of fold change values was calculated for each gene within each sample.
+The pooled standard deviation for all genes across all samples was then calculated using the method from @harris2019 (Section 8.4, page 211).
 
-This method calculated the intra-run pooled standard deviation for fold changes below 10 as `r intra_pooled_sd`, and the inter-run pooled standard deviation as `r inter_pooled_sd`. When both intra-run and inter-run data was used, the pooled standard deviation was `r all_repeats_pooled_sd`. The inter-run standard deviation was chosen as the standard deviation value for the uncertainty of measurement, as it is the most conservative.
+This method calculated the intra-run pooled standard deviation for fold changes below 10 as `r intra_pooled_sd`, and the inter-run pooled standard deviation as `r inter_pooled_sd`.
+When both intra-run and inter-run data was used, the pooled standard deviation was `r all_repeats_pooled_sd`.
+The inter-run standard deviation was chosen as the standard deviation value for the uncertainty of measurement, as it is the most conservative.
 
-Taking the assumption that repeat variation in the measurement of fold change follows a normal distribution, 95% of repeat values would be expected to fall within ± 2 standard deviations of the mean. Consequently, the uncertainty of measurement for a fold change value below 10 can be taken as ± `r (2*inter_pooled_sd)` (± 2 x `r inter_pooled_sd`) at a confidence level of 95%. 
+Taking the assumption that repeat variation in the measurement of fold change follows a normal distribution, 95% of repeat values would be expected to fall within ± 2 standard deviations of the mean.
+Consequently, the uncertainty of measurement for a fold change value below 10 can be taken as ± `r (2*inter_pooled_sd)` (± 2 x `r inter_pooled_sd`) at a confidence level of 95%.
 
 ### Application of the uncertainty of measurement
 
-At the beginning of the PanSolid CNV validation, the fold change threshold was set at 3. This value was the expected fold change of a sample with 50% NCC and 10 copies of the target gene per tumour cell (8 additional copies from a diploid copy number). The fold change threshold was reduced to 2.8 during the validation of *ERBB2* amplifications, following a limit of detection experiment. This experiment showed that a SeraCare control mixture, representing a sample with 25% NCC and 14 *ERBB2* copies per cell (12 additional copies), had a fold change of 2.81 ([DOC6260]{custom-style="Strong"}, section 5.6, page 21). This mixture had a predicted theoretical fold change of 2.5.
+At the beginning of the PanSolid CNV validation, the fold change threshold was set at 3.
+This value was the expected fold change of a sample with 50% NCC and 10 copies of the target gene per tumour cell (8 additional copies from a diploid copy number).
+The fold change threshold was reduced to 2.8 during the validation of *ERBB2* amplifications, following a limit of detection experiment.
+This experiment showed that a SeraCare control mixture, representing a sample with 25% NCC and 14 *ERBB2* copies per cell (12 additional copies), had a fold change of 2.81 ([DOC6260]{custom-style="Strong"}, section 5.6, page 21).
+This mixture had a predicted theoretical fold change of 2.5.
 
 When the uncertainty of measurement calculated in this validation document (± `r (2*inter_pooled_sd)`) is added to the original theoretical fold change threshold of 3, the actual fold change threshold of 2.8 accommodates this uncertainty (@fig-fold-change-uom-plot).
 
@@ -1806,7 +1906,9 @@ fold_change_uom_plot_zoomed_out
 
 ### CNV region variation {#sec-cnv-region-variation}
 
-For the *MET* and *MYC* amplifications detected, there was no change in the region defined as amplified in any of the repeat replicates (Supplementary Information @fig-24027774-MYC and @fig-24027774-MET). However, the region for the *EGFR* amplification in sample 24020998 was reduced on worksheet WS141045 in comparison to other replicates, and two different fold change regions were identified in a pattern similar to *EGFR* vIII (@fig-24020998-EGFR). This sample replicate had the lowest signal-adjusted noise value of the replicates for this patient, and over 99% of the target regions had a coverage exceeding 138X, which could explain why two CNV regions were detected in comparison to the other replicates.
+For the *MET* and *MYC* amplifications detected, there was no change in the region defined as amplified in any of the repeat replicates (Supplementary Information @fig-24027774-MYC and @fig-24027774-MET).
+However, the region for the *EGFR* amplification in sample 24020998 was reduced on worksheet WS141045 in comparison to other replicates, and two different fold change regions were identified in a pattern similar to *EGFR* vIII (@fig-24020998-EGFR).
+This sample replicate had the lowest signal-adjusted noise value of the replicates for this patient, and over 99% of the target regions had a coverage exceeding 138X, which could explain why two CNV regions were detected in comparison to the other replicates.
 
 ```{r}
 #| label: fig-24020998-EGFR
@@ -1834,13 +1936,16 @@ fig_24020998_EGFR
 
 ### SeraCare reference materials {#sec-results-lod-seracare-neat}
 
-The Seraseq® TNA (DNA) WT Mix was tested on the PanSolid v2 enrichment on worksheet WS144291 and the +3 copies, +6 copies and +12 copies reference materials were tested on worksheet WS139890. There were six genes of interest, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MYC* and *MYCN*, which had artificial gene constructs spiked into the SeraCare reference materials. In the +12 copies and +6 copies materials, all 6 genes of interest were detected by the PanSolid pipeline (@fig-seracare-pansolid-results), with the amplification regions covering the full width of each gene. In the +3 copies reference material, *BRAF* and *MYC* were not detected, although they had fold changes close to the threshold and were visibly amplified on the generated whole genome plot (@fig-seracare-control-results-png).
+The Seraseq® TNA (DNA) WT Mix was tested on the PanSolid v2 enrichment on worksheet WS144291 and the +3 copies, +6 copies and +12 copies reference materials were tested on worksheet WS139890.
+There were six genes of interest, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MYC* and *MYCN*, which had artificial gene constructs spiked into the SeraCare reference materials.
+In the +12 copies and +6 copies materials, all 6 genes of interest were detected by the PanSolid pipeline (@fig-seracare-pansolid-results), with the amplification regions covering the full width of each gene.
+In the +3 copies reference material, *BRAF* and *MYC* were not detected, although they had fold changes close to the threshold and were visibly amplified on the generated whole genome plot (@fig-seracare-control-results-png).
 
 ```{r}
 #| label: seracare-ngs-comparison
 #| include: FALSE
 
-seracare_gene_copies <- read_csv(file = paste0(data_folder, 
+seracare_gene_copies <- read_csv(file = paste0(DOC6283_folder, 
                                                  "seracare_reference_materials/",
                                                  "seracare_gene_copies.csv")) |> 
   mutate(total_copies_ddpcr_seracare = additional_copies_ddpcr + 2,
@@ -1933,10 +2038,14 @@ kable(seracare_ngs_comparison_tbl)
 
 ```
 
-![Results in the whole genome view for the SeraCare reference materials. The +12, +6 and +3 copies samples were run on worksheet WS139890 and the wild type sample (+0 copies) was run on worksheet WS144291. The +0 copies result is the same sample as the 0% spike-in dilution for the limit of detection dilution experiment.](
-`r paste0(data_folder, "images/", "lod_seracare_controls.png")`){#fig-seracare-control-results-png}
+![Results in the whole genome view for the SeraCare reference materials. The +12, +6 and +3 copies samples were run on worksheet WS139890 and the wild type sample (+0 copies) was run on worksheet WS144291. The +0 copies result is the same sample as the 0% spike-in dilution for the limit of detection dilution experiment.](`r paste0(DOC6283_folder, "images/", "lod_seracare_controls.png")`){#fig-seracare-control-results-png}
 
-The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the *EGFR* and *ERBB2* genes for the +3 copies, +6 copies and +12 copies reference materials. Conversely, the PanSolid results for *MYC* were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid). This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@fig-seracare-ddpcr-pansolid). Notably, the PanSolid NGS results for *MET* were closely consistent with the NGS results for *MET* provided by SeraCare, but when the ddPCR and NGS results provided by SeraCare were directly compared, there was a clear overestimation of *MET* copy number (@fig-seracare-ddpcr-ngs). This is explained by the overlap region of the 2 synthetic *MET* constructs used in the SeraCare control: this region is present at higher quantities and hence the reported quantity for the entire gene region is higher on both the Illumina TruSight assay used by SeraCare and on PanSolid NGS. Although *BRAF* and *EGFR* also have 2 synthetic constructs in the SeraCare reference materials, the proportion of the overlap region relative to the gene length is much lower (@tbl-seracare-gene-constructs), resulting in these genes not being impacted. The increased quantity of these gene regions is also visible on the HTML whole genome view (@fig-seracare-overlap-regions-png). 
+The PanSolid pipeline results were consistently higher than the predicted fold change and the results provided by SeraCare for the *EGFR* and *ERBB2* genes for the +3 copies, +6 copies and +12 copies reference materials.
+Conversely, the PanSolid results for *MYC* were consistently lower than the predicted fold change and SeraCare results (@fig-seracare-ngs-pansolid).
+This relationship was also observed when the ddPCR results for each reference material were compared to the ddPCR copy numbers provided by SeraCare (@fig-seracare-ddpcr-pansolid).
+Notably, the PanSolid NGS results for *MET* were closely consistent with the NGS results for *MET* provided by SeraCare, but when the ddPCR and NGS results provided by SeraCare were directly compared, there was a clear overestimation of *MET* copy number (@fig-seracare-ddpcr-ngs).
+This is explained by the overlap region of the 2 synthetic *MET* constructs used in the SeraCare control: this region is present at higher quantities and hence the reported quantity for the entire gene region is higher on both the Illumina TruSight assay used by SeraCare and on PanSolid NGS. Although *BRAF* and *EGFR* also have 2 synthetic constructs in the SeraCare reference materials, the proportion of the overlap region relative to the gene length is much lower (@tbl-seracare-gene-constructs), resulting in these genes not being impacted.
+The increased quantity of these gene regions is also visible on the HTML whole genome view (@fig-seracare-overlap-regions-png).
 
 ```{r}
 #| label: fig-seracare-ngs-pansolid
@@ -1971,7 +2080,7 @@ ngs_comparison_plot
 #| label: seracare-ddpcr-comparison
 #| include: FALSE
 
-seracare_details <- read_csv(file = paste0(data_folder,
+seracare_details <- read_csv(file = paste0(DOC6283_folder,
                                              "seracare_reference_materials/",
                                              "seracare_sample_details.csv"),
                              col_types = c("ccccccc")) |> 
@@ -2050,13 +2159,15 @@ seracare_ddpcr_ngs_plot
 
 ```
 
-![The overlap regions (circled in black) of the *BRAF*, *EGFR* and *MET* genes in the +12 copies SeraCare reference material are visible when viewed on the HTML whole genome view. The raw target-level outputs of the PanSolid CLC pipeline were checked to confirm that these targets were within the synthetic construct overlap regions shown in @tbl-seracare-gene-constructs.](`r paste0(data_folder, "images/", "braf_egfr_met_overlap_regions.png")`){#fig-seracare-overlap-regions-png}
+![The overlap regions (circled in black) of the *BRAF*, *EGFR* and *MET* genes in the +12 copies SeraCare reference material are visible when viewed on the HTML whole genome view. The raw target-level outputs of the PanSolid CLC pipeline were checked to confirm that these targets were within the synthetic construct overlap regions shown in @tbl-seracare-gene-constructs.](`r paste0(DOC6283_folder, "images/", "braf_egfr_met_overlap_regions.png")`){#fig-seracare-overlap-regions-png}
 
 {{< pagebreak >}}
 
 ### SeraCare dilution mixes {#sec-results-lod-seracare-mixes}
 
-Dilution mixes were prepared to simulate a sample with 14 gene copies and neoplastic cell contents of 30%, 20%, 10% and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291. All genes except *MYC* were detected at a simulated NCC of 30%, whilst below this level no genes exceeded the fold change threshold of 2.8 (@fig-seracare-dilution-mix-results), although indications of the amplifications could were evident on the whole genome plots (@fig-seracare-dilution-mixes-png). In the 30% NCC sample, *MYC* (fold change: 2.48) was the only gene with a lower fold change than predicted, whilst *MET* had the highest measured fold change (4.46) (@tbl-thirty-percent-fold-change-values).
+Dilution mixes were prepared to simulate a sample with 14 gene copies and neoplastic cell contents of 30%, 20%, 10% and 0%, and were tested on the PanSolid v2 enrichment on worksheet WS144291.
+All genes except *MYC* were detected at a simulated NCC of 30%, whilst below this level no genes exceeded the fold change threshold of 2.8 (@fig-seracare-dilution-mix-results), although indications of the amplifications could were evident on the whole genome plots (@fig-seracare-dilution-mixes-png).
+In the 30% NCC sample, *MYC* (fold change: 2.48) was the only gene with a lower fold change than predicted, whilst *MET* had the highest measured fold change (4.46) (@tbl-thirty-percent-fold-change-values).
 
 ```{r}
 #| label: fig-seracare-dilution-mix-results
@@ -2117,8 +2228,7 @@ kable(lod_30_fold_change_values)
 
 ```
 
-
-![Results for limit of detection dilution mixes: SeraCare +12 copies (24039973) spiked into SeraCare WT (24039975) at decreasing percentages on worksheet WS144291.](`r paste0(data_folder, "images/", "lod_dilution_mixes.png")`){#fig-seracare-dilution-mixes-png}
+![Results for limit of detection dilution mixes: SeraCare +12 copies (24039973) spiked into SeraCare WT (24039975) at decreasing percentages on worksheet WS144291.](`r paste0(DOC6283_folder, "images/", "lod_dilution_mixes.png")`){#fig-seracare-dilution-mixes-png}
 
 {{< pagebreak >}}
 
@@ -2133,7 +2243,8 @@ poor_quality_samples <- amp_validation_stdev_results_collated |>
 
 ```
 
-Overall, the amount of signal-adjusted noise within the cohort ranged from `r round(min(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)` - `r round(max(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)` with a median of `r round(median(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)`. There were `r nrow(poor_quality_samples)` samples which had signal-adjusted noise values above 0.7 and were hence considered poor quality.
+Overall, the amount of signal-adjusted noise within the cohort ranged from `r round(min(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)` - `r round(max(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)` with a median of `r round(median(amp_validation_stdev_results_collated$st_dev_signal_adjusted_log2_ratios), 1)`.
+There were `r nrow(poor_quality_samples)` samples which had signal-adjusted noise values above 0.7 and were hence considered poor quality.
 
 ```{r}
 #| label: fig-noise-results
@@ -2176,9 +2287,11 @@ number_of_poor_quality_cobas_samples <- nrow(poor_quality_results[poor_quality_r
 
 ```
 
-Within the poor-quality samples, there were 
-`r nrow(poor_quality_results)`
-gene amplification calls (@tbl-noisy-amplification-calls). The calls in the *ERBB2* and *MDM2* genes had very high fold changes, and result was confirmed on ddPCR and WGS, respectively. In contrast, the remaining calls had low fold change values; inspection of the whole genome plots showed that gene targets were not significantly elevated above their surrounding targets (@fig-sample-23032153-whole-genome). This indicated that these were false positive calls, caused by the high noise in the samples. Notably, `r number_of_poor_quality_cobas_samples` samples were extracted by the Cobas extraction method, which is no longer used due to the QIAsymphony method providing higher quality DNA ([DOC6255]{custom-style="Strong"}).
+Within the poor-quality samples, there were `r nrow(poor_quality_results)` gene amplification calls (@tbl-noisy-amplification-calls).
+The calls in the *ERBB2* and *MDM2* genes had very high fold changes, and result was confirmed on ddPCR and WGS, respectively.
+In contrast, the remaining calls had low fold change values; inspection of the whole genome plots showed that gene targets were not significantly elevated above their surrounding targets (@fig-sample-23032153-whole-genome).
+This indicated that these were false positive calls, caused by the high noise in the samples.
+Notably, `r number_of_poor_quality_cobas_samples` samples were extracted by the Cobas extraction method, which is no longer used due to the QIAsymphony method providing higher quality DNA ([DOC6255]{custom-style="Strong"}).
 
 ```{r}
 #| label: tbl-noisy-amplification-calls
@@ -2189,7 +2302,7 @@ kable(poor_quality_results)
 
 ```
 
-![Whole genome view of sample 23032153, including a true positive call for *MDM2* which was confirmed on WGS, and 3 false positive calls for *MET*, *SMO* and *BRAF* which are all due to increased noise and a slightly elevated copy number of chromosome 7.](`r paste0(data_folder, "images/", "sample_23032153_whole_genome.png")`){#fig-sample-23032153-whole-genome}
+![Whole genome view of sample 23032153, including a true positive call for *MDM2* which was confirmed on WGS, and 3 false positive calls for *MET*, *SMO* and *BRAF* which are all due to increased noise and a slightly elevated copy number of chromosome 7.](`r paste0(DOC6283_folder, "images/", "sample_23032153_whole_genome.png")`){#fig-sample-23032153-whole-genome}
 
 {{< pagebreak >}}
 
@@ -2197,35 +2310,48 @@ kable(poor_quality_results)
 
 ## Comparison to WGS {#sec-discussion-wgs}
 
-In the NHS Genomic Medicine Service, WGS is performed by Illumina Laboratory Solutions and analysed using a bioinformatics pipeline developed by Genomics England. The Genomics England cancer pipeline performs analysis for somatic CNVs and structural variants [@genomicsengland2023], using the Canvas [@roller2016] and Manta [@chen2016] algorithms, respectively. The Genomics England cancer pipeline has been validated to have a sensitivity of 79.3% for CNV detection and 88.8% for structural variant detection, when compared to results from FISH [@genomicsengland2019]. There were several discrepancies between the PanSolid NGS results and WGS for 2 glioblastoma samples which showed evidence of tetraploidy. Tetraploidy caused by whole genome duplication is frequently reported in glioblastoma, with @boisselier2018 reporting that 11% of glioblastoma cases have whole genome duplication. In the Genomics England WGS pipeline, tumour ploidy is calculated by the Canvas tool using a machine learning approach comparing the results for tumour and germline DNA samples [@roller2016]. The version of the PanSolid NGS workflow described in this validation document does not include the detection of ploidy status, and the gene copy number calculator includes the assumption that the tumour is diploid. Consequently, the dosage of chromosome 7, which includes *BRAF*, *EGFR*, *MET* and *SMO*, was underestimated by the PanSolid pipeline in the 2 tetraploid samples. 
+In the NHS Genomic Medicine Service, WGS is performed by Illumina Laboratory Solutions and analysed using a bioinformatics pipeline developed by Genomics England.
+The Genomics England cancer pipeline performs analysis for somatic CNVs and structural variants [@genomicsengland2023], using the Canvas [@roller2016] and Manta [@chen2016] algorithms, respectively.
+The Genomics England cancer pipeline has been validated to have a sensitivity of 79.3% for CNV detection and 88.8% for structural variant detection, when compared to results from FISH [@genomicsengland2019].
+There were several discrepancies between the PanSolid NGS results and WGS for 2 glioblastoma samples which showed evidence of tetraploidy.
+Tetraploidy caused by whole genome duplication is frequently reported in glioblastoma, with @boisselier2018 reporting that 11% of glioblastoma cases have whole genome duplication.
+In the Genomics England WGS pipeline, tumour ploidy is calculated by the Canvas tool using a machine learning approach comparing the results for tumour and germline DNA samples [@roller2016].
+The version of the PanSolid NGS workflow described in this validation document does not include the detection of ploidy status, and the gene copy number calculator includes the assumption that the tumour is diploid.
+Consequently, the dosage of chromosome 7, which includes *BRAF*, *EGFR*, *MET* and *SMO*, was underestimated by the PanSolid pipeline in the 2 tetraploid samples.
 
-A further discrepant result was identified for the *EGFR* gene in one of the tetraploid samples, which WGS showed to be amplified against a background of both chromosome 7 polysomy and tetraploidy: 14 copies in total were detected, 8 more than the chromosome number, and 10 more than the overall ploidy level. Additional ddPCR testing showed that this inconsistent result likely reflects intra-tumour heterogeneity between the fresh frozen sample being tested by WGS and the FFPE material used for PanSolid NGS. This is a limitation of using WGS as an orthogonal test, as only DNA from fresh frozen tissue is accepted for WGS for somatic cancer testing.
+A further discrepant result was identified for the *EGFR* gene in one of the tetraploid samples, which WGS showed to be amplified against a background of both chromosome 7 polysomy and tetraploidy: 14 copies in total were detected, 8 more than the chromosome number, and 10 more than the overall ploidy level.
+Additional ddPCR testing showed that this inconsistent result likely reflects intra-tumour heterogeneity between the fresh frozen sample being tested by WGS and the FFPE material used for PanSolid NGS. This is a limitation of using WGS as an orthogonal test, as only DNA from fresh frozen tissue is accepted for WGS for somatic cancer testing.
 
 ## Comparison to ddPCR {#sec-discussion-ddpcr}
 
-By comparison, ddPCR did not have this limitation as it was performed on the same DNA as PanSolid NGS. Out of 
-`r sum(pansolid_vs_ddpcr_summary$Samples)`
-samples tested across
-`r nrow(pansolid_vs_ddpcr_summary)`
-genes there were only 
-`r sum(pansolid_vs_ddpcr_summary$"False positives") + sum(pansolid_vs_ddpcr_summary$"False negatives")`
-discordant results, 4 of which were borderline by both methods; the remaining result was due to a copy number change at the locus of the ddPCR reference gene, *AP3B1*. When this result was removed from the analysis, PanSolid NGS and ddPCR agreed on 
-`r ddpcr_pansolid_correct_proportion_updated`%
-of amplification statuses, which is equivalent to reports in the literature. For example, @yang2020 reported a concordance of 94% between ddPCR and targeted NGS for detection of *ERBB2* amplifications in FFPE samples.
+By comparison, ddPCR did not have this limitation as it was performed on the same DNA as PanSolid NGS. Out of `r sum(pansolid_vs_ddpcr_summary$Samples)` samples tested across `r nrow(pansolid_vs_ddpcr_summary)` genes there were only `r sum(pansolid_vs_ddpcr_summary$"False positives") + sum(pansolid_vs_ddpcr_summary$"False negatives")` discordant results, 4 of which were borderline by both methods; the remaining result was due to a copy number change at the locus of the ddPCR reference gene, *AP3B1*.
+When this result was removed from the analysis, PanSolid NGS and ddPCR agreed on `r ddpcr_pansolid_correct_proportion_updated`% of amplification statuses, which is equivalent to reports in the literature.
+For example, @yang2020 reported a concordance of 94% between ddPCR and targeted NGS for detection of *ERBB2* amplifications in FFPE samples.
 
 ## Reference material quantification {#sec-discussion-quantification}
 
-The ability of the PanSolid pipeline to quantify gene dosage was assessed using reference materials from the company SeraCare, which were provided along with the gene dosages quantified by SeraCare using the TruSight Oncology 500 assay (Illumina) and ddPCR with a BioRad QX200 system. There was close agreement between the quantification of gene dosage for both PanSolid NGS and ddPCR compared to the results provided by SeraCare, although a consistent overestimation of dosage for *EGFR* and *ERBB2* was observed (@fig-seracare-ngs-pansolid and @fig-seracare-ddpcr-pansolid). 
+The ability of the PanSolid pipeline to quantify gene dosage was assessed using reference materials from the company SeraCare, which were provided along with the gene dosages quantified by SeraCare using the TruSight Oncology 500 assay (Illumina) and ddPCR with a BioRad QX200 system.
+There was close agreement between the quantification of gene dosage for both PanSolid NGS and ddPCR compared to the results provided by SeraCare, although a consistent overestimation of dosage for *EGFR* and *ERBB2* was observed (@fig-seracare-ngs-pansolid and @fig-seracare-ddpcr-pansolid).
 
 ## Copy number and uncertainty of measurement {#sec-discussion-copy-number}
 
-It is important to note that there is no consistent definition of gene copy number in somatic amplifications, and the definition of gene dosage also reflects the method used. For FISH, which has single-cell resolution, gene copy number may be defined as the overall number of copies per cell [@qin2023]; or it may be defined relative to the chromosome the gene is located on [@french2019; @boldrin2022], to a different chromosome [@bontoux2023], or to the overall ploidy of the sample [@ross2018]. For molecular methods including NGS and ddPCR, dosage can be expressed as relative gene copy number [@robinson2021], fold change [@ross2018] or log2 ratios [@yang2020], which makes comparisons between methods difficult. There is also a lack of consensus over how many copies of a gene are required to be classified as an "amplification" [@wang2019]. For example, in publications describing detection of *ERBB2* copy number by NGS, thresholds from 3 to 6 copies have been described [@nakamura2021; @cenaj2019].
+It is important to note that there is no consistent definition of gene copy number in somatic amplifications, and the definition of gene dosage also reflects the method used.
+For FISH, which has single-cell resolution, gene copy number may be defined as the overall number of copies per cell [@qin2023]; or it may be defined relative to the chromosome the gene is located on [@french2019; @boldrin2022], to a different chromosome [@bontoux2023], or to the overall ploidy of the sample [@ross2018].
+For molecular methods including NGS and ddPCR, dosage can be expressed as relative gene copy number [@robinson2021], fold change [@ross2018] or log2 ratios [@yang2020], which makes comparisons between methods difficult.
+There is also a lack of consensus over how many copies of a gene are required to be classified as an "amplification" [@wang2019].
+For example, in publications describing detection of *ERBB2* copy number by NGS, thresholds from 3 to 6 copies have been described [@nakamura2021; @cenaj2019].
 
-In the PanSolid workflow described, gene dosage is quantified by fold change and amplifications are defined by a clear fold change threshold of 2.8. Whilst the threshold was originally set at 3 at the beginning of the validation process, it was reduced to 2.8 during the *ERBB2* amplifications validation due to the results of a limit of detection experiment. The rationale was that lowering the threshold slightly below the theoretical threshold value would account for technical variation.
+In the PanSolid workflow described, gene dosage is quantified by fold change and amplifications are defined by a clear fold change threshold of 2.8.
+Whilst the threshold was originally set at 3 at the beginning of the validation process, it was reduced to 2.8 during the *ERBB2* amplifications validation due to the results of a limit of detection experiment.
+The rationale was that lowering the threshold slightly below the theoretical threshold value would account for technical variation.
 
-In this validation, the uncertainty of measurement was shown to be ± `r (2*inter_pooled_sd)`, demonstrating that the fold change threshold of 2.8 does account for technical variation. This means that any combination of NCC and gene copy values with a predicted fold change of 3, such as 50% NCC with 10 gene copies, should be detected with the fold change threshold of 2.8 (see @sec-discussion-lod).
+In this validation, the uncertainty of measurement was shown to be ± `r (2*inter_pooled_sd)`, demonstrating that the fold change threshold of 2.8 does account for technical variation.
+This means that any combination of NCC and gene copy values with a predicted fold change of 3, such as 50% NCC with 10 gene copies, should be detected with the fold change threshold of 2.8 (see @sec-discussion-lod).
 
-There are caveats to this prediction. As the sample is sequenced in bulk, the true number of gene copies present within individual cells cannot be quantified, and instead are estimated based on the fold change value and the NCC value provided for the sample. However, this calculation assumes that the NCC value is entirely accurate to the area of sample from which DNA was extracted, and that each cancer cell is diploid and has the same number of gene copies. The PanSolid workflow is therefore semi-quantitative: it is able to provide clear indication of increased gene dosage, but the exact quantification of gene copies is limited by multiple factors, including ploidy.
+There are caveats to this prediction.
+As the sample is sequenced in bulk, the true number of gene copies present within individual cells cannot be quantified, and instead are estimated based on the fold change value and the NCC value provided for the sample.
+However, this calculation assumes that the NCC value is entirely accurate to the area of sample from which DNA was extracted, and that each cancer cell is diploid and has the same number of gene copies.
+The PanSolid workflow is therefore semi-quantitative: it is able to provide clear indication of increased gene dosage, but the exact quantification of gene copies is limited by multiple factors, including ploidy.
 
 ## Limit of detection {#sec-discussion-lod}
 
@@ -2269,9 +2395,16 @@ lod_df_joined <- theoretical_lod_df |>
 
 ```
 
-The limit of detection is an important test metric but is influenced by several factors. To comprehensively assess the limit of detection through experimentation would require the testing of samples simulating every possible copy number state of every gene at every possible NCC level. This is clearly impractical. Instead, we tested undiluted SeraCare reference materials with known quantities of target genes added, which simulated clinical samples at 100% NCC, and we also tested diluted mixtures of these controls to simulate clinical samples at 30%, 20%, 10% and 0% NCC.
+The limit of detection is an important test metric but is influenced by several factors.
+To comprehensively assess the limit of detection through experimentation would require the testing of samples simulating every possible copy number state of every gene at every possible NCC level.
+This is clearly impractical.
+Instead, we tested undiluted SeraCare reference materials with known quantities of target genes added, which simulated clinical samples at 100% NCC, and we also tested diluted mixtures of these controls to simulate clinical samples at 30%, 20%, 10% and 0% NCC.
 
-The results from these experiments can be viewed alongside the theoretical predictions of limit of detection for different NCC states (@tbl-lod-theoretical-actual). These results show that the theoretical predicted limit of detection is broadly similar to the limit of detection from experimentation, but there are some key differences. 3 additional copies were detected for *EGFR*, *ERBB2*, *MET* and *MYCN* in the undiluted SeraCare +3 copies control, despite this being below the theoretical limit of detection for fold changes of 3 and 2.8. And at a simulated 30% NCC, *MYC* was not detected at +12 copies despite this being predicted when using a fold change threshold of 2.8. These findings are not unusual; for example, @chandramohan2022 also report slight discrepancies between theoretical and experimental limits of detection for somatic copy number analysis with NGS, and @dehghani2019 report gene-specific variation in their limit of detection series.
+The results from these experiments can be viewed alongside the theoretical predictions of limit of detection for different NCC states (@tbl-lod-theoretical-actual).
+These results show that the theoretical predicted limit of detection is broadly similar to the limit of detection from experimentation, but there are some key differences.
+3 additional copies were detected for *EGFR*, *ERBB2*, *MET* and *MYCN* in the undiluted SeraCare +3 copies control, despite this being below the theoretical limit of detection for fold changes of 3 and 2.8.
+And at a simulated 30% NCC, *MYC* was not detected at +12 copies despite this being predicted when using a fold change threshold of 2.8.
+These findings are not unusual; for example, @chandramohan2022 also report slight discrepancies between theoretical and experimental limits of detection for somatic copy number analysis with NGS, and @dehghani2019 report gene-specific variation in their limit of detection series.
 
 ```{r}
 #| label: tbl-lod-theoretical-actual
@@ -2282,11 +2415,15 @@ kable(lod_df_joined)
 
 ```
 
-@tbl-lod-theoretical-actual: All values are rounded to 0 decimal places. Gene copies per cell are given as total copies, with additional copies in brackets, assuming a diploid genome.
+@tbl-lod-theoretical-actual: All values are rounded to 0 decimal places.
+Gene copies per cell are given as total copies, with additional copies in brackets, assuming a diploid genome.
 
-This shows that there is variation in detection and dosage accuracy between genes. Despite this limitation, communicating a clear limit of detection is important for those using and delivering a clinical service, particularly for NCC levels which are commonly used on local pathology reports and referral forms, such as 20% and 50%. With this in mind, we can conclude the following:
+This shows that there is variation in detection and dosage accuracy between genes.
+Despite this limitation, communicating a clear limit of detection is important for those using and delivering a clinical service, particularly for NCC levels which are commonly used on local pathology reports and referral forms, such as 20% and 50%.
+With this in mind, we can conclude the following:
 
-The theoretical limit of detection for gene amplification by PanSolid NGS is 8 additional gene copies at 50% NCC, and 20 additional gene copies at 20% NCC. This is supported by data from limit of detection experiments, however there can be variation between genes and the true limit of detection is impacted by the exact NCC of the sample, the number of amplified gene copies in the tumour, the coverage across the locus of interest, the quantity of DNA available, the size and sequence content of the gene, intra-genic CNVs, the ploidy of the sample, the uncertainty of measurement, and the presence of intra-tumoral heterogeneity in gene copy number.
+The theoretical limit of detection for gene amplification by PanSolid NGS is 8 additional gene copies at 50% NCC, and 20 additional gene copies at 20% NCC.
+This is supported by data from limit of detection experiments, however there can be variation between genes and the true limit of detection is impacted by the exact NCC of the sample, the number of amplified gene copies in the tumour, the coverage across the locus of interest, the quantity of DNA available, the size and sequence content of the gene, intra-genic CNVs, the ploidy of the sample, the uncertainty of measurement, and the presence of intra-tumoral heterogeneity in gene copy number.
 
 The limit of detection work in this validation supersedes the limit of detection threshold decided in the *ERBB2* validation ([DOC6260]{custom-style="Strong"}).
 
@@ -2294,51 +2431,67 @@ The limit of detection work in this validation supersedes the limit of detection
 
 ### "Coarse" setting {#sec-discussion-coarse-setting}
 
-The CLC "coarse" setting was able to detect amplifications in 5 different genes, all containing over 10 target regions. Whilst no confirmed amplifications were detected in either the *ALK* or *SMO* genes, amplifications were detected in smaller genes with fewer targets. For example, amplifications were detected in the *MDM2* gene, which is smaller, has fewer primers and has fewer targets than both the *ALK* and *SMO* genes (@tbl-amplification-coordinates). This indicates that amplifications in *ALK* and *SMO* would be detected by the "coarse" setting.
+The CLC "coarse" setting was able to detect amplifications in 5 different genes, all containing over 10 target regions.
+Whilst no confirmed amplifications were detected in either the *ALK* or *SMO* genes, amplifications were detected in smaller genes with fewer targets.
+For example, amplifications were detected in the *MDM2* gene, which is smaller, has fewer primers and has fewer targets than both the *ALK* and *SMO* genes (@tbl-amplification-coordinates).
+This indicates that amplifications in *ALK* and *SMO* would be detected by the "coarse" setting.
 
-Given the assumption that amplification dynamics are not radically different between target genes and genomic regions, the sensitivity and specificity for gene amplification detection on the CLC "coarse" setting in this validation dataset could be extrapolated to additional genes of similar sizes in future. This is a standard approach that is used to validate somatic CNV detection for large gene panels [@chandramohan2022], whole exome sequencing [@saldivar2023] and whole genome sequencing [@roepman2021; @genomicsengland2019].
+Given the assumption that amplification dynamics are not radically different between target genes and genomic regions, the sensitivity and specificity for gene amplification detection on the CLC "coarse" setting in this validation dataset could be extrapolated to additional genes of similar sizes in future.
+This is a standard approach that is used to validate somatic CNV detection for large gene panels [@chandramohan2022], whole exome sequencing [@saldivar2023] and whole genome sequencing [@roepman2021; @genomicsengland2019].
 
 ### "Fine" setting {#sec-discussion-fine-setting}
 
-*MYC* and *MYCN* are paralogous in their protein motifs and structures, but not nucleotide sequences [@jha2023] and are located on different chromosomes. Both genes are frequently mutated in cancer, with gene amplification being a major oncogenic mechanism [@meyer2008]. Both *MYC* and *MYCN* are shorter than 7 kilobases in length, and, due to their small size, amplifications were not initially detected in these genes on the "coarse" setting. The "fine" setting was then used, and was able to detect amplifications in both genes in the SeraCare reference materials, and *MYC* amplifications which were confirmed by ddPCR. Due to the small size of each gene, we do not advise extrapolating the sensitivity and specificity of the "fine" setting to other genes of similar sizes without testing controls with confirmed amplifications.
+*MYC* and *MYCN* are paralogous in their protein motifs and structures, but not nucleotide sequences [@jha2023] and are located on different chromosomes.
+Both genes are frequently mutated in cancer, with gene amplification being a major oncogenic mechanism [@meyer2008].
+Both *MYC* and *MYCN* are shorter than 7 kilobases in length, and, due to their small size, amplifications were not initially detected in these genes on the "coarse" setting.
+The "fine" setting was then used, and was able to detect amplifications in both genes in the SeraCare reference materials, and *MYC* amplifications which were confirmed by ddPCR.
+Due to the small size of each gene, we do not advise extrapolating the sensitivity and specificity of the "fine" setting to other genes of similar sizes without testing controls with confirmed amplifications.
 
 ## *EGFR* version 3 and intra-genic CNVs {#sec-discussion-egfr-v3}
 
-In a single sample, an exonic *EGFR* deletion was detected by PanSolid NGS, consistent with the result from WGS. This is a recurrent in-frame deletion of 801 *EGFR* coding base pairs, representing exons 2 to 7, which is referred to as *EGFR* version 3, Δ801EGFR, *EGFR* vIII or del2-7 *EGFR* [@sugawa1990; @pedersen2001]. *EGFR* version 3 is found in roughly 11% of glioblastoma cases [@brennan2013], but its prognostic significance is controversial [@rutkowska2019].
+In a single sample, an exonic *EGFR* deletion was detected by PanSolid NGS, consistent with the result from WGS.
+This is a recurrent in-frame deletion of 801 *EGFR* coding base pairs, representing exons 2 to 7, which is referred to as *EGFR* version 3, Δ801EGFR, *EGFR* vIII or del2-7 *EGFR* [@sugawa1990; @pedersen2001].
+*EGFR* version 3 is found in roughly 11% of glioblastoma cases [@brennan2013], but its prognostic significance is controversial [@rutkowska2019].
 
-In this validation, the exonic deletion was visible when the individual QIAseq targets were inspected in the interactive HTML view. The CLC "coarse" setting identified two regions within *EGFR* with different fold changes, but did not identify the deleted region. This indicates that intra-genic CNVs within target genes can cause the CLC pipeline to return multiple intra-genic fold-changes, although these may not match the coordinates of the underlying CNV. However, this pattern was also observed in the repeatability study (@sec-results-repeat-testing) for a single replicate of sample 24020998, indicating that the detection of multiple CNV regions per gene is influenced by quality metrics such as signal-adjusted noise which vary between replicates.
+In this validation, the exonic deletion was visible when the individual QIAseq targets were inspected in the interactive HTML view.
+The CLC "coarse" setting identified two regions within *EGFR* with different fold changes, but did not identify the deleted region.
+This indicates that intra-genic CNVs within target genes can cause the CLC pipeline to return multiple intra-genic fold-changes, although these may not match the coordinates of the underlying CNV.
+However, this pattern was also observed in the repeatability study (@sec-results-repeat-testing) for a single replicate of sample 24020998, indicating that the detection of multiple CNV regions per gene is influenced by quality metrics such as signal-adjusted noise which vary between replicates.
 
 ## Quality control {#sec-discussion-quality-control}
 
-False positive calls were observed for 2 samples extracted on the Cobas method with high signal-adjusted noise values. This demonstrates that visual inspection of the whole genome plots is required, and that amplification calls in samples with high signal-adjusted noise values should be treated with caution.
+False positive calls were observed for 2 samples extracted on the Cobas method with high signal-adjusted noise values.
+This demonstrates that visual inspection of the whole genome plots is required, and that amplification calls in samples with high signal-adjusted noise values should be treated with caution.
 
 ## Limitations {#sec-discussion-limitations}
 
 This validation has the following limitations:
 
-- FISH is considered the gold standard test for many amplifications, but FISH data were not available for comparison with PanSolid NGS results.
+-   FISH is considered the gold standard test for many amplifications, but FISH data were not available for comparison with PanSolid NGS results.
 
-- Positive control samples were not available for the *ALK* and *SMO* genes.
+-   Positive control samples were not available for the *ALK* and *SMO* genes.
 
-- All SeraCare reference materials were not tested by each ddPCR assay due to limited DNA volumes.
+-   All SeraCare reference materials were not tested by each ddPCR assay due to limited DNA volumes.
 
-- *In silico* limit of detection studies using down-sampling were not performed.
+-   *In silico* limit of detection studies using down-sampling were not performed.
 
-- ddPCR was not performed for *MYCN* or *MDM2* as these genes were added later in the validation.
+-   ddPCR was not performed for *MYCN* or *MDM2* as these genes were added later in the validation.
 
-- Limit of detection studies were performed using SeraCare controls, which include artificial gene construct spike-ins and may not perfectly mimic the behaviour of clinical FFPE samples.
+-   Limit of detection studies were performed using SeraCare controls, which include artificial gene construct spike-ins and may not perfectly mimic the behaviour of clinical FFPE samples.
 
 The test has the following limitations:
 
-- Multiple CNV regions may be identified within the same gene. These may reflect underlying biological variation, such as *EGFR* version 3 (@sec-results-egfr-v3), or may not be replicable indicating that they are caused by technical variation such as coverage (@sec-cnv-region-variation).
+-   Multiple CNV regions may be identified within the same gene.
+    These may reflect underlying biological variation, such as *EGFR* version 3 (@sec-results-egfr-v3), or may not be replicable indicating that they are caused by technical variation such as coverage (@sec-cnv-region-variation).
 
-- Short-read NGS is not able to distinguish the different cellular contexts of gene amplifications, which may be present on chromosomes or extra-chromosomal DNA.
+-   Short-read NGS is not able to distinguish the different cellular contexts of gene amplifications, which may be present on chromosomes or extra-chromosomal DNA.
 
-- Fold change values below 10 have an uncertainty of measurement of ± `r (2*inter_pooled_sd)` at 95% confidence.
+-   Fold change values below 10 have an uncertainty of measurement of ± `r (2*inter_pooled_sd)` at 95% confidence.
 
-- The test does not detect tetraploidy when present (@sec-wgs-discordant-results), which can impact copy number calculations performed using NCC, as these calculations assume a diploid copy number. Other non-diploid karyotypes may also impact the accuracy of copy number calculations.
+-   The test does not detect tetraploidy when present (@sec-wgs-discordant-results), which can impact copy number calculations performed using NCC, as these calculations assume a diploid copy number.
+    Other non-diploid karyotypes may also impact the accuracy of copy number calculations.
 
-- The CNV regions identified by the test may be narrower than the true region of underlying variation: this is a known limitation of performing CNV detection using an NGS enrichment method (@sec-wgs-coordinate-correlation). 
+-   The CNV regions identified by the test may be narrower than the true region of underlying variation: this is a known limitation of performing CNV detection using an NGS enrichment method (@sec-wgs-coordinate-correlation).
 
 # Review of test requirements {#sec-discussion-test-requirements-review}
 
@@ -2350,12 +2503,8 @@ The PanSolid Excel output provides a clear result of the amplification status fo
 
 **2. Analytical validity: the test should have a defined sensitivity and specificity for these markers, calculated by comparison with an orthogonal test.**
 
-The amplification detection has a sensitivity and specificity of 
-`r ddpcr_pansolid_sensitivity_updated`% 
-and 
-`r ddpcr_pansolid_specificity_updated`% 
-when compared to ddPCR (@tbl-ddpcr-comparison-updated-metrics). When compared to WGS on diploid samples,
-the sensitivity is `r adjusted_wgs_pansolid_sensitivity`% and the specificity is `r adjusted_wgs_pansolid_specificity`% (@tbl-wgs-comparison-metrics-2).
+The amplification detection has a sensitivity and specificity of `r ddpcr_pansolid_sensitivity_updated`% and `r ddpcr_pansolid_specificity_updated`% when compared to ddPCR (@tbl-ddpcr-comparison-updated-metrics).
+When compared to WGS on diploid samples, the sensitivity is `r adjusted_wgs_pansolid_sensitivity`% and the specificity is `r adjusted_wgs_pansolid_specificity`% (@tbl-wgs-comparison-metrics-2).
 
 **3. Dosage accuracy: it should be shown how accurate the test is at detecting amplifications of different copy number states, expressed as a correlation between the test and copy numbers from an orthogonal test.**
 
@@ -2367,11 +2516,13 @@ Low-level false positive calls were seen when the signal-adjusted noise value ex
 
 **5. Variability: the test should have defined intra-run variation (repeatability) and inter-run variation (repeatability) for these amplifications.**
 
-Intra-run pooled standard deviation for fold changes below 10 was `r intra_pooled_sd` and inter-run pooled standard deviation for fold changes below 10 was  `r inter_pooled_sd`.  The uncertainty of measurement is defined as ± `r (2*inter_pooled_sd)` at 95% confidence (@sec-results-repeat-testing). 
+Intra-run pooled standard deviation for fold changes below 10 was `r intra_pooled_sd` and inter-run pooled standard deviation for fold changes below 10 was `r inter_pooled_sd`.
+The uncertainty of measurement is defined as ± `r (2*inter_pooled_sd)` at 95% confidence (@sec-results-repeat-testing).
 
 **6. Visualisation: the results should be presented in a clear and visual manner.**
 
-The results are displayed in graphical format in the output Excels with gene, CNV and whole genome views. There is also an interactive HTML whole-genome view which can assist genotyping complex cases.
+The results are displayed in graphical format in the output Excels with gene, CNV and whole genome views.
+There is also an interactive HTML whole-genome view which can assist genotyping complex cases.
 
 **7. Analysis: there should be a clear procedure for analysis of copy number variants by laboratory staff.**
 
@@ -2379,25 +2530,30 @@ The results are displayed in graphical format in the output Excels with gene, CN
 
 # Requirements for clinical implementation {#sec-requirements-for-clinical-implementation}
 
-The detection of gene amplifications has been validated on DNA extracted by the QIAsymphony method from FFPE material for *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* *MYC*, *MYCN* and *SMO*. The validation has identified the following requirements for clinical implementation:
+The detection of gene amplifications has been validated on DNA extracted by the QIAsymphony method from FFPE material for *ALK*, *BRAF*, *EGFR*, *ERBB2*, *MET*, *MDM2* *MYC*, *MYCN* and *SMO*.
+The validation has identified the following requirements for clinical implementation:
 
-- Samples with signal-adjusted noise values above 0.7 should be analysed carefully. Confirmed amplifications have been detected in samples with high levels of noise, but low-level gene gains may in fact be false positives.
+-   Samples with signal-adjusted noise values above 0.7 should be analysed carefully.
+    Confirmed amplifications have been detected in samples with high levels of noise, but low-level gene gains may in fact be false positives.
 
-- Visual inspection of the whole genome plots is required to avoid false positive calls (@sec-results-quality-control).
+-   Visual inspection of the whole genome plots is required to avoid false positive calls (@sec-results-quality-control).
 
-- Visual inspection of the interactive HTML plots should be performed when there are multiple CNV regions called within the same gene, as this may indicate intra-genic CNVs.
+-   Visual inspection of the interactive HTML plots should be performed when there are multiple CNV regions called within the same gene, as this may indicate intra-genic CNVs.
 
-- The information provided on reports for this test should be updated to include the limit of detection, and the limitation that the method cannot distinguish between all ploidy states.
+-   The information provided on reports for this test should be updated to include the limit of detection, and the limitation that the method cannot distinguish between all ploidy states.
 
-- In future, amplification detection may be required for additional genes on the PanSolid v2 enrichment (CDHS-48608Z-11752). If these genes have greater than 11 targets, they can be added to the analysis pipeline with the "coarse" graining level without the requirement for additional validation work. The pipeline sensitivity and specificity for these new genes can be assumed to be the same as the sensitivity and specificity values provided in this validation document (@sec-discussion-coarse-setting).  
+-   In future, amplification detection may be required for additional genes on the PanSolid v2 enrichment (CDHS-48608Z-11752).
+    If these genes have greater than 11 targets, they can be added to the analysis pipeline with the "coarse" graining level without the requirement for additional validation work.
+    The pipeline sensitivity and specificity for these new genes can be assumed to be the same as the sensitivity and specificity values provided in this validation document (@sec-discussion-coarse-setting).
 
-- Longitudinal monitoring of test metrics, including the the signal-adjusted noise quality metric and the gene amplifications detected, should be initiated and regularly reviewed to allow auditing of test performance over time.
+-   Longitudinal monitoring of test metrics, including the the signal-adjusted noise quality metric and the gene amplifications detected, should be initiated and regularly reviewed to allow auditing of test performance over time.
 
-- The laboratory should participate in relevant external quality assessment schemes for the target genes, if available.
+-   The laboratory should participate in relevant external quality assessment schemes for the target genes, if available.
 
-- This validation has primarily used DNA from FFPE material. The conclusions of this validation may not be valid for other sample types.
+-   This validation has primarily used DNA from FFPE material.
+    The conclusions of this validation may not be valid for other sample types.
 
-- The limitations of the test, as described in @sec-discussion-limitations should be included in the test information box when reporting results to clinicians.
+-   The limitations of the test, as described in @sec-discussion-limitations should be included in the test information box when reporting results to clinicians.
 
 # Conclusion {#ref-conclusion}
 
@@ -2456,12 +2612,16 @@ if(any(pos_cnv_results_for_qpulse$neoplastic_cell_content == "Error") |
   stop("Error values in the QPulse table")
 }
 
-write.csv(x = all_amp_gene_results_for_qpulse, file = paste0(outputs_folder,
-                                                             "all_amp_gene_results_for_qpulse.csv"),
+write.csv(x = all_amp_gene_results_for_qpulse, 
+          file = paste0(DOC6283_folder,
+                        "outputs/",
+                        "all_amp_gene_results_for_qpulse.csv"),
           row.names = FALSE)
 
-write.csv(x = pos_cnv_results_for_qpulse, file = paste0(outputs_folder,
-                                                        "pos_cnv_results_for_qpulse.csv"),
+write.csv(x = pos_cnv_results_for_qpulse, 
+          file = paste0(DOC6283_folder,
+                        "outputs/",
+                        "pos_cnv_results_for_qpulse.csv"),
           row.names = FALSE)
 
 ```
@@ -2483,8 +2643,10 @@ wgs_domain_1_cnvs_for_qpulse <- wgs_html_cnvs |>
   # Including all domains creates a 40MB csv file, which is too large for QPulse
   filter(domain == 1)
 
-write.csv(x = wgs_domain_1_cnvs_for_qpulse, file = paste0(outputs_folder,
-                                                          "wgs_domain_1_cnvs_for_qpulse.csv"),
+write.csv(x = wgs_domain_1_cnvs_for_qpulse, 
+          file = paste0(DOC6283_folder,
+                        "outputs/",
+                        "wgs_domain_1_cnvs_for_qpulse.csv"),
           row.names = FALSE)
 
 ```
@@ -2494,8 +2656,10 @@ write.csv(x = wgs_domain_1_cnvs_for_qpulse, file = paste0(outputs_folder,
 #| include: FALSE
 
 write.csv(x = amp_validation_ddpcr |> 
-            relocate(worksheet, gene), file = paste0(outputs_folder,
-                                                     "ddpcr_results_for_qpulse.csv"),
+            relocate(worksheet, gene), 
+          file = paste0(DOC6283_folder,
+                        "outputs/",
+                        "ddpcr_results_for_qpulse.csv"),
           row.names = FALSE)
 
 ```
@@ -2616,7 +2780,8 @@ kable(seracare_details |>
 
 ```
 
-(@tbl-seracare-reference-material-details): details of the SeraCare controls. Note that there were two tubes of both the Seraseq® TNA (DNA) WT Mix and the Seraseq® Solid Tumor CNV Mix, +12 copies mix.
+(@tbl-seracare-reference-material-details): details of the SeraCare controls.
+Note that there were two tubes of both the Seraseq® TNA (DNA) WT Mix and the Seraseq® Solid Tumor CNV Mix, +12 copies mix.
 
 ## ddPCR details
 
@@ -2626,7 +2791,7 @@ kable(seracare_details |>
 #| echo: FALSE
 #| warning: FALSE
 
-ddpcr_primers_probes <- read_csv(file = paste0(data_folder,
+ddpcr_primers_probes <- read_csv(file = paste0(DOC6283_folder,
                                                "method_tables/",
                                                "ddpcr_primers.csv"))
 
@@ -2682,7 +2847,7 @@ kable(ddpcr_probe_tbl)
 #| echo: FALSE
 #| warning: FALSE
 
-ddpcr_mix <- read_csv(file = paste0(data_folder, 
+ddpcr_mix <- read_csv(file = paste0(DOC6283_folder,
                                     "method_tables/",
                                     "ddpcr_mix.csv"))
 
@@ -2696,7 +2861,7 @@ kable(ddpcr_mix)
 #| echo: FALSE
 #| warning: FALSE
 
-ddpcr_universal_primer_mix <- read_csv(file = paste0(data_folder,
+ddpcr_universal_primer_mix <- read_csv(file = paste0(DOC6283_folder,
                                                      "method_tables/",
                                                      "ddpcr_universal_primer_mix.csv"))
 
@@ -2710,7 +2875,7 @@ kable(ddpcr_universal_primer_mix)
 #| echo: FALSE
 #| warning: FALSE
 
-ddpcr_thermocycler_programme <- read_csv(file = paste0(data_folder,
+ddpcr_thermocycler_programme <- read_csv(file = paste0(DOC6283_folder,
                                                        "method_tables/",
                                                        "ddpcr_thermocycler_programme.csv"))
 
@@ -2718,13 +2883,13 @@ kable(ddpcr_thermocycler_programme)
 
 ```
 
-![*MYC* exon 3 ddPCR results viewed on Quantasoft. Data source: wells G08, A07, E09, C10 and H01 from WS143747.](`r paste0(data_folder, "images/", "myc_exon3_ddpcr.png")`){#fig-myc-ddpcr-quantasoft}
+![*MYC* exon 3 ddPCR results viewed on Quantasoft. Data source: wells G08, A07, E09, C10 and H01 from WS143747.](`r paste0(DOC6283_folder, "images/", "myc_exon3_ddpcr.png")`){#fig-myc-ddpcr-quantasoft}
 
-![*EGFR* exon 6 ddPCR results viewed on Quantasoft. Data source: wells C01, E01, F01, G01 and H01 from worksheet WS144202.](`r paste0(data_folder, "images/", "egfr_exon6_dppcr.png")`){#fig-egfr-ddpcr-quantasoft}
+![*EGFR* exon 6 ddPCR results viewed on Quantasoft. Data source: wells C01, E01, F01, G01 and H01 from worksheet WS144202.](`r paste0(DOC6283_folder, "images/", "egfr_exon6_dppcr.png")`){#fig-egfr-ddpcr-quantasoft}
 
-![*MET* exon 2 ddPCR results viewed on Quantasoft. Data source: wells B02, D02, F02, G02 and H02 from worksheet WS144202](`r paste0(data_folder, "images/", "met_exon2_ddpcr.png")`){#fig-met-ddpcr-quantasoft}
+![*MET* exon 2 ddPCR results viewed on Quantasoft. Data source: wells B02, D02, F02, G02 and H02 from worksheet WS144202](`r paste0(DOC6283_folder, "images/", "met_exon2_ddpcr.png")`){#fig-met-ddpcr-quantasoft}
 
-![*BRAF* exon 10 ddPCR results viewed on Quantasoft. Data source: wells A03, C03, F03, G03 and H03 from worksheet WS144202.](`r paste0(data_folder, "images/", "braf_exon10_ddpcr.png")`){#fig-braf-ddpcr-quantasoft}
+![*BRAF* exon 10 ddPCR results viewed on Quantasoft. Data source: wells A03, C03, F03, G03 and H03 from worksheet WS144202.](`r paste0(DOC6283_folder, "images/", "braf_exon10_ddpcr.png")`){#fig-braf-ddpcr-quantasoft}
 
 {{< pagebreak >}}
 
