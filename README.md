@@ -41,6 +41,9 @@ The repo has changed over time in response to the developing needs of the projec
 The ERBB2 valiation was performed by generating tables and plots from a Quarto markdown document (`DOC6260_erbb2_validation.qmd`) which were then copied and pasted into a Word document. 
 Subsequent validations have been performed by rendering the final Word document entirely from Quarto markdown (`DOC6283_pansolid_gene_amplifications_validation.qmd` and `DOC6567_pansolid_gene_deletions_validation.qmd` ).
 
+In June 2025 I performed a restructure of this repo to make sure all validation analyses could be reproduced. 
+This was because previously, whilst working on new validations, I had introduced changes to functions, scripts, filepaths and folder structures which had meant that previous validation analyses no longer worked.
+
 ## Folder Structure
 
 ### data
