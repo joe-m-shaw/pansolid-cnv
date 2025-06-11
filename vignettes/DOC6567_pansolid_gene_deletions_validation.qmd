@@ -116,15 +116,15 @@ source(here("functions/pansolid_cnv_excel_functions.R"))
 #| warning: FALSE
 #| include: FALSE
 
-#source(here("scripts/del_val_collate_wgs_htmls.R"))
+source(here("scripts/del_val_collate_wgs_htmls.R"))
 
-#source(here("scripts/del_val_collate_ddpcr_csvs.R"))
+source(here("scripts/del_val_collate_ddpcr_csvs.R"))
 
-#source(here("scripts/del_val_collate_pansolid_results.R"))
+source(here("scripts/del_val_collate_pansolid_results.R"))
 
-#source(here("scripts/del_val_get_patient_info.R"))
+source(here("scripts/del_val_get_patient_info.R"))
 
-#source(here("scripts/del_val_get_nf2_loh_results.R"))
+source(here("scripts/del_val_get_nf2_loh_results.R"))
 
 source(here("scripts/del_val_load_processed_data.R"))
 

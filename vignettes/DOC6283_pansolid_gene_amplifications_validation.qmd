@@ -99,17 +99,17 @@ The purpose of this document is to describe the validation of detection of somat
 #| warning: FALSE
 #| include: FALSE
 
-#source(here("scripts/amp_val_collate_gene_transcript_information.R"))
+source(here("scripts/amp_val_collate_gene_transcript_information.R"))
 
-#source(here("scripts/amp_val_collate_wgs_htmls.R"))
+source(here("scripts/amp_val_collate_wgs_htmls.R"))
 
-#source(here("scripts/amp_val_collate_pansolid_ddpcr_validation_data.R"))
+source(here("scripts/amp_val_collate_pansolid_ddpcr_validation_data.R"))
 
-#source(here("scripts/amp_val_collate_pansolid_excel_validation_data.R"))
+source(here("scripts/amp_val_collate_pansolid_excel_validation_data.R"))
 
 # This script collect patient information but requires an ODBC connection to the
 # DNA Database mirror
-#source(here("scripts/amp_val_get_patient_info.R"))
+source(here("scripts/amp_val_get_patient_info.R"))
 
 source(here("scripts/amp_val_load_processed_validation_data.R"))
 
