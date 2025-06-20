@@ -2963,7 +2963,14 @@ pansolid_vs_nf2_loh <- del_val_collated_loh |>
                               levels = c("true_positive",
                                            "false_positive",
                                            "false_negative",
-                                           "true_negative")))
+                                           "true_negative"))) |> 
+  # Remove repeat replicates
+  filter(!labno_suffix_worksheet %in% c(
+    "24018518_WS151617", "24018518_WS151504",
+    "24045597_WS151555", "24045597_WS151617",
+    "24054282_WS151555", "24054282_WS151617"))
+
+stopifnot(anyDuplicated(pansolid_vs_nf2_loh$labno) == 0)
 
 pansolid_vs_nf2_loh_with_qc <- pansolid_vs_nf2_loh |> 
   filter(percent_138x >= 75 & stdev_noise <= 0.7 &
@@ -3080,6 +3087,172 @@ nf2_sens_spec <- rbind(nf2_pipeline_se_sp,
 kable(nf2_sens_spec)
 
 ```
+
+{{< pagebreak >}}
+
+### Ploidy caller limit of detection {#sec-results-ploidy-caller-lod}
+
+```{r}
+#| label: loh-theoretical-lod
+#| include: FALSE
+
+loh_lod_df <- data.frame(
+  "ncc" = seq(0, 100, by = 1)) |> 
+  mutate(stroma_cell_content = 100 - ncc,
+         a_count_stroma = stroma_cell_content / 2,
+         b_count_stroma = stroma_cell_content / 2,
+         # Copy neutral LOH
+         a_count_tumour_copy_neutral = ncc,
+         b_count_tumour_copy_neutral = 0,
+         a_count_total_copy_neutral = a_count_stroma + a_count_tumour_copy_neutral,
+         b_count_total_copy_neutral = b_count_stroma + b_count_tumour_copy_neutral,
+         b_percentage_copy_neutral = (b_count_total_copy_neutral / 
+                                        (b_count_total_copy_neutral + 
+                                           a_count_total_copy_neutral)) * 100,
+         relative_loss_copy_neutral = (50-b_percentage_copy_neutral)*2,
+         
+         # Copy loss LOH
+         a_count_tumour_copy_loss = ncc / 2,
+         b_count_tumour_copy_loss = 0,
+         a_count_total_copy_loss = a_count_stroma + a_count_tumour_copy_loss,
+         b_count_total_copy_loss = b_count_stroma + b_count_tumour_copy_loss,
+         b_percentage_copy_loss = (b_count_total_copy_loss / 
+                                        (b_count_total_copy_loss + 
+                                           a_count_total_copy_loss)) * 100,
+         relative_loss_copy_loss = (50-b_percentage_copy_loss)*2)
+
+loh_theoretical_lod_plot <- loh_lod_df |>
+  select(ncc, relative_loss_copy_neutral, relative_loss_copy_loss) |> 
+  pivot_longer(cols = c(relative_loss_copy_neutral, relative_loss_copy_loss),
+               names_to = "scenario",
+               values_to = "relative_loss") |> 
+  mutate(scenario = case_when(
+   scenario == "relative_loss_copy_loss" ~"Copy loss",
+   scenario == "relative_loss_copy_neutral" ~"Copy neutral"
+  )) |> 
+  ggplot(aes(x = ncc, y = relative_loss)) +
+    geom_point(shape = 21, aes(fill = scenario)) +
+  scale_fill_manual(values = c("#000000", "#FFFFFF")) +
+  scale_y_continuous(breaks = seq(0, 100, by = 5)) +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  theme_bw() +
+  theme() +
+  geom_hline(yintercept = 30, linetype = "dashed") +
+  labs(x = "Neoplastic cell content (%)",
+       y = "Relative peak height reduction (%)",
+       title = "Theoretical limit of detection for LOH PCR testing",
+       fill = "") +
+  annotate("text", x = 85, y = 10, label = "No LOH detected") +
+  annotate("text", x = 85, y = 50, label = "LOH detected") +
+  annotate("text", x = 10, y = 35, label = "LOH threshold")
+
+```
+
+```{r}
+#| label: loh-lod-data-comparison
+#| include: FALSE
+
+pansolid_vs_nf2_loh_long <- pansolid_vs_nf2_loh |> 
+  select(labno, gene, ploidy_state,
+         loh_status, no_targets_in_ploidy_region,
+         check_1, analyst_result,
+         loh_percent_D22S268,
+         loh_percent_D22S275,
+         loh_percent_NF2CA3,
+         loh_percent_NF2intron10,
+         pcr_median_loh,
+         stdev_noise,
+         percent_138x) |> 
+  pivot_longer(cols = c(loh_percent_D22S268,
+                        loh_percent_D22S275,
+                        loh_percent_NF2CA3,
+                        loh_percent_NF2intron10),
+               names_to = "marker",
+               values_to = "percent_loh")
+
+loh_lod_plot <- pansolid_vs_nf2_loh_long |> 
+  filter(percent_138x >= 75 & stdev_noise <= 0.7 &
+           # Remove sample with contamination
+           labno != "24054291") |> 
+  filter(!is.na(percent_loh)) |> 
+  ggplot(aes(x = reorder(labno, pcr_median_loh),
+                                y = percent_loh)) +
+  geom_hline(yintercept = 30, linetype = "dashed") +
+  geom_jitter(shape = 21, aes(fill = analyst_result),
+              alpha = 0.7,
+              width = 0.2) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom") +
+  scale_y_continuous(breaks = seq(0, 100, by = 10)) +
+  labs(x = "Sample", 
+       y = "Relative loss of peak height by PCR (%)",
+       fill = "PanSolid analyst result",
+       title = "LOH testing: PCR testing vs PanSolid NGS", 
+       subtitle = "Up to 4 dincucleotide marker results for each sample") +
+  annotate("segment", x = 15, y = 50, xend = 15, yend = 40,
+         arrow = arrow(type = "closed", length = unit(0.02, "npc")))
+
+```
+
+Assessing the limit of detection of LOH by the PanSolid pipeline was challenging.
+We could not use mixtures of patient DNA to simulate different NCC levels, which we performed for the detection of deletions via fold change (@sec-results-lod), as this would create a distinct VAF profile associated with contamination (@sec-results-contamination). 
+Instead we used the cohort with a wide range of results from *NF2* PCR LOH testing to assess the ability of the PanSolid pipeline to detect LOH at different levels.
+In the previous *NF2* PCR LOH testing, 4 dinucleotide markers (D22S268, D22S275, NF2CA3 and NF2intron10) were tested for each sample, and the relative loss of allele peak height between tumour and blood DNA was recorded on the DNA Database for any informative markers.
+Dinucleotide marker results ranged from
+`r min(pansolid_vs_nf2_loh_long$percent_loh, na.rm= TRUE)` to
+`r max(pansolid_vs_nf2_loh_long$percent_loh, na.rm= TRUE)`% relative loss of allele peak height;
+if a sample had at least one marker with a relative peak height loss of 30% or greater, it was classified as having significant LOH.
+Theoretically, this means that the technique can detect LOH when the NCC is as low as 30% for copy-neutral LOH, and as low as roughly 45% for copy-loss LOH (@fig-loh-theoretical-lod).
+However, the PCR LOH method does not distinguish between copy-loss and copy-neutral LOH.
+
+```{r}
+#| label: fig-loh-theoretical-lod
+#| echo: FALSE
+#| fig-width: 6
+#| fig-cap: "This plot shows the predicted results on *NF2* LOH PCR testing for 
+#| different NCC levels, with results calculated for both copy loss (deletion) 
+#| and copy neutral LOH. The y axis shows the overall percentage of the"
+
+loh_theoretical_lod_plot
+
+```
+
+The results from the PanSolid pipeline with manual review were compared with the results from *NF2* LOH PCR, showing that the PanSolid ploidy caller could detect LOH as low as the 30% relative peak height loss threshold (@fig-loh-nf2-lod).
+The sample with the lowest LOH result from PCR testing (24059935) had a single marker (D22S268) with a relative peak loss greater than 30%.
+For this sample, the PanSolid NGS ploidy caller detected a deletion of chromosome 22, but a deletion of *NF2* was not reported by the CNV caller based on fold change alone.
+Inspection of the interactive HTML showed a SNP frequency on the VAF track for chromosome 22 with VAFs at roughly 40% and 60% (@fig-24059935-loh-lod).
+The PanSolid pipeline predicted an NCC value of 27% for this sample, whilst the referral paperwork (R24-1KMK) stated that the NCC was 50%. 
+As the VAF pattern on chromosome 22 indicates an NCC of approximately 30%, the NCC predicted by the PanSolid pipeline is likely to be accurate in this case.
+This would place the limit of detection for LOH detection via the ploidy caller at least at roughly 30% NCC for deletions, and slightly below this for copy-neutral LOH.
+
+```{r}
+#| label: fig-loh-nf2-lod
+#| echo: FALSE
+#| fig-cap: "This plot shows the *NF2* PCR LOH results for samples in the 
+#| validation cohort, with results coloured by the PanSolid NGS result. The 
+#| dashed horizontal line shows the *NF2* PCR LOH threshold for categorising 
+#| significant LOH. The arrow points to sample 24059935, which has a single 
+#| dinucleotide marker with a relative peak height loss greater than 30%."
+#| fig-wdith: 6
+
+loh_lod_plot
+
+```
+
+```{r}
+#| label: loh-24059935-image
+#| include: FALSE
+
+path_24059935 <- paste0(image_folderpath,
+                        "24059935_loh_lod.png")
+
+caption_24059935 <- "Results for sample 24059935 with a loss of chromosome 22 
+detected by the PanSolid ploidy caller."
+
+```
+
+![`r caption_24059935`](`r path_24059935`){#fig-24059935-loh-lod height="5in"}
 
 {{< pagebreak >}}
 
@@ -3988,7 +4161,7 @@ wgs_biallelic_true_positive <- wgs_biallelic |>
 
 ```
 
-The limit of detection experiment was complicated by false positive CNV calls in the the sample chosen to simulate a normal genome (24053299).
+The limit of detection experiment for the PanSolid CNV caller was complicated by false positive CNV calls in the the sample chosen to simulate a normal genome (24053299).
 This sample had no CNVs detected on WGS (24058699, R24-1H6C) but had several false positive deletion calls when tested on PanSolid NGS; this may have been due to a combination of low NCC and slightly elevated signal-adjusted noise (0.39).
 In addition, the DNA mixtures did not reflect the expected VAF patterns for a clinical sample, as they contained DNA from 2 different patients.
 Consequently, the conclusions that can be drawn from this experiment must acknowledge these caveats.
@@ -3996,7 +4169,9 @@ The biallelic *CDKN2A* deletion could be detected as low as 40% simulated NCC, a
 
 Both these results are higher than the predicted theoretical limit of detection, which would be 20% NCC for biallelic and 40% NCC for monoallelic deletions.
 There was evidence from WGS analysis that true biallelic deletions could be detected by PanSolid NGS in samples with NCC values as low as `r min(wgs_biallelic_true_positive$ccube_ncc)`% as measured by the Ccube algorithm, and for true monoallelic deletions could be detected in samples with NCC values as low as `r min(wgs_monoallelic_true_positive$ccube_ncc)`%.
-As a result, the true limit of detection for deletions is likely between the lower theoretical limits and the limits from the experiment with simulated NCC DNA mixtures.
+As a result, the true limit of detection for deletions by the PanSolid CNV caller is likely between the lower theoretical limits and the limits from the experiment with simulated NCC DNA mixtures.
+In addition, there is evidence from comparison to *NF2* LOH PCR (@sec-results-ploidy-caller-lod) that the PanSolid ploidy caller is able to detect monoallelic deletions as low as 27% NCC, as defined by the PanSolid pipeline.
+The results from the PanSolid CNV caller and ploidy caller are simultaneously reviewed by scientists, which indicates that the detection of deletions by the method as a whole could be lower than the results of the DNA mixture limit of detection experiment.
 However the most conservative thresholds, 40% NCC for biallelic deletions and 60% NCC for monoallelic deletions, will be included as caveats in the test information box on clinical reports for this method.
 
 ## Small and intragenic deletions
