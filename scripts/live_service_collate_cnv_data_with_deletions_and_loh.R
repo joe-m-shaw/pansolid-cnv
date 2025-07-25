@@ -7,6 +7,8 @@ source(here::here("functions/pansolid_cnv_excel_functions.R"))
 
 # Get a list of PanSolid worksheets ---------------------------------------
 
+message("Finding list of all PanSolid worksheets")
+
 all_worksheets <- dna_db_worksheets |> 
   select(pcrid, date, description) |> 
   collect() |> 
@@ -39,6 +41,8 @@ if(length(ps_worksheets) == 0) {
 }
 
 # Find filepaths for PanSolid Excels --------------------------------------
+
+message("Finding filepaths for all PanSolid Excels")
 
 ps_filepaths <- ps_worksheets |> 
   map(\(ps_worksheets) get_annotated_filepaths(worksheet = ps_worksheets)) |> 
@@ -89,9 +93,13 @@ loh_live <- read_csv(paste0(collated_data_folder,
 
 files_without_cnv_tabs <- c("WS152872_25022765",
                             "WS153248_25026440",
-                            "WS153962_25031207")
+                            "WS153962_25031207",
+                            "WS154357_25030473",
+                            "WS154624_25035774")
 
 # Identify files not already collated -------------------------------------
+
+message("Identifying new files for collation")
 
 ps_new_filepath_df <- ps_filepath_df |> 
   mutate(worksheet = parse_filename(filename, 1),
@@ -136,7 +144,7 @@ message(paste0(length(new_filepaths), " files copied into raw data folder"))
 
 # Collate data from new files ---------------------------------------------
 
-message("Collating raw data files")
+message("Collating new data files")
 
 cnv_new <- new_filepaths |> 
   map(\(new_filepaths) extract_cnv_tbls(new_filepaths, 
@@ -144,52 +152,76 @@ cnv_new <- new_filepaths |>
 
 loh_new <- new_filepaths |> 
   map(\(new_filepaths) read_loh_table(filepath = new_filepaths)) |> 
-  list_rbind() 
+  list_rbind() |> 
+  select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
+         labno_suffix_worksheet,	filepath,	chrom,	gene,
+         ploidy_state,	loh_status,	no_targets_in_ploidy_region,
+         check_1,	check_2)
 
 message(paste0(length(new_filepaths), " CNV and LOH results collated"))
 
 # Split into separate dataframes ------------------------------------------
 
-# Filename column added to allow later rbind step with previoulsy 
+# Filename column added to allow later rbind step with previously 
 # collated data.
 
 stdev_new <- map(cnv_new, ~ .x[["stdev"]]) |> 
   list_rbind() |>
   mutate(filename = str_extract(string = filepath,
                                 pattern = filename_regex)) |> 
-  relocate(filename, .after = filepath)
+  relocate(filename, .after = filepath) |> 
+  # Specify columns to remove any random columns added by scientists
+  select(worksheet, labno,	suffix, patient_name, labno_suffix, 
+         labno_suffix_worksheet,	filepath,	filename,	stdev_noise)
 
 percent_138x_new <- map(cnv_new, ~ .x[["percent_138x"]]) |> 
   list_rbind()|>
   mutate(filename = str_extract(string = filepath,
                                 pattern = filename_regex)) |> 
-  relocate(filename, .after = filepath)
+  relocate(filename, .after = filepath) |> 
+  select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
+         labno_suffix_worksheet,	filepath,	filename,	percent_138x)
 
 pred_ncc_new <-  map(cnv_new, ~ .x[["pred_ncc"]]) |> 
   list_rbind()|>
   mutate(filename = str_extract(string = filepath,
                                 pattern = filename_regex)) |> 
-  relocate(filename, .after = filepath)
+  relocate(filename, .after = filepath) |> 
+  select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
+         labno_suffix_worksheet,	filepath,	filename,	pred_ncc)
 
 sig_cnvs_new <- map(cnv_new, ~ .x[["sig_cnvs"]]) |> 
   list_rbind()|>
   mutate(filename = str_extract(string = filepath,
                                 pattern = filename_regex)) |> 
-  relocate(filename, .after = filepath)
+  relocate(filename, .after = filepath) |> 
+  select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
+         labno_suffix_worksheet,	filepath,	filename,	gene,
+         chromosome,	cnv_co_ordinates,	cnv_length,	consequence,
+         fold_change,	p_value,	no_targets,	check_1,	check_2,
+         copy_number,	start,	end)
 
 amp_genes_new <- map(cnv_new, ~ .x[["amp_genes"]]) |> 
   list_rbind()|>
   mutate(filename = str_extract(string = filepath,
                                 pattern = filename_regex)) |> 
-  relocate(filename, .after = filepath)
+  relocate(filename, .after = filepath) |> 
+  select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
+         labno_suffix_worksheet,	filepath,	filename,	gene,
+         max_region_fold_change,	min_region_fold_change)
 
 del_genes_new <-  map(cnv_new, ~ .x[["del_genes"]]) |> 
   list_rbind()|>
   mutate(filename = str_extract(string = filepath,
                                 pattern = filename_regex)) |> 
-  relocate(filename, .after = filepath)
+  relocate(filename, .after = filepath) |> 
+  select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
+         labno_suffix_worksheet,	filepath,	filename,	gene,
+         max_region_fold_change,	min_region_fold_change)
 
 # Perform checks ----------------------------------------------------------
+
+message("Performing checks")
 
 # Signal-adjusted noise
 
@@ -261,7 +293,11 @@ stopifnot(length(setdiff(stdev_new$filepath, unique(del_genes_new$filepath))) ==
 
 stopifnot(length(setdiff(stdev_new$filepath, unique(loh_new$filepath))) == 0)
 
+message("Checks passed")
+
 # Add new results to existing data ----------------------------------------
+
+message("Adding new results to existing data")
 
 stdev_df <- rbind(stdev_live, stdev_new)
 
@@ -278,6 +314,8 @@ del_genes_df <- rbind(del_genes_live, del_genes_new)
 loh_df <- rbind(loh_live, loh_new)
 
 # Export collated data ----------------------------------------------------
+
+message("Exporting collated data")
 
 export_collated_data <- function(df, df_name) {
   
