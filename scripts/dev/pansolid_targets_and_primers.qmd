@@ -1,0 +1,505 @@
+---
+title: "PanSolid Targets and Primers"
+author: "Joe Shaw (CS20980)"
+format: pdf
+editor: visual
+fig-width: 6
+fig-height: 6
+---
+
+```{r}
+#| label: packages
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+library(here)
+library(patchwork)
+
+source(here("functions/pansolid_cnv_excel_functions.R"))
+
+```
+
+# Naming Convention
+
+For this analysis I have used the following naming convention:
+
+- chromosome: formatted as "chr1", "chr2" etc. This format prevents accidental conversion to type numeric, which then causes issues with the X chromosome.
+- start: genomic start coordinate
+- end: genomic end coordinate
+- coord_str: a standardised coordinate string format. Example: "chr1_819066-819093"
+
+# Enrichment
+
+This analysis is for the PanSolid version 2 enrichment (CDHS-48608Z-11752).
+
+{{< pagebreak >}}
+
+# Primers
+
+```{r}
+#| label: load-primers
+#| include: FALSE
+
+ps_primers_grch38_raw <- read_csv(file = paste0(config::get("data_folderpath"),
+                                            "validation/DOC6283_amplifications/", 
+                                            "primers/",
+                                            "QIAseq.CDHS-48608Z-11752.primers3 (Converted).csv"),
+                              col_types = "cccccc") |> 
+  janitor::clean_names()
+
+chr_levels <- c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6",
+                "chr7", "chr8", "chr9", "chr10", "chr11", "chr12",
+                "chr13", "chr14", "chr15", "chr16", "chr17", "chr18",
+                "chr19", "chr20", "chr21", "chr22", "chrX")
+
+stopifnot(length(chr_levels) == 23)
+
+primer_range <- 300
+
+ps_primers_grch38 <- extract_pansolid_cnv_coordinates(ps_primers_grch38_raw,
+                                                          cnv_coord_col = region) |> 
+  mutate(chromosome = str_c("chr", chromosome),
+         chromosome = factor(chromosome,
+                             levels = chr_levels),
+         primer_length = str_length(primer),
+         primer_gc_count = str_count(primer, "G|C"),
+         primer_gc_percent = (primer_gc_count / primer_length) * 100,
+         primer_strand = case_when(
+           grepl(pattern = "complement", x = region) ~"complement",
+           TRUE ~"forward"),
+         primer_range_end = case_when(
+           primer_strand == "forward" ~ end + primer_range,
+           primer_strand == "complement" ~ start - primer_range
+         ),
+         primer_coord_str = str_c(chromosome, "_", start, "-", end),
+         # Full string with strand and range end, for use with find_target function
+         primer_full_string = str_c(chromosome, "_", primer_strand, "_",
+                                  start, "-", end,
+                               "_", primer_range_end),) |> 
+  rename(primer_chromosome = chromosome,
+         primer_region = region,
+         primer_name = name,
+         primer_sequence = primer,
+         primer_start = start,
+         primer_end = end)
+
+stopifnot(anyNA.data.frame(ps_primers_grch38) == FALSE)
+
+primer_end_before_start <- ps_primers_grch38 |> 
+  filter(primer_end <= primer_start)
+
+stopifnot(nrow(primer_end_before_start) == 0)
+
+stopifnot(anyDuplicated(ps_primers_grch38$primer_coord_str) == 0)
+
+```
+
+There are `r length(unique(ps_primers_grch38$primer_coord_str))` primers.
+
+```{r}
+#| labels: tbl-primer-strands
+#| echo: FALSE
+
+tbl_primer_strands <- ps_primers_grch38 |> 
+  group_by(primer_chromosome, primer_strand) |> 
+  count() |> 
+  pivot_wider(id_cols = primer_chromosome,
+              names_from = primer_strand,
+              values_from = n) |> 
+  janitor::adorn_totals() |> 
+  rename(chromosome = primer_chromosome)
+
+knitr::kable(tbl_primer_strands)
+
+```
+
+{{< pagebreak >}}
+
+# Targets
+
+```{r}
+#| label: load-targets
+#| include: FALSE
+
+ps_targets_grch38_raw <- read_delim(file = paste0(config::get("data_folderpath"),
+                                            "validation/DOC6791_chromosome_arms/",
+                                            "bed_files/",
+                                            "QIAseq_DNA_panel.CDHS-48608Z-11752.roi_GRCh38_fasta.bed"),
+                              delim = "\t",
+                              col_names = c("chrom", "start", "stop",
+                                            "name", "sequence"),
+                              col_types = "cddcc") |> 
+  rename(target_chromosome = chrom,
+         target_start = start, 
+         target_end = stop, 
+         target_name = name, 
+         target_sequence = sequence)
+
+ps_targets_grch38 <- ps_targets_grch38_raw |> 
+  mutate(target_length = str_length(target_sequence),
+         target_gc_count = str_count(string = target_sequence, pattern = "G|C"),
+         target_gc_percent = (target_gc_count / target_length) * 100,
+         #target_start_plus_one = target_start +1,
+         target_coord_str = str_c(target_chromosome, "_",
+                               target_start, "-", target_end))
+
+target_end_before_start <- ps_targets_grch38 |> 
+  filter(target_end <= target_start)
+
+stopifnot(nrow(target_end_before_start) == 0)
+
+stopifnot(anyNA.data.frame(ps_targets_grch38) == FALSE)
+
+```
+
+There are `r length(unique(ps_targets_grch38$target_coord_str))` targets in the target file, ranging from 
+`r min(ps_targets_grch38$target_length)` to
+`r max(ps_targets_grch38$target_length)` bp in size.
+The summed size of all target regions is 
+`r sum(ps_targets_grch38$target_length)` bp.
+
+```{r}
+#| label: fig-target-length
+#| echo: FALSE
+
+fig_target_length <- ggplot(ps_targets_grch38, aes(x = target_length, y = )) +
+  geom_histogram(binwidth = 5) +
+  scale_y_log10() +
+  theme_bw() +
+  coord_cartesian(xlim = c(0, 500)) +
+  labs(x = "Target length (bp)", y = "Number of targets",
+       title = "Target length distribution on PanSolidv2",
+       subtitle = "SNP backbone targets are only 11bp long")
+
+fig_target_length
+
+```
+
+{{< pagebreak >}}
+
+# Mapping primers and targets
+
+Some important points:
+
+- Primer and target coordinates are given in the 5'-3' direction on the forward
+strand.
+- This means that the start coordinate will always be a lower number than the
+end coordinate, even if the primer is on the complement strand.
+
+Mapping primers to targets is complicated by the following factors:
+
+- One primer may contribute to sequencing multiple targets
+- One target may be sequenced by multiple primers
+- Target regions and primer regions may not overlap: primers could be upstream 
+of a target region and then sequence into it.
+- Deciding on whether a primer contributes to a target depends on the strand the
+primer is designed on, and hence the direction it will sequence in.
+
+My approach has been:
+
+- Add a `primer_range_end` value which adds `r primer_range`bp onto the primer 
+coordinates in the appropriate direction, depending on whether the primer is on
+the forward or complement strand. This roughly approximates the region that
+will be sequenced by the primer.
+- The full range of the sequenced primer region (forward: prime_start to 
+primer_range_end; complement: primer_range_end to primer_end) must overlap
+with the target region in order for a primer to be considered to contribute to the
+target.
+
+```{r}
+#| label: find-target-function
+#| include: FALSE
+
+find_target <- function(primer_string,
+                        target_df = ps_targets_grch38) {
+  
+  primer_string_regex <- "(chr.{1,2})_(forward|complement)_(\\d{1,9})-(\\d{1,9})_(\\d{1,9})"
+  
+  primer_chromosome <- str_extract(primer_string, primer_string_regex,
+                                   group = 1)
+  
+  primer_strand <- str_extract(primer_string, primer_string_regex,
+                                   group = 2)
+  
+  primer_start <- as.numeric(str_extract(primer_string, primer_string_regex,
+                                   group = 3))
+  
+  primer_end <- as.numeric(str_extract(primer_string, primer_string_regex,
+                                   group = 4))
+  
+  primer_range_end <- as.numeric(str_extract(primer_string, primer_string_regex,
+                                   group = 5))
+  
+  primer_coord_str <- str_c(primer_chromosome, "_", 
+                            primer_start, "-", primer_end)
+  
+  stopifnot(primer_strand %in% c("forward", "complement"))
+  
+  if(primer_strand == "forward"){
+    
+    target_df_filter <- target_df |> 
+      filter(target_chromosome == primer_chromosome) |> 
+      filter(target_end > primer_end &
+               target_start < primer_range_end) |> 
+      mutate(primer_coord_str = primer_coord_str) |> 
+      select(primer_coord_str, target_coord_str)
+    
+  }
+  
+  if(primer_strand == "complement"){
+    
+    target_df_filter <- target_df |> 
+      filter(target_chromosome == primer_chromosome) |> 
+      filter(target_start < primer_start &
+               target_end > primer_range_end) |> 
+      mutate(primer_coord_str = primer_coord_str) |> 
+      select(primer_coord_str, target_coord_str)
+    
+  }
+  
+  if(nrow(target_df_filter) == 0) {
+    
+    target_df_filter <- data.frame(
+      "primer_coord_str" = c(primer_coord_str),
+      "target_coord_str" = c("no target found")
+    )
+  }
+  
+  return(target_df_filter)
+  
+}
+
+```
+
+```{r}
+#| label: find-targets
+#| include: FALSE
+
+primer_strings <- c(ps_primers_grch38$primer_full_string)
+
+primer_target_df <- primer_strings |> 
+  map(\(primer_strings) find_target(primer_strings)) |> 
+  list_rbind()
+
+primer_target_df_found <- primer_target_df |> 
+  filter(target_coord_str != "no target found")
+
+write_csv(primer_target_df,
+          paste0(config::get("data_folderpath"),
+                 "validation/DOC6791_chromosome_arms/primers_and_targets/",
+                 "primer_target_df.csv"))
+
+write_csv(ps_primers_grch38,
+          paste0(config::get("data_folderpath"),
+                 "validation/DOC6791_chromosome_arms/primers_and_targets/",
+                 "ps_primers_grch38.csv"))
+
+write_csv(ps_targets_grch38,
+          paste0(config::get("data_folderpath"),
+                 "validation/DOC6791_chromosome_arms/primers_and_targets/",
+                 "ps_targets_grch38.csv"))
+
+```
+
+In total, `r length(unique(primer_target_df_found$primer_coord_str))` primers out of 
+`r length(unique(ps_primers_grch38$primer_coord_str))`
+map to a target.
+
+```{r}
+#| label: primers-per-target
+#| include: FALSE
+
+primers_per_target <- primer_target_df_found |> 
+  group_by(target_coord_str) |> 
+  count() |> 
+  rename(number_of_primers_per_target = n) |> 
+  left_join(ps_targets_grch38 |> 
+              select(target_coord_str,
+                     target_length),
+            by = "target_coord_str",
+            relationship = "one-to-one")
+
+```
+
+{{< pagebreak >}}
+
+## Primers per target
+
+```{r}
+#| label: fig-primers-per-target
+#| echo: FALSE
+
+fig_primers_per_target <- ggplot(primers_per_target, aes(x = target_length, 
+                               y = number_of_primers_per_target)) +
+  geom_abline(slope = 1/100, linetype = "dashed") +
+  geom_point(shape = 21) +
+  theme_bw() +
+  labs(x = "Target length (bp)",
+       y = "Primers per target",
+       title = "PanSolid v2 enrichment",
+       subtitle = "There is roughly one primer per 100bp of target") +
+  annotate(geom = "text", x = 4000, y = 10,
+           label = "Line slope: 1/100")
+
+fig_primers_per_target
+
+```
+
+{{< pagebreak >}}
+
+## Targets per primer
+
+```{r}
+#| label: tbl-targets-per-primer
+#| echo: FALSE
+
+targets_per_primer <- primer_target_df_found |> 
+  group_by(primer_coord_str) |> 
+  count() |> 
+  rename(targets_per_primer = n)
+
+tbl_targets_primary_summary <- targets_per_primer |> 
+  group_by(targets_per_primer) |> 
+  count() |> 
+  rename(primers = n)
+
+knitr::kable(tbl_targets_primary_summary)
+
+```
+
+{{< pagebreak >}}
+
+## GC percent
+
+```{r}
+#| label: fig-primer-target-gc-percent
+#| echo: FALSE
+
+primer_target_gc_percent_df <- primer_target_df_found |> 
+  left_join(ps_targets_grch38 |> 
+              select(target_coord_str,
+                     target_gc_percent, target_length),
+            by = "target_coord_str") |> 
+  left_join(ps_primers_grch38 |> 
+              select(primer_coord_str,
+                     primer_gc_percent, primer_length),
+            by = "primer_coord_str") 
+
+
+fig_median_primer_target_gc_percent <- primer_target_gc_percent_df |> 
+  filter(target_length > 11) |> 
+  group_by(target_coord_str, target_gc_percent) |> 
+  summarise(median_primer_gc = median(primer_gc_percent)) |> 
+  ggplot(aes(x = median_primer_gc, y = target_gc_percent)) +
+  geom_abline(linetype = "dashed") +
+  geom_point(shape = 21) +
+  theme_bw() +
+  xlim(0, 100) +
+  ylim(0, 100) +
+  labs(x = "Median primer GC percent (%)",
+       y = "Target GC percent (%)",
+       title = "Target GC percent vs median primer GC percent",
+       subtitle = "Targets less than 11bp excluded")
+
+fig_median_primer_target_gc_percent
+
+```
+
+{{< pagebreak >}}
+
+## Primer target plots
+
+```{r}
+#| label: primer-target-plot-function
+#| include: FALSE
+
+make_primer_target_plot <- function(chromosome,
+                                    plot_x_start,
+                                    plot_x_end) {
+  
+  target_plot <- ps_targets_grch38 |> 
+    mutate(id = "target") |> 
+    filter(target_chromosome == chromosome) |> 
+    ggplot(aes(x = target_start, y = id)) +
+    geom_segment(aes(x = target_start, xend = target_end, 
+                       y = id, yend = id),
+                   linewidth = 2,) +
+    coord_cartesian(xlim = c(plot_x_start, plot_x_end)) +
+    theme_bw() +
+    theme(axis.text.y = element_blank()) +
+    labs(x = paste0(chromosome, " coordinate (GRCh38)"),
+         y = "",
+         title = "Targets")
+  
+  forward_primer_df <- ps_primers_grch38 |> 
+    filter(primer_strand == "forward") |> 
+    left_join(targets_per_primer |> 
+                mutate(targets_per_primer = factor(targets_per_primer,
+                                                   levels = c(1, 2, 3, 4, 5, NA))), 
+              by = "primer_coord_str") |> 
+    filter(primer_chromosome == chromosome) |> 
+    filter(primer_start > plot_x_start &
+             primer_start < plot_x_end)
+  
+  complement_primer_df <- ps_primers_grch38 |> 
+    filter(primer_strand == "complement") |> 
+    left_join(targets_per_primer |> 
+                mutate(targets_per_primer = factor(targets_per_primer,
+                                                   levels = c(1, 2, 3, 4, 5, NA))), 
+              by = "primer_coord_str") |> 
+    filter(primer_chromosome == chromosome) |> 
+    filter(primer_end > plot_x_start &
+             primer_end < plot_x_end)
+  
+  forward_primer_plot <- ggplot(forward_primer_df, 
+                        aes(x = primer_start, y = primer_coord_str)) +
+    geom_segment(aes(x = primer_start, xend = primer_range_end, 
+                       y = primer_coord_str, yend = primer_coord_str,
+                     colour = targets_per_primer),
+                   linewidth = 2,) +
+    coord_cartesian(xlim = c(plot_x_start, plot_x_end)) +
+    theme_bw() +
+    theme(axis.text.y = element_blank()) +
+    labs(x = paste0(chromosome, " coordinate (GRCh38)"),
+         y = "",
+         title = "Forward primers")
+  
+  complement_primer_plot <- ggplot(complement_primer_df, 
+                        aes(x = primer_start, y = primer_coord_str)) +
+    geom_segment(aes(x = primer_range_end, xend = primer_end, 
+                       y = primer_coord_str, yend = primer_coord_str,
+                     colour = targets_per_primer),
+                   linewidth = 2,) +
+    coord_cartesian(xlim = c(plot_x_start, plot_x_end)) +
+    theme_bw() +
+    theme(axis.text.y = element_blank()) +
+    labs(x = paste0(chromosome, " coordinate (GRCh38)"),
+         y = "",
+         title = "Complement primers")
+
+  output_plot <- target_plot + forward_primer_plot + 
+    complement_primer_plot +plot_layout(ncol = 1)
+  
+  return(output_plot)
+  
+}
+
+```
+
+There is a region on chromosome 17 in the *TP53* gene where primers contribute to
+multiple target regions.
+
+```{r}
+#| label: tp53-plot
+#| echo: FALSE
+#| fig-width: 6
+#| fig-height: 6
+
+tp53_plot <- make_primer_target_plot("chr17", 
+                        7675700,
+                        7676800)
+
+tp53_plot
+
+```
