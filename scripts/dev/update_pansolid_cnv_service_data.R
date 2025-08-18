@@ -1,4 +1,5 @@
-# Update PanSolidv2 Copy Number Variant Data
+# Update PanSolidv2 Copy Number Variant Data for Amplifications Service 
+# (April 2024-May 2025)
 
 # Packages --------------------------------------------------------------------------
 
@@ -12,17 +13,38 @@ data_folderpath <- config::get("data_folderpath")
 
 source(here("functions/pansolid_cnv_excel_functions.R"))
 
+source(here::here("scripts/connect_to_dna_db.R"))
+
+# Find worksheets ---------------------------------------------------------
+
+all_worksheets <- dna_db_worksheets |> 
+  select(pcrid, date, description) |> 
+  collect() |> 
+  mutate(worksheet = paste0("WS", pcrid))
+
+stopifnot(nrow(all_worksheets) > 0)
+
+ps_ws_info <- all_worksheets |> 
+  # Jewish BRCA samples were only tested using the CNV pipeline since
+  # WS147693
+  # New CNV Excel layout with deletions and LOH started with WS152758
+  filter(pcrid >= 147693 & pcrid < 152758) |> 
+  filter(grepl(pattern = "pansolid|pan-solid|pan_solid|pan solid", 
+               x = description,
+               ignore.case = TRUE)) |> 
+  mutate(ps_category = case_when(
+    grepl(pattern = "jBRCA|j_BRCA|j-BRCA|jew",
+          x = description,
+          ignore.case = TRUE) ~"PanSolid Jewish BRCA",
+    TRUE ~"PanSolid FFPE"
+  ))
+
+ps_worksheets <- ps_ws_info$worksheet
+
 # S drive filepaths -----------------------------------------------------------------
 
-pansolidv2_worksheets <- read_excel(paste0(data_folderpath,
-                                           "live_service/pansolid_live_service_worksheets.xlsx"))
-
-message("PanSolid worksheet list read")
-
-worksheet_list <- list(pansolidv2_worksheets$worksheet)
-
-s_drive_filepaths <- worksheet_list |> 
-  map(\(worksheet_list) get_annotated_filepaths(worksheet = worksheet_list)) |> 
+s_drive_filepaths <- ps_worksheets |> 
+  map(\(ps_worksheets) get_annotated_filepaths(worksheet = ps_worksheets)) |> 
   flatten()
 
 worksheet_labno_regex <- "(WS\\d{6})_(\\d{6,8})(|a|b|c|d)_"
@@ -45,7 +67,8 @@ s_drive_file_df <- tibble(
                              group = 2),
          panel = str_extract(string = filepath,
                              pattern = panel_regex,
-                             group = 1))
+                             group = 1)) |> 
+  arrange(worksheet, labno)
 
 if (any(grepl(pattern = "/", x = s_drive_file_df$filename))) {
   stop("Error: filenames contain backslashes") 
@@ -57,169 +80,138 @@ if (anyNA(s_drive_file_df)) {
 
 message("Sample filepaths compiled")
 
-write_csv(s_drive_file_df, 
-          paste0(data_folderpath, "live_service/collated/",
-                 "pansolidv2_sample_worksheet_panel_information.csv"))
+# Load collated data ------------------------------------------------------
 
-# Single folder filepaths -----------------------------------------------------------
+amp_service_collated_data_folder <- paste0(config::get("data_folderpath"),
+                               "live_service/collated/pansolid_amplifications_live_service/")
 
-single_folder_file_df <- tibble(
-  filepath = unlist(list.files(paste0(data_folderpath, "live_service/raw/"),
-                               full.names = TRUE))) |> 
+stdev_collated <- read_csv(paste0(amp_service_collated_data_folder,
+                              "live_service_std_dev_results_collated.csv"))
+
+pos_cnv_collated <- read_csv(paste0(amp_service_collated_data_folder,
+                                    "live_service_pos_cnv_results_collated.csv"))
+
+amp_genes_collated <- read_csv(paste0(amp_service_collated_data_folder,
+                                      "live_service_amp_gene_results_collated.csv"))
+
+percent_138_collated <- read_csv(paste0(amp_service_collated_data_folder,
+                                        "live_service_percent_138_results_collated.csv"))
+
+# Get filenames from collated data ----------------------------------------
+
+stdev_with_filenames <- stdev_collated |> 
   mutate(filename = str_extract(string = filepath, 
                                 pattern = str_replace(string = pansolidv2_excel_regex, 
                                                       pattern = "\\^", 
-                                                      replacement = "")),
-         labno = str_extract(string = filename, 
-                             pattern = "WS\\d{6}_(\\d{6,8})",
-                             group = 1))
+                                                      replacement = "")))
 
+stopifnot(anyNA(stdev_with_filenames$filename) == FALSE)
 
-if(anyNA(single_folder_file_df$filepath)){
-  warning("NA values in filepath column")
-} else {
-  message("Filepath column has no NA values")
-}
+# Identify files without CNV tabs -----------------------------------------
 
-if(anyNA(single_folder_file_df$filename)){
-  warning("NA values in filename column")
-} else {
-  message("Filename column has no NA values")
-}
-
-if(anyNA(single_folder_file_df$labno)){
-  warning("NA values in labno column")
-} else {
-  message("Labno column has no NA values")
-}
-
-# Identify and copy new files -------------------------------------------------------
-
-new_files <- s_drive_file_df |> 
-  filter(!filename %in% single_folder_file_df$filename)
-
-if (nrow(new_files) > 0) {
-  
-  message(paste0("Copying ", nrow(new_files), " new files to raw_data folder"))
-  
-  file.copy(from = new_files$filepath, 
-            to = paste0(data_folderpath, "live_service/raw/"))
-  
-}
-
-# Get new single folder filepaths ---------------------------------------------------
-
-single_folder_file_df <- tibble(
-  filepath = unlist(list.files(paste0(data_folderpath, "live_service/raw/"),
-                               full.names = TRUE))) |> 
-  mutate(filename = str_extract(string = filepath, 
-                                pattern = str_replace(string = pansolidv2_excel_regex, 
-                                                      pattern = "\\^", 
-                                                      replacement = "")),
-         labno = str_extract(string = filename, 
-                             pattern = "WS\\d{6}_(\\d{6,8})",
-                             group = 1))
+# Some samples have such low coverage that a CNV tab is not included in 
+# the output Excel. These files will cause an error message at the data 
+# collation stage if they are included.
 
 samples_without_amp_tabs <- c("24023280", "24025207", "24027566", "24033006",
                               "24033959", "24038848")
 
-new_file_paths_df <- single_folder_file_df |> 
-  filter(filename %in% new_files$filename & 
-           # Remove samples without "Amplifications" tab
-           !labno %in% samples_without_amp_tabs)
+# Identify files not already collated -------------------------------------
 
-new_file_paths <- list(new_file_paths_df$filepath) |> 
-  flatten()
+message("Identifying new files for collation")
+
+reanalysed_samples <- paste(c("v2PANSOLID_WS152548_25022367",
+                              "v2NF1_PS_WS152693_25010089",
+                              "v2b"), collapse = "|")
+
+ps_new_filepath_df <- s_drive_file_df |> 
+  filter(!filename %in% stdev_with_filenames$filename &
+           !labno %in% samples_without_amp_tabs &
+           # Some samples were reanalysed with the new PanSolid pipeline
+           # with v2b panels
+           !grepl(pattern = reanalysed_samples, 
+                  x = filename))
+
+if(length(ps_new_filepath_df) > 0) {
+  message(paste0(length(ps_new_filepath_df$filepath),
+                 " new files identified"))
+} else {
+  stop("No new files identified")
+}
+
+# Prepare raw data folder -------------------------------------------------
+
+raw_folder_path <- paste0(config::get("data_folderpath"),
+                          "live_service/raw/")
+
+if(length(list.files(raw_folder_path)) != 0){
+  stop("Raw file folder is not empty")
+} else {
+  message("Raw data folder is empty")
+}
+
+# Copy new files to raw data folder ---------------------------------------
+
+new_file_paths_to_copy <-  ps_new_filepath_df$filepath[1:200]
+
+file.copy(from = new_file_paths_to_copy,
+          to = raw_folder_path)
+
+new_filepaths <- list.files(path = raw_folder_path,
+                            full.names = TRUE,
+                            pattern = "Annotated.*.xlsx")
+
+message(paste0(length(new_filepaths), " files copied into raw data folder"))
 
 # Collate new file data -------------------------------------------------------------
 
-new_amp_gene_collated <- new_file_paths |> 
-  map(\(new_file_paths) 
-      read_all_amp_genes_results(file = new_file_paths,
-                                 sheet = get_amp_sheetname(new_file_paths))) |> 
+message("Collating new data files")
+
+new_std_dev_collated <- new_filepaths |> 
+  map(\(new_filepaths) 
+      read_stdev_results(file = new_filepaths,
+                         sheet = get_sheetname(filepath = new_filepaths,
+                                               sheet_regex = "Amplifications|CNVs_"))) |> 
   list_rbind()
 
-new_pos_cnv_collated <- new_file_paths |> 
-  map(\(new_file_paths) 
-      read_pos_cnv_results(file = new_file_paths,
-                           sheet = get_amp_sheetname(new_file_paths))) |> 
+new_percent_138_collated <- new_filepaths |> 
+  map(\(new_filepaths) 
+      read_percent_138_results(file = new_filepaths,
+                               sheet = get_sheetname(filepath = new_filepaths,
+                                                     sheet_regex = "Amplifications|CNVs_"))) |> 
   list_rbind()
 
-new_std_dev_collated <- new_file_paths |> 
-  map(\(new_file_paths) 
-      read_stdev_results(file = new_file_paths,
-                         sheet = get_amp_sheetname(new_file_paths))) |> 
+new_amp_gene_collated <- new_filepaths |> 
+  map(\(new_filepaths) 
+      read_all_amp_genes_results(file = new_filepaths,
+                                 sheet = get_sheetname(filepath = new_filepaths,
+                                                       sheet_regex = "Amplifications|CNVs_"))) |> 
   list_rbind()
 
-new_percent_138_collated <- new_file_paths |> 
-  map(\(new_file_paths) 
-      read_percent_138_results(file = new_file_paths,
-                               sheet = get_amp_sheetname(new_file_paths))) |> 
+new_pos_cnv_collated <- new_filepaths |> 
+  map(\(new_filepaths) 
+      read_pos_cnv_results(file = new_filepaths,
+                           sheet = get_sheetname(filepath = new_filepaths,
+                                                 sheet_regex = "Amplifications|CNVs_"))) |> 
   list_rbind()
 
-# Load previously collated data -----------------------------------------------------
+# Check data --------------------------------------------------------------
 
-amp_gene_results <- read_csv(str_c(data_folderpath, "live_service/collated/",
-                                   "/live_service_amp_gene_results_collated.csv"),
-                             col_types = list(
-                               worksheet = col_character(),
-                               labno = col_character(),
-                               suffix = col_character(),
-                               patient_name = col_character(),
-                               labno_suffix = col_character(),
-                               labno_suffix_worksheet = col_character(),
-                               filepath = col_character(),
-                               gene = col_character(),
-                               max_region_fold_change = col_double(),
-                               min_region_fold_change = col_double()
-                             ))
+stopifnot(anyNA.data.frame(new_std_dev_collated) == FALSE)
 
-std_dev_results <- read_csv(str_c(data_folderpath, "live_service/collated/", 
-                                  "/live_service_std_dev_results_collated.csv"),
-                            col_types = list(
-                              worksheet = col_character(),
-                              labno = col_character(),
-                              suffix = col_character(),
-                              patient_name = col_character(),
-                              labno_suffix = col_character(),
-                              labno_suffix_worksheet = col_character(),
-                              filepath = col_character(),
-                              st_dev_signal_adjusted_log2_ratios = col_double()
-                            ))
+stopifnot(anyNA.data.frame(new_percent_138_collated) == FALSE)
 
-percent_138_results <- read_csv(str_c(data_folderpath, "live_service/collated/", 
-                                      "/live_service_percent_138_results_collated.csv"),
-                                col_types = list(
-                                  worksheet = col_character(),
-                                  labno = col_character(),
-                                  suffix = col_character(),
-                                  patient_name = col_character(),
-                                  labno_suffix = col_character(),
-                                  labno_suffix_worksheet = col_character(),
-                                  filepath = col_character(),
-                                  percent_whole_panel_covered_at_138x = col_double()
-                                ))
+stopifnot(anyNA.data.frame(new_amp_gene_collated) == FALSE)
 
-pos_cnv_results <- read_csv(str_c(data_folderpath, "live_service/collated/", 
-                                  "/live_service_pos_cnv_results_collated.csv"),
-                            col_types = list(
-                              worksheet = col_character(),
-                              labno = col_character(),
-                              suffix = col_character(),
-                              patient_name = col_character(),
-                              labno_suffix = col_character(),
-                              labno_suffix_worksheet = col_character(),
-                              filepath = col_character(),
-                              gene = col_character(),
-                              chromosome = col_character(),
-                              cnv_co_ordinates = col_character(),
-                              cnv_length = col_double(),
-                              consequence = col_character(),
-                              fold_change = col_double(),
-                              p_value = col_double(),
-                              start = col_double(),
-                              end = col_double()
-                            ))
+stopifnot(anyNA.data.frame(new_pos_cnv_collated) == FALSE)
+
+stopifnot(nrow(new_std_dev_collated) > 0)
+
+stopifnot(nrow(new_percent_138_collated) > 0)
+
+stopifnot(nrow(new_amp_gene_collated) > 0)
+
+stopifnot(nrow(new_pos_cnv_collated) > 0)
 
 # Check columns ---------------------------------------------------------------------
 
@@ -241,81 +233,50 @@ percent_138_cols <- c(id_cols, "percent_whole_panel_covered_at_138x")
 
 # Add new data to collated data -----------------------------------------------------
 
-if(all(nrow(new_amp_gene_collated) > 0,
-       nrow(new_amp_gene_collated) > 0,
-       nrow(new_std_dev_collated) > 0,
-       nrow(new_percent_138_collated) > 0)) {
-  
-  amp_gene_results_updated <- rbind(amp_gene_results |> 
+std_dev_results_updated <- rbind(stdev_collated |> 
+                                   select(all_of(std_dev_cols)),
+                                 new_std_dev_collated |> 
+                                   select(all_of(std_dev_cols)))
+
+percent_138_results_updated <- rbind(percent_138_collated |> 
+                                       select(all_of(percent_138_cols)),
+                                     new_percent_138_collated |> 
+                                       select(all_of(percent_138_cols)))
+
+amp_gene_results_updated <- rbind(amp_genes_collated |> 
                                     select(all_of(all_amp_cols)),
                                   new_amp_gene_collated |> 
                                     select(all_of(all_amp_cols)))
   
-  pos_cnv_results_updated <- rbind(pos_cnv_results |> 
+pos_cnv_results_updated <- rbind(pos_cnv_collated |> 
                                    select(all_of(pos_cnv_cols)),
                                  new_pos_cnv_collated |> 
                                    select(all_of(pos_cnv_cols)))
-  
-  std_dev_results_updated <- rbind(std_dev_results |> 
-                                   select(all_of(std_dev_cols)),
-                                 new_std_dev_collated |> 
-                                   select(all_of(std_dev_cols)))
-  
-  percent_138_results_updated <- rbind(percent_138_results |> 
-                               select(all_of(percent_138_cols)),
-                             new_percent_138_collated |> 
-                               select(all_of(percent_138_cols)))
-  message("New data added")
-  
-} else {
-  
-  amp_gene_results_updated <- amp_gene_results
-  
-  pos_cnv_results_updated <- pos_cnv_results
-  
-  std_dev_results_updated <- std_dev_results
-  
-  percent_138_results_updated <- percent_138_results
-  
-  message("No new data added")
-  
-}
-
-# Checks ----------------------------------------------------------------------------
-
-# Each PanSolid worksheet should have 48 samples on
-expected_file_number <- (length(unique(pansolidv2_worksheets$worksheet)) * 48)
-
-file_number <- length(list.files(paste0(data_folderpath, "live_service/raw/"), 
-                                 pattern = ".xlsx"))
-
-message(str_c("Check: ", expected_file_number, " files predicted and ",
-                file_number, " files found."))
 
 # Archive previous collated data ----------------------------------------------------
 
-write.csv(amp_gene_results,
+write.csv(amp_genes_collated,
           paste0(data_folderpath, "live_service/collated/archive/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
                            "live_service_amp_gene_results_collated.csv"),
           row.names = FALSE)
 
-write.csv(std_dev_results,
+write.csv(stdev_collated,
           paste0(data_folderpath, "live_service/collated/archive/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
                            "live_service_std_dev_results_collated.csv"),
           row.names = FALSE)
 
-write.csv(pos_cnv_results,
+write.csv(pos_cnv_collated,
           paste0(data_folderpath, "live_service/collated/archive/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
                            "live_service_pos_cnv_results_collated.csv"),
           row.names = FALSE)
 
-write.csv(percent_138_results,
+write.csv(percent_138_collated,
           paste0(data_folderpath, "live_service/collated/archive/",
                            format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
                            "_",
@@ -325,17 +286,17 @@ write.csv(percent_138_results,
 # Save updated collated data --------------------------------------------------------
 
 write_csv(amp_gene_results_updated,
-          paste0(data_folderpath, "live_service/collated/",
+          paste0(data_folderpath, "live_service/collated/pansolid_amplifications_live_service/",
                            "live_service_amp_gene_results_collated.csv"))
 
 write_csv(std_dev_results_updated,
-          paste0(data_folderpath, "live_service/collated/",
+          paste0(data_folderpath, "live_service/collated/pansolid_amplifications_live_service/",
                            "live_service_std_dev_results_collated.csv"))
 
 write_csv(pos_cnv_results_updated,
-          paste0(data_folderpath, "live_service/collated/",
+          paste0(data_folderpath, "live_service/collated/pansolid_amplifications_live_service/",
                            "live_service_pos_cnv_results_collated.csv"))
 
 write_csv(percent_138_results_updated,
-          paste0(data_folderpath, "live_service/collated/",
+          paste0(data_folderpath, "live_service/collated/pansolid_amplifications_live_service/",
                            "live_service_percent_138_results_collated.csv"))
