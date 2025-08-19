@@ -1,13 +1,13 @@
 # Update PanSolidv2 Copy Number Variant Data for Amplifications Service 
 # (April 2024-May 2025)
 
-# Packages --------------------------------------------------------------------------
+# Packages ---------------------------------------------------------------------
 
 library(tidyverse)
 library(readxl)
 library(here)
 
-# Functions and filepaths -----------------------------------------------------------
+# Functions and filepaths ------------------------------------------------------
 
 data_folderpath <- config::get("data_folderpath")
 
@@ -15,7 +15,7 @@ source(here("functions/pansolid_cnv_excel_functions.R"))
 
 source(here::here("scripts/connect_to_dna_db.R"))
 
-# Find worksheets ---------------------------------------------------------
+# Find worksheets --------------------------------------------------------------
 
 all_worksheets <- dna_db_worksheets |> 
   select(pcrid, date, description) |> 
@@ -31,17 +31,11 @@ ps_ws_info <- all_worksheets |>
   filter(pcrid >= 147693 & pcrid < 152758) |> 
   filter(grepl(pattern = "pansolid|pan-solid|pan_solid|pan solid", 
                x = description,
-               ignore.case = TRUE)) |> 
-  mutate(ps_category = case_when(
-    grepl(pattern = "jBRCA|j_BRCA|j-BRCA|jew",
-          x = description,
-          ignore.case = TRUE) ~"PanSolid Jewish BRCA",
-    TRUE ~"PanSolid FFPE"
-  ))
+               ignore.case = TRUE))
 
 ps_worksheets <- ps_ws_info$worksheet
 
-# S drive filepaths -----------------------------------------------------------------
+# S drive filepaths ------------------------------------------------------------
 
 s_drive_filepaths <- ps_worksheets |> 
   map(\(ps_worksheets) get_annotated_filepaths(worksheet = ps_worksheets)) |> 
@@ -80,7 +74,7 @@ if (anyNA(s_drive_file_df)) {
 
 message("Sample filepaths compiled")
 
-# Load collated data ------------------------------------------------------
+# Load collated data -----------------------------------------------------------
 
 amp_service_collated_data_folder <- paste0(config::get("data_folderpath"),
                                "live_service/collated/pansolid_amplifications_live_service/")
@@ -97,7 +91,7 @@ amp_genes_collated <- read_csv(paste0(amp_service_collated_data_folder,
 percent_138_collated <- read_csv(paste0(amp_service_collated_data_folder,
                                         "live_service_percent_138_results_collated.csv"))
 
-# Get filenames from collated data ----------------------------------------
+# Get filenames from collated data ---------------------------------------------
 
 stdev_with_filenames <- stdev_collated |> 
   mutate(filename = str_extract(string = filepath, 
@@ -107,7 +101,7 @@ stdev_with_filenames <- stdev_collated |>
 
 stopifnot(anyNA(stdev_with_filenames$filename) == FALSE)
 
-# Identify files without CNV tabs -----------------------------------------
+# Identify files without CNV tabs ----------------------------------------------
 
 # Some samples have such low coverage that a CNV tab is not included in 
 # the output Excel. These files will cause an error message at the data 
@@ -116,19 +110,22 @@ stopifnot(anyNA(stdev_with_filenames$filename) == FALSE)
 samples_without_amp_tabs <- c("24023280", "24025207", "24027566", "24033006",
                               "24033959", "24038848")
 
-# Identify files not already collated -------------------------------------
+# Identify files not already collated ------------------------------------------
 
 message("Identifying new files for collation")
 
+# Some samples were reanalysed with the new PanSolid pipeline
+# with v2b panels. These results are not compatible with the functions for
+# reading old-format PanSolid Excels.
 reanalysed_samples <- paste(c("v2PANSOLID_WS152548_25022367",
                               "v2NF1_PS_WS152693_25010089",
+                              "v2M1_tLYNCH_PS_WS152171_25015829",
                               "v2b"), collapse = "|")
 
 ps_new_filepath_df <- s_drive_file_df |> 
   filter(!filename %in% stdev_with_filenames$filename &
            !labno %in% samples_without_amp_tabs &
-           # Some samples were reanalysed with the new PanSolid pipeline
-           # with v2b panels
+
            !grepl(pattern = reanalysed_samples, 
                   x = filename))
 
@@ -139,7 +136,7 @@ if(length(ps_new_filepath_df) > 0) {
   stop("No new files identified")
 }
 
-# Prepare raw data folder -------------------------------------------------
+# Prepare raw data folder ------------------------------------------------------
 
 raw_folder_path <- paste0(config::get("data_folderpath"),
                           "live_service/raw/")
@@ -150,9 +147,9 @@ if(length(list.files(raw_folder_path)) != 0){
   message("Raw data folder is empty")
 }
 
-# Copy new files to raw data folder ---------------------------------------
+# Copy new files to raw data folder --------------------------------------------
 
-new_file_paths_to_copy <-  ps_new_filepath_df$filepath[1:200]
+new_file_paths_to_copy <-  ps_new_filepath_df$filepath
 
 file.copy(from = new_file_paths_to_copy,
           to = raw_folder_path)
@@ -163,7 +160,7 @@ new_filepaths <- list.files(path = raw_folder_path,
 
 message(paste0(length(new_filepaths), " files copied into raw data folder"))
 
-# Collate new file data -------------------------------------------------------------
+# Collate new file data --------------------------------------------------------
 
 message("Collating new data files")
 
@@ -195,7 +192,7 @@ new_pos_cnv_collated <- new_filepaths |>
                                                  sheet_regex = "Amplifications|CNVs_"))) |> 
   list_rbind()
 
-# Check data --------------------------------------------------------------
+# Check data -------------------------------------------------------------------
 
 stopifnot(anyNA.data.frame(new_std_dev_collated) == FALSE)
 
@@ -213,7 +210,7 @@ stopifnot(nrow(new_amp_gene_collated) > 0)
 
 stopifnot(nrow(new_pos_cnv_collated) > 0)
 
-# Check columns ---------------------------------------------------------------------
+# Check columns ----------------------------------------------------------------
 
 # Scientists have been adding comments as extra columns, which makes binding the data
 # tricky.
@@ -231,7 +228,7 @@ pos_cnv_cols <- c(id_cols, "gene",	"chromosome",	"cnv_co_ordinates",	"cnv_length
 
 percent_138_cols <- c(id_cols, "percent_whole_panel_covered_at_138x")
 
-# Add new data to collated data -----------------------------------------------------
+# Add new data to collated data ------------------------------------------------
 
 std_dev_results_updated <- rbind(stdev_collated |> 
                                    select(all_of(std_dev_cols)),
@@ -253,7 +250,7 @@ pos_cnv_results_updated <- rbind(pos_cnv_collated |>
                                  new_pos_cnv_collated |> 
                                    select(all_of(pos_cnv_cols)))
 
-# Archive previous collated data ----------------------------------------------------
+# Archive previous collated data -----------------------------------------------
 
 write.csv(amp_genes_collated,
           paste0(data_folderpath, "live_service/collated/archive/",
@@ -283,7 +280,7 @@ write.csv(percent_138_collated,
                            "live_service_percent_138_results_collated.csv"),
           row.names = FALSE)
 
-# Save updated collated data --------------------------------------------------------
+# Save updated collated data ---------------------------------------------------
 
 write_csv(amp_gene_results_updated,
           paste0(data_folderpath, "live_service/collated/pansolid_amplifications_live_service/",
@@ -300,3 +297,13 @@ write_csv(pos_cnv_results_updated,
 write_csv(percent_138_results_updated,
           paste0(data_folderpath, "live_service/collated/pansolid_amplifications_live_service/",
                            "live_service_percent_138_results_collated.csv"))
+
+# Delete raw files -------------------------------------------------------------
+
+message("Deleting new raw files")
+
+file.remove(new_filepaths)
+
+if(length(list.files(raw_folder_path)) == 0){
+  message("Raw file folder is empty")
+}
