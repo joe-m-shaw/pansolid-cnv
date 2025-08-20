@@ -707,4 +707,59 @@ read_loh_table <- function(filepath,
   return(loh_table_with_ids)
 }
 
+## Function for contamination investigations
+
+read_snp_sheet <- function(filepath, 
+                           sheetname = "Artefacts_removed_GIAB_filt...") {
+  
+  #' Read the SNP frequency sheet from PanSolid Excels
+  #' 
+  #' This function reads the "Artefacts_removed_GIAB_filt..." sheet from the
+  #' Excel file which is saved in the "Unannotated_Files" folder of each
+  #' PanSolid worksheet. This sheet includes data for the single nucleotide
+  #' polymorphisms (SNPs) detected in the sample, which are presented in 
+  #' the variant allele frequency (VAF) track of the interactive HTML file.
+  #'
+  #' @param filepath The filepath of the Excel to read from.
+  #' @param sheetname The name of the sheet to read from.
+  #'
+  #' @returns A dataframe of the first 12 columns of the Excel sheet, which is
+  #' annotated with the sample details from the filename.
+  #' @export
+  #'
+  #' @examples
+  
+  df <- readxl::read_excel(path = filepath,
+                   sheet = sheetname,
+                   range = readxl::cell_cols("A:L"),
+                   col_types = c(
+                     "text", "text", "text", "text", "text", 
+                     "text", "numeric", "text", "text",
+                     "numeric", "numeric", "numeric"
+                   )) |> 
+    janitor::clean_names() 
+  
+  output <- add_identifiers(filepath, df)
+  
+  return(output)
+  
+}
+
+read_ploidy_sheet <- function(filepath, 
+                              sheetname) {
+  
+  df <- readxl::read_excel(path = filepath,
+                           sheet = sheetname,
+                           range = readxl::cell_cols("A:E"),
+                           col_types = c(
+                             "text", "text", "text", "text", "numeric"
+                           )) |> 
+    janitor::clean_names() 
+  
+  output <- add_identifiers(filepath, df)
+  
+  return(output)
+  
+}
+
 source(here::here("tests/test_pansolid_cnv_excel_functions.R"))
