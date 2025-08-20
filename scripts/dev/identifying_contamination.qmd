@@ -1,0 +1,470 @@
+---
+title: "Identifying Contamination"
+author: "Joe Shaw (CS20980)"
+date: today
+date-format: "DD-MM-YYYY"
+format: pdf
+editor: visual
+---
+
+# Introduction
+
+Contamination can be detected by visually inspecting the whole genome variant allele frequency (VAF) plot which is produced by the current version of the PanSolid CNV pipeline.
+However, cancer scientists have requested for there to be an automated method for identifying sample data as being at high risk of contamination.
+
+```{r}
+#| label: packages-and-functions
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+
+source(here::here("functions/pansolid_cnv_excel_functions.R"))
+
+```
+
+# Methods
+
+For this investigation I have used data from 3 sources:
+
+1.  The validation dataset for gene deletions and loss of heterozygosity detection (DOC6567).
+
+```{r}
+#| label: validation-data
+#| include: FALSE
+
+val_snp_files <- list.files(path = paste0(config::get("data_folderpath"),
+                                     "validation/DOC6567_deletions/",
+                                     "raw/pansolid_ngs/final_format"),
+           pattern = "Results_SNVs_Indels.*.xlsx",
+           recursive = TRUE,
+           full.names = TRUE)
+
+val_cnv_files <- list.files(path = paste0(config::get("data_folderpath"),
+                                     "validation/DOC6567_deletions/",
+                                     "raw/pansolid_ngs/final_format"),
+           pattern = "Annotated.*.xlsx",
+           recursive = TRUE,
+           full.names = TRUE)
+
+val_cnv_data <- val_cnv_files |> 
+  map(\(val_cnv_files) extract_cnv_tbls(val_cnv_files, 
+                                        sheet_regex = "CNVs_"))
+
+val_stdev <- map(val_cnv_data, ~ .x[["stdev"]]) |> 
+  list_rbind()
+
+val_percent_138 <- map(val_cnv_data, ~ .x[["percent_138x"]]) |> 
+  list_rbind()
+
+val_snp_data <- val_snp_files |> 
+  map(\(val_snp_files) read_snp_sheet(val_snp_files)) |> 
+  list_rbind()
+
+val_ploidy_data <- val_snp_files |> 
+  map(\(val_snp_files) read_ploidy_sheet(
+    filepath = val_snp_files,
+    sheetname = get_sheetname(filepath = val_snp_files,
+                             sheet_regex = "Ploidy\\sRegions\\s.*"))) |> 
+  list_rbind()
+
+```
+
+2.  Data from samples where contamination was detected in the live clinical service prior to May 2025 (INC10288).
+
+```{r}
+#| label: inc20188-data
+#| include: FALSE
+
+inc10288_snp_files <- list.files(path = paste0(config::get("data_folderpath"),
+                                     "live_service/INC10288_contamination/raw/"),
+           pattern = "Results_SNVs_Indels.*.xlsx",
+           recursive = TRUE,
+           full.names = TRUE)
+
+inc10288_cnv_files <- list.files(path = paste0(config::get("data_folderpath"),
+                                     "live_service/INC10288_contamination/raw/"),
+           pattern = "Annotated.*.xlsx",
+           recursive = TRUE,
+           full.names = TRUE)
+
+inc10288_snp_data <- inc10288_snp_files |> 
+  map(\(inc10288_snp_files) read_snp_sheet(inc10288_snp_files)) |> 
+  list_rbind()
+
+inc10288_stdev <- inc10288_cnv_files |> 
+  map(\(inc10288_cnv_files) read_stdev_results(
+    inc10288_cnv_files,
+    sheet = get_amp_sheetname(inc10288_cnv_files))) |> 
+  list_rbind()
+
+inc10288_percent138 <- inc10288_cnv_files |> 
+  map(\(inc10288_cnv_files) read_percent_138_results(
+    inc10288_cnv_files,
+    sheet = get_amp_sheetname(inc10288_cnv_files))) |> 
+  list_rbind()
+
+```
+
+3.  Data from 5 live service worksheets from after May 2025, which included contaminated samples (WS155702, WS154037, WS155071, WS153994, WS155167). WS155167 was included because every sample on this worksheet had a raised signal-adjusted noise quality metric.
+
+```{r}
+#| label: live-ws-data
+#| include: FALSE
+
+ws_folderpath <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
+
+WS155702_snp_files <- list.files(path = paste0(ws_folderpath,
+                                               "WS155702/"),
+           pattern = "Results_SNVs_Indels.*.xlsx",
+           recursive = TRUE,
+           full.names = TRUE)
+
+WS154037_snp_files <- list.files(path = paste0(ws_folderpath,
+                                               "WS154037/"),
+           pattern = "Results_SNVs_Indels.*.xlsx",
+           recursive = TRUE,
+           full.names = TRUE)
+
+WS155071_snp_files <- list.files(path = paste0(ws_folderpath,
+                                               "WS155071/"),
+           pattern = "Results_SNVs_Indels.*.xlsx",
+           recursive = TRUE,
+           full.names = TRUE)
+
+WS153994_snp_files <- list.files(path = paste0(ws_folderpath,
+                                               "WS153994/"),
+           pattern = "Results_SNVs_Indels.*.xlsx",
+           recursive = TRUE,
+           full.names = TRUE)
+
+WS155167_snp_files <- list.files(path = paste0(ws_folderpath,
+                                               "WS155167/"),
+           pattern = "Results_SNVs_Indels.*.xlsx",
+           recursive = TRUE,
+           full.names = TRUE)
+
+live_ws_snp_files <- c(WS155702_snp_files,
+                       WS154037_snp_files,
+                       WS155071_snp_files,
+                       WS153994_snp_files,
+                       WS155167_snp_files)
+
+live_ws_snp_data <- live_ws_snp_files |> 
+  map(\(live_ws_snp_files) read_snp_sheet(live_ws_snp_files)) |> 
+  list_rbind()
+
+live_ws_stdev <- read_csv(file = paste0(config::get("data_folderpath"),
+                                        "live_service/collated/",
+                                        "stdev_live.csv"))
+
+live_ws_percent_138 <- read_csv(file = paste0(config::get("data_folderpath"),
+                                        "live_service/collated/",
+                                        "percent_138x_live.csv"))
+
+live_ws_ploidy_data <- live_ws_snp_files |> 
+  map(\(live_ws_snp_files) read_ploidy_sheet(
+    filepath = live_ws_snp_files,
+    sheetname = get_sheetname(filepath = live_ws_snp_files,
+                              sheet_regex = "Ploidy\\sRegions\\s.*"))) |> 
+  list_rbind()
+
+```
+
+Contamination statuses were determined from the whole genome VAF patterns and microsatellite instability testing.
+
+```{r}
+#| label: contamination-statuses
+#| include: FALSE
+
+contamination_statuses <- read_excel(
+  path = paste0(config::get("data_folderpath"),
+                "live_service/INC10288_contamination/",
+                "labno_contamination_statuses.xlsx")) |> 
+  mutate(labno_suffix_worksheet = str_c(labno, "_", worksheet))
+
+contamination_df <- contamination_statuses |> 
+  filter(status == "contaminated")
+
+lod_samples <- c("24026628b_WS150465",
+                 "24026628c_WS150465",
+                 "24026628d_WS150465")
+
+contaminated_samples <- c(contamination_df$labno_suffix_worksheet, 
+                          lod_samples)
+
+```
+
+{{< pagebreak >}}
+
+# Results
+
+## SNP frequency ranges
+
+```{r}
+#| label: define-ranges
+#| include: FALSE
+
+upper_range_max <- 99
+
+upper_range_min <- 60
+
+lower_range_max <- 40
+
+lower_range_min <- 1
+
+```
+
+My first idea was to identify contaminated samples based on having a high number or proportion of SNPs with VAFs at intermediate frequencies.
+I classified these intermediate frequencies as being from `r lower_range_min`% to `r lower_range_max`% and from `r upper_range_min`% to `r upper_range_max`%.
+Contaminated samples have bands of SNP frequencies within these ranges extending across the entire PanSolid enrichment.
+
+```{r}
+#| label: bind-data
+#| include: FALSE
+
+snp_data <- rbind(val_snp_data, inc10288_snp_data, live_ws_snp_data)
+
+stdev_data <- rbind(val_stdev, 
+                    live_ws_stdev |> 
+                      select(-filename),
+                    inc10288_stdev |> 
+                      rename(stdev_noise = st_dev_signal_adjusted_log2_ratios))
+
+percent_138_data <- rbind(val_percent_138, 
+                          live_ws_percent_138 |> 
+                            select(-filename),
+                          inc10288_percent138 |> 
+                            rename(percent_138x = percent_whole_panel_covered_at_138x))
+
+```
+
+```{r}
+#| label: annotate-data
+#| include: FALSE
+
+snp_data_mod <- snp_data |> 
+  mutate(snp_region = case_when(
+    frequency >= upper_range_max ~"top_line",
+    frequency < upper_range_max &
+      frequency >= upper_range_min ~"intermediate_upper",
+    frequency < upper_range_min &
+      frequency > lower_range_max ~"mid_line",
+    frequency <= lower_range_max &
+      frequency >= lower_range_min ~"intermediate_lower")
+    )
+
+stopifnot(anyNA(snp_data_mod$snp_region) == FALSE)
+
+snp_data_with_score <- snp_data_mod |> 
+  group_by(labno_suffix_worksheet, snp_region) |> 
+  count() |> 
+  pivot_wider(id_cols = labno_suffix_worksheet,
+              names_from = snp_region,
+              values_from = n) |> 
+  mutate(
+    non_intermediate = mid_line + top_line,
+    intermediate = intermediate_upper + intermediate_lower,
+    all = non_intermediate + intermediate,
+    percent_intermediate = (intermediate / all) * 100)
+
+snp_data_with_status <- snp_data_with_score |> 
+  mutate(contaminated_status = case_when(
+    labno_suffix_worksheet %in% contaminated_samples ~"contaminated",
+    TRUE ~"not contaminated"))
+  
+stopifnot(anyNA(snp_data_with_status$contaminated_status) == FALSE)
+
+snp_data_with_qc <- snp_data_with_status |> 
+  left_join(percent_138_data |> 
+              select(labno_suffix_worksheet, percent_138x),
+            by = "labno_suffix_worksheet") |> 
+  left_join(stdev_data |> 
+              select(labno_suffix_worksheet, stdev_noise),
+            by = "labno_suffix_worksheet") |> 
+  mutate(quality = case_when(
+    stdev_noise >= 1.0 |
+      percent_138x < 90 ~"bad_quality",
+    TRUE ~"good_quality"
+  ))
+  
+stopifnot(anyNA(snp_data_with_qc$quality) == FALSE)
+
+```
+
+```{r}
+#| label: define-threshold
+#| include: FALSE
+
+cont_df <- snp_data_with_status |> 
+  filter(contaminated_status == "contaminated")
+
+intermediate_threshold <- 1500
+
+```
+
+As shown in @fig-snp-range-plot and @tbl-prediction-sensitivity, this approach did not clearly separate the contaminated from non-contaminated samples when a threshold of `r intermediate_threshold` SNPs was used.
+The non-contaminated samples with high numbers of SNPs with intermediate VAFs were samples with low coverage or evidence of haploidy/hyperploidy.
+
+```{r}
+#| label: fig-snp-range-plot
+#| fig-label: "Detecting contamination based on intermediate SNP VAFs"
+#| echo: FALSE
+
+snp_range_plot <- ggplot(snp_data_with_qc, aes(x = contaminated_status,
+                                               y = intermediate)) +
+  geom_jitter(shape = 21, width = 0.1) +
+  theme_bw() +
+  geom_hline(yintercept = intermediate_threshold,
+             linetype = "dashed") +
+  scale_y_continuous(limits = c(0, 8000),
+                     breaks = seq(0, 8000, by = 500)) +
+  labs(x = "",
+       y = "Number of intermediate SNP VAFs")
+
+snp_range_plot
+
+```
+
+```{r}
+#| label: tbl-prediction-sensitivity
+#| tbl-cap: "SNP VAF approach results"
+#| echo: FALSE
+
+snp_data_with_predictions <- snp_data_with_qc |> 
+  mutate(prediction = case_when(
+    intermediate >= intermediate_threshold ~"predict_contaminated",
+    intermediate < intermediate_threshold ~"predict_not_contaminated"
+  )) 
+
+sens_tbl_all <- snp_data_with_predictions |> 
+  group_by(contaminated_status, prediction) |> 
+  count() |> 
+  pivot_wider(id_cols = contaminated_status,
+              names_from = prediction,
+              values_from = n,
+              values_fill = 0)
+
+knitr::kable(sens_tbl_all)
+
+```
+
+{{< pagebreak >}}
+
+## Ploidy region counts
+
+My next approach was to use the number of ploidy regions detected in each sample as a surrogate marker for contamination.
+For this step I could only use data from sources 1 and 3, as the INC10288 data from before May 2025 did not have ploidy states available in the unannotated Excel export.
+
+```{r}
+#| label: bind-ploidy-data
+#| include: FALSE
+
+ploidy_data <- rbind(val_ploidy_data, live_ws_ploidy_data)
+
+```
+
+```{r}
+#| label: count-ploidy-regions
+#| include: FALSE
+
+ploidy_data_summary <- ploidy_data |> 
+  group_by(labno_suffix_worksheet) |> 
+  summarise(number_ploidy_regions = n(),
+            median_targets = median(number_of_targets),
+            max_targets = max(number_of_targets)) |> 
+  mutate(contaminated_status = case_when(
+    labno_suffix_worksheet %in% contaminated_samples ~"contaminated",
+    TRUE ~"not contaminated"))
+
+ploidy_call_threshold <- 200
+
+```
+
+As shown in @fig-ploidy-region-plot, there was good discrimination between contaminated and non-contaminated samples using a threshold of `r ploidy_call_threshold` ploidy regions.
+There were only two non-contaminated samples (25031305_WS154037 and 25039382_WS155167) above the threshold.
+25039382_WS155167 had a signal-adjusted noise value of 0.9 and 25031305_WS154037 has a percent 138x value of 89%.
+
+```{r}
+#| label: fig-ploidy-region-plot
+#| fig-cap: "Detecting contamination based on ploidy region counts"
+#| echo: FALSE
+
+ploidy_region_plot <- ggplot(ploidy_data_summary, aes(x = contaminated_status, 
+                                                      y = number_ploidy_regions)) +
+  geom_jitter(width = 0.1, shape = 21) +
+  geom_hline(yintercept = ploidy_call_threshold, linetype = "dashed") +
+  theme_bw() +
+  labs(x = "",
+       y = "Number of ploidy regions")
+
+ploidy_region_plot
+
+```
+
+```{r}
+#| label: tbl-ploidy-region-prediction
+#| echo: FALSE
+#| tbl-cap: "Predictions based on ploidy region counts"
+
+tbl_ploidy_region_prediction <- ploidy_data_summary |> 
+  mutate(prediction = case_when(
+    number_ploidy_regions >= ploidy_call_threshold ~"predict_contaminated",
+    number_ploidy_regions < ploidy_call_threshold ~"predict_not_contaminated"
+  )) |> 
+  group_by(contaminated_status, prediction) |> 
+  count() |> 
+  pivot_wider(
+    id_cols = contaminated_status,
+    names_from = prediction,
+    values_from = n,
+    values_fill = 0
+  )
+
+knitr::kable(tbl_ploidy_region_prediction)
+
+```
+
+{{< pagebreak >}}
+
+## Both ploidy regions and SNP frequencies
+
+Combining both approaches doesn't lead to an increase in prediction sensivity, but it does approximate what a person does when they visually check a whole genome plot:
+
+- Check for a multi-coloured pattern (lots of ploidy regions)
+
+- Check for bands of SNPs in the intermediate ranges across the whole genome
+
+```{r}
+#| label: fig-ploidy-regions-and-snp-frequencies
+#| echo: FALSE
+
+snp_and_ploidy_summary <- snp_data_with_qc |> 
+  inner_join(ploidy_data_summary |> 
+               select(-contaminated_status), by = "labno_suffix_worksheet")
+
+ploidy_snp_freq_plot <- ggplot(snp_and_ploidy_summary, aes(x = intermediate,
+                                   y = number_ploidy_regions)) +
+  geom_hline(yintercept = ploidy_call_threshold, linetype = "dashed") +
+  geom_vline(xintercept = intermediate_threshold, linetype = "dashed") +
+  geom_point(shape = 21, aes(fill = contaminated_status)) +
+  theme_bw() +
+  labs(y = "Number of ploidy regions",
+       x = "Number of intermediate SNP VAFs",
+       fill = "") +
+  theme(legend.position = "bottom") +
+  scale_y_continuous(limits = c(0, 500),
+                     breaks = seq(0, 500, by = 100)) +
+  scale_x_continuous(limits = c(0, 8000),
+                     breaks = c(seq(0, 8000, by = 1000),
+                                1500))
+
+ploidy_snp_freq_plot
+
+```
+
+{{< pagebreak >}}
+
+# Conclusion
+
+Ploidy region counts are an effective way to distinguish contaminated from non-contaminated samples on PanSolid, but visual review by trained scientists will still be required.
