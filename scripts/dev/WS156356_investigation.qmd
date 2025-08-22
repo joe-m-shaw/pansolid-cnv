@@ -1,0 +1,95 @@
+---
+title: "WS156356 contamination investigation"
+author: "Joe Shaw (CS20980)"
+date: today
+date-format: "DD-MM-YYYY"
+format: pdf
+editor: visual
+fig-width: 7
+fig-height: 6
+---
+
+```{r}
+#| label: packages-and-functions
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+
+source(here::here("functions/pansolid_cnv_excel_functions.R"))
+source(here::here("functions/contamination_functions.R"))
+
+```
+
+```{r}
+#| label: load-data
+#| include: FALSE
+
+WS156356_files <- list.files(path = paste0("S:/central shared/",
+                                           "Genetics/Repository/",
+                                           "WorksheetAnalysedData/",
+                                           "WS156356"),
+                             pattern = "Results_SNVs_Indels.*.xlsx",
+                             full.names = TRUE,
+                             recursive = TRUE)
+
+WS156356_snp_data <- WS156356_files |> 
+  map(\(WS156356_files) read_snp_sheet(WS156356_files)) |> 
+  list_rbind()
+
+```
+
+# 25047626 
+
+25047626 appears to have contamination, but comparing the SNP profile to the SNP profiles in 25047573 and 25047631 does not show clear evidence that either is the contaminating sample.
+Both 25047573 and 25047631 are poor quality with low numbers of SNPs identified, which could impact the accuracy of this method.
+I have checked the SNP profile of 25047626 against every other sample on WS156356 and can't find a clear match. 
+For context, a clear match would look like solid bands of colour on the plots.
+SNPs which are heterozygous in the contaminating sample should be present in the intermediate ranges in the contaminated sample.
+
+```{r}
+#| label: fig-25047626-plot1
+#| echo: FALSE
+
+plot_25047626_1 <- make_contamination_snp_plot(df = WS156356_snp_data,
+                            "WS156356", "25047626",
+                            "WS156356", "25047631")[1]
+
+plot_25047626_1
+
+```
+
+```{r}
+#| label: fig-25047626-plot2
+#| echo: FALSE
+
+plot_25047626_2 <- make_contamination_snp_plot(df = WS156356_snp_data,
+                            "WS156356", "25047626",
+                            "WS156356", "25047573")[1]
+
+plot_25047626_2
+
+```
+
+{{< pagebreak >}}
+
+# 25047558
+
+Sample 25047558 also appears to be contaminated.
+I have checked against every other sample on the worksheet and cannot find a clear source of the contamination.
+Below is a random example.
+
+All this indicates that the contamination is not arising from the PanSolid NGS setup.
+
+```{r}
+#| label: fig-25047558-plot
+#| echo: FALSE
+
+plot_25047558 <- make_contamination_snp_plot(df = WS156356_snp_data,
+                            "WS156356", "25047558",
+                            "WS156356", 
+                            # This one
+                            "25047430")[1]
+plot_25047558
+
+```
