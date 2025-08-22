@@ -201,6 +201,45 @@ get_annotated_filepaths <- function(
   
 }
 
+get_worksheet_filepaths <- function(
+    repository_path = "S:/central shared/Genetics/Repository/WorksheetAnalysedData/",
+    worksheet, 
+    file_regex = "^Annotated(_|_v2.+_)WS\\d{6}_.+.xlsx",
+    full_names = TRUE,
+    recursive = TRUE) {
+  
+  #' Get the filepaths of files within worksheet folders
+  #'
+  #' This function is a more flexible version of `get_annotated_filepaths`, as
+  #' it has the option to specify a different filetype regular expression, and 
+  #' also options for recursive and full.names arguments in `list.files`.
+  #'
+  #' @param repository_path The filepath for the worksheet repository - defaults to 
+  #' the standard S drive location.
+  #' @param worksheet The PanSolid worksheet in the format WS123456
+  #' @param file_regex The regular expression for the filetype to find, which
+  #' defaults to the annotated output of the PanSolid pipeline
+  #' @param full_names TRUE or FALSE supplied to the full.names argument of 
+  #' `list.files`.
+  #' @param recursive TRUE or FALSE supplied to the recursive argument of 
+  #' `list.files`.
+  #'
+  #' @returns A list of filepaths
+  #' @export
+  #'
+  #' @examples get_worksheet_filepaths(worksheet = "WS156356", file_regex = "Results_SNVs_Indels.*.xlsx")
+  
+  
+  filepaths <- list.files(path = str_c(repository_path, {{ worksheet }},
+                                                 "/"),
+                                    recursive = recursive, 
+                                    pattern = file_regex,
+                                    full.names = full_names)
+  
+  return(filepaths)
+  
+}
+
 get_amp_sheetname <- function(filepath) {
   
   #' Get the sheet name of the amplifications tab for a PanSolid results Excel
