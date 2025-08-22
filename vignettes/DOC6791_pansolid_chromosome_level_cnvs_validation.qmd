@@ -1,0 +1,268 @@
+---
+title: "DOC6791: Validation of Detecting Chromosome Level Copy Number Variants with the PanSolid CLC pipeline"
+format: 
+  docx:
+    reference-doc: north_west_glh_document_template.docx
+    link-citations: true
+toc: true
+toc-title: "Table of Contents"
+bibliography: pansolid_cnv_references.bib
+csl: harvard-manchester-metropolitan-university.csl
+fig-align: "left"
+fig-wdith: 6
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+# Authors
+
+Author: Joe Shaw (CS20980)
+
+Project Lead(s): Joe Shaw, Elizabeth Sollars, Eleanor Baker, Helene
+Schlecht, George Burghel
+
+Date: `r Sys.Date()`
+
+Author contact: joseph.shaw2\@mft.nhs.uk; joseph.shaw3\@nhs.net
+
+# Acronyms
+
+**ATRX**: α-thalassemia/mental retardation syndrome X-linked
+
+**cIMPACT-NOW:** consortium to Inform Molecular and Practical Approaches
+to CNS Tumour taxonomy-Not Official WHO
+
+**CLC**: there is no official acronym for CLC, although unofficially it was referred to as "Cake Loving Company" by CLC employees [@sollars2025]
+
+**DNA**: DeoxyriboNucleic Acid
+
+**FFPE**: Formalin-Fixed Paraffin Embedded
+
+**FISH**: Fluorescent In-Situ Hybridisation
+
+**GLH**: Genomic Laboratory Hub
+
+**IDH**: isocitrate dehydrogenase
+
+**IHC**: Immuno-HistoChemistry
+
+**LOH**: Loss Of Heterozygosity
+
+**MGMT**: O6-Methylguanine-DNA methyltransferase
+
+**NCC**: Neoplastic Cell Content
+
+**NGS**: Next Generation Sequencing
+
+**NHS**: National Health Service
+
+**PCR:** Polymerase Chain Reaction
+
+**SNP:** Single Nucleotide Polymorphism
+
+**TERT**: Telomerase Reverse Transcriptase
+
+**WGS**: Whole Genome Sequencing
+
+**WHO**: World Health Organisation
+
+# Introduction
+
+## Purpose
+
+The purpose of this document is to describe the validation of detection
+of chromosome level copy number variants (CNVs) in solid tumour samples
+with the PanSolid v2 QIAseq enrichment panel using the PanSolid CLC
+pipeline (v2.4) at the North West Genomic Laboratory Hub (GLH).
+Detection of specific CNVs in different cancer types is required by the
+most recent update of the\
+[NHS Genomic Test Directory for
+Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/).
+
+## Target copy number variants
+
+### Neurological tumours
+
+Co-deletion of 1 and 19q, as determined by PCR-based LOH testing, was
+shown to be associated with a good response to chemotherapy in
+oligodendrogliomas [@cairncross1998]. The biological mechanism for this
+observation remains unknown.
+
+Later cytogenetic studies using Giemsa-banding and FISH showed that the
+co-deletion of 1p and 19q was due to a recurrent translocation between
+the two chromosomes. A derivative der(1;19)(q10;p10) chromosome was
+observed within glioma cells, whilst the reciprocal der(1;19)(p10;q10)
+chromosome is absent and presumably lost [@jenkins2006; @griffin2006].
+
+In the 2021 edition of the World Health Organisation Guidelines,
+detection of 1p19q codeletion is required for classification of a tumour
+as "Oligodendroglioma, IDH-mutant, and 1p/19q-codeleted" [@louis2021].
+Critically, 1p19q codeletion is a key biomarker for distinguishing
+between oligodendrogliomas, which contain the codeletion, and
+astrocytomas, which do not [@masui2016].
+
+Multiple techniques can be used to detect 1p19q codeletions and there is
+no gold-standard method [@brandner2022].
+
+In the most recent update of the cIMPACT-NOW guidelines for meningiomas,
+whole chromosome copy number analysis is recommended for tumour grading,
+with at least two losses of chromosomes 6, 10, 14 or 18 sufficient to
+categorise a tumour as molecular high-risk [@sahm2025].
+
+### Malignant melanoma
+
+The purpose is to distinguish benign nevi from malignant melanomas.
+
+References: @ferrara2016; @gerami2009
+
+### Renal cell carcinoma
+
+Specific chromosome gains and losses are associated with subtypes of
+renal cancer.
+
+Renal cell carcinoma: loss of 3p (including VHL)
+
+Papillary renal cell carcinoma: gains of 7 and 17
+
+References: @liu2020, @klatte2009, @chen2010
+
+### PanSolid enrichment
+
+```{r}
+#| label: enrichment-targets
+#| echo: FALSE
+
+library(tidyverse)
+library(janitor)
+
+target_df <- read_csv(paste0(config::get("data_folderpath"),
+                             "validation/DOC6283_amplifications/bed_files/",
+                             "PanSolidv2_GRCh38_noalt_BED.csv")) |> 
+  clean_names() |> 
+  mutate(chromosome = factor(chromosome,
+                                levels  = c(seq(1:22), "X")))
+
+targets_per_chromosome <- target_df |> 
+  group_by(chromosome) |> 
+  count() 
+
+ggplot(targets_per_chromosome, aes(x = chromosome, y = n)) +
+  geom_col() +
+  theme_bw() +
+  labs(x = "Chromosome", y = "Number of targets",
+       title = "Distribution of targets on PanSolid enrichment")
+
+```
+
+## Requirements and Performance Specification
+
+The requirements for this new method are as follows:
+
+-   The test must have a clear visual presentation of results
+-   The test must provide a quantitative result for whether a chromosome
+    or chromosome arm is impacted by a gain or loss.
+-   The combined analysis of the PanSolid CLC pipeline with manual
+    review by a clinical scientist should sensitivity and specificity
+    values above 90% when compared with orthogonal testing.
+-   The test must have clear quality metric thresholds for deciding
+    sample quality
+
+# Methods
+
+## Samples
+
+## Next generation sequencing
+
+Next generation sequencing on the PanSolid v2 enrichment was performed
+for all samples.
+
+## PanSolid CLC bioinformatics pipeline
+
+### Visualisation
+
+## Orthogonal testing
+
+### Karyotype analysis
+
+Karyotype analysis was performed at the North West GLH (Liverpool site).
+
+### Fluorescence In-Situ Hybridisation
+
+Fluorescence In-Situ Hybridisation (FISH) analysis was performed at the
+North West GLH (Liverpool site) using the Zytolight 1p36/1q25 dual
+colour probes (ZytoVision).
+
+### SNP array
+
+Haemato-oncology samples were tested using the Illumina Global Screening
+Array-24+ 3.0 assay at the North West GLH (Manchester site).
+
+### Methylation array
+
+Samples were processed on the Illumina Infinium Methylation EPIC Bead
+Chip platform at the North West GLH and data were analysed using the
+University of Heidelberg Central Nervous System methylation classifier
+[@capper2018].
+
+### Whole genome sequencing
+
+Whole genome sequencing (WGS) was performed by Illumina Laboratory
+Services in Cambridge. Further details are provided in
+[DOC6567]{custom-style="Strong"}.
+
+## Validation analysis
+
+# Results
+
+## Neurological tumours
+
+### Unusual 1p19q codeletion cases
+
+Sample 23001331 was tested which had a 1q19p gain, in order to check whether this would be incorrectly interpreted as a 1p19q loss.
+
+A sample from a tumour with chromothripsis was tested.
+
+## Non-diploid samples
+
+5 samples with known hyperdiploid or hypodiploid karyotypes from G-banding analysis were tested on PanSolid NGS.
+
+## Resolution
+
+## Repeat testing
+
+3 DNA samples from Schwannoma tumours (24018518, 24045597 and 24054282)
+were tested on 3 different worksheets to assess the impact of repeat
+variation. These were the same DNA samples used for the validation of
+detection of deletions ([DOC6567]{custom-style="Strong"}).
+
+### Uncertainty of measurement
+
+## Limit of detection
+
+# Discussion
+
+## Limitations
+
+Bone marrow samples were tested because only bone marrow samples get karyotyping. Karyotyped samples from FFPE blocks were not available.
+
+
+
+## Extrapolation to other copy number variants
+
+This validation has focussed on a discrete list of chromosome-level
+CNVs. The sensitivity and specificity of the PanSolid pipeline for
+detecting the chromosome level CNVs within the validation data can be
+extrapolated to all chromosome level CNVs, provided that the CNV has a
+size greater than X Megabases.
+
+# Review of Test Requirements
+
+# Requirements for Clinical Implementation
+
+# Conclusion
+
+# References
+
+::: {#refs}
+:::
