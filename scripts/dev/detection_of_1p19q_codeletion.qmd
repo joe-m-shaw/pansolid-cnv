@@ -1,0 +1,138 @@
+---
+title: "Chromosome-arm level CNV detection"
+author: "Joe Shaw (CS20980)"
+format: pdf
+editor: visual
+---
+
+# Introduction
+
+Chromosome-arm level copy number variants (CNVs) are detected by the Ploidy Caller within the PanSolid CNV pipeline, and visualised across the whole genome in the HTML file output.
+Cancer scientists have requested an additional way of alerting them when there is a CNV impacting a whole chromosome arm, such as the 1p19q co-deletion.
+
+```{r}
+#| label: packages-and-functions
+#| include: FALSE
+
+library(tidyverse)
+library(here)
+library(readxl)
+
+source(here("functions/extract_pansolid_cnv_coordinates.R"))
+source(here("functions/pansolid_cnv_excel_functions.R"))
+source(here("functions/chromosome_arm_functions.R"))
+
+```
+
+# Methods
+
+I have created a series of functions which analyse the ploidy regions detected by the PanSolid CNV pipeline.
+The general overview of this process is:
+
+1.  Load the ploidy regions from the "Ploidy Regions" tab of the "Results_SNVs_Indels" Excel file in the "Unannotated_Files" folder of each worksheet.
+
+2.  Annotate each region by the chromosome arm that the region is on.
+
+3.  Calculate the size of the region by subtracting the start coordinate from the end coordinate.
+
+4.  Sum the total length, in base pairs, of ploidy regions for a particular ploidy state, such as "Deletion", on each chromosome arm.
+
+5.  Calculate the percentage of the entire chromosome arm that is covered by each ploidy state.
+
+6.  Add a flag when any ploidy state, other that "Normal diploid", covers over 90% of the total chromosome arm.
+
+```{r}
+#| label: analyse-data
+#| include: FALSE
+
+folder <- paste0(config::get("data_folderpath"),
+                 "validation/DOC6791_chromosome_arms/raw/pansolid_ngs/")
+
+val_files <- list.files(folder, "Results_SNVs_Indels-.*.xlsx",
+                        full.names = TRUE)
+
+fish_results <- read_excel(path = paste0(config::get("data_folderpath"),
+                 "validation/DOC6791_chromosome_arms/raw/fish/",
+                 "fish_result_summary.xlsx"),
+                 col_types = c("text", "text", "text", "text")) |> 
+  pivot_longer(cols = c("1p", "19q"),
+               names_to = "chromosome_arm",
+               values_to = "fish_result")
+
+val_ploidy_data <- val_files |> 
+  map(\(val_files) read_ploidy_sheet(filepath = val_files,
+                                    sheetname = get_sheetname(filepath = val_files,
+                                      sheet_regex = "Ploidy\\sRegion.*"))) |> 
+  list_rbind()
+
+validation_threshold <- 80
+
+val_ploidy_results <- make_chr_arm_ploidy_tbl(val_ploidy_data,
+                                              input_threshold = validation_threshold)
+
+```
+
+# Results
+
+## Example
+
+Here is an example of the table for sample 24017214 which has a confirmed 1p19q co-deletion on FISH.
+
+```{r}
+#| label: tbl-example-full
+#| echo: FALSE
+
+example_tbl_full <- val_ploidy_results |> 
+  filter(labno_suffix_worksheet == "24017214_WS145856") |>  
+  ungroup() |> 
+  select(chromosome_arm, result_flag, full_string)
+
+knitr::kable(example_tbl_full)
+
+```
+
+And here is an example with only significant chromosome changes shown.
+
+```{r}
+#| label: tbl-example-summary
+#| echo: FALSE
+
+knitr::kable(example_tbl_full |> 
+               filter(result_flag != ""))
+
+```
+
+## Comparison to 1p19q FISH
+
+We have `r length(val_files)` samples with PanSolid results and 1p19q FISH results.
+
+I have used my functions to analyse the ploidy regions, specifying that `r validation_threshold`% of a chromosome arm must be involved in regions of the same ploidy state in order to be annotated with that ploidy state.
+
+```{r}
+#| label: fish-comparison
+#| echo: FALSE
+
+val_1p19q <- val_ploidy_results |> 
+  filter(chromosome_arm %in% c("1p", "19q")) |> 
+  mutate(labno = str_extract(string = labno_suffix_worksheet,
+                             pattern = "(\\d{8})_WS\\d{6}",
+                             group =1)) |> 
+  select(labno_suffix_worksheet, labno,
+         chromosome_arm, result_flag, full_string) |> 
+  arrange(labno_suffix_worksheet, desc(chromosome_arm)) |> 
+  left_join(fish_results,
+            join_by("labno" == "pansolid_labno",
+                    "chromosome_arm" == "chromosome_arm")) |> 
+  select(name, labno, chromosome_arm, result_flag, fish_result,
+         full_string)
+
+knitr::kable(val_1p19q)
+
+```
+
+8 results are in agreement between the two methods.
+
+For 3 results, FISH reports a 19q deletion whilst PanSolid shows terminal 19q deletions with less than `r validation_threshold`% of 19q deleted.
+This presumably is a false positive result on FISH.
+
+One result does not agree because 1p and 19q are a mixture of LOH and deletion calls on PanSolid.
