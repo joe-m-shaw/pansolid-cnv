@@ -206,7 +206,12 @@ add_chromosome_arms <- function(df) {
 calculate_region_size <- function(df) {
   
   output <- df |> 
-    mutate(region_size = end-start)
+    mutate(region_size = end-start) |> 
+    left_join(chr_coords_grch38 |> 
+                select(chrom_arm, length),
+              join_by("chromosome_arm" == "chrom_arm")) |> 
+    mutate(percent_chr_arm = round((region_size / length) * 100, 1),
+           result_string = str_c(name, " ", percent_chr_arm, "%")) 
   
   return(output)
   
@@ -234,13 +239,9 @@ summarise_by_chromosome_arms <- function(df) {
   output <- df |> 
     group_by(labno_suffix_worksheet, 
              chromosome_char, chromosome_fct, chromosome_arm, name) |> 
-    summarise(ploidy_state_bp = sum(region_size)) |> 
-    left_join(chr_coords_grch38 |> 
-                select(chrom_arm, length),
-              join_by("chromosome_arm" == "chrom_arm")) |> 
-    mutate(percent = round((ploidy_state_bp / length) * 100, 1),
-           result_string = str_c(name, " ", percent, "%")) 
-  
+    summarise(ploidy_state_bp = sum(region_size),
+              ploidy_state_percent = sum(percent_chr_arm)) 
+
   return(output)
   
 }
@@ -259,9 +260,9 @@ add_chr_result_flag <- function(df, percent_threshold = 90) {
   
   output <- df |> 
     mutate(chr_flag = case_when(
-      percent >= percent_threshold &
+      percent_chr_arm >= percent_threshold &
         name != "Normal diploid" ~str_c(chromosome_arm, " ", name),
-      percent < percent_threshold |
+      percent_chr_arm < percent_threshold |
         name == "Normal diploid" ~""
     ))
   
@@ -282,7 +283,7 @@ format_arm_ploidy_tbl <- function(df) {
   
   output <- df |> 
     arrange(labno_suffix_worksheet, 
-            chromosome_fct, chromosome_arm, desc(percent)) |> 
+            chromosome_fct, chromosome_arm, desc(percent_chr_arm)) |> 
     group_by(labno_suffix_worksheet, 
              chromosome_fct, chromosome_arm) |> 
     summarise(full_string = toString(result_string),
