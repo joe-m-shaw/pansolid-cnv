@@ -9,7 +9,7 @@ toc-title: "Table of Contents"
 bibliography: pansolid_cnv_references.bib
 csl: harvard-manchester-metropolitan-university.csl
 fig-align: "left"
-fig-wdith: 6
+fig-width: 6
 editor: 
   markdown: 
     wrap: 72
@@ -21,6 +21,11 @@ editor:
 
 library(tidyverse)
 library(janitor)
+library(here)
+
+source(here("functions/extract_pansolid_cnv_coordinates.R"))
+source(here("functions/pansolid_cnv_excel_functions.R"))
+source(here("functions/chromosome_arm_functions.R"))
 
 ```
 
@@ -140,24 +145,74 @@ References: @liu2020, @klatte2009, @chen2009
 
 ```{r}
 #| label: enrichment-targets
-#| echo: FALSE
+#| include: FALSE
 
 target_df <- read_csv(paste0(config::get("data_folderpath"),
                              "validation/DOC6283_amplifications/bed_files/",
                              "PanSolidv2_GRCh38_noalt_BED.csv")) |> 
   clean_names() |> 
-  mutate(chromosome = factor(chromosome,
+  mutate(chromosome_fct = factor(chromosome,
                                 levels  = c(seq(1:22), "X")))
 
-targets_per_chromosome <- target_df |> 
-  group_by(chromosome) |> 
-  count() 
+target_df_coordinates <- target_df |> 
+  extract_pansolid_cnv_coordinates(cnv_coord_col = region) |> 
+  mutate(chromosome_char = as.character(chromosome_fct)) |> 
+  add_chromosome_arms()
 
-ggplot(targets_per_chromosome, aes(x = chromosome, y = n)) +
-  geom_col() +
+target_chr_arm_summary <- target_df_coordinates |> 
+  filter(!is.na(chromosome_arm)) |> 
+  group_by(chromosome_fct, chromosome_arm) |> 
+  summarise(min_coord = min(start),
+            max_coord = max(end)) |> 
+  mutate(target_span = max_coord - min_coord) |> 
+  left_join(chr_coords_grch38,
+            join_by("chromosome_arm" == "chrom_arm")) |> 
+  mutate(target_percent = (target_span / length)*100,
+         p_or_q = str_extract(string = chromosome_arm,
+                              pattern = "p|q"))
+  
+targets_per_chromosome <- target_df_coordinates |> 
+  filter(!is.na(chromosome_arm)) |> 
+  group_by(chromosome_fct, chromosome_arm) |> 
+  count() |> 
+  mutate(p_or_q = str_extract(string = chromosome_arm,
+                              pattern = "p|q"))
+
+```
+
+```{r}
+#| label: fig-targets-per-chromosome
+#| echo: FALSE
+
+fig_targets_per_chromosome <- ggplot(targets_per_chromosome, 
+                                     aes(x = chromosome_fct, y = n)) +
+  geom_col(aes(fill = p_or_q),
+           colour = "black") +
   theme_bw() +
   labs(x = "Chromosome", y = "Number of targets",
-       title = "Distribution of targets on PanSolid enrichment")
+       title = "Distribution of targets on PanSolid enrichment",
+       fill = "")
+
+fig_targets_per_chromosome
+
+```
+
+```{r}
+#| label: fig-target-chr-percent
+#| echo: FALSE
+
+fig_target_chr_percent <- ggplot(target_chr_arm_summary, 
+                                 aes(x = chromosome_fct, y = target_percent)) +
+  geom_col(position = "dodge", 
+           colour = "black",
+           aes(fill = p_or_q)) +
+  facet_wrap(~p_or_q, ncol = 1) +
+  theme_bw() +
+  labs(fill = "",
+       x = "Chromosome",
+       y = "Percentage covered by PanSolid targets")
+
+fig_target_chr_percent
 
 ```
 

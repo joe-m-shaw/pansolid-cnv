@@ -119,7 +119,7 @@ add_chromosome_arms <- function(df) {
   #'
   #' @examples
   
-  stopifnot(c("labno_suffix_worksheet", "chromosome_char", 
+  stopifnot(c("chromosome_char", 
               "start", "end") %in% colnames(df))
   
   stopifnot(typeof(df$chromosome_char) == "character")
