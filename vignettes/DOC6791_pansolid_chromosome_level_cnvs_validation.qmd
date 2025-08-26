@@ -15,6 +15,15 @@ editor:
     wrap: 72
 ---
 
+```{r}
+#| label: packages-and-functions
+#| include: FALSE
+
+library(tidyverse)
+library(janitor)
+
+```
+
 # Authors
 
 Author: Joe Shaw (CS20980)
@@ -76,7 +85,7 @@ of chromosome level copy number variants (CNVs) in solid tumour samples
 with the PanSolid v2 QIAseq enrichment panel using the PanSolid CLC
 pipeline (v2.4) at the North West Genomic Laboratory Hub (GLH).
 Detection of specific CNVs in different cancer types is required by the
-most recent update of the\
+most recent update of the
 [NHS Genomic Test Directory for
 Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/).
 
@@ -84,7 +93,7 @@ Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories
 
 ### Neurological tumours
 
-Co-deletion of 1 and 19q, as determined by PCR-based LOH testing, was
+Co-deletion of 1p and 19q, as determined by PCR-based LOH testing, was
 shown to be associated with a good response to chemotherapy in
 oligodendrogliomas [@cairncross1998]. The biological mechanism for this
 observation remains unknown.
@@ -125,16 +134,13 @@ Renal cell carcinoma: loss of 3p (including VHL)
 
 Papillary renal cell carcinoma: gains of 7 and 17
 
-References: @liu2020, @klatte2009, @chen2010
+References: @liu2020, @klatte2009, @chen2009
 
-### PanSolid enrichment
+## PanSolid enrichment
 
 ```{r}
 #| label: enrichment-targets
 #| echo: FALSE
-
-library(tidyverse)
-library(janitor)
 
 target_df <- read_csv(paste0(config::get("data_folderpath"),
                              "validation/DOC6283_amplifications/bed_files/",
@@ -172,6 +178,8 @@ The requirements for this new method are as follows:
 
 ## Samples
 
+
+
 ## Next generation sequencing
 
 Next generation sequencing on the PanSolid v2 enrichment was performed
@@ -179,7 +187,25 @@ for all samples.
 
 ## PanSolid CLC bioinformatics pipeline
 
-### Visualisation
+The PanSolid CNV pipeline was built in CLC Genomics Workbench and has been described in previous validation documents.
+
+### Visualisation and quantification
+
+The outputs of the PanSolid CNV pipeline are visualised at the whole-genome level via interactive plots, which were generated using the plotly package by Elizabeth Sollars and implemented during the validation of deletion and loss of heterozygosity detection (DOCxxxx).
+In addition, scientists in the somatic cancer team requested an quantitative way of alerting them when a CNV impacting a whole chromosome arm or arms was present, such as the 1p19q co-deletion.
+The following method 
+
+1.  Load the ploidy regions from the "Ploidy Regions" tab of the "Results_SNVs_Indels" Excel file in the "Unannotated_Files" folder of each worksheet.
+
+2.  Annotate each region by the chromosome arm that the region is on.
+
+3.  Calculate the size of the region by subtracting the start coordinate from the end coordinate.
+
+4.  Sum the total length, in base pairs, of ploidy regions for a particular ploidy state, such as "Deletion", on each chromosome arm.
+
+5.  Calculate the percentage of the entire chromosome arm that is covered by each ploidy state.
+
+6.  Add a flag when any ploidy state, other that "Normal diploid", covers over 90% of the total chromosome arm.
 
 ## Orthogonal testing
 
@@ -213,21 +239,29 @@ Services in Cambridge. Further details are provided in
 
 ## Validation analysis
 
+Analysis of the validation data was performed using R (4.4.1).
+
 # Results
 
 ## Neurological tumours
 
-### Unusual 1p19q codeletion cases
+### 1p19q codeletion samples
+
+X samples were tested, which had 1p19q codeletion results from FISH or WGS, or both.
+
+### 1q19p gain
 
 Sample 23001331 was tested which had a 1q19p gain, in order to check whether this would be incorrectly interpreted as a 1p19q loss.
 
 A sample from a tumour with chromothripsis was tested.
 
-## Non-diploid samples
+## Malignant melanoma
+
+## Renal cell carcinoma
+
+## Comparison to G-band karyotype
 
 5 samples with known hyperdiploid or hypodiploid karyotypes from G-banding analysis were tested on PanSolid NGS.
-
-## Resolution
 
 ## Repeat testing
 
@@ -246,7 +280,7 @@ detection of deletions ([DOC6567]{custom-style="Strong"}).
 
 Bone marrow samples were tested because only bone marrow samples get karyotyping. Karyotyped samples from FFPE blocks were not available.
 
-
+The quantification of chromosome arm percent will not sum to 100%, because the PanSolid enrichment does not cover the entire breadth of every chromosome arm.
 
 ## Extrapolation to other copy number variants
 
