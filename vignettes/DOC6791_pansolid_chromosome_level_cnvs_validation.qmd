@@ -22,6 +22,7 @@ editor:
 library(tidyverse)
 library(janitor)
 library(here)
+library(readxl)
 
 source(here("functions/extract_pansolid_cnv_coordinates.R"))
 source(here("functions/pansolid_cnv_excel_functions.R"))
@@ -233,7 +234,18 @@ The requirements for this new method are as follows:
 
 ## Samples
 
+```{r}
+#| label: load-cohort
+#| include: FALSE
 
+val_cohort <- read_excel(path = paste0(config::get("data_folderpath"),
+                                       "validation/DOC6791_chromosome_arms/",
+                                       "chromosome_arm_validation_cohort.xlsx"))
+```
+
+A cohort of 
+`r length(unique(val_cohort$pansolid_labno))`
+different samples was assembled for this validation.
 
 ## Next generation sequencing
 
@@ -260,7 +272,19 @@ The following method
 
 5.  Calculate the percentage of the entire chromosome arm that is covered by each ploidy state.
 
-6.  Add a flag when any ploidy state, other that "Normal diploid", covers over 90% of the total chromosome arm.
+6.  Add a flag when any ploidy state, other that "Normal diploid", covers over a threshold percentage of the total chromosome arm.
+
+```{r}
+#| label: chr-arm-percent-threshold
+#| include: FALSE
+
+chr_arm_percent_threshold <- 75
+
+```
+
+The threshold for flagging a chromosome arm level CNV event was set at
+`r chr_arm_percent_threshold`%.
+This was decided due to the 
 
 ## Orthogonal testing
 
@@ -298,25 +322,260 @@ Analysis of the validation data was performed using R (4.4.1).
 
 # Results
 
-## Neurological tumours
+## Distribution of ploidy state regions
 
-### 1p19q codeletion samples
+```{r}
+#| label: cohort-data
+#| include: FALSE
 
-X samples were tested, which had 1p19q codeletion results from FISH or WGS, or both.
+pansolid_unannotated_files <- list.files(paste0(config::get("data_folderpath"),
+                 "validation/DOC6791_chromosome_arms/raw/pansolid_ngs/unannotated/"),
+                 "Results_SNVs_Indels-.*.xlsx",
+                 full.names = TRUE)
 
-### 1q19p gain
+pansolid_ploidy_data <- pansolid_unannotated_files |> 
+  map(\(pansolid_unannotated_files) 
+      read_ploidy_sheet(filepath = pansolid_unannotated_files,
+                        sheetname = get_sheetname(filepath = pansolid_unannotated_files,
+                                                  sheet_regex = "Ploidy\\sRegion.*"))) |> 
+  list_rbind()
 
-Sample 23001331 was tested which had a 1q19p gain, in order to check whether this would be incorrectly interpreted as a 1p19q loss.
+gain_names <- c("(1,3)", "(0,4)", "(0,3)", "(2,4)", 
+                "Whole genome duplication", "Duplication", 
+                "(2,3)")
 
-A sample from a tumour with chromothripsis was tested.
+del_names <- c("Bi-allelic deletion", "Deletion")
 
-## Malignant melanoma
+pansolid_ploidy_data_long <- pansolid_ploidy_data |> 
+  extract_pansolid_cnv_coordinates(cnv_coord_col = region) |> 
+    format_chromosome_decimals() |> 
+    factorise_chromosome() |> 
+    add_chromosome_arms() |> 
+    calculate_region_size() |> 
+  mutate(name_group = case_when(
+    name == "Normal diploid" ~"Normal diploid",
+    name == "Uniparental disomy" ~"Uniparental disomy",
+    name %in% gain_names ~"Gain",
+    name %in% del_names ~"Deletion"
+  ),
+  name_group = factor(name_group, levels = c("Normal diploid",
+                                             "Deletion",
+                                             "Gain",
+                                             "Uniparental disomy")))
+```
 
-## Renal cell carcinoma
+The ploidy state results for 
+`r length(unique(pansolid_ploidy_data$labno))`
+samples were analysed by the chromosome arm quantification method. 
+The overall distribution of results is shown in @fig-ploidy-state-histogram, which shows a clear sub-group of ploidy state calls where a single ploidy state call accounts for over 95% of the chromosome arm.
+This indicates that the threshold of 
+`r chr_arm_percent_threshold`% is an appropriate threshold for discriminating large chromosome events.
+
+```{r}
+#| label: fig-ploidy-state-histogram
+#| echo: FALSE
+
+pansolid_data_for_plot <- pansolid_ploidy_data_long |> 
+  filter(name_group != "Normal diploid") |> 
+  mutate(percent_chr_arm_round = round(percent_chr_arm, 1)) |> 
+  filter(percent_chr_arm_round >= 1)
+
+fig_ploidy_state_histogram <-  ggplot(pansolid_data_for_plot, 
+                                      aes(x = percent_chr_arm_round, 
+                                          y = )) +
+  geom_histogram(binwidth = 2, aes(fill = name_group), colour = "black") +
+  scale_fill_manual(values = c("blue", "green", "orange")) +
+  geom_vline(xintercept = chr_arm_percent_threshold, linetype = "dashed") +
+  scale_x_continuous(limits = c(0, 100),
+                     breaks = seq(0, 100, by = 10)) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  labs(x = "Percentage of chromosome arm covered by call",
+       y = "Number of ploidy state calls",
+       fill = "",
+       title = paste0("Size distribution for ",
+                      nrow(pansolid_data_for_plot),
+                      " ploidy state calls in ",
+                      length(unique(pansolid_ploidy_data_long$labno)),
+                      " samples"),
+       subtitle = "Normal diploid ploidy states removed. Bin size: 2%")
+
+fig_ploidy_state_histogram
+
+```
+
+The `r chr_arm_percent_threshold`% threshold was used to flag when a chromosome arm was impacted by a large CNV event. 
+An example is shown in @tbl-example-full.
+
+```{r}
+#| label: analyse-ploidy-data
+#| include: FALSE
+
+pansolid_ploidy_results <- pansolid_ploidy_data |>
+  extract_pansolid_cnv_coordinates(cnv_coord_col = region) |> 
+  format_chromosome_decimals() |> 
+  factorise_chromosome() |> 
+  add_chromosome_arms() |> 
+  calculate_region_size() |> 
+  add_chr_result_flag(percent_threshold = chr_arm_percent_threshold) |> 
+  format_arm_ploidy_tbl()
+  
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: tbl-example-full
+#| tbl-cap: "Example of quantitative method output for sample 24017214"
+#| echo: FALSE
+
+example_tbl_full <- pansolid_ploidy_results |> 
+  filter(labno_suffix_worksheet == "24017214_WS145856") |>  
+  ungroup() |> 
+  select(chromosome_arm, result_flag, full_string)
+
+knitr::kable(example_tbl_full)
+
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: tbl-example-summary
+#| tbl-cap: "Example of summarised output for sample 24017214"
+#| echo: FALSE
+
+knitr::kable(example_tbl_full |> 
+               filter(result_flag != ""))
+
+```
+
+## Comparison to 1p19q FISH
+
+```{r}
+#| label: fish-comparison
+#| echo: FALSE
+
+fish_results <- read_excel(path = paste0(config::get("data_folderpath"),
+                 "validation/DOC6791_chromosome_arms/raw/fish/",
+                 "fish_result_summary.xlsx"),
+                 col_types = c("text", "text", "text", "text")) |> 
+  pivot_longer(cols = c("1p", "19q"),
+               names_to = "chromosome_arm",
+               values_to = "fish_result")
+
+val_1p19q <- pansolid_ploidy_results |> 
+  filter(chromosome_arm %in% c("1p", "19q")) |> 
+  mutate(labno = str_extract(string = labno_suffix_worksheet,
+                             pattern = "(\\d{8})_WS\\d{6}",
+                             group =1)) |> 
+  select(labno_suffix_worksheet, labno,
+         chromosome_arm, result_flag, full_string) |> 
+  arrange(labno_suffix_worksheet, desc(chromosome_arm)) |> 
+  inner_join(fish_results,
+            join_by("labno" == "pansolid_labno",
+                    "chromosome_arm" == "chromosome_arm")) |> 
+  select(name, labno, chromosome_arm, result_flag, fish_result,
+         full_string)
+
+knitr::kable(val_1p19q)
+
+```
+
+8 results are in agreement between the two methods.
+
+For 3 results, FISH reports a 19q deletion whilst PanSolid shows terminal 19q deletions with less than `r chr_arm_percent_threshold`% of 19q deleted.
+This presumably is a false positive result on FISH.
+
+One result does not agree because 1p and 19q are a mixture of LOH and deletion calls on PanSolid.
+
+## Comparison to whole genome sequencing
+
+### 1q19p gain: sample 23001331
+
+Sample 23001331 was tested. 
+A 1p19q codeletion was detected on the previous CNV detection method (DCO4914) (report reference: 23001331.123).
+
+No 1p19q codeletion was detected on WGS (R25-0YP8-1), however a 1p
+which had a 1q19p gain on WGS, in order to check whether this would be incorrectly interpreted as a 1p19q loss.
+Testing of this sample on the previous CNV detection method (see DOCxxxx) had 
+
+```{r}
+#| label: tbl-sample-23001331
+#| echo: FALSE
+
+tbl_sample_23001331 <- pansolid_ploidy_results |> 
+  filter(labno_suffix_worksheet == "23001331_WS156025") |> 
+  ungroup() |> 
+  filter(chromosome_arm %in% c("1p", "1q", "19p", "19q")) |> 
+  select(chromosome_arm, result_flag, full_string)
+
+knitr::kable(tbl_sample_23001331)
+
+```
+
+### Gain of 7 and loss of 10
+
+```{r}
+#| label: fig-plus-7-minus-10
+#| include: FALSE
+
+plus7_loss10_samples <- c("25024755_WS152973", 
+                          "25029510_WS153752",
+                          "25032698_WS154250")
+
+x <- pansolid_ploidy_results |> 
+  filter(labno_suffix_worksheet %in% plus7_loss10_samples &
+           chromosome_arm %in% c("7p", "7q",
+                                 "10p", "10q")) 
+
+```
 
 ## Comparison to G-band karyotype
 
+```{r}
+#| label: karyotype-samples
+#| include: FALSE
+
+karyotype_samples <- read_excel(path = paste0(config::get("data_folderpath"),
+                                              "validation/DOC6791_chromosome_arms/",
+                                              "karyotype_samples_to_test.xlsx")) |> 
+  janitor::clean_names()
+
+```
+
 5 samples with known hyperdiploid or hypodiploid karyotypes from G-banding analysis were tested on PanSolid NGS.
+The karyotype results are shown in @tbl-karyotype-samples.
+
+```{r}
+#| label: tbl-karyotype-samples
+#| tbl-cap: "Samples with karyotype results"
+#| echo: FALSE
+
+karyotype_tbl <- karyotype_samples |> 
+  select(sample_id, folder_name, karyotype) |> 
+  rename(`Lab number` = sample_id,
+         `Karyotype number` = folder_name,
+         `Karyotype` = karyotype)
+
+knitr::kable(karyotype_tbl)
+
+```
+
+```{r}
+
+
+
+
+
+pansolid_ploidy_results |> 
+  filter(grepl("24062890", labno_suffix_worksheet) &
+           result_flag != "") |>  view()
+
+
+```
+
+
 
 ## Repeat testing
 
@@ -327,15 +586,22 @@ detection of deletions ([DOC6567]{custom-style="Strong"}).
 
 ### Uncertainty of measurement
 
+## Quality control
+
 ## Limit of detection
 
 # Discussion
+
+This new method is an improvement on the previous NGS detection method for 1p19q, as it does not rely on normalising dosage to a single chromosome arm.
+This is demonstrated by 23001331.
 
 ## Limitations
 
 Bone marrow samples were tested because only bone marrow samples get karyotyping. Karyotyped samples from FFPE blocks were not available.
 
 The quantification of chromosome arm percent will not sum to 100%, because the PanSolid enrichment does not cover the entire breadth of every chromosome arm.
+
+Summing ploidy state regions across a chromosome arm can merge regions with separate biological causes. If a chromosome arm has multiple independent deleted regions, these will be summed to give the impression that a single deletion is impacting the chromosome arm.
 
 ## Extrapolation to other copy number variants
 
