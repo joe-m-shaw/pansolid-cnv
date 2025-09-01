@@ -202,8 +202,8 @@ get_annotated_filepaths <- function(
 }
 
 get_worksheet_filepaths <- function(
-    repository_path = "S:/central shared/Genetics/Repository/WorksheetAnalysedData/",
     worksheet, 
+    repository_path = "S:/central shared/Genetics/Repository/WorksheetAnalysedData/",
     file_regex = "^Annotated(_|_v2.+_)WS\\d{6}_.+.xlsx",
     full_names = TRUE,
     recursive = TRUE) {
@@ -214,9 +214,9 @@ get_worksheet_filepaths <- function(
   #' it has the option to specify a different filetype regular expression, and 
   #' also options for recursive and full.names arguments in `list.files`.
   #'
+  #' @param worksheet The PanSolid worksheet in the format WS123456
   #' @param repository_path The filepath for the worksheet repository - defaults to 
   #' the standard S drive location.
-  #' @param worksheet The PanSolid worksheet in the format WS123456
   #' @param file_regex The regular expression for the filetype to find, which
   #' defaults to the annotated output of the PanSolid pipeline
   #' @param full_names TRUE or FALSE supplied to the full.names argument of 
@@ -776,7 +776,7 @@ read_snp_sheet <- function(filepath,
                      "text", "numeric", "text", "text",
                      "numeric", "numeric", "numeric"
                    )) |> 
-    janitor::clean_names() 
+    janitor::clean_names()
   
   output <- add_identifiers(filepath, df)
   

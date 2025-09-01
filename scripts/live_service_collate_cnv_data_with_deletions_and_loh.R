@@ -16,12 +16,21 @@ all_worksheets <- dna_db_worksheets |>
 
 stopifnot(nrow(all_worksheets) > 0)
 
+ps_string_vars <- paste(c("pansolid",
+                          "pan-solid", 
+                          "pan_solid", 
+                          "pan\\ssolid", 
+                          "PnaSolid", 
+                          "Pandolid", 
+                          "PamSolid"), collapse = "|")
+
 ps_ws_info <- all_worksheets |> 
-  # New CNV Excel layout started with WS152758
-  filter(pcrid >= 152758) |> 
-  filter(grepl(pattern = "pansolid|pan-solid|pan_solid|pan solid", 
+  filter(grepl(pattern = ps_string_vars, 
                x = description,
                ignore.case = TRUE)) |> 
+  filter(!grepl(pattern = c("Limit of detection|cobas|ddpcr|confs|RNA"),
+                x = description,
+                ignore.case = TRUE)) |> 
   mutate(ps_category = case_when(
     grepl(pattern = "jBRCA|j_BRCA|j-BRCA|jew",
       x = description,
@@ -31,33 +40,65 @@ ps_ws_info <- all_worksheets |>
 
 stopifnot(anyNA.data.frame(ps_ws_info) == FALSE)
 
-ps_ws_ffpe_only <- ps_ws_info |> 
-  filter(ps_category == "PanSolid FFPE")
+pws_ws_del_loh <- ps_ws_info |> 
+  # New CNV Excel layout started with WS152758
+  filter(pcrid >= 152758)
 
-ps_worksheets <- ps_ws_ffpe_only$worksheet
+ps_worksheets <- pws_ws_del_loh$worksheet
 
 if(length(ps_worksheets) == 0) {
   stop("No PanSolid worksheets found on DNA Database")
 }
 
-# Find filepaths for PanSolid Excels --------------------------------------
+# Export PanSolid worksheet list ------------------------------------------
 
-message("Finding filepaths for all PanSolid Excels")
+# Note: WS155944 is a Jewish BRCA run but is described 
+# as "NGS DNA QIAseq PanSolid"
 
-ps_filepaths <- ps_worksheets |> 
-  map(\(ps_worksheets) get_annotated_filepaths(worksheet = ps_worksheets)) |> 
+write_csv(ps_ws_info,
+          paste0(config::get("data_folderpath"),
+                 "live_service/collated/",
+                 "pansolid_worksheet_info.csv"))
+
+# Find filepaths for annotated PanSolid Excels ----------------------------
+
+message("Finding filepaths for annotated PanSolid Excels")
+
+annotated_filename_regex <- "Annotated_.*_WS\\d{6}_\\d{8}.*.xlsx"
+
+ps_filepaths_annotated <- ps_worksheets |> 
+  map(\(ps_worksheets) get_worksheet_filepaths(worksheet = ps_worksheets,
+                                               file_regex = annotated_filename_regex)) |> 
   flatten()
 
-stopifnot(length(ps_filepaths) != 0)
+stopifnot(length(ps_filepaths_annotated) != 0)
 
-filename_regex <- "Annotated_.*_WS\\d{6}_\\d{8}.*.xlsx"
-
-ps_filepath_df <- tibble(
-  filepath = unlist(ps_filepaths)) |> 
+ps_filepath_df_annotated <- tibble(
+  filepath = unlist(ps_filepaths_annotated)) |> 
   mutate(filename = str_extract(string = filepath,
-                                pattern = filename_regex))
+                                pattern = annotated_filename_regex))
 
-stopifnot(anyNA.data.frame(ps_filepath_df) == FALSE)
+stopifnot(anyNA.data.frame(ps_filepath_df_annotated) == FALSE)
+
+# Find filepaths for unannotated PanSolid Excels --------------------------
+
+message("Finding filepaths for unannotated PanSolid Excels")
+
+unannotated_filename_regex <- "Results_SNVs_Indels-WS\\d{6}_\\d{8}_.*.xlsx"
+
+ps_filepaths_unannotated <- ps_worksheets |> 
+  map(\(ps_worksheets) get_worksheet_filepaths(worksheet = ps_worksheets,
+                                               file_regex = unannotated_filename_regex)) |> 
+  flatten()
+
+stopifnot(length(ps_filepaths_unannotated) != 0)
+
+ps_filepath_df_unannotated <- tibble(
+  filepath = unlist(ps_filepaths_unannotated)) |> 
+  mutate(filename = str_extract(string = filepath,
+                                pattern = unannotated_filename_regex))
+
+stopifnot(anyNA.data.frame(ps_filepath_df_unannotated) == FALSE)
 
 # Load current collated data ----------------------------------------------
 
@@ -85,6 +126,9 @@ del_genes_live <- read_csv(paste0(collated_data_folder,
 loh_live <- read_csv(paste0(collated_data_folder,
                                   "loh_live.csv"))
 
+number_ploidy_regions_live <- read_csv(paste0(collated_data_folder,
+                                       "number_ploidy_regions_live.csv")) 
+
 # Identify files without CNV tabs -----------------------------------------
 
 # Some samples have such low coverage that a CNV tab is not included in 
@@ -95,13 +139,24 @@ files_without_cnv_tabs <- c("WS152872_25022765",
                             "WS153248_25026440",
                             "WS153962_25031207",
                             "WS154357_25030473",
-                            "WS154624_25035774")
+                            "WS154624_25035774",
+                            "WS155587_25041927",
+                            "WS152828_25018482",
+                            "WS152828_25018487",
+                            "WS153275_25018520",
+                            "WS153275_25018533",
+                            "WS153275_25018542",
+                            "WS153275_25018561",
+                            "WS153275_25018558",
+                            "WS153275_25018545",
+                            "WS152828_25018508",
+                            "WS156308_25001622")
 
-# Identify files not already collated -------------------------------------
+# Identify annotated files not already collated ---------------------------
 
-message("Identifying new files for collation")
+message("Identifying new annotated files for collation")
 
-ps_new_filepath_df <- ps_filepath_df |> 
+ps_new_annotated_filepath_df <- ps_filepath_df_annotated |> 
   mutate(worksheet = parse_filename(filename, 1),
          labno = parse_filename(filename, 2),
          worksheet_labno = str_c(worksheet, "_", labno)) |> 
@@ -111,9 +166,26 @@ ps_new_filepath_df <- ps_filepath_df |>
   filter(!filename %in% stdev_live$filename) |> 
   filter(!worksheet_labno %in% files_without_cnv_tabs)
 
-if(length(ps_new_filepath_df) > 0) {
-  message(paste0(length(ps_new_filepath_df$filepath),
-               " new files identified"))
+if(length(ps_new_annotated_filepath_df) > 0) {
+  message(paste0(length(ps_new_annotated_filepath_df$filepath),
+               " new annotated files identified"))
+} else {
+  stop("No new files identified")
+}
+
+# Identify unannotated files not already collated -------------------------
+
+message("Identifying new unannotated files for collation") 
+
+ps_new_unannotated_filepath_df <- ps_filepath_df_unannotated |> 
+  mutate(worksheet = parse_filename(filename, 1),
+         labno = parse_filename(filename, 2),
+         worksheet_labno = str_c(worksheet, "_", labno)) |> 
+  filter(!filename %in% number_ploidy_regions_live$filename)
+
+if(length(ps_new_unannotated_filepath_df) > 0) {
+  message(paste0(length(ps_new_unannotated_filepath_df$filepath),
+                 " new unannotated files identified"))
 } else {
   stop("No new files identified")
 }
@@ -133,32 +205,44 @@ if(length(list.files(raw_folder_path)) != 0){
 
 # Files have to be copied prior to data collation, as read_excel() cannot be
 # used when someone has the file open
-file.copy(from = ps_new_filepath_df$filepath,
+file.copy(from = ps_new_annotated_filepath_df$filepath,
           to = raw_folder_path)
 
-new_filepaths <- list.files(path = raw_folder_path,
-                            full.names = TRUE,
-                            pattern = "Annotated.*.xlsx")
+file.copy(from = ps_new_unannotated_filepath_df$filepath,
+          to = raw_folder_path)
 
-message(paste0(length(new_filepaths), " files copied into raw data folder"))
+new_annotated_filepaths <- list.files(path = raw_folder_path,
+                                      pattern = annotated_filename_regex,
+                                      full.names = TRUE)
 
-# Collate data from new files ---------------------------------------------
+new_unannotated_filepaths <- list.files(path = raw_folder_path,
+                                      pattern = unannotated_filename_regex,
+                                      full.names = TRUE)
+
+stopifnot(length(intersect(new_annotated_filepaths, new_unannotated_filepaths)) == 0)
+
+message(paste0(length(new_annotated_filepaths), " annotated files copied into raw data folder"))
+
+message(paste0(length(new_unannotated_filepaths), " unannotated files copied into raw data folder"))
+
+# Collate data from new annotated files -----------------------------------
 
 message("Collating new data files")
 
-cnv_new <- new_filepaths |> 
-  map(\(new_filepaths) extract_cnv_tbls(new_filepaths, 
-                                        sheet_regex = "CNVs_"))
-
-loh_new <- new_filepaths |> 
-  map(\(new_filepaths) read_loh_table(filepath = new_filepaths)) |> 
+loh_new <- new_annotated_filepaths |> 
+  map(\(new_annotated_filepaths) read_loh_table(filepath = new_annotated_filepaths)) |> 
   list_rbind() |> 
   select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
          labno_suffix_worksheet,	filepath,	chrom,	gene,
          ploidy_state,	loh_status,	no_targets_in_ploidy_region,
          check_1,	check_2)
 
-message(paste0(length(new_filepaths), " CNV and LOH results collated"))
+cnv_new <- new_annotated_filepaths |> 
+  map(\(new_annotated_filepaths) extract_cnv_tbls(new_annotated_filepaths, 
+                                        sheet_regex = "CNVs_"))
+
+message(paste0(length(new_annotated_filepaths), 
+               " CNV and LOH results collated"))
 
 # Split into separate dataframes ------------------------------------------
 
@@ -168,7 +252,7 @@ message(paste0(length(new_filepaths), " CNV and LOH results collated"))
 stdev_new <- map(cnv_new, ~ .x[["stdev"]]) |> 
   list_rbind() |>
   mutate(filename = str_extract(string = filepath,
-                                pattern = filename_regex)) |> 
+                                pattern = annotated_filename_regex)) |> 
   relocate(filename, .after = filepath) |> 
   # Specify columns to remove any random columns added by scientists
   select(worksheet, labno,	suffix, patient_name, labno_suffix, 
@@ -177,7 +261,7 @@ stdev_new <- map(cnv_new, ~ .x[["stdev"]]) |>
 percent_138x_new <- map(cnv_new, ~ .x[["percent_138x"]]) |> 
   list_rbind()|>
   mutate(filename = str_extract(string = filepath,
-                                pattern = filename_regex)) |> 
+                                pattern = annotated_filename_regex)) |> 
   relocate(filename, .after = filepath) |> 
   select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
          labno_suffix_worksheet,	filepath,	filename,	percent_138x)
@@ -185,7 +269,7 @@ percent_138x_new <- map(cnv_new, ~ .x[["percent_138x"]]) |>
 pred_ncc_new <-  map(cnv_new, ~ .x[["pred_ncc"]]) |> 
   list_rbind()|>
   mutate(filename = str_extract(string = filepath,
-                                pattern = filename_regex)) |> 
+                                pattern = annotated_filename_regex)) |> 
   relocate(filename, .after = filepath) |> 
   select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
          labno_suffix_worksheet,	filepath,	filename,	pred_ncc)
@@ -193,7 +277,7 @@ pred_ncc_new <-  map(cnv_new, ~ .x[["pred_ncc"]]) |>
 sig_cnvs_new <- map(cnv_new, ~ .x[["sig_cnvs"]]) |> 
   list_rbind()|>
   mutate(filename = str_extract(string = filepath,
-                                pattern = filename_regex)) |> 
+                                pattern = annotated_filename_regex)) |> 
   relocate(filename, .after = filepath) |> 
   select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
          labno_suffix_worksheet,	filepath,	filename,	gene,
@@ -204,7 +288,7 @@ sig_cnvs_new <- map(cnv_new, ~ .x[["sig_cnvs"]]) |>
 amp_genes_new <- map(cnv_new, ~ .x[["amp_genes"]]) |> 
   list_rbind()|>
   mutate(filename = str_extract(string = filepath,
-                                pattern = filename_regex)) |> 
+                                pattern = annotated_filename_regex)) |> 
   relocate(filename, .after = filepath) |> 
   select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
          labno_suffix_worksheet,	filepath,	filename,	gene,
@@ -213,11 +297,29 @@ amp_genes_new <- map(cnv_new, ~ .x[["amp_genes"]]) |>
 del_genes_new <-  map(cnv_new, ~ .x[["del_genes"]]) |> 
   list_rbind()|>
   mutate(filename = str_extract(string = filepath,
-                                pattern = filename_regex)) |> 
+                                pattern = annotated_filename_regex)) |> 
   relocate(filename, .after = filepath) |> 
   select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
          labno_suffix_worksheet,	filepath,	filename,	gene,
          max_region_fold_change,	min_region_fold_change)
+
+
+# Collate data from new unannotated files ---------------------------------
+
+ploidy_regions_new <- new_unannotated_filepaths |> 
+  map(\(new_unannotated_filepaths) 
+      read_ploidy_sheet(filepath = new_unannotated_filepaths,
+                        sheetname = get_sheetname(filepath = new_unannotated_filepaths,
+                                                  sheet_regex = "Ploidy Regions.*"))) |> 
+  list_rbind() |> 
+  mutate(filename = str_extract(string = filepath,
+                                pattern = unannotated_filename_regex))
+
+stopifnot(anyNA(ploidy_regions_new$filename) == FALSE)
+
+number_ploidy_regions_new <- ploidy_regions_new |> 
+  group_by(filepath, filename, worksheet, labno) |> 
+  summarise(number_ploidy_regions = n())
 
 # Perform checks ----------------------------------------------------------
 
@@ -277,7 +379,7 @@ stopifnot(typeof(del_genes_new$max_region_fold_change) == "double" &
 stopifnot(anyNA.data.frame(loh_new |> 
                              select(-c(check_1, check_2))) == FALSE)
 
-# Check all tables have been read from each file
+# Check all tables have been read from each annotated file
 
 stopifnot(anyDuplicated(stdev_new$filepath) == FALSE)
 
@@ -292,6 +394,24 @@ stopifnot(length(setdiff(stdev_new$filepath, unique(amp_genes_new$filepath))) ==
 stopifnot(length(setdiff(stdev_new$filepath, unique(del_genes_new$filepath))) == 0)
 
 stopifnot(length(setdiff(stdev_new$filepath, unique(loh_new$filepath))) == 0)
+
+# Check number of ploidy regions
+
+stopifnot(anyNA.data.frame(number_ploidy_regions_new) == FALSE)
+
+# There should be a minimum of 41 ploidy regions
+# 1 ploidy region per chromosome arm
+# 17 autosomes with p and q arms targeted
+# 1 X chromosome with p and q arms targeted
+# 5 autosomes with only q arms targeted
+# (18*2)+5 = 41
+stopifnot(min(number_ploidy_regions_new$number_ploidy_regions) >= 41)
+
+# There are 6174 targets on PanSolid v2, so this is a very liberal maximum
+# threshold
+stopifnot(max(number_ploidy_regions_new$number_ploidy_regions) <= 6174)
+
+stopifnot(typeof(number_ploidy_regions_new$number_ploidy_regions) == "integer")
 
 message("Checks passed")
 
@@ -312,6 +432,9 @@ amp_genes_df <- rbind(amp_genes_live, amp_genes_new)
 del_genes_df <- rbind(del_genes_live, del_genes_new)
 
 loh_df <- rbind(loh_live, loh_new)
+
+number_ploidy_regions_df <- rbind(number_ploidy_regions_live,
+                                  number_ploidy_regions_new)
 
 # Export collated data ----------------------------------------------------
 
@@ -336,7 +459,8 @@ df_list <- list(
   "sig_cnvs" = sig_cnvs_df,
   "amp_genes" = amp_genes_df,
   "del_genes" = del_genes_df,
-  "loh" = loh_df
+  "loh" = loh_df,
+  "number_ploidy_regions" = number_ploidy_regions_df
 )
 
 imap(df_list, export_collated_data)
@@ -345,7 +469,8 @@ imap(df_list, export_collated_data)
 
 message("Deleting new raw files")
 
-file.remove(new_filepaths)
+file.remove(new_annotated_filepaths)
+file.remove(new_unannotated_filepaths)
 
 if(length(list.files(raw_folder_path)) == 0){
   message("Raw file folder is empty")
