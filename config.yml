@@ -1,2 +1,3 @@
 default:
   data_folderpath: "S:/central shared/Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/"
+  worksheet_folderpath: "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
