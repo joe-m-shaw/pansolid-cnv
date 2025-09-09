@@ -431,9 +431,9 @@ knitr::kable(tbl_ploidy_region_prediction)
 
 Combining both approaches doesn't lead to an increase in prediction sensivity, but it does approximate what a person does when they visually check a whole genome plot:
 
-- Check for a multi-coloured pattern (lots of ploidy regions)
+-   Check for a multi-coloured pattern (lots of ploidy regions)
 
-- Check for bands of SNPs in the intermediate ranges across the whole genome
+-   Check for bands of SNPs in the intermediate ranges across the whole genome
 
 ```{r}
 #| label: fig-ploidy-regions-and-snp-frequencies

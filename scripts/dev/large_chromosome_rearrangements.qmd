@@ -1,0 +1,76 @@
+---
+title: "Large Chromosome Rearrangements"
+author: "Joe Shaw"
+format: pdf
+editor: visual
+---
+
+# Cutaneous Melanoma
+
+The purpose is to distinguish benign nevi from malignant melanomas.
+
+References: @ferrara2016; @gerami2009
+
+Example: WS154392_25033981, WS154357_25033594
+
+# Uveal melanoma
+
+Uveal melanoma is a rare cancer of the lining of the eye (uvea).
+
+MLPA testing is available with probeset P027, which testes for 1p, 3, 6 and 8.
+
+Only 8 samples have been tested with this MLPA test on DNA database, between 2022 and 2025 (worksheets 125147, 152874, 122549 and 131133).
+
+The most recent worksheet (WS152874) is from May 2025, but the sample failed.
+
+I can't find any report issued with P027 MLPA results.
+
+I can't find any examples on uveal melanoma on the WGS tracker sheet.
+
+References: @jager2020
+
+# Renal cell carcinoma
+
+Specific chromosome gains and losses are associated with subtypes of renal cancer.
+
+Renal cell carcinoma: loss of 3p (including VHL)
+
+Papillary renal cell carcinoma: gains of 7 and 17
+
+References: @liu2020, @klatte2009, @chen2010
+
+# Central nervous tumours
+
+Common motif of gain of chromosome 7 with loss of chromosome 10, referred to as +7/-10.
+
+We have seen this multiple times on PanSolid.
+
+# General themes
+
+Standard testing is by FISH, so some level of NGS vs FISH comparison is unavoidable.
+
+These indications seem to be around classification of tumours, which means combining and cross-referencing the NGS data with other pathology results.
+
+Are these tumours already tested using FISH?
+
+How do the clinicians want the results reporting?
+
+All these CNVs are usually tested by FISH, which makes the problems of intra-tumoural heterogeneity and ploidy more problematic.
+
+We will need to confront the issues around the control cohort and whether the pipeline can detect different ploidy states.
+
+What do we do about target genes that are not in the current gene list?
+CCND1, VHL
+
+What do we do about target genes that are not on the PanSolid enrichment?
+RREB1, MYB
+
+Do we compare to WGS?
+If so, we have mainly brain tumours which have both WGS and PanSolid NGS, with no melanoma or renal cancers.
+
+Could we compare with MLPA?
+
+Could we compare with methylation array results?
+
+Do we want to return to optimising the ploidy caller settings?
+We didn't have time to do this before the deletions and LOH go live.

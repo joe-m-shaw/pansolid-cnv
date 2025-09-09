@@ -24,10 +24,10 @@ source(here("functions/pansolid_cnv_excel_functions.R"))
 
 For this analysis I have used the following naming convention:
 
-- chromosome: formatted as "chr1", "chr2" etc. This format prevents accidental conversion to type numeric, which then causes issues with the X chromosome.
-- start: genomic start coordinate
-- end: genomic end coordinate
-- coord_str: a standardised coordinate string format. Example: "chr1_819066-819093"
+-   chromosome: formatted as "chr1", "chr2" etc. This format prevents accidental conversion to type numeric, which then causes issues with the X chromosome.
+-   start: genomic start coordinate
+-   end: genomic end coordinate
+-   coord_str: a standardised coordinate string format. Example: "chr1_819066-819093"
 
 # Enrichment
 
@@ -140,9 +140,9 @@ ps_targets_grch38 <- ps_targets_grch38_raw |>
   mutate(target_length = str_length(target_sequence),
          target_gc_count = str_count(string = target_sequence, pattern = "G|C"),
          target_gc_percent = (target_gc_count / target_length) * 100,
-         #target_start_plus_one = target_start +1,
+         target_start_plus_one = target_start +1,
          target_coord_str = str_c(target_chromosome, "_",
-                               target_start, "-", target_end))
+                               target_start_plus_one, "-", target_end))
 
 target_end_before_start <- ps_targets_grch38 |> 
   filter(target_end <= target_start)
@@ -153,11 +153,8 @@ stopifnot(anyNA.data.frame(ps_targets_grch38) == FALSE)
 
 ```
 
-There are `r length(unique(ps_targets_grch38$target_coord_str))` targets in the target file, ranging from 
-`r min(ps_targets_grch38$target_length)` to
-`r max(ps_targets_grch38$target_length)` bp in size.
-The summed size of all target regions is 
-`r sum(ps_targets_grch38$target_length)` bp.
+There are `r length(unique(ps_targets_grch38$target_coord_str))` targets in the target file, ranging from `r min(ps_targets_grch38$target_length)` to `r max(ps_targets_grch38$target_length)` bp in size.
+The summed size of all target regions is `r sum(ps_targets_grch38$target_length)` bp.
 
 ```{r}
 #| label: fig-target-length
@@ -182,30 +179,20 @@ fig_target_length
 
 Some important points:
 
-- Primer and target coordinates are given in the 5'-3' direction on the forward
-strand.
-- This means that the start coordinate will always be a lower number than the
-end coordinate, even if the primer is on the complement strand.
+-   Primer and target coordinates are given in the 5'-3' direction on the forward strand.
+-   This means that the start coordinate will always be a lower number than the end coordinate, even if the primer is on the complement strand.
 
 Mapping primers to targets is complicated by the following factors:
 
-- One primer may contribute to sequencing multiple targets
-- One target may be sequenced by multiple primers
-- Target regions and primer regions may not overlap: primers could be upstream 
-of a target region and then sequence into it.
-- Deciding on whether a primer contributes to a target depends on the strand the
-primer is designed on, and hence the direction it will sequence in.
+-   One primer may contribute to sequencing multiple targets
+-   One target may be sequenced by multiple primers
+-   Target regions and primer regions may not overlap: primers could be upstream of a target region and then sequence into it.
+-   Deciding on whether a primer contributes to a target depends on the strand the primer is designed on, and hence the direction it will sequence in.
 
 My approach has been:
 
-- Add a `primer_range_end` value which adds `r primer_range`bp onto the primer 
-coordinates in the appropriate direction, depending on whether the primer is on
-the forward or complement strand. This roughly approximates the region that
-will be sequenced by the primer.
-- The full range of the sequenced primer region (forward: prime_start to 
-primer_range_end; complement: primer_range_end to primer_end) must overlap
-with the target region in order for a primer to be considered to contribute to the
-target.
+-   Add a `primer_range_end` value which adds `r primer_range`bp onto the primer coordinates in the appropriate direction, depending on whether the primer is on the forward or complement strand. This roughly approximates the region that will be sequenced by the primer.
+-   The full range of the sequenced primer region (forward: prime_start to primer_range_end; complement: primer_range_end to primer_end) must overlap with the target region in order for a primer to be considered to contribute to the target.
 
 ```{r}
 #| label: find-target-function
@@ -302,9 +289,7 @@ write_csv(ps_targets_grch38,
 
 ```
 
-In total, `r length(unique(primer_target_df_found$primer_coord_str))` primers out of 
-`r length(unique(ps_primers_grch38$primer_coord_str))`
-map to a target.
+In total, `r length(unique(primer_target_df_found$primer_coord_str))` primers out of `r length(unique(ps_primers_grch38$primer_coord_str))` map to a target.
 
 ```{r}
 #| label: primers-per-target
@@ -487,8 +472,7 @@ make_primer_target_plot <- function(chromosome,
 
 ```
 
-There is a region on chromosome 17 in the *TP53* gene where primers contribute to
-multiple target regions.
+There is a region on chromosome 17 in the *TP53* gene where primers contribute to multiple target regions.
 
 ```{r}
 #| label: tp53-plot
