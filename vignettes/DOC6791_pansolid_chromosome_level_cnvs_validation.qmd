@@ -23,12 +23,15 @@ library(tidyverse)
 library(janitor)
 library(here)
 library(readxl)
+library(patchwork)
 
 source(here("functions/extract_pansolid_cnv_coordinates.R"))
 source(here("functions/pansolid_cnv_excel_functions.R"))
 source(here("functions/chromosome_arm_functions.R"))
 
 ```
+
+{{< pagebreak >}}
 
 # Authors
 
@@ -82,6 +85,8 @@ to CNS Tumour taxonomy-Not Official WHO
 
 **WHO**: World Health Organisation
 
+{{< pagebreak >}}
+
 # Introduction
 
 ## Purpose
@@ -93,54 +98,54 @@ pipeline (v2.4) at the North West Genomic Laboratory Hub (GLH).
 Detection of specific CNVs in different cancer types is required by the
 most recent update of the
 [NHS Genomic Test Directory for
-Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/).
+Cancer](https://www.england.nhs.uk/publication/national-genomic-test-directories/),
+with a specific focus on neurological tumours, malignant melanoma and renal cell carcinoma.
 
-## Target copy number variants
+## Chromosome-level copy number variants
+
+Large - impacting a whole chromosome or whole chromosome arm.
+However CNVs can have any length ranging from a single base pair to a whole genome.
 
 ### Neurological tumours
 
-Co-deletion of 1p and 19q, as determined by PCR-based LOH testing, was
-shown to be associated with a good response to chemotherapy in
-oligodendrogliomas [@cairncross1998]. The biological mechanism for this
-observation remains unknown.
-
-Later cytogenetic studies using Giemsa-banding and FISH showed that the
-co-deletion of 1p and 19q was due to a recurrent translocation between
-the two chromosomes. A derivative der(1;19)(q10;p10) chromosome was
-observed within glioma cells, whilst the reciprocal der(1;19)(p10;q10)
-chromosome is absent and presumably lost [@jenkins2006; @griffin2006].
-
-In the 2021 edition of the World Health Organisation Guidelines,
-detection of 1p19q codeletion is required for classification of a tumour
+Chromosome-level CNVs are increasingly important for classification of neurological tumours.
+In the most recent update of the cIMPACT-NOW guidelines for meningiomas,
+whole chromosome copy number analysis is recommended for tumour grading,
+with at least two losses of chromosomes 6, 10, 14 or 18 sufficient to
+categorise a tumour as molecular high-risk [@sahm2025].
+Similarly, in the 2021 edition of the World Health Organisation Guidelines of Tumors of the Central Nervous System,
+the detection of deletions of chromosome arms 1p and 19q, referred to as a 1p19 codeletion is required for classification of a tumour
 as "Oligodendroglioma, IDH-mutant, and 1p/19q-codeleted" [@louis2021].
 Critically, 1p19q codeletion is a key biomarker for distinguishing
 between oligodendrogliomas, which contain the codeletion, and
 astrocytomas, which do not [@masui2016].
 
-Multiple techniques can be used to detect 1p19q codeletions and there is
-no gold-standard method [@brandner2022].
+The co-deletion of 1p and 19q, as determined by PCR-based LOH testing, was
+shown to be associated with a good response to chemotherapy in
+oligodendrogliomas [@cairncross1998]. The biological mechanism for this
+observation remains unknown.
+Later cytogenetic studies using Giemsa-banding and FISH showed that the
+co-deletion of 1p and 19q was due to a recurrent translocation between
+the two chromosomes. 
+A derivative der(1;19)(q10;p10) chromosome was
+observed within glioma cells, whilst the reciprocal der(1;19)(p10;q10)
+chromosome is absent and presumably lost [@jenkins2006; @griffin2006].
+Multiple techniques can be used to detect 1p19q codeletions, including PCR-based LOH testing, FISH and NGS methods, and there is no gold-standard method [@brandner2022].
 
-In the most recent update of the cIMPACT-NOW guidelines for meningiomas,
-whole chromosome copy number analysis is recommended for tumour grading,
-with at least two losses of chromosomes 6, 10, 14 or 18 sufficient to
-categorise a tumour as molecular high-risk [@sahm2025].
+In glioblastoma, CNVs impacting chromosomes 7 and 10 are common, with @stichel2018 finding that  81% of glioblastoma samples had concurrent gains of chromosome 7 and losses of 10. 
+This common co-occurence could be an evolutionary mechanism where increased dosage of genes on chromosome 7 counteracts the reduced dosage of genes on chromosome 10 [@nair2024].
 
 ### Malignant melanoma
 
-The purpose is to distinguish benign nevi from malignant melanomas.
-
-References: @ferrara2016; @gerami2009
+In skin cancer, chromosome-level CNVs can be used to differentiate between benign nevi and malignant melanomas. 
+@gerami2009 demonstrated that a panel of FISH probes targeting chromosome 6p, 6q and 11q allowed efficient identification of malignant melanoma. 
+Melanomas are often observed to have a simultaneous gain of 6p with a loss of 6q [@ferrara2016].
 
 ### Renal cell carcinoma
 
-Specific chromosome gains and losses are associated with subtypes of
+Specific gains and losses of chromosomal regions are associated with subtypes of
 renal cancer.
-
-Renal cell carcinoma: loss of 3p (including VHL)
-
-Papillary renal cell carcinoma: gains of 7 and 17
-
-References: @liu2020, @klatte2009, @chen2009
+The deletion of chromosome 3p characterises renal cell carcinoma [@chen2009; @liu2020], whilst gains of chromosomes 7 and 17 are more commonly seen in papillary renal cell carcinoma [@klatte2009].
 
 ## PanSolid enrichment
 
@@ -181,6 +186,9 @@ targets_per_chromosome <- target_df_coordinates |>
 
 ```
 
+There are `r nrow(target_df)` targets on the PanSolid enrichment which are spread across all autosomes and the X chromosome.
+1q, 9q and 16q
+
 ```{r}
 #| label: fig-targets-per-chromosome
 #| echo: FALSE
@@ -189,6 +197,7 @@ fig_targets_per_chromosome <- ggplot(targets_per_chromosome,
                                      aes(x = chromosome_fct, y = n)) +
   geom_col(aes(fill = p_or_q),
            colour = "black") +
+  scale_fill_manual(values = c("#99CCFF", "#3399FF")) +
   theme_bw() +
   labs(x = "Chromosome", y = "Number of targets",
        title = "Distribution of targets on PanSolid enrichment",
@@ -207,6 +216,7 @@ fig_target_chr_percent <- ggplot(target_chr_arm_summary,
   geom_col(position = "dodge", 
            colour = "black",
            aes(fill = p_or_q)) +
+  scale_fill_manual(values = c("#99CCFF", "#3399FF")) +
   facet_wrap(~p_or_q, ncol = 1) +
   theme_bw() +
   labs(fill = "",
@@ -254,25 +264,23 @@ for all samples.
 
 ## PanSolid CLC bioinformatics pipeline
 
-The PanSolid CNV pipeline was built in CLC Genomics Workbench and has been described in previous validation documents.
+The PanSolid CNV pipeline was built in CLC Genomics Workbench and has been described in previous validation documents. 
+[DOC6283]{custom-style="Strong"} gives an overview of the pipeline, and [DOC6567]{custom-style="Strong"} includes further details of the ploidy caller which are relevant to this validation.
+Briefly, the ploidy caller assigns a ploidy state to a particular target region based on its dosage and SNP frequency profile.
 
 ### Visualisation and quantification
 
-The outputs of the PanSolid CNV pipeline are visualised at the whole-genome level via interactive plots, which were generated using the plotly package by Elizabeth Sollars and implemented during the validation of deletion and loss of heterozygosity detection (DOCxxxx).
+The outputs of the PanSolid CNV pipeline are visualised at the whole-genome level via interactive plots, which were generated using the plotly package by Elizabeth Sollars and implemented during the validation of deletion and loss of heterozygosity detection (DOC6567).
 In addition, scientists in the somatic cancer team requested an quantitative way of alerting them when a CNV impacting a whole chromosome arm or arms was present, such as the 1p19q co-deletion.
-The following method 
+The ploidy state regions detected for each sample were processed via the following steps:
 
-1.  Load the ploidy regions from the "Ploidy Regions" tab of the "Results_SNVs_Indels" Excel file in the "Unannotated_Files" folder of each worksheet.
+1.  Ploidy regions were loaded from the "Ploidy Regions" tab of the "Results_SNVs_Indels" Excel file in the "Unannotated_Files" folder of each worksheet.
 
-2.  Annotate each region by the chromosome arm that the region is on.
+2.  Each ploidy region was annotated with the chromosome arm that the region is on.
 
-3.  Calculate the size of the region by subtracting the start coordinate from the end coordinate.
+3.  The percentage of the entire chromosome arm that is covered by each ploidy state region was calculated.
 
-4.  Sum the total length, in base pairs, of ploidy regions for a particular ploidy state, such as "Deletion", on each chromosome arm.
-
-5.  Calculate the percentage of the entire chromosome arm that is covered by each ploidy state.
-
-6.  Add a flag when any ploidy state, other that "Normal diploid", covers over a threshold percentage of the total chromosome arm.
+6.  When any ploidy state, other that "Normal diploid", covered over a threshold percentage of the total chromosome arm, an automatic flag was added to the data.
 
 ```{r}
 #| label: chr-arm-percent-threshold
@@ -284,7 +292,6 @@ chr_arm_percent_threshold <- 75
 
 The threshold for flagging a chromosome arm level CNV event was set at
 `r chr_arm_percent_threshold`%.
-This was decided due to the 
 
 ## Orthogonal testing
 
@@ -295,20 +302,143 @@ Karyotype analysis was performed at the North West GLH (Liverpool site).
 ### Fluorescence In-Situ Hybridisation
 
 Fluorescence In-Situ Hybridisation (FISH) analysis was performed at the
-North West GLH (Liverpool site) using the Zytolight 1p36/1q25 dual
-colour probes (ZytoVision).
+North West GLH (Liverpool site) using the Zytolight 1p36/1q25 and 19q13/19p13 dual
+colour probes (ZytoVision). 
+These probes target genomic regions which are several hundred kilobases in size on chromosome 1 and 19 (@tbl-fish-probe-coordinates). Whilst the FISH probe regions are within regions targetted by the PanSolid enrichment, there is no direct overlap between them ().
 
-### SNP array
+```{r}
+#| label: fish-probe-locations
+#| include: FALSE
 
-Haemato-oncology samples were tested using the Illumina Global Screening
-Array-24+ 3.0 assay at the North West GLH (Manchester site).
+fish_probes <- read_csv(paste0(config::get("data_folderpath"),
+                               "validation/DOC6791_chromosome_arms/raw/fish/",
+                               "fish_probe_locations.csv"))
 
-### Methylation array
+fish_probes_mod <- fish_probes |> 
+  mutate(size_kb_grch37 = round((end_grch37-start_grch37)/1000, 1),
+         size_kb_grch38  =  round((end_grch38-start_grch38)/1000, 1))
 
-Samples were processed on the Illumina Infinium Methylation EPIC Bead
-Chip platform at the North West GLH and data were analysed using the
-University of Heidelberg Central Nervous System methylation classifier
-[@capper2018].
+```
+
+```{r}
+#| label: tbl-fish-probe-coordinates
+#| tbl-cap: "Genomic coordinates of Zytolight FISH probes. Coordinates are
+#| taken from the product datasheet and converted to GRCh38."
+#| echo: FALSE
+
+knitr::kable(fish_probes_mod |> 
+               select(band, colour, start_grch38, 
+                      end_grch38, size_kb_grch38) |> 
+               rename(`Chromosome band` = band,
+                      `Colour` = colour,
+                      `Start` = start_grch38,
+                      `End` = end_grch38,
+                      `Size (kb)` = size_kb_grch38))
+
+```
+
+```{r}
+#| label: fish-plot-function
+#| include: FALSE
+
+make_probe_target_plot <- function(chrom, x_start, x_end,
+                                   plot_title, probe_colour) {
+  
+  target_plot <- target_df_coordinates |> 
+    filter(chromosome == chrom) |> 
+    mutate(y_axis = "Targets") |> 
+    ggplot(aes(x = start, y = y_axis)) +
+    geom_point(shape = 21) +
+    theme_bw() +
+    coord_cartesian(xlim = c(x_start, x_end)) +
+    labs(x = "",
+         y = "",
+         title = plot_title)
+  
+  probe_plot <- fish_probes_mod |> 
+    filter(chromosome == chrom) |> 
+    mutate(y_axis = "FISH probes") |> 
+    ggplot(aes(x = start_grch38, y = y_axis)) +
+    geom_segment(aes(x = start_grch38, xend = end_grch38,
+                     y = y_axis, yend = y_axis),
+                 linewidth = 4,
+                 colour = probe_colour) +
+    theme_bw() +
+    coord_cartesian(xlim = c(x_start, x_end)) +
+    labs(x = "Genomic coordinate GRCh38",
+         y = "")
+  
+  output_plotlist <- list(target_plot, probe_plot)
+  
+  return(output_plotlist)
+  
+}
+
+```
+
+
+```{r}
+#| label: 1p-probe-targets
+#| include: FALSE
+
+chr1p_plot <- make_probe_target_plot(chrom = "1", x_start = 0, 
+                       x_end = 10000000,
+                       plot_title = "1p",
+                       probe_colour = "#FF9900")
+
+```
+
+```{r}
+#| label: 1q-probe-targets
+#| include: FALSE
+
+chr1q_plot <- make_probe_target_plot(chrom = "1", 
+                       x_start = 180000000, 
+                       x_end = 180000000+10000000,
+                       plot_title = "1q",
+                       probe_colour = "#66CC00")
+
+```
+
+```{r}
+#| label: 19p-probe-targets
+#| include: FALSE
+
+chr19p_plot <- make_probe_target_plot(chrom = "19", 
+                       x_start = 0, 
+                       x_end = 10000000,
+                       plot_title = "19p",
+                       probe_colour = "#66CC00")
+
+```
+
+```{r}
+#| label: 19q-probe-targets
+#| include: FALSE
+
+chr19q_plot <- make_probe_target_plot(chrom = "19", 
+                       x_start = 48877821-5000000, 
+                       x_end = 48877821+5000000,
+                       plot_title = "19q",
+                       probe_colour = "#FF9900")
+
+```
+
+```{r}
+#| label: fig-fish-probe-pansolid-targets
+#| echo: FALSE
+#| fig-cap: "Location of FISH probes and PanSolid targets"
+#| fig-height: 8
+
+fig_fish_probe_pansolid_targets <- chr1p_plot[[1]] + chr19p_plot[[1]] +
+  chr1p_plot[[2]] + chr19p_plot[[2]] + 
+  chr1q_plot[[1]] + chr19q_plot[[1]] +
+  chr1q_plot[[2]] + chr19q_plot[[2]] + 
+  plot_layout(ncol = 2, nrow = 4)
+
+fig_fish_probe_pansolid_targets
+
+```
 
 ### Whole genome sequencing
 
@@ -318,7 +448,12 @@ Services in Cambridge. Further details are provided in
 
 ## Validation analysis
 
-Analysis of the validation data was performed using R (4.4.1).
+Analysis of the validation data was performed using the R programming language (4.4.1) [@rcore2024].
+This validation document is rendered using Quarto [@allaire2024] and all code to reproduce this analysis is publicly available on Github:
+[https://github.com/joe-m-shaw/pansolid-cnv/tree/main]()
+All data analysed in this validation is saved at this file location:
+
+Genetics/Mol_Shared/Development.Team/PanSolid CNV/data/validation/DOC6791_chromosome_arms
 
 # Results
 
@@ -362,6 +497,9 @@ pansolid_ploidy_data_long <- pansolid_ploidy_data |>
                                              "Deletion",
                                              "Gain",
                                              "Uniparental disomy")))
+
+stopifnot(anyNA(pansolid_ploidy_data_long$name) == FALSE)
+
 ```
 
 The ploidy state results for 
@@ -374,6 +512,7 @@ This indicates that the threshold of
 ```{r}
 #| label: fig-ploidy-state-histogram
 #| echo: FALSE
+#| warning: FALSE
 
 pansolid_data_for_plot <- pansolid_ploidy_data_long |> 
   filter(name_group != "Normal diploid") |> 
@@ -404,8 +543,46 @@ fig_ploidy_state_histogram
 
 ```
 
+
+```{r}
+#| label: tbl-region-size-distribution-75
+#| tbl-cap: "Distribution "
+#| echo: FALSE
+
+region_size_distr_75 <- pansolid_ploidy_data_long |> 
+  filter(name_group != "Normal diploid") |> 
+  mutate(impact = case_when(
+    percent_chr_arm >= 75 ~"Above 75% of arm",
+    percent_chr_arm < 75 ~"Below 75% of arm")) |> 
+  group_by(impact) |> 
+  summarise(n = n()) |> 
+  mutate(percent = round((n/sum(n))*100, 1)) |> 
+  janitor::adorn_totals()
+
+knitr::kable(region_size_distr_75)
+
+```
+
+```{r}
+#| label: tbl-region-size-distribution-90
+#| tbl-cap: "Distribution "
+#| echo: FALSE
+
+region_size_distr_90 <- pansolid_ploidy_data_long |> 
+  filter(name_group != "Normal diploid") |> 
+  mutate(impact = case_when(
+    percent_chr_arm >= 90 ~"Above 90% of arm",
+    percent_chr_arm < 90 ~"Below 90% of arm")) |> 
+  group_by(impact) |> 
+  summarise(n = n()) |> 
+  mutate(percent = round((n/sum(n))*100, 1)) |> 
+  janitor::adorn_totals()
+
+knitr::kable(region_size_distr_90)
+
+```
+
 The `r chr_arm_percent_threshold`% threshold was used to flag when a chromosome arm was impacted by a large CNV event. 
-An example is shown in @tbl-example-full.
 
 ```{r}
 #| label: analyse-ploidy-data
@@ -424,37 +601,11 @@ pansolid_ploidy_results <- pansolid_ploidy_data |>
 
 {{< pagebreak >}}
 
-```{r}
-#| label: tbl-example-full
-#| tbl-cap: "Example of quantitative method output for sample 24017214"
-#| echo: FALSE
-
-example_tbl_full <- pansolid_ploidy_results |> 
-  filter(labno_suffix_worksheet == "24017214_WS145856") |>  
-  ungroup() |> 
-  select(chromosome_arm, result_flag, full_string)
-
-knitr::kable(example_tbl_full)
-
-```
-
-{{< pagebreak >}}
-
-```{r}
-#| label: tbl-example-summary
-#| tbl-cap: "Example of summarised output for sample 24017214"
-#| echo: FALSE
-
-knitr::kable(example_tbl_full |> 
-               filter(result_flag != ""))
-
-```
-
 ## Comparison to 1p19q FISH
 
 ```{r}
 #| label: fish-comparison
-#| echo: FALSE
+#| include: FALSE
 
 fish_results <- read_excel(path = paste0(config::get("data_folderpath"),
                  "validation/DOC6791_chromosome_arms/raw/fish/",
@@ -478,8 +629,6 @@ val_1p19q <- pansolid_ploidy_results |>
   select(name, labno, chromosome_arm, result_flag, fish_result,
          full_string)
 
-knitr::kable(val_1p19q)
-
 ```
 
 8 results are in agreement between the two methods.
@@ -494,25 +643,10 @@ One result does not agree because 1p and 19q are a mixture of LOH and deletion c
 ### 1q19p gain: sample 23001331
 
 Sample 23001331 was tested. 
-A 1p19q codeletion was detected on the previous CNV detection method (DCO4914) (report reference: 23001331.123).
-
-No 1p19q codeletion was detected on WGS (R25-0YP8-1), however a 1p
-which had a 1q19p gain on WGS, in order to check whether this would be incorrectly interpreted as a 1p19q loss.
-Testing of this sample on the previous CNV detection method (see DOCxxxx) had 
-
-```{r}
-#| label: tbl-sample-23001331
-#| echo: FALSE
-
-tbl_sample_23001331 <- pansolid_ploidy_results |> 
-  filter(labno_suffix_worksheet == "23001331_WS156025") |> 
-  ungroup() |> 
-  filter(chromosome_arm %in% c("1p", "1q", "19p", "19q")) |> 
-  select(chromosome_arm, result_flag, full_string)
-
-knitr::kable(tbl_sample_23001331)
-
-```
+A 1p19q codeletion was detected on the previous CNV detection method 
+([DOC4914]{custom-style="Strong"}) (report reference: 23001331.123).
+No 1p19q codeletion was detected on WGS (R25-0YP8-1), however gains were noted on 1q and 19p.
+The same gains were noted on PanSolid.
 
 ### Gain of 7 and loss of 10
 
@@ -545,12 +679,11 @@ karyotype_samples <- read_excel(path = paste0(config::get("data_folderpath"),
 ```
 
 5 samples with known hyperdiploid or hypodiploid karyotypes from G-banding analysis were tested on PanSolid NGS.
-The karyotype results are shown in @tbl-karyotype-samples.
 
 ```{r}
 #| label: tbl-karyotype-samples
 #| tbl-cap: "Samples with karyotype results"
-#| echo: FALSE
+#| include: FALSE
 
 karyotype_tbl <- karyotype_samples |> 
   select(sample_id, folder_name, karyotype) |> 
@@ -563,19 +696,45 @@ knitr::kable(karyotype_tbl)
 ```
 
 ```{r}
+#| label: fish-case-images
+#| include: FALSE
 
+image_folderpath <- paste0(config::get("data_folderpath"),
+                           "validation/DOC6791_chromosome_arms/images/")
 
+path_fish_24062890 <- paste0(image_folderpath, "fish_sample_24062890.png")
 
+path_fish_25018186 <- paste0(image_folderpath, "fish_sample_25018186.png")
 
+path_fish_24027676 <- paste0(image_folderpath, "fish_sample_24027676.png")
 
-pansolid_ploidy_results |> 
-  filter(grepl("24062890", labno_suffix_worksheet) &
-           result_flag != "") |>  view()
+path_fish_24057973 <- paste0(image_folderpath, "fish_sample_24057973.png")
 
+path_fish_24038436 <- paste0(image_folderpath, "fish_sample_24038436.png")
 
 ```
 
+{{< pagebreak >}}
 
+![Sample 24062890](`r path_fish_24062890`){#fig-fish-24062890 width=6in}
+
+{{< pagebreak >}}
+
+![Sample 25018186](`r path_fish_25018186`){#fig-fish-25018186 width=6in}
+
+{{< pagebreak >}}
+
+![Sample 24027676](`r path_fish_24027676`){#fig-fish-24027676 width=6in}
+
+{{< pagebreak >}}
+
+![Sample 24057973](`r path_fish_24057973`){#fig-fish-24057973 width=6in}
+
+{{< pagebreak >}}
+
+![Sample 24038436](`r path_fish_24038436`){#fig-fish-24038436 width=6in}
+
+{{< pagebreak >}}
 
 ## Repeat testing
 
@@ -594,6 +753,8 @@ detection of deletions ([DOC6567]{custom-style="Strong"}).
 
 This new method is an improvement on the previous NGS detection method for 1p19q, as it does not rely on normalising dosage to a single chromosome arm.
 This is demonstrated by 23001331.
+
+The ability of the pipeline to detect CNVs is influenced by target density, which is not uniform throughout the genome.
 
 ## Limitations
 
