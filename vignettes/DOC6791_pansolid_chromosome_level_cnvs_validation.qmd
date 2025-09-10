@@ -165,15 +165,22 @@ target_df_coordinates <- target_df |>
   mutate(chromosome_char = as.character(chromosome_fct)) |> 
   add_chromosome_arms()
 
+chromosome_arm_positions_grch38 <- readr::read_delim(file = 
+                                                       paste0(config::get("data_folderpath"),
+                                                              "validation/DOC6791_chromosome_arms/",
+                                                                     "bed_files/",
+                                                                     "chromosome_arm_positions_grch38.txt")) |> 
+    janitor::clean_names()
+
 target_chr_arm_summary <- target_df_coordinates |> 
   filter(!is.na(chromosome_arm)) |> 
   group_by(chromosome_fct, chromosome_arm) |> 
   summarise(min_coord = min(start),
             max_coord = max(end)) |> 
   mutate(target_span = max_coord - min_coord) |> 
-  left_join(chr_coords_grch38,
-            join_by("chromosome_arm" == "chrom_arm")) |> 
-  mutate(target_percent = (target_span / length)*100,
+  left_join(chromosome_arm_positions_grch38,
+            by = "chromosome_arm") |> 
+  mutate(target_percent = (target_span / arm_length)*100,
          p_or_q = str_extract(string = chromosome_arm,
                               pattern = "p|q"))
   
@@ -481,13 +488,17 @@ gain_names <- c("(1,3)", "(0,4)", "(0,3)", "(2,4)",
 
 del_names <- c("Bi-allelic deletion", "Deletion")
 
-pansolid_ploidy_data_long <- pansolid_ploidy_data |> 
+pansolid_ploidy_data_mod <- pansolid_ploidy_data |> 
   extract_pansolid_cnv_coordinates(cnv_coord_col = region) |> 
-    format_chromosome_decimals() |> 
-    factorise_chromosome() |> 
-    add_chromosome_arms() |> 
-    calculate_region_size() |> 
-  mutate(name_group = case_when(
+  format_chromosome_decimals(col = chromosome) |> 
+  factorise_chromosome(col = chromosome_char) |> 
+  calculate_region_length() |> 
+  add_chromosome_arms() |> 
+  add_chr_arm_region_percent() |> 
+  add_chr_arm_ps_target_region_percent() |> 
+  mutate(
+    percent_chr_arm_targets = round((number_of_targets / chr_arm_targets) * 100, 1),
+    name_group = case_when(
     name == "Normal diploid" ~"Normal diploid",
     name == "Uniparental disomy" ~"Uniparental disomy",
     name %in% gain_names ~"Gain",
@@ -498,106 +509,82 @@ pansolid_ploidy_data_long <- pansolid_ploidy_data |>
                                              "Gain",
                                              "Uniparental disomy")))
 
-stopifnot(anyNA(pansolid_ploidy_data_long$name) == FALSE)
+stopifnot(anyNA(pansolid_ploidy_data_mod$name) == FALSE)
 
 ```
 
 The ploidy state results for 
 `r length(unique(pansolid_ploidy_data$labno))`
 samples were analysed by the chromosome arm quantification method. 
-The overall distribution of results is shown in @fig-ploidy-state-histogram, which shows a clear sub-group of ploidy state calls where a single ploidy state call accounts for over 95% of the chromosome arm.
-This indicates that the threshold of 
-`r chr_arm_percent_threshold`% is an appropriate threshold for discriminating large chromosome events.
+The overall distribution of results is shown in @fig-ploidy-state-histogram.
 
 ```{r}
 #| label: fig-ploidy-state-histogram
 #| echo: FALSE
 #| warning: FALSE
+#| fig-height: 8
 
-pansolid_data_for_plot <- pansolid_ploidy_data_long |> 
-  filter(name_group != "Normal diploid") |> 
-  mutate(percent_chr_arm_round = round(percent_chr_arm, 1)) |> 
-  filter(percent_chr_arm_round >= 1)
+pansolid_data_for_plot <- pansolid_ploidy_data_mod |> 
+  filter(name_group != "Normal diploid") 
 
-fig_ploidy_state_histogram <-  ggplot(pansolid_data_for_plot, 
-                                      aes(x = percent_chr_arm_round, 
+fig_percent_chr_arm <- ggplot(pansolid_data_for_plot, 
+                                      aes(x = percent_chr_arm, 
                                           y = )) +
-  geom_histogram(binwidth = 2, aes(fill = name_group), colour = "black") +
-  scale_fill_manual(values = c("blue", "green", "orange")) +
-  geom_vline(xintercept = chr_arm_percent_threshold, linetype = "dashed") +
-  scale_x_continuous(limits = c(0, 100),
-                     breaks = seq(0, 100, by = 10)) +
+  geom_histogram(binwidth = 1, colour = "black") +
   theme_bw() +
-  theme(legend.position = "bottom") +
-  labs(x = "Percentage of chromosome arm covered by call",
-       y = "Number of ploidy state calls",
-       fill = "",
-       title = paste0("Size distribution for ",
-                      nrow(pansolid_data_for_plot),
-                      " ploidy state calls in ",
-                      length(unique(pansolid_ploidy_data_long$labno)),
-                      " samples"),
-       subtitle = "Normal diploid ploidy states removed. Bin size: 2%")
+  theme(legend.position = "none") +
+  labs(x = "Chromosome arm covered by call (%)",
+       y = "Number of regions",
+       fill = "") +
+  ylim(0, 300)
 
-fig_ploidy_state_histogram
+fig_percent_chr_arm_target_region <- ggplot(pansolid_data_for_plot, 
+       aes(x = percent_chr_arm_target_region, 
+           y = )) +
+  geom_histogram(binwidth = 1, colour = "black") +
+  theme_bw() +
+  theme(legend.position = "none") +
+  labs(x = "Chromosome arm target region covered by call (%)",
+       y = "Number of regions",
+       fill = "") +
+  ylim(0, 300)
+
+fig_percent_chr_arm_targets <- ggplot(pansolid_data_for_plot, 
+       aes(x = percent_chr_arm_targets, 
+           y = )) +
+  geom_histogram(binwidth = 1, colour = "black") +
+  theme_bw() +
+  theme(legend.position = "none") +
+  labs(x = "Chromosome arm targets included in call (%)",
+       y = "Number of regions",
+       fill = "") +
+  ylim(0, 300)
+
+fig_percent_chr_arm + fig_percent_chr_arm_target_region +
+  fig_percent_chr_arm_targets +
+  plot_layout(ncol = 1)
 
 ```
 
 
 ```{r}
-#| label: tbl-region-size-distribution-75
+#| label: tbl-region-size-distribution-95
 #| tbl-cap: "Distribution "
 #| echo: FALSE
 
-region_size_distr_75 <- pansolid_ploidy_data_long |> 
-  filter(name_group != "Normal diploid") |> 
+region_size_distr <- pansolid_data_for_plot |> 
   mutate(impact = case_when(
-    percent_chr_arm >= 75 ~"Above 75% of arm",
-    percent_chr_arm < 75 ~"Below 75% of arm")) |> 
+    percent_chr_arm_target_region >= 90 ~"Above threshold",
+    percent_chr_arm_target_region < 90 ~"Below threshold")) |> 
   group_by(impact) |> 
   summarise(n = n()) |> 
   mutate(percent = round((n/sum(n))*100, 1)) |> 
   janitor::adorn_totals()
 
-knitr::kable(region_size_distr_75)
+knitr::kable(region_size_distr)
 
 ```
 
-```{r}
-#| label: tbl-region-size-distribution-90
-#| tbl-cap: "Distribution "
-#| echo: FALSE
-
-region_size_distr_90 <- pansolid_ploidy_data_long |> 
-  filter(name_group != "Normal diploid") |> 
-  mutate(impact = case_when(
-    percent_chr_arm >= 90 ~"Above 90% of arm",
-    percent_chr_arm < 90 ~"Below 90% of arm")) |> 
-  group_by(impact) |> 
-  summarise(n = n()) |> 
-  mutate(percent = round((n/sum(n))*100, 1)) |> 
-  janitor::adorn_totals()
-
-knitr::kable(region_size_distr_90)
-
-```
-
-The `r chr_arm_percent_threshold`% threshold was used to flag when a chromosome arm was impacted by a large CNV event. 
-
-```{r}
-#| label: analyse-ploidy-data
-#| include: FALSE
-
-pansolid_ploidy_results <- pansolid_ploidy_data |>
-  extract_pansolid_cnv_coordinates(cnv_coord_col = region) |> 
-  format_chromosome_decimals() |> 
-  factorise_chromosome() |> 
-  add_chromosome_arms() |> 
-  calculate_region_size() |> 
-  add_chr_result_flag(percent_threshold = chr_arm_percent_threshold) |> 
-  format_arm_ploidy_tbl()
-  
-```
 
 {{< pagebreak >}}
 
@@ -606,6 +593,7 @@ pansolid_ploidy_results <- pansolid_ploidy_data |>
 ```{r}
 #| label: fish-comparison
 #| include: FALSE
+#| eval: FALSE
 
 fish_results <- read_excel(path = paste0(config::get("data_folderpath"),
                  "validation/DOC6791_chromosome_arms/raw/fish/",
@@ -657,11 +645,6 @@ The same gains were noted on PanSolid.
 plus7_loss10_samples <- c("25024755_WS152973", 
                           "25029510_WS153752",
                           "25032698_WS154250")
-
-x <- pansolid_ploidy_results |> 
-  filter(labno_suffix_worksheet %in% plus7_loss10_samples &
-           chromosome_arm %in% c("7p", "7q",
-                                 "10p", "10q")) 
 
 ```
 
@@ -743,6 +726,44 @@ were tested on 3 different worksheets to assess the impact of repeat
 variation. These were the same DNA samples used for the validation of
 detection of deletions ([DOC6567]{custom-style="Strong"}).
 
+2 additional samples were tested:
+
+- 24025211 - multiple chromosome deletions including 1p19q codeletion
+
+- 25032698 - gain of 7 and loss of 10
+
+```{r}
+#| label: repeatabilty-24025211
+#| echo: FALSE
+
+repeat_data_24025211 <- pansolid_ploidy_data_mod |> 
+  filter(labno == "24025211" &
+           chromosome_fct %in% c("1", "19") &
+           percent_chr_arm_target_region > 90 &
+           name != "Normal diploid") |> 
+  select(worksheet, chromosome_fct, chromosome_arm, name, number_of_targets, percent_chr_arm_target_region) |> 
+  arrange(chromosome_fct, chromosome_arm, worksheet) 
+
+knitr::kable(repeat_data_24025211)
+
+```
+
+```{r}
+#| label: repeatabilty-25032698
+#| echo: FALSE
+
+repeat_data_25032698 <- pansolid_ploidy_data_mod |> 
+  filter(labno == "25032698" &
+           chromosome_fct %in% c("7", "10") &
+           percent_chr_arm_target_region > 90 &
+           name != "Normal diploid") |> 
+  select(worksheet, chromosome_fct, chromosome_arm, name, number_of_targets, percent_chr_arm_target_region) |> 
+  arrange(chromosome_fct, chromosome_arm, worksheet) 
+
+knitr::kable(repeat_data_25032698)
+
+```
+
 ### Uncertainty of measurement
 
 ## Quality control
@@ -763,6 +784,11 @@ Bone marrow samples were tested because only bone marrow samples get karyotyping
 The quantification of chromosome arm percent will not sum to 100%, because the PanSolid enrichment does not cover the entire breadth of every chromosome arm.
 
 Summing ploidy state regions across a chromosome arm can merge regions with separate biological causes. If a chromosome arm has multiple independent deleted regions, these will be summed to give the impression that a single deletion is impacting the chromosome arm.
+
+### Haploidy 
+
+The pipeline is unable to identify when haploidy is present.
+This should only impact a small minority of samples, and analysts can be trained in how to spot this.
 
 ## Extrapolation to other copy number variants
 
