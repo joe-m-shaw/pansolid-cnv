@@ -208,6 +208,7 @@ add_chr_arm_region_percent <- function(df,
                                        start_col = start,
                                        end_col = end) {
   
+  # This dataframe is created by the pansolid_targets_per_chromosome_arm.R script
   chromosome_arm_positions_grch38 <- readr::read_delim(file = paste0(config::get("data_folderpath"),
                                                                      "validation/DOC6791_chromosome_arms/",
                                                                      "bed_files/",
