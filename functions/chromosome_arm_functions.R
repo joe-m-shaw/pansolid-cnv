@@ -1,10 +1,5 @@
 # Chromosome arm functions
 
-chr_coords_grch38 <- readr::read_delim(file = paste0(config::get("data_folderpath"),
-                                         "validation/DOC6791_chromosome_arms/",
-                                         "chromosome_arm_positions_grch38.txt")) |> 
-  janitor::clean_names()
-
 define_autosomes <- function() {
   
   autosomes <- c("1", "2", "3", "4", "5", "6", "7", "8",
@@ -41,8 +36,7 @@ define_chromosome_levels <- function() {
   
 }
 
-
-format_chromosome_decimals <- function(df) {
+format_chromosome_decimals <- function(df, col) {
   
   #' Format chromosome character strings when formatted as decimal numbers
   #' 
@@ -52,7 +46,9 @@ format_chromosome_decimals <- function(df) {
   #' `format_chromosome_decimals` removes the decimal place to make these
   #' strings easier to work with
   #'
-  #' @param df A dataframe with a column named "chromosome" containing 
+  #' @param df A dataframe  
+  #'
+  #' @param col The column of the dataframe containing 
   #' chromosome information formatted as a decimal number (i.e. "1.0").
   #'
   #' @returns The dataframe with an additional "chromosome_char" column with
@@ -61,10 +57,8 @@ format_chromosome_decimals <- function(df) {
   #'
   #' @examples
   
-  stopifnot("chromosome" %in% colnames(df))
-  
   output <-  df |> 
-    dplyr::mutate(chromosome_char = stringr::str_replace(string = chromosome,
+    dplyr::mutate(chromosome_char = stringr::str_replace(string = {{ col }},
                                       pattern = "\\.0",
                                       replacement = ""))
   
@@ -72,7 +66,7 @@ format_chromosome_decimals <- function(df) {
   
 }
 
-factorise_chromosome <- function(df) {
+factorise_chromosome <- function(df, col) {
   
   #' Factorise the chromosome column in a dataframe
   #'
@@ -85,26 +79,28 @@ factorise_chromosome <- function(df) {
   #' Formatting as a factor allows easier by specifying the order of autosomes
   #' first, then sex chromosomes.
   #'
-  #' @param df A dataframe containing a column called "chromosome_char" with
-  #' chromosome information of type character.
+  #' @param df A dataframe 
+  #' 
+  #' @param col The column of the dataframe with chromosome information of 
+  #' type character.
   #'
   #' @returns The input dataframe with a new column called "chromosome_fct" 
   #' containing the factorised version of the chromosome.
+  #' 
   #' @export
   #'
   #' @examples
   
-  stopifnot("chromosome_char" %in% colnames(df))
-  
   output <- df |> 
-    mutate(chromosome_fct = factor(chromosome_char, 
+    dplyr::mutate(chromosome_fct = factor({{ col }}, 
                               levels = define_chromosome_levels()))
   
   return(output)
   
 }
 
-add_chromosome_arms <- function(df) {
+add_chromosome_arms <- function(df, chrom_col = chromosome_char, 
+                                start_col = start, end_col = end) {
   
   #' Add chromosome arm information to GRCh38 region coordinates
   #' 
@@ -118,81 +114,74 @@ add_chromosome_arms <- function(df) {
   #' @export
   #'
   #' @examples
-  
-  stopifnot(c("chromosome_char", 
-              "start", "end") %in% colnames(df))
-  
-  stopifnot(typeof(df$chromosome_char) == "character")
-  
-  stopifnot(length(setdiff(unique(df$chromosome_char),
-                           define_chromosome_levels())) == 0)
-  
+
   output <- df |> 
-    filter(!chromosome_char %in% c("X", "Y")) |> 
-    mutate(chromosome_arm = case_when(
+    dplyr::filter(!{{ chrom_col }} %in% c("X", "Y")) |> 
+    dplyr::mutate(chromosome_arm = dplyr::case_when(
       # chr1
-      chromosome_char == "1" & end < 122026459 ~"1p",
-      chromosome_char == "1" & start > 124932724 ~"1q",
+      {{ chrom_col }} == "1" & end < 122026459 ~"1p",
+      {{ chrom_col }} == "1" & start >= 124932724 ~"1q",
       # chr2
-      chromosome_char == "2" & end < 92188145 ~"2p",
-      chromosome_char == "2" & start > 94090557 ~"2q",
+      {{ chrom_col }} == "2" & end < 92188145 ~"2p",
+      {{ chrom_col }} == "2" & start >= 94090557 ~"2q",
       # chr3
-      chromosome_char == "3" & end < 90772458 ~"3p",
-      chromosome_char == "3" & start > 93655574 ~"3q",
+      {{ chrom_col }} == "3" & end < 90772458 ~"3p",
+      {{ chrom_col }} == "3" & start >= 93655574 ~"3q",
       # chr4
-      chromosome_char == "4" & end < 49712061 ~"4p",
-      chromosome_char == "4" & start > 51743951 ~"4q",
+      {{ chrom_col }} == "4" & end < 49712061 ~"4p",
+      {{ chrom_col }} == "4" & start >= 51743951 ~"4q",
       # chr5
-      chromosome_char == "5" & end < 46485900 ~"5p",
-      chromosome_char == "5" & start > 50059807 ~"5q",
+      {{ chrom_col }} == "5" & end < 46485900 ~"5p",
+      {{ chrom_col }} == "5" & start >= 50059807 ~"5q",
       # chr6
-      chromosome_char == "6" & end < 58553888 ~"6p",
-      chromosome_char == "6" & start > 59829934 ~"6q",
+      {{ chrom_col }} == "6" & end < 58553888 ~"6p",
+      {{ chrom_col }} == "6" & start >= 59829934 ~"6q",
       # chr7
-      chromosome_char == "7" & end < 58169653 ~"7p",
-      chromosome_char == "7" & start > 61528020 ~"7q",
+      {{ chrom_col }} == "7" & end < 58169653 ~"7p",
+      # Coordinate change to reflect PanSolid coordinate
+      {{ chrom_col }} == "7" & start >= 61091465 ~"7q",
       # chr8
-      chromosome_char == "8" & end < 44033744 ~"8p",
-      chromosome_char == "8" & start > 45877265 ~"8q",
+      {{ chrom_col }} == "8" & end < 44033744 ~"8p",
+      {{ chrom_col }} == "8" & start >= 45877265 ~"8q",
       # chr9
-      chromosome_char == "9" & end < 43389635 ~"9p",
-      chromosome_char == "9" & start > 45518558 ~"9q",
+      {{ chrom_col }} == "9" & end < 43389635 ~"9p",
+      {{ chrom_col }} == "9" & start >= 45518558 ~"9q",
       # chr10
-      chromosome_char == "10" & end < 39686682 ~"10p",
-      chromosome_char == "10" & start > 41593521 ~"10q",
+      {{ chrom_col }} == "10" & end < 39686682 ~"10p",
+      {{ chrom_col }} == "10" & start >= 41593521 ~"10q",
       # chr11
-      chromosome_char == "11" & end < 51078348 ~"11p",
-      chromosome_char == "11" & start > 54425074 ~"11q",
+      {{ chrom_col }} == "11" & end < 51078348 ~"11p",
+      {{ chrom_col }} == "11" & start >= 54425074 ~"11q",
       # chr12
-      chromosome_char == "12" & end < 34769407 ~"12p",
-      chromosome_char == "12" & start > 37185252 ~"12q",
+      {{ chrom_col }} == "12" & end < 34769407 ~"12p",
+      {{ chrom_col }} == "12" & start >= 37185252 ~"12q",
       # chr 13
-      chromosome_char == "13" & start > 18051248 ~"13q",
+      {{ chrom_col }} == "13" & start >= 18051248 ~"13q",
       # chr14
-      chromosome_char == "14" & start > 18173523 ~"14q",
+      {{ chrom_col }} == "14" & start >= 18173523 ~"14q",
       # chr15
-      chromosome_char == "15" & start > 19725254 ~"15q",
+      {{ chrom_col }} == "15" & start >= 19725254 ~"15q",
       # chr16
-      chromosome_char == "16" & end < 36311158 ~"16p",
-      chromosome_char == "16" & start > 36334460 ~"16q",
+      {{ chrom_col }} == "16" & end < 36311158 ~"16p",
+      {{ chrom_col }} == "16" & start >= 36334460 ~"16q",
       # chr17
-      chromosome_char == "17" & end < 22813679 ~"17p",
-      chromosome_char == "17" & start > 26566633 ~"17q",
+      {{ chrom_col }} == "17" & end < 22813679 ~"17p",
+      {{ chrom_col }} == "17" & start >= 26566633 ~"17q",
       # chr18
-      chromosome_char == "18" & end < 15460899 ~"18p",
-      chromosome_char == "18" & start > 20861206 ~"18q",
+      {{ chrom_col }} == "18" & end < 15460899 ~"18p",
+      {{ chrom_col }} == "18" & start >= 20861206 ~"18q",
       # chr19
-      chromosome_char == "19" & end < 24498980 ~"19p",
-      chromosome_char == "19" & start > 27190874 ~"19q",
+      {{ chrom_col }} == "19" & end < 24498980 ~"19p",
+      {{ chrom_col }} == "19" & start >= 27190874 ~"19q",
       # chr20
-      chromosome_char == "20" & end < 26436232 ~"20p",
-      chromosome_char == "20" & start > 30038348 ~"20q",
+      {{ chrom_col }} == "20" & end < 26436232 ~"20p",
+      {{ chrom_col }} == "20" & start >= 30038348 ~"20q",
       # chr21
-      chromosome_char == "21" & end < 10864560 ~"21p",
-      chromosome_char == "21" & start > 12915808 ~"21q",
+      {{ chrom_col }} == "21" & end < 10864560 ~"21p",
+      {{ chrom_col }} == "21" & start >= 12915808 ~"21q",
       # chr22
-      chromosome_char == "22" & end < 12954788 ~"22p",
-      chromosome_char == "22" & start > 15054318 ~"22q"
+      {{ chrom_col }} == "22" & end < 12954788 ~"22p",
+      {{ chrom_col }} == "22" & start >= 15054318 ~"22q"
     ))
   
   if(anyNA.data.frame(output) == TRUE) {
@@ -203,126 +192,74 @@ add_chromosome_arms <- function(df) {
 
 }
 
-calculate_region_size <- function(df) {
+calculate_region_length <- function(df,  
+                                  start_col = start,
+                                  end_col = end) {
   
   output <- df |> 
-    mutate(region_size = end-start) |> 
-    left_join(chr_coords_grch38 |> 
-                select(chrom_arm, length),
-              join_by("chromosome_arm" == "chrom_arm")) |> 
-    mutate(percent_chr_arm = round((region_size / length) * 100, 1),
-           result_string = str_c(name, " ", percent_chr_arm, "%")) 
+    dplyr::mutate(region_length = {{ end_col }} - {{ start_col }}) 
   
   return(output)
   
 }
 
-summarise_by_chromosome_arms <- function(df) {
+add_chr_arm_region_percent <- function(df, 
+                                       chr_arm_col = chromosome_arm,
+                                       start_col = start,
+                                       end_col = end) {
   
-  #' Summarise ploidy regions by chromosome arm
-  #'
-  #' @param df 
-  #'
-  #' @returns
-  #' @export
-  #'
-  #' @examples
+  chromosome_arm_positions_grch38 <- readr::read_delim(file = paste0(config::get("data_folderpath"),
+                                                                     "validation/DOC6791_chromosome_arms/",
+                                                                     "bed_files/",
+                                                                     "chromosome_arm_positions_grch38.txt")) |> 
+    janitor::clean_names()
   
-  stopifnot(c("labno_suffix_worksheet",
-              "chromosome_char", 
-              "chromosome_fct",
-              "chromosome_arm", 
-              "name", 
-              "region_size") %in%
-              colnames(df))
+  if(!"region_length" %in% colnames(df)) {
+    
+    df <- df |> 
+      calculate_region_length(start_col = start_col,
+                              end_col = end_col)
+  }
   
-  output <- df |> 
-    group_by(labno_suffix_worksheet, 
-             chromosome_char, chromosome_fct, chromosome_arm, name) |> 
-    summarise(ploidy_state_bp = sum(region_size),
-              ploidy_state_percent = sum(percent_chr_arm)) 
-
-  return(output)
-  
-}
-
-add_chr_result_flag <- function(df, percent_threshold = 90) {
-  
-  #' Add a flag for chromosome ploidy states
-  #'
-  #' @param df 
-  #' @param percent_threshold 
-  #'
-  #' @returns
-  #' @export
-  #'
-  #' @examples
-  
-  output <- df |> 
-    mutate(chr_flag = case_when(
-      percent_chr_arm >= percent_threshold &
-        name != "Normal diploid" ~str_c(chromosome_arm, " ", name),
-      percent_chr_arm < percent_threshold |
-        name == "Normal diploid" ~""
-    ))
+  output <- df |>  
+    dplyr::left_join(chromosome_arm_positions_grch38 |> 
+                       dplyr::select(chromosome_arm, arm_length),
+                     dplyr::join_by( {{ chr_arm_col }} == "chromosome_arm"),
+                     relationship = "many-to-one") |> 
+    dplyr::mutate(percent_chr_arm = round((region_length / arm_length) * 100, 1)) 
   
   return(output)
   
 }
 
-format_arm_ploidy_tbl <- function(df) {
+add_chr_arm_ps_target_region_percent <- function(df,
+                                                 start_col = start,
+                                                 end_col = end,
+                                                 chr_arm_col = chromosome_arm) {
   
-  #' Title
-  #'
-  #' @param df 
-  #'
-  #' @returns
-  #' @export
-  #'
-  #' @examples
+  pansolid_target_chr_arm_bed <- readr::read_csv(paste0(config::get("data_folderpath"),
+                                                        "validation/DOC6791_chromosome_arms/",
+                                                        "bed_files/",
+                                                        "pansolid_target_region_chr_arm_bed.csv"))
+  
+  if(!"region_length" %in% colnames(df)) {
+    
+    df <- df |> 
+      calculate_region_length(start_col = start_col,
+                              end_col = end_col)
+  }
   
   output <- df |> 
-    arrange(labno_suffix_worksheet, 
-            chromosome_fct, chromosome_arm, desc(percent_chr_arm)) |> 
-    group_by(labno_suffix_worksheet, 
-             chromosome_fct, chromosome_arm) |> 
-    summarise(full_string = toString(result_string),
-              full_flag = toString(chr_flag)) |> 
-    mutate(result_flag = str_replace_all(full_flag,
-                                           pattern = ",\\s",
-                                           replacement = "")) |> 
-    relocate(result_flag, .after = chromosome_arm) |> 
-    select(-full_flag) |> 
-    arrange(chromosome_fct) |> 
-    ungroup()
+    dplyr::left_join(pansolid_target_chr_arm_bed |> 
+                       dplyr::select(chromosome_arm, chr_arm_targets,
+                                     chr_arm_target_covered_region_length),
+                     dplyr::join_by({{ chr_arm_col }} == "chromosome_arm"),
+                     relationship = "many-to-one") |> 
+    dplyr::mutate(percent_chr_arm_target_region = 
+             round((region_length / chr_arm_target_covered_region_length) * 100, 1))
   
   return(output)
-  
-}
 
-make_chr_arm_ploidy_tbl <- function(df, input_threshold = 90) {
-  
-  #' Title
-  #'
-  #' @param df 
-  #'
-  #' @returns
-  #' @export
-  #'
-  #' @examples
-  
-  output <- df |> 
-    extract_pansolid_cnv_coordinates(cnv_coord_col = region) |> 
-    format_chromosome_decimals() |> 
-    factorise_chromosome() |> 
-    add_chromosome_arms() |> 
-    calculate_region_size() |> 
-    summarise_by_chromosome_arms() |> 
-    add_chr_result_flag(percent_threshold = input_threshold) |> 
-    format_arm_ploidy_tbl()
-  
-  return(output)
-  
 }
 
 source(here::here("tests/test_chromosome_arm_functions.R"))
