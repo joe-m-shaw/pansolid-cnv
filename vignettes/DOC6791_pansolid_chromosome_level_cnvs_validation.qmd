@@ -435,13 +435,14 @@ chr19q_plot <- make_probe_target_plot(chrom = "19",
 #| label: fig-fish-probe-pansolid-targets
 #| echo: FALSE
 #| fig-cap: "Location of FISH probes and PanSolid targets"
-#| fig-height: 8
+#| fig-height: 7
 
 fig_fish_probe_pansolid_targets <- chr1p_plot[[1]] + chr19p_plot[[1]] +
   chr1p_plot[[2]] + chr19p_plot[[2]] + 
   chr1q_plot[[1]] + chr19q_plot[[1]] +
   chr1q_plot[[2]] + chr19q_plot[[2]] + 
-  plot_layout(ncol = 2, nrow = 4)
+  plot_layout(ncol = 2, nrow = 4) +
+  plot_annotation(title = "Location of FISH probes and PanSolid targets")
 
 fig_fish_probe_pansolid_targets
 
@@ -561,15 +562,22 @@ fig_percent_chr_arm_targets <- ggplot(pansolid_data_for_plot,
   ylim(0, 300)
 
 fig_percent_chr_arm + fig_percent_chr_arm_target_region +
-  fig_percent_chr_arm_targets +
-  plot_layout(ncol = 1)
+  plot_layout(ncol = 1) +
+  plot_annotation(
+    title = paste0("Results for ", 
+    nrow(pansolid_data_for_plot),
+    " non-diploid ploidy regions from ",
+    length(unique(pansolid_data_for_plot$labno)),
+    " PanSolid samples")
+  )
 
 ```
 
+{{< pagebreak >}}
 
 ```{r}
-#| label: tbl-region-size-distribution-95
-#| tbl-cap: "Distribution "
+#| label: tbl-region-size-distribution
+#| tbl-cap: "Distribution with a threshold of 90%"
 #| echo: FALSE
 
 region_size_distr <- pansolid_data_for_plot |> 
@@ -593,7 +601,6 @@ knitr::kable(region_size_distr)
 ```{r}
 #| label: fish-comparison
 #| include: FALSE
-#| eval: FALSE
 
 fish_results <- read_excel(path = paste0(config::get("data_folderpath"),
                  "validation/DOC6791_chromosome_arms/raw/fish/",
@@ -603,19 +610,18 @@ fish_results <- read_excel(path = paste0(config::get("data_folderpath"),
                names_to = "chromosome_arm",
                values_to = "fish_result")
 
-val_1p19q <- pansolid_ploidy_results |> 
-  filter(chromosome_arm %in% c("1p", "19q")) |> 
-  mutate(labno = str_extract(string = labno_suffix_worksheet,
-                             pattern = "(\\d{8})_WS\\d{6}",
-                             group =1)) |> 
+val_1p19q <- pansolid_ploidy_data_mod |> 
+  filter(chromosome_arm %in% c("1p", "19q") &
+           labno %in% fish_results$pansolid_labno) |> 
   select(labno_suffix_worksheet, labno,
-         chromosome_arm, result_flag, full_string) |> 
+         chromosome_arm, name, percent_chr_arm_target_region) |> 
   arrange(labno_suffix_worksheet, desc(chromosome_arm)) |> 
-  inner_join(fish_results,
+  full_join(fish_results |> 
+               select(-name),
             join_by("labno" == "pansolid_labno",
                     "chromosome_arm" == "chromosome_arm")) |> 
-  select(name, labno, chromosome_arm, result_flag, fish_result,
-         full_string)
+  select(labno, chromosome_arm, name, percent_chr_arm_target_region, 
+         fish_result)
 
 ```
 
@@ -635,6 +641,39 @@ A 1p19q codeletion was detected on the previous CNV detection method
 ([DOC4914]{custom-style="Strong"}) (report reference: 23001331.123).
 No 1p19q codeletion was detected on WGS (R25-0YP8-1), however gains were noted on 1q and 19p.
 The same gains were noted on PanSolid.
+
+```{r}
+#| label: sample-23001331
+#| echo: FALSE
+
+pansolid_ploidy_data_mod |> 
+  filter(labno == "23001331" &
+           percent_chr_arm_target_region >= 90 &
+           name != "Normal diploid") |> 
+  select(worksheet, chromosome_fct, chromosome_arm, name, 
+         number_of_targets, percent_chr_arm_target_region) |> 
+  arrange(chromosome_fct, chromosome_arm, worksheet)
+
+```
+
+
+### Chromothripsis: sample 25038490
+
+WS156822
+
+```{r}
+#| label: sample-25038490
+#| echo: FALSE
+
+pansolid_ploidy_data_mod |> 
+  filter(labno == "25038490" &
+           percent_chr_arm_target_region >= 90 &
+           name != "Normal diploid") |> 
+  select(worksheet, chromosome_fct, chromosome_arm, name, 
+         number_of_targets, percent_chr_arm_target_region) |> 
+  arrange(chromosome_fct, chromosome_arm, worksheet)
+
+```
 
 ### Gain of 7 and loss of 10
 
@@ -726,41 +765,83 @@ were tested on 3 different worksheets to assess the impact of repeat
 variation. These were the same DNA samples used for the validation of
 detection of deletions ([DOC6567]{custom-style="Strong"}).
 
-2 additional samples were tested:
-
-- 24025211 - multiple chromosome deletions including 1p19q codeletion
-
-- 25032698 - gain of 7 and loss of 10
+2 additional samples were tested on 3 different worksheets to assess the repeatability for large chromosome change detection: 24025211 (multiple chromosome deletions including 1p19q codeletion) and 25032698 (gain of 7 and loss of 10).
 
 ```{r}
 #| label: repeatabilty-24025211
 #| echo: FALSE
+#| tbl-cap: "Repeat data for 24025211"
 
-repeat_data_24025211 <- pansolid_ploidy_data_mod |> 
-  filter(labno == "24025211" &
-           chromosome_fct %in% c("1", "19") &
+select_repeat_data <- function(sample_id) {
+  
+  output <- pansolid_ploidy_data_mod |> 
+  filter(labno == sample_id &
            percent_chr_arm_target_region > 90 &
            name != "Normal diploid") |> 
-  select(worksheet, chromosome_fct, chromosome_arm, name, number_of_targets, percent_chr_arm_target_region) |> 
-  arrange(chromosome_fct, chromosome_arm, worksheet) 
+  select(worksheet, chromosome_fct, chromosome_arm, name, 
+         number_of_targets, percent_chr_arm_target_region) |> 
+  arrange(chromosome_fct, chromosome_arm, worksheet) |> 
+    rename(targets = number_of_targets,
+           percent_targets = percent_chr_arm_target_region)
+  
+  return(output)
+}
+
+repeat_data_24025211 <- select_repeat_data("24025211")
 
 knitr::kable(repeat_data_24025211)
 
 ```
 
+{{< pagebreak >}}
+
 ```{r}
 #| label: repeatabilty-25032698
 #| echo: FALSE
+#| tbl-cap: "Repeat data for 25032698"
 
-repeat_data_25032698 <- pansolid_ploidy_data_mod |> 
-  filter(labno == "25032698" &
-           chromosome_fct %in% c("7", "10") &
-           percent_chr_arm_target_region > 90 &
-           name != "Normal diploid") |> 
-  select(worksheet, chromosome_fct, chromosome_arm, name, number_of_targets, percent_chr_arm_target_region) |> 
-  arrange(chromosome_fct, chromosome_arm, worksheet) 
+repeat_data_25032698 <- select_repeat_data("25032698")
 
 knitr::kable(repeat_data_25032698)
+
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| label: repeatability-24018518
+#| echo: FALSE
+#| tbl-cap: "Repeat data for 24018518 (no large changes)"
+
+repeat_data_24018518 <- select_repeat_data("24018518")
+
+knitr::kable(repeat_data_24018518)
+
+```
+
+```{r}
+#| label: repeatability-24045597
+#| echo: FALSE
+#| tbl-cap: "Repeat data for 24045597 (chr22 deletion)"
+
+repeat_data_24045597 <- select_repeat_data("24045597")
+
+knitr::kable(repeat_data_24045597)
+
+```
+
+```{r}
+#| label: repeatability-24054282
+#| echo: FALSE
+#| tbl-cap: "Repeat data for 24054282 (chr22 LOH)"
+
+repeat_data_24054282 <- select_repeat_data("24054282")
+
+knitr::kable(repeat_data_24054282)
+
+pansolid_ploidy_data_mod |> 
+  filter(labno == "24054282" &
+           chromosome_char == "22") |>  view()
 
 ```
 
