@@ -1,0 +1,172 @@
+---
+title: "INC10378"
+author: "Joe Shaw (CS20980)"
+format: pdf
+editor: visual
+---
+
+
+
+```{r}
+#| label: packages-and-functions
+#| include: FALSE
+
+library(tidyverse)
+library(readxl)
+library(janitor)
+
+source(here::here("functions/pansolid_cnv_excel_functions.R"))
+source(here::here("functions/contamination_functions.R"))
+
+```
+
+```{r}
+#| label: load-data
+#| include: FALSE
+
+WS151383_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/WS151383/"
+
+WS151383_files <- list.files(WS151383_path, 
+                             pattern = "Results_SNVs_Indels-WS151383_\\d{8}.*.xlsx",
+                             recursive = TRUE,
+                             full.names = TRUE)
+
+WS151383_snp_data <- WS151383_files |> 
+  map(\(WS151383_files) read_snp_sheet(WS151383_files)) |> 
+  list_rbind()
+
+```
+
+# WS151383
+
+## 25014769
+
+Sample 25014769 (lung) was suspected to be contaminated at the indexing stage with sample 25015163 (endometrial).
+The plot below shows that this is likely the case.
+
+```{r}
+#| label: lung-plot
+#| echo: FALSE
+#| fig-width: 6
+#| fig-height: 6
+
+lung_plot <- make_contamination_snp_plot(df = WS151383_snp_data,
+                                         "WS151383", "25014769",
+                                         "WS151383", "25015163")[1]
+
+lung_plot
+
+```
+
+This sample was also tested using the Genexus.
+We can compare the SNP frequencies for SNPs detected on Genexus against those detected on PanSolid.
+In order to do this we have to convert the Genexus SNP data from GRCh37 from GRCh38 using the [Ensembl Assembly Converter](https://grch37.ensembl.org/Homo_sapiens/Tools/AssemblyConverter).
+
+```{r}
+#| label: genexus-pansolid-snps
+#| include: FALSE
+
+snp_25014769 <- read_excel(path = paste0(
+  "S:/central shared/Genetics/Repository/",
+  "WorksheetAnalysedData/WS151383/v2aM4_LUNG_PS/",
+  "Unannotated_Files/",
+  "Results_SNVs_Indels-WS151383_25014769_S16_R1_001.xlsx"),
+  sheet = "Artefacts_removed_GIAB_filt...",
+  range = cell_cols("A:L"),
+  col_types = c(
+               "numeric", "numeric", "text", "text", "text", 
+               "text", "numeric", "text", "text",
+               "numeric", "numeric", "numeric")) |>  
+  janitor::clean_names() |> 
+  filter(type == "SNV")
+
+# Export from Genexus software
+genexus_data <- read_excel(path = paste0(config::get("data_folderpath"),
+                           "live_service/INC10378_indexes/",
+                           "25014769_r25-0e61_variants.xlsx")) |> 
+  janitor::clean_names()
+
+# Reformat as a bed file
+genexus_bed <- genexus_data |> 
+  mutate(chrom = str_extract(string = locus,
+                             pattern = "chr(\\d{1,2}|X)"),
+         start = str_extract(string = locus,
+                             pattern = ":(\\d{1,10})",
+                             group = 1),
+         end = start) |> 
+  select(chrom, start, end)
+
+write_csv(genexus_bed, "genexus_bed.csv")
+
+# Output from Assembly Converter
+genexus_grch38 <- read_tsv(file = paste0(config::get("data_folderpath"),
+                           "live_service/INC10378_indexes/",
+                           "Em3KLKrw7mCzZvKG.txt"),
+         col_names = c("chrom", "start", "end")) |> 
+  mutate(grch38_locus = paste0(chrom, ":", start))
+
+genexus_mod <- genexus_data |> 
+  cbind(genexus_grch38) |> 
+  rename(grch37_locus = locus,
+         genexus_frequency = allele_frequency_percent) |> 
+  select(grch37_locus, grch38_locus, alt, genexus_frequency)
+
+genexus_ps_join <- snp_25014769 |> 
+  rename(ps_frequency = frequency) |> 
+  mutate(grch38_locus = paste0("chr", chromosome,
+                               ":", region)) |> 
+  select(grch38_locus, allele, ps_frequency) |> 
+  inner_join(genexus_mod, join_by("grch38_locus" == "grch38_locus",
+                                  "allele" == "alt"),
+             keep = TRUE) |> 
+  select(grch37_locus, grch38_locus.y, grch38_locus.x,
+         allele, alt, genexus_frequency, ps_frequency)
+
+```
+
+```{r}
+#| label: genexus-pansolid-plot
+#| echo: FALSE
+
+genexus_ps_plot <- ggplot(genexus_ps_join, aes(x = ps_frequency, y = genexus_frequency)) +
+  geom_point(shape = 21, size = 2) +
+  geom_abline(linetype = "dashed") +
+  labs(x = "PanSolid SNP frequency (%)", y = "Genexus SNP frequency (%)") +
+  scale_x_continuous(limits = c(0, 100),
+                     breaks = seq(0, 100, by = 10)) +
+  scale_y_continuous(limits = c(0, 100),
+                     breaks = seq(0, 100, by = 10)) +
+  theme_bw()
+
+genexus_ps_plot
+
+```
+
+## 25015130
+
+I have checked through all the sample combinations with 25015130 on this worksheet and cannot find a sample which is a likely source of the contamination.
+
+# WS155702
+
+```{r}
+#| label: load-data
+#| include: FALSE
+
+WS155702_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/WS155702/"
+
+WS155702_files <- list.files(WS155702_path, 
+                             pattern = "Results_SNVs_Indels-WS155702_\\d{8}.*.xlsx",
+                             recursive = TRUE,
+                             full.names = TRUE)
+
+WS155702_snp_data <- WS155702_files |> 
+  map(\(WS155702_files) read_snp_sheet(WS155702_files)) |> 
+  list_rbind()
+
+make_contamination_snp_plot(df = WS155702_snp_data,
+                                         "WS155702", "25042695",
+                                         "WS155702", 
+                            # this one
+                            "25042492")[1]
+
+```
