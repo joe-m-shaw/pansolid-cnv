@@ -24,7 +24,7 @@ pansolid_target_region_chr_arm_bed <- pansolid_bed_mod |>
             chr_arm_targets = n()) |> 
   mutate(chr_arm_target_covered_region_length = chr_arm_max_target_coordinate - chr_arm_min_target_coordinate)
 
-write_csv(pansolid_chr_arm_bed |> 
+write_csv(pansolid_target_region_chr_arm_bed |> 
             select(chromosome_fct, 
                    chromosome_arm,
                    chr_arm_min_target_coordinate, 
@@ -37,7 +37,7 @@ write_csv(pansolid_chr_arm_bed |>
 
 # Get minimum coordinates -------------------------------------------------
 
-chr_coords_long <- pansolid_bed |> 
+chr_coords_long <- pansolid_bed_mod |> 
   group_by(chromosome_fct) |> 
   summarise(min_coord = min(start),
             max_coord = max(end)) |> 
@@ -49,11 +49,11 @@ chr_coords_long <- pansolid_bed |>
     chromosome_fct != "1" ~cumsum(coordinate)
   ))
 
-chr_min_coords <- chr_coords_long |> 
+pansolid_chr_cumulative_coordinates <- chr_coords_long |> 
   filter(category == "min_coord")
   
-write_csv(chr_min_coords,
+write_csv(pansolid_chr_cumulative_coordinates,
           paste0(config::get("data_folderpath"),
                  "validation/DOC6791_chromosome_arms/",
-                 "primers_and_targets/",
-                 "chr_min_coords.csv"))
+                 "bed_files/",
+                 "pansolid_chr_cumulative_coordinates.csv"))
