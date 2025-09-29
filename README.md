@@ -1,4 +1,6 @@
-# Solid Cancer Copy Number Variants <img src="pansolid_cnv_logo.png" align="right" height="200"/>
+# pansolidcnv <img src="man/figures/logo.png" align="right" height="136"/>
+
+## Copy Number Variant Detection in Solid Cancers
 
 This repository contains R scripts used in the validation and monitoring of copy number variant (CNV) detection on the "Pan Solid" Qiaseq primer panel at the North West Genomic Laboratory Hub (GLH) in Manchester.
 
@@ -28,7 +30,7 @@ This script requires an ODBC connection to DNA Database.
 This project was split into multiple sub-projects focussed on validating different CNV types.
 
 | Variant category | Validation document | Date of live service | First worksheet |
-|:----------------------|:----------------|:----------------|:----------------|
+|:-------------------|:----------------|:----------------|:----------------|
 | Amplifications of *ERBB2* | DOC6260 | 2024-04-02 | WS140721 |
 | Amplifications for 8 more oncogenes | DOC6283 | 2024-11-18 | WS147437 |
 | Deletions and ploidy states | DOC6567 | 2025-04-28 | WS152758 |

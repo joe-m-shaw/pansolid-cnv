@@ -10,11 +10,15 @@ extract_pansolid_cnv_coordinates <- function(df, cnv_coord_col) {
   #' 
   #' @return The input dataframe with the CNV start and end coordinates 
   #' as two new columns.
+  #' 
   #' @export
   #'
   #' @examples 
-  #' cnvs_with_coordinates <- extract_pansolid_cnv_coordinates(df = pos_cnv_tbl, 
-  #' cnv_coord_col = cnv_co_ordinates)
+  #' 
+  #' df <- data.frame("cnv_coord" = c("55174776..55174793"))
+  #' 
+  #' cnvs_with_coordinates <- extract_pansolid_cnv_coordinates(df, 
+  #' cnv_coord_col = cnv_coord)
   
   cnv_coord_regex <- stringr::regex(
     r"[
@@ -37,5 +41,3 @@ extract_pansolid_cnv_coordinates <- function(df, cnv_coord_col) {
   return(output)
   
 }
-
-source(here::here("tests/test_extract_pansolid_cnv_coordinates.R"))
