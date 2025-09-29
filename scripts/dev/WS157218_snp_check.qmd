@@ -1,0 +1,38 @@
+---
+title: "Sample SNP check query"
+author: "Joe Shaw (CS20980)"
+format: pdf
+editor: visual
+---
+
+```{r}
+
+source(here::here("functions/pansolid_cnv_excel_functions.R"))
+source(here::here("functions/chromosome_arm_functions.R"))
+source(here::here("functions/contamination_functions_INC10994.R"))
+
+WS157218_data <- collate_snp_data("WS157218")
+
+snp_plot <- make_contamination_snp_plot(WS157218_data,
+                            "25053814_WS157218",
+                            WS157218_data,
+                            "25053815_WS157218")
+
+snp_plot2 <- make_contamination_snp_plot(
+  WS157218_data,
+  "25053814_WS157218",
+  WS157218_data,
+  "25054014_WS157218")
+
+ggsave(snp_plot, filename = "snp_plot_25053814_25053815.png",
+       width = 7,
+       height = 6,
+       units = "in")
+
+ggsave(snp_plot2, filename = "snp_plot_25053814_25054014.png",
+       width = 7,
+       height = 6,
+       units = "in")
+
+```
+
