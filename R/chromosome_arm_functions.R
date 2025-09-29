@@ -26,7 +26,7 @@ define_chromosome_levels <- function() {
   #' variable so that the observations will sort in chromosome order.  
   #'
   #' @returns A vector of human autosomes and sex chromosomes in numeric order 
-  #' # and then X and Y.
+  #' and then X and Y.
   #' 
   #' @export
     
@@ -54,8 +54,6 @@ format_chromosome_decimals <- function(df, col = chromosome) {
   #' @returns The dataframe with an additional "chromosome_char" column with
   #' the decimal places removed.
   #' @export
-  #'
-  #' @examples
   
   output <-  df |> 
     dplyr::mutate(chromosome_char = stringr::str_replace(string = {{ col }},
@@ -89,7 +87,6 @@ factorise_chromosome <- function(df, col) {
   #' 
   #' @export
   #'
-  #' @examples
   
   output <- df |> 
     dplyr::mutate(chromosome_fct = factor({{ col }}, 
@@ -113,7 +110,6 @@ add_chromosome_arms <- function(df, chrom_col = chromosome_char,
   #' autosome data only. Sex chromosome coordinates are removed.
   #' @export
   #'
-  #' @examples
 
   output <- df |> 
     dplyr::filter(!{{ chrom_col }} %in% c("X", "Y")) |> 
@@ -272,9 +268,9 @@ add_cumulative_chr_coordinates <- function(df, col) {
                                                          col_types = "ccdd")
   
   output <- df |> 
-    left_join(pansolid_chr_cumulative_coordinates |> 
-              select(chromosome_fct, cumulative_chr_coordinate),
-            join_by({{ col }} == "chromosome_fct")) 
+    dplyr::left_join(pansolid_chr_cumulative_coordinates |> 
+              dplyr::select(chromosome_fct, cumulative_chr_coordinate),
+              dplyr::join_by({{ col }} == "chromosome_fct")) 
   
   return(output)
   
@@ -298,7 +294,6 @@ read_snp_sheet <- function(filepath,
   #' annotated with the sample details from the filename.
   #' @export
   #'
-  #' @examples
   
   df <- readxl::read_excel(path = filepath,
                            sheet = sheetname,
@@ -321,8 +316,8 @@ format_snp_sheet_data <- function(df) {
   output <- df |> 
     format_chromosome_decimals(col = chromosome) |> 
     factorise_chromosome(col = chromosome_char) |> 
-    filter(type == "SNV") |> 
-    mutate(region_numeric = as.numeric(region)) |> 
+    dplyr::filter(type == "SNV") |> 
+    dplyr::mutate(region_numeric = as.numeric(region)) |> 
     add_cumulative_chr_coordinates(col = chromosome_fct) |> 
     mutate(cumulative_region_coordinate = region_numeric + cumulative_chr_coordinate)
   
@@ -332,7 +327,7 @@ format_snp_sheet_data <- function(df) {
 
 read_targets_merged <- function(filepath, sheetname = "CNV Targets Merged"){
   
-  output <- read_excel(path = filepath,
+  output <- readxl::read_excel(path = filepath,
                        sheet = sheetname,
                        range = "A1:N6175",
                        col_types = c("text", "text", "text", "text", "text",
@@ -346,5 +341,3 @@ read_targets_merged <- function(filepath, sheetname = "CNV Targets Merged"){
   return(x)
   
 }
-
-source(here::here("tests/test_chromosome_arm_functions.R"))

@@ -1,4 +1,4 @@
-# pansolidcnv <img src="man/figures/logo.png" align="right" height="136"/>
+# pansolidcnv <img src="man/figures/logo.png" align="right" height="200"/>
 
 ## Copy Number Variant Detection in Solid Cancers
 

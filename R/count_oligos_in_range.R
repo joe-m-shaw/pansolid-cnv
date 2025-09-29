@@ -4,7 +4,7 @@ count_oligos_in_range <- function(chrom, coord1, coord2, df) {
   #' "Oligo" refers to an oligonucleotide, which may be a QIAseq primer or target. A QIAseq target is
   #' a region of a BED file targeted by multiple primers.
   #' 
-  #' This function can be used with dplyr::rowwise() for a dataframe input. See second example.
+  #' This function can be used with dplyr::rowwise() for a dataframe input.
   #'
   #' @param chrom The chromosome of the range of interest
   #' @param coord1 The first coordinate of the range of interest
@@ -14,22 +14,6 @@ count_oligos_in_range <- function(chrom, coord1, coord2, df) {
   #' start and end coordinates. 
   #' 
   #' @return Returns the number of oligos within the specified region
-  #' 
-  #' @examples 
-  #' # Example with single input
-  #' count_oligos_in_range(chrom = "17", coord1 = 39700064,
-  #' coord2 = 39728658, df = primer_df)
-  #' 
-  #' # Example with dataframe input
-  #' region_df |> 
-  #' rowwise() |> 
-  #'  mutate(targets = count_oligos_in_range(chrom = chrom,
-  #'  coord1 = region_start,
-  #'  coord2 = region_end,
-  #'  df = target_df |> 
-  #'  rename(start = target_start,
-  #'  end = target_end))
-  #' 
   
   if(typeof(chrom) != "character") {
     stop("Chromosome argument must be a character")
@@ -53,8 +37,8 @@ count_oligos_in_range <- function(chrom, coord1, coord2, df) {
   region_end <- max(coord1, coord2)
   
   df2 <- df |> 
-    filter(chromosome == chrom) |> 
-    mutate(in_region = case_when(
+    dplyr::filter(chromosome == chrom) |> 
+    dplyr::mutate(in_region = case_when(
       
       (start >= region_start &
          start <= region_end) |

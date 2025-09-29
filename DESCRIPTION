@@ -10,7 +10,11 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports: 
   stringr,
-  dplyr
+  dplyr,
+  readr, 
+  janitor, 
+  config,
+  readxl
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
