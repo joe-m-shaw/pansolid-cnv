@@ -11,10 +11,15 @@ RoxygenNote: 7.3.3
 Imports: 
   stringr,
   dplyr,
+  ggplot2,
   readr, 
   janitor, 
   config,
-  readxl
+  readxl,
+  patchwork,
+  plyr,
+  tibble,
+  tidyr
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

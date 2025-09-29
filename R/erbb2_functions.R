@@ -1,13 +1,3 @@
-# Pan Solid CNV Functions
-
-library(tidyverse)
-library(readxl)
-library(here)
-library(rvest)
-library(docstring)
-
-source(here("functions/extract_pansolid_cnv_coordinates.R"))
-
 # Export functions ------------------------------------------------------------------
 
 csv_timestamp <- function(table, folder) {
@@ -23,8 +13,7 @@ csv_timestamp <- function(table, folder) {
   #' @note This function is used for exporting tables from RStudio for inclusion
   #' in validation documentation.
   #'
-  #' @examples csv_timestamp(gene_tbl_for_doc, paste0(outputs_folder, "tables"))
-  
+
   write.csv(table,
             file = paste0(
               folder,
@@ -66,10 +55,8 @@ plot_timestamp <- function(input_plot,
   #' @note This function is used for exporting plots for inclusions in validation
   #' documentation. The default inputs are designed for presenting a plot as 
   #' half an A4 page.
-  #'
-  #' @examples plot_timestamp(erbb2_plot)
   
-  ggsave(
+  ggplot2::ggsave(
     filename = paste0(
       format(Sys.time(), "%Y_%m_%d_%H_%M_%S"),
       "_",
@@ -90,12 +77,12 @@ plot_timestamp <- function(input_plot,
 format_repeat_table <- function(df) {
   
   rpt_table <- df |> 
-    arrange(labno) |> 
-    select(labno_suffix, worksheet, gene, max_region_fold_change,
+    dplyr::arrange(labno) |> 
+    dplyr::select(labno_suffix, worksheet, gene, max_region_fold_change,
            st_dev_signal_adjusted_log2_ratios) |>  
-    mutate("ERBB2 fold change" = round(max_region_fold_change, 1),
+    dplyr::mutate("ERBB2 fold change" = round(max_region_fold_change, 1),
            "Signal adjusted noise" = round(st_dev_signal_adjusted_log2_ratios, 2)) |> 
-    select(-c(gene, max_region_fold_change,
+    dplyr::select(-c(gene, max_region_fold_change,
               st_dev_signal_adjusted_log2_ratios))
 
   return(rpt_table)
@@ -116,14 +103,10 @@ extract_cnv_calls <- function(df, input_gene) {
   #' @note Genotypes are entered onto the DNA Database as a text string with 
   #' a consistent structure. This function parses results for a 
   #'
-  #' @examples data <- data.frame(labno = c(1),
-  #' genotype = c("No SNVS. ERBB2 amplification detected (Mean DQ 11x)"))
-  #' 
-  #' cnvs <- extract_cnv_calls(df = data, input_gene = "ERBB2")
   
   stopifnot("genotype" %in% colnames(df))
   
-  dq_regex <- regex(str_c(
+  dq_regex <- stringr::regex(str_c(
     # Group - input gene
     "(",input_gene,")\\s",
     # Group - variable freetype,
@@ -138,8 +121,8 @@ extract_cnv_calls <- function(df, input_gene) {
     "x"))
   
   output <- df |> 
-    select(labno, genotype) |> 
-    mutate(gene_searched = input_gene,
+    dplyr::select(labno, genotype) |> 
+    dplyr::mutate(gene_searched = input_gene,
            gene_match = str_extract(genotype, dq_regex, group = 1),
            gene_dq = as.numeric(str_extract(genotype, dq_regex, group = 4)),
            core_result = ifelse(!is.na(gene_dq), "Amplification", "No call"))
@@ -150,18 +133,18 @@ extract_cnv_calls <- function(df, input_gene) {
 
 read_summary_tab <- function(file) {
   
-  x <- read_excel(path = file,
+  x <- readxl::read_excel(path = file,
                   sheet = "Whole Panel UMI Coverage Re...",
                   skip = 1,
                   n_max = 11) |> 
     dplyr::rename(value = "...2")
   
   x_wide <- x |> 
-    pivot_wider(names_from = Summary,
+    tidyr::pivot_wider(names_from = Summary,
                 values_from = value) |> 
     # Renaming as >, < and ≥ are removed in clean_names
     # Names shortened for ease of use
-    rename(number_target_regions_with_cov_lessthan_138 = `Number of target regions with coverage < 138`,
+    dplyr::rename(number_target_regions_with_cov_lessthan_138 = `Number of target regions with coverage < 138`,
            total_length_target_regions_with_pos_cov_lessthan_138 = `Total length of target regions containing positions with coverage < 138`,
            total_length_target_region_pos_cov_lessthan_138 = `Total length of target region positions with coverage < 138`,
            total_length_target_region_pos_cov_greaterorequal_138 = `Total length of target region positions with coverage ≥ 138`,
@@ -187,10 +170,9 @@ format_chromosome <- function(df, input_col) {
   #' information as a single character string. Autosomes are presented as characters
   #' without decimal places (i.e. "1" instead of "1.0")
   #'
-  #' @examples formatted_data <- format_chromosome(df = data, input_col = "chromosome")
   
   output <- df |> 
-    mutate(chrom_mod = case_when(
+    dplyr::mutate(chrom_mod = case_when(
     
       {{ input_col }} %in% c("X", "Y") ~{{ input_col }},
       
@@ -217,7 +199,7 @@ read_targeted_region_overview <- function(file) {
   
   num_skip <- match("Targeted region overview", x$`Target regions`) + 1
   
-  targeted_region_overview <- read_excel(path = file,
+  targeted_region_overview <- readxl::read_excel(path = file,
                                          sheet = "Whole Panel UMI Coverage Re...",
                                          skip = num_skip,
                                          # 22 autosomes plus 2 sex chromosomes
@@ -333,7 +315,7 @@ read_clc_target_calls <- function(file) {
   
   identifiers <- filename_to_df(file)
   
-  results <- read_excel(path = file, sheet = 2,
+  results <- readxl::read_excel(path = file, sheet = 2,
            col_types = c("text", "text", "text",
                          "numeric", "numeric", "numeric",
                          "numeric", "numeric", "numeric",
@@ -342,11 +324,11 @@ read_clc_target_calls <- function(file) {
                          "numeric", "numeric",
                          "text", "text", "text")) |> 
   janitor::clean_names() |> 
-  mutate(
+  dplyr::mutate(
     labno = as.character(parse_filename(file, 2)),
     filename = file) |> 
-  left_join(identifiers, by = "labno") |> 
-  relocate(worksheet, labno, suffix, labno_suffix, patient_name,
+    dplyr::left_join(identifiers, by = "labno") |> 
+    dplyr::relocate(worksheet, labno, suffix, labno_suffix, patient_name,
            labno_suffix_worksheet)
   
   output <- extract_pansolid_cnv_coordinates(df = results,
@@ -359,8 +341,8 @@ read_clc_target_calls <- function(file) {
 calculate_pooled_sd <- function(df, group = labno, target_col, round_places = 2) {
   
   output_table <- df |> 
-    group_by( {{ group }}) |> 
-    summarise(sd = sd( {{ target_col }} ),
+    dplyr::group_by( {{ group }}) |> 
+    dplyr::summarise(sd = sd( {{ target_col }} ),
               max = max( {{ target_col }} ),
               min = min( {{ target_col }} ),
               range = max - min,
@@ -396,15 +378,15 @@ add_dna_db_info <- function(df,
       !"worksheet" %in% colnames(df)) { stop("Join columns not present")}
   
   output <- df |> 
-    left_join(ps_version_df, by = "worksheet") |> 
-    left_join(extraction_df, by = "labno") |> 
-    left_join(gender_df, by = "labno") |> 
-    left_join(type_df, by = "labno") |> 
-    left_join(ncc_df, by = "labno") |> 
-    left_join(tissue_df, by = "labno") |> 
-    left_join(dna_conc_df, by ="labno") |> 
-    left_join(pathno_df, by = "labno") |> 
-    left_join(nhsno_df, by = "labno")
+    dplyr::left_join(ps_version_df, by = "worksheet") |> 
+    dplyr::left_join(extraction_df, by = "labno") |> 
+    dplyr::left_join(gender_df, by = "labno") |> 
+    dplyr::left_join(type_df, by = "labno") |> 
+    dplyr::left_join(ncc_df, by = "labno") |> 
+    dplyr::left_join(tissue_df, by = "labno") |> 
+    dplyr::left_join(dna_conc_df, by ="labno") |> 
+    dplyr::left_join(pathno_df, by = "labno") |> 
+    dplyr::left_join(nhsno_df, by = "labno")
   
   return(output)
   
@@ -415,8 +397,8 @@ add_case_group <- function(df) {
   stopifnot("patient_name" %in% colnames(df))
   
   output <- df |> 
-    mutate(sample_group = "case",
-           sample_subgroup = case_when(
+    dplyr::mutate(sample_group = "case",
+           sample_subgroup = dplyr::case_when(
              
              patient_name %in% grep(pattern = "seraseq", x = patient_name,
                                     ignore.case = TRUE, value = TRUE) ~"SeraCare reference material",
@@ -430,18 +412,18 @@ add_case_group <- function(df) {
 draw_lod_gene_plot <- function(df, chromosome, gene) {
   
   plot_limit_of_detection <- df |> 
-    filter(chromosome == {{ chromosome }}) |> 
-    ggplot(aes(x = start, y = fold_change_adjusted)) +
-    geom_point(pch = 21) +
-    geom_point(data = df |> 
+    dplyr::filter(chromosome == {{ chromosome }}) |> 
+    ggplot2::ggplot(aes(x = start, y = fold_change_adjusted)) +
+    ggplot2::geom_point(pch = 21) +
+    ggplot2::geom_point(data = df |> 
                  filter(name == {{ gene }}), fill = safe_red, 
                pch = 21, size = 2) +
-    facet_wrap(~ncc) +
-    theme_bw() +
-    scale_y_continuous(limits = c(-3, 6),
+    ggplot2::facet_wrap(~ncc) +
+    ggplot2::theme_bw() +
+    ggplot2::scale_y_continuous(limits = c(-3, 6),
                        breaks = c(-3, -2, -1, 0, 1, 2, 2.8, 4, 5, 6)) +
-    geom_hline(yintercept = 2.8, linetype = "dashed") +
-    labs(x = str_c("Chromosome ", {{ chromosome }}),
+    ggplot2::geom_hline(yintercept = 2.8, linetype = "dashed") +
+    ggplot2::labs(x = str_c("Chromosome ", {{ chromosome }}),
          y = "Target fold change",
          title = str_c("Limit of detection results: ", {{ gene }}),
          caption = "Seracare +12 copies control spiked into Seracare wild type control",
@@ -454,8 +436,8 @@ draw_lod_gene_plot <- function(df, chromosome, gene) {
 calculate_pooled_sd <- function(df, group = labno, target_col, round_places = 2) {
   
   output_table <- df |> 
-    group_by( {{ group }}) |> 
-    summarise(sd = sd( {{ target_col }} ),
+    dplyr::group_by( {{ group }}) |> 
+    dplyr::summarise(sd = sd( {{ target_col }} ),
               max = max( {{ target_col }} ),
               min = min( {{ target_col }} ),
               range = max - min,
@@ -475,14 +457,14 @@ calculate_pooled_sd <- function(df, group = labno, target_col, round_places = 2)
 
 make_noise_plot <- function(df = qc_data_with_ids, x_axis) {
   
-  plot <- ggplot(qc_data_with_ids, aes(x = {{ x_axis }}, 
+  plot <- ggplot2::ggplot(qc_data_with_ids, aes(x = {{ x_axis }}, 
                                        y = st_dev_signal_adjusted_log2_ratios)) +
-    geom_point(pch = 21) +
-    theme_bw() +
-    scale_y_continuous(limits = c(0, 1.25),
+    ggplot2::geom_point(pch = 21) +
+    ggplot2::theme_bw() +
+    ggplot2::scale_y_continuous(limits = c(0, 1.25),
                        breaks = seq(0, 1.2, by = 0.2)) +
-    labs(y = "Signal-adjusted noise") +
-    geom_hline(yintercept = 1, linetype = "dashed")
+    ggplot2::labs(y = "Signal-adjusted noise") +
+    ggplot2::geom_hline(yintercept = 1, linetype = "dashed")
   
   return(plot)
   

@@ -1,0 +1,24 @@
+---
+title: "Test"
+format: pdf
+editor: visual
+---
+
+```{r}
+#| include: FALSE
+
+devtools::load_all()
+
+```
+
+```{r}
+#| include: TRUE
+#| echo: FALSE
+
+df <- data.frame(
+    "cnv_coord" = c("55174776..55174793"))
+
+extract_pansolid_cnv_coordinates(df,
+                                 cnv_coord)
+
+```

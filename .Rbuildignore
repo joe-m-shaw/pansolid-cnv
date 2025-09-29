@@ -3,3 +3,5 @@
 ^pansolidcnv\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
+^scripts$
+^functions$

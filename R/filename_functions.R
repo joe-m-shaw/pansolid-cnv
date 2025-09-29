@@ -7,6 +7,8 @@ parse_filename <- function(input_file, input_group) {
   #'
   #' @return The string of the selected regex group
   #' 
+  #' @export
+  #' 
   #' @examples filename <- "Annotated_WS123456_12345678a_JoeShaw.xlsx"
   #' 
   #' worksheet <- parse_filename(filename, 1)
@@ -38,6 +40,8 @@ filename_to_df <- function(file) {
   #'
   #' @return A dataframe of patient filename identifiers
   #'
+  #' @export
+  #'
   #' @examples filename <- "Annotated_WS123456_12345678a_JoeShaw.xlsx"
   #' 
   #' id_df <- filename_to_df(filename)
@@ -64,6 +68,8 @@ add_identifiers <- function(file, tbl) {
   #'
   #' @return A dataframe of the initial table joined to the patient identifiers
   #'
+  #' @export
+  #'
   #' @examples filename <- "Annotated_WS123456_12345678a_JoeShaw.xlsx"
   #' 
   #' data <- data.frame(gene = c("ERBB2"), dosage = c(2))
@@ -84,5 +90,3 @@ add_identifiers <- function(file, tbl) {
   return(output)
   
 }
-
-source(here::here("tests/test_filename_functions.R"))

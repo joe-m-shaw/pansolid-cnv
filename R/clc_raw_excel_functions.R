@@ -4,10 +4,8 @@
 # files generated from the CLC Genomics Workbench (Qiagen). These files are
 # referred to as "raw outputs" because no further formatting is added.
 # This is in contrast to "annotated" Excel outputs, which are the final
-# versions used by clinical scientists for interpretting copy number variants
+# versions used by clinical scientists for interpreting copy number variants
 # (CNVs).
-
-source(here("functions/pansolid_cnv_excel_functions.R"))
 
 make_empty_cnv_df <- function() {
   
@@ -21,9 +19,6 @@ make_empty_cnv_df <- function() {
   #'  column headings to show that no CNVs have been identified.
   #'
   #' @return A dataframe with default columns for CLC exports
-  #' @export
-  #'
-  #' @examples
   
   df <- data.frame(
     "chromosome" = "",

@@ -1,7 +1,3 @@
-source(here("functions/extract_pansolid_cnv_coordinates.R"))
-
-library(patchwork)
-
 get_cnv_plot_x_breaks <- function(interval, plot_xmin, plot_xmax) {
   #' Get consistent X axis breaks for creating CNV plots
   #'
@@ -12,8 +8,7 @@ get_cnv_plot_x_breaks <- function(interval, plot_xmin, plot_xmax) {
   #' @return A list of breaks
   #' @export
   #'
-  #' @examples get_cnv_plot_x_breaks(interval = 100, plot_xmin = 0, plot_xmax = 1000)
-  
+
   if(typeof(interval) != "double" |
      typeof(plot_xmin) != "double" |
      typeof(plot_xmax) != "double") {
@@ -41,9 +36,6 @@ get_data_for_cnv_plot <- function(df, gene) {
   #'
   #' @return Returns the dataframe filtered to include CNVs in the gene of interest
   #' @export
-  #'
-  #' @examples erbb2_cnvs <- get_data_for_cnv_plot(df = validation_pos_cnv_results_collated,
-  #' gene = "ERBB2")
   
   data_for_plot <- df |> 
     dplyr::filter(gene == {{ gene }})
@@ -67,8 +59,6 @@ get_cnv_plot_xmin <- function(df, buffer) {
   #'
   #' @return The value for the X axis minimum.
   #' @export
-  #'
-  #' @examples 
   
   if(typeof(buffer) != "double") {
     stop("buffer must be a number")
@@ -94,8 +84,6 @@ get_cnv_plot_xmax <- function(df, buffer) {
   #'
   #' @return The value for the X axis maximum
   #' @export
-  #'
-  #' @examples 
   
   if(typeof(buffer) != "double") {
     stop("buffer must be a number")
@@ -119,8 +107,6 @@ get_gene_chromosome <- function(gene) {
   #'
   #' @return The chromosome which the gene is on, formatted as a string.
   #' @export
-  #'
-  #' @examples chrom <- get_gene_chromosome("ERBB2")
   
   gene_coordinates <- readr::read_csv(file = paste0(config::get("data_folderpath"),
                                              "validation/DOC6283_amplifications/gene_lists/",
@@ -164,9 +150,6 @@ make_fold_change_cnv_plot <- function(df,
   #' an input to the make_cnv_triptych_plot function.
   #' @export
   #'
-  #' @examples erbb2_fold_change_plot <- make_fold_change_cnv_plot(
-  #' df = validation_pos_cnv_results_collated,
-  #' gene = "ERBB2")
   
   chromosome <- get_gene_chromosome(gene = {{ gene }})
   
@@ -235,10 +218,6 @@ make_labno_cnv_plot <- function(df,
   #' an input to the make_cnv_triptych_plot function.
   #' @export
   #'
-  #' @examples erbb2_labno_plot <- make_labno_cnv_plot(
-  #' df = validation_pos_cnv_results_collated,
-  #' gene = "ERBB2",
-  #' interval = 10000)
   
   chromosome <- get_gene_chromosome(gene = {{ gene }})
   
@@ -299,13 +278,10 @@ make_primer_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   #' @param interval The desired interval for X axis breaks
   #' @param chromosome The chromosome for the gene of interest
   #'
-  #' @return
-  #' @export A plot showing the locations of QIAseq primers within the specified
+  #' @return A plot showing the locations of QIAseq primers within the specified
   #' genomic region.
+  #' @export 
   #'
-  #' @examples erbb2_primers <- make_primer_plot(plot_xmin = 39700064, 
-  #' plot_xmax = 39728658,
-  #' interval = 10000, chromosome = "17")
   
   grch38_primers <- readr::read_csv(file = paste0(config::get("data_folderpath"),
                                                   "validation/DOC6283_amplifications/primers/", 
@@ -348,9 +324,6 @@ make_exon_plot <- function(plot_xmin, plot_xmax, interval, chromosome) {
   #' @return A plot showing the exon locations for target genes within the specified
   #' genomic region.
   #' @export
-  #'
-  #' @examples erbb2_exons <- make_exon_plot(plot_xmin = 39700064, plot_xmax = 39728658,
-  #' interval = 10000, chromosome = "17")
   
   all_transcripts <- readr::read_csv(paste0(config::get("data_folderpath"),
                                      "validation/DOC6283_amplifications/",
@@ -421,11 +394,6 @@ make_cnv_triptych_plot <- function(input_plot) {
   #' a plot showing the locations of target genes and their individual exons. All plots
   #' have a consistently formatted X axis,
   #' @export
-  #'
-  #' @examples erbb2_plot <- make_cnv_triptych_plot(
-  #' make_labno_cnv_plot(df = validation_pos_cnv_results_collated,
-  #' gene = "ERBB2",
-  #' interval = 10000))
 
   plot_xmin <- input_plot[[1]]
   

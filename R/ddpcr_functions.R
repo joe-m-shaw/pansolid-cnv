@@ -10,8 +10,6 @@ read_biorad_ddpcr_csv <- function(filepath) {
   #' 
   #' @note This function is designed to handle droplet digital polymerase chain reaction 
   #' (ddPCR) csv files exported from Quantasoft v1.7.4 (BioRad).
-  #'
-  #' @examples read_biorad_csv(here("WS138419_analysed.csv"))
   
   ddpcr_df <- readr::read_csv(filepath, 
                        col_types = cols(

@@ -1,6 +1,3 @@
-source(here::here("functions/extract_pansolid_cnv_coordinates.R"))
-source(here::here("functions/filename_functions.R"))
-
 ## Functions used in ERBB2 and amplifications validations
 
 get_full_amp_sheet <- function(file, sheet = "Amplifications") {
@@ -12,10 +9,7 @@ get_full_amp_sheet <- function(file, sheet = "Amplifications") {
   #'
   #' @return All the information in the "Amplifications" tab as a data-frame.
   #'
-  #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
-  #' 
-  #' full_amp_sheet <- get_full_amp_sheet(file = x, sheet = get_amp_sheetname(x))
-  
+
   full_tbl <- readxl::read_excel(path = file,
                                  sheet = {{ sheet }},
                                  col_names = FALSE) |> 
@@ -33,11 +27,8 @@ read_pos_cnv_results <- function(file, sheet = "Amplifications") {
   #' @param sheet The sheet to read the table from
   #'
   #' @return The positive CNV table as a dataframe with filename identifiers
-  #'
-  #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
   #' 
-  #' pos_cnv <- read_pos_cnv_results(file = x, sheet = get_amp_sheetname(x))
-  
+
   full_tbl <- get_full_amp_sheet(file, sheet)
   
   pos_cnv_tbl_row <- match("Positive CNV results", full_tbl$x1)
@@ -91,11 +82,8 @@ read_all_amp_genes_results <- function(file, sheet = "Amplifications") {
   #' @param sheet The sheet to read the table from
   #'
   #' @return The all amp gene CNV table as a dataframe with filename identifiers
-  #'
-  #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
   #' 
-  #' all_amp <- read_all_amp_genes_results(file = x, sheet = get_amp_sheetname(x))
-  
+
   full_tbl <- get_full_amp_sheet(file, sheet)
   
   gene_table_row_start <- match("All amplification genes", full_tbl$x1)
@@ -121,9 +109,6 @@ read_stdev_results <- function(file, sheet = "Amplifications") {
   #'
   #' @return A dataframe of the filename identifiers with the standard deviation value
   #'
-  #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
-  #' 
-  #' stdev <- read_stdev_results(file = x, sheet = get_amp_sheetname(x))
   
   full_tbl <- get_full_amp_sheet(file, sheet)
   
@@ -151,9 +136,6 @@ read_percent_138_results <- function(file, sheet = "Amplifications") {
   #' @return A dataframe of the filename identifiers with the percentage of
   #' the whole panel covered at 138X value
   #'
-  #' @examples  x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
-  #' 
-  #' percent_138 <- read_percent_138_results(file = x, sheet = get_amp_sheetname(x))
   
   full_tbl <- get_full_amp_sheet(file, sheet)
   
@@ -187,7 +169,6 @@ get_annotated_filepaths <- function(
   #' @note PanSolid results Excels are automatically saved onto the S drive in a defined
   #' folder structure
   #'
-  #' @examples get_annotated_filepaths(worksheet = "WS140721")
   
   pansolidv2_excel_regex <- "^Annotated(_|_v2.+_)WS\\d{6}_.+.xlsx"
   
@@ -227,8 +208,6 @@ get_worksheet_filepaths <- function(
   #' @returns A list of filepaths
   #' @export
   #'
-  #' @examples get_worksheet_filepaths(worksheet = "WS156356", file_regex = "Results_SNVs_Indels.*.xlsx")
-  
   
   filepaths <- list.files(path = str_c(repository_path, {{ worksheet }},
                                                  "/"),
@@ -252,9 +231,6 @@ get_amp_sheetname <- function(filepath) {
   #'  name of the tab containing amplification information. After go live this changed
   #'  to include the sample DNA number (see example).
   #'
-  #' @examples x <- here::here("data/example_data/Annotated_WS123456_12345678a_JoeShaw.xlsx")
-  #' 
-  #' get_amp_sheetname(x)
   
   sheets <- readxl::excel_sheets(filepath)
   
@@ -280,16 +256,7 @@ get_sheetname <- function(filepath, sheet_regex = "CNVs_") {
   #'
   #' @returns The name of the sheet as a string
   #' @export
-  #'
-  #' @examples 
   #' 
-  #' subfolder <- "validation/DOC6567_deletions/test_data/"
-  #' 
-  #' path <- paste0(config::get("data_folderpath"), subfolder)
-  #' 
-  #' files <- list.files(path, pattern = "*.xlsx", full.names = TRUE)
-  #' 
-  #' get_sheetname(files[2])
 
   sheets <- readxl::excel_sheets(filepath)
   
@@ -324,8 +291,7 @@ read_cnv_sheet <- function(filepath, sheet_regex = "CNVs_") {
   #' @returns The full CNV sheet as a tibble
   #' @export
   #'
-  #' @examples
-  
+
   sheet <- readxl::read_xlsx(path = filepath, 
                    sheet = get_sheetname(filepath = filepath, 
                                          sheet_regex = sheet_regex),
@@ -350,9 +316,7 @@ find_match <- function(input_sheet, input_col, match_string) {
   #'
   #' @returns The numeric position of the string match within the column
   #' @export
-  #'
-  #' @examples find_match(input_sheet, "a", "Amplification genes")
-  
+
   output <- match(match_string, input_sheet[[ input_col ]])
   
   if(is.na(output)){
@@ -379,7 +343,6 @@ find_stdev_ratios <- function(input_sheet,
   #' log2 ratios  
   #' @export
   #'
-  #' @examples
   
   stdev_start <- find_match(input_sheet, "a", stdev_string) + 1
   
@@ -411,7 +374,6 @@ find_percent_138x <- function(input_sheet,
   #' @returns A tibble with the percent 138X information.
   #' @export
   #'
-  #' @examples
   
   percent_138x_start <- find_match(input_sheet, "a", percent_138x_string) + 1
   
@@ -441,7 +403,6 @@ find_pred_ncc <- function(input_sheet,
   #' @returns A tibble with the predicted NCC information.
   #' @export
   #'
-  #' @examples
   
   pred_ncc_start <- find_match(input_sheet, "a", pred_ncc_string) + 1
   
@@ -475,7 +436,6 @@ find_amp_genes <- function(input_sheet, num_genes = 9,
   #' @returns A tibble of the amplification genes results table
   #' @export
   #'
-  #' @examples
   
   amp_tbl_header <- find_match(input_sheet, "a", amp_string)
   
@@ -525,7 +485,6 @@ find_del_genes <- function(input_sheet, num_genes = 37,
   #' @returns A tibble of the deletion genes results table
   #' @export
   #'
-  #' @examples
   
   del_tbl_header <- find_match(input_sheet, "a", del_string)
   
@@ -580,7 +539,6 @@ find_sig_cnvs <- function(input_sheet,
   #' @returns A tibble of the significant CNV results table
   #' @export
   #'
-  #' @examples
   
   sig_cnv_header <- find_match(input_sheet, "a", sig_cnv_string)
   
@@ -664,8 +622,6 @@ extract_cnv_tbls <- function(filepath,
   #'
   #' @returns A named list of tables 
   #' @export
-  #'
-  #' @examples
   
   sheet <- read_cnv_sheet(filepath = filepath, 
                       sheet_regex = sheet_regex)
@@ -726,7 +682,6 @@ read_loh_table <- function(filepath,
   #' @returns The LOH results table as a tibble
   #' @export
   #'
-  #' @examples
   
   loh_table <- readxl::read_xlsx(path = filepath, 
                                  sheet = get_sheetname(filepath,
@@ -762,5 +717,3 @@ read_ploidy_sheet <- function(filepath,
   return(output)
   
 }
-
-source(here::here("tests/test_pansolid_cnv_excel_functions.R"))
