@@ -36,7 +36,7 @@ define_chromosome_levels <- function() {
   
 }
 
-format_chromosome_decimals <- function(df, col) {
+format_chromosome_decimals <- function(df, col = chromosome) {
   
   #' Format chromosome character strings when formatted as decimal numbers
   #' 
@@ -261,6 +261,90 @@ add_chr_arm_ps_target_region_percent <- function(df,
   
   return(output)
 
+}
+
+add_cumulative_chr_coordinates <- function(df, col) {
+  
+  pansolid_chr_cumulative_coordinates <- readr::read_csv(paste0(config::get("data_folderpath"),
+                                                                "validation/DOC6791_chromosome_arms/",
+                                                                "bed_files/",
+                                                                "pansolid_chr_cumulative_coordinates.csv"),
+                                                         col_types = "ccdd")
+  
+  output <- df |> 
+    left_join(pansolid_chr_cumulative_coordinates |> 
+              select(chromosome_fct, cumulative_chr_coordinate),
+            join_by({{ col }} == "chromosome_fct")) 
+  
+  return(output)
+  
+}
+
+read_snp_sheet <- function(filepath, 
+                           sheetname = "Artefacts_removed_GIAB_filt...") {
+  
+  #' Read the SNP frequency sheet from PanSolid Excels
+  #' 
+  #' This function reads the "Artefacts_removed_GIAB_filt..." sheet from the
+  #' Excel file which is saved in the "Unannotated_Files" folder of each
+  #' PanSolid worksheet. This sheet includes data for the single nucleotide
+  #' polymorphisms (SNPs) detected in the sample, which are presented in 
+  #' the variant allele frequency (VAF) track of the interactive HTML file.
+  #'
+  #' @param filepath The filepath of the Excel to read from.
+  #' @param sheetname The name of the sheet to read from.
+  #'
+  #' @returns A dataframe of the first 12 columns of the Excel sheet, which is
+  #' annotated with the sample details from the filename.
+  #' @export
+  #'
+  #' @examples
+  
+  df <- readxl::read_excel(path = filepath,
+                           sheet = sheetname,
+                           range = readxl::cell_cols("A:L"),
+                           col_types = c(
+                             "text", "text", "text", "text", "text", 
+                             "text", "numeric", "text", "text",
+                             "numeric", "numeric", "numeric"
+                           )) |> 
+    janitor::clean_names()
+  
+  output <- add_identifiers(filepath, df)
+  
+  return(output)
+  
+}
+
+format_snp_sheet_data <- function(df) {
+  
+  output <- df |> 
+    format_chromosome_decimals(col = chromosome) |> 
+    factorise_chromosome(col = chromosome_char) |> 
+    filter(type == "SNV") |> 
+    mutate(region_numeric = as.numeric(region)) |> 
+    add_cumulative_chr_coordinates(col = chromosome_fct) |> 
+    mutate(cumulative_region_coordinate = region_numeric + cumulative_chr_coordinate)
+  
+  return(output)
+  
+}
+
+read_targets_merged <- function(filepath, sheetname = "CNV Targets Merged"){
+  
+  output <- read_excel(path = filepath,
+                       sheet = sheetname,
+                       range = "A1:N6175",
+                       col_types = c("text", "text", "text", "text", "text",
+                                     "numeric", "numeric", "numeric", "numeric",
+                                     "numeric", "numeric", "numeric", "numeric",
+                                     "numeric"))
+  
+  x <- add_identifiers(filepath, output) |> 
+    janitor::clean_names()
+  
+  return(x)
+  
 }
 
 source(here::here("tests/test_chromosome_arm_functions.R"))
