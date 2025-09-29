@@ -16,25 +16,62 @@ source(here("functions/wgs_html_functions.R"))
 
 # Identify samples tested on PanSolid -----------------------------------------------
 
-pansolidv2_worksheets <- read_excel(paste0(data_folder,
-                                           "live_service/pansolid_live_service_worksheets.xlsx")) |> 
-  mutate(pcrid = str_replace(string = worksheet,
-                             pattern = "WS",
-                             replacement = ""))
+all_worksheets <- dna_db_worksheets |> 
+  select(pcrid, date, description) |> 
+  collect() |> 
+  mutate(worksheet = paste0("WS", pcrid))
 
-pcrid_list <- pansolidv2_worksheets$pcrid
+stopifnot(nrow(all_worksheets) > 0)
+
+ps_ws_info <- all_worksheets |> 
+  filter(pcrid >= 147437) |>
+  filter(grepl(pattern = "pansolid|pan-solid|pan_solid|pan solid", 
+               x = description,
+               ignore.case = TRUE)) |> 
+  mutate(ps_category = case_when(
+    grepl(pattern = "jBRCA|j_BRCA|j-BRCA|jew",
+          x = description,
+          ignore.case = TRUE) ~"PanSolid Jewish BRCA",
+    TRUE ~"PanSolid FFPE"
+  ))
+
+mlpa_ws_info <- all_worksheets |> 
+  filter(pcrid >= 140721) |>
+  filter(grepl(pattern = "P\\d{3}|PO\\d{2}", 
+               x = description,
+               ignore.case = TRUE)) 
+
+mlpa_ws <- mlpa_ws_info$pcrid
+
+stopifnot(anyNA.data.frame(ps_ws_info) == FALSE)
+
+ps_ws_ffpe_only <- ps_ws_info |> 
+  filter(ps_category == "PanSolid FFPE")
+
+pcrid_list <- ps_ws_ffpe_only$pcrid
 
 pansolid_worksheet_samples <- dna_db_pcr_records |> 
   filter(pcrid %in% pcrid_list) |> 
   select(pcrid, sample, name) |> 
   collect() |> 
-  rename(labno = sample)
+  rename(labno = sample) |> 
+  arrange(desc(labno))
+
+mlpa_worksheet_samples <- dna_db_pcr_records |> 
+  filter(pcrid %in% mlpa_ws) |> 
+  select(pcrid, sample, name) |> 
+  collect() |> 
+  rename(labno = sample) |> 
+  left_join(mlpa_ws_info |> 
+              select(pcrid, description),
+            by = "pcrid")
 
 samples_on_ps_worksheets <- pansolid_worksheet_samples$labno
 
 pansolid_sample_info <- sample_tbl |> 
   filter(labno %in% samples_on_ps_worksheets) |> 
-  select(labno, firstname, surname, pathno, nhsno, comments) |> 
+  select(labno, firstname, surname, i_gene_r_no,
+         pathno, nhsno) |> 
   collect()
 
 # Finding WGS samples with QIAsymphony extractions ----------------------------------
@@ -45,17 +82,19 @@ pansolid_sample_info <- sample_tbl |>
 
 ## Find WGS samples -----------------------------------------------------------------
 
-wgs_pathway_tracker <- read_excel(path = paste0(data_folder,
-                                                "validation/DOC6567_deletions/",
-                                                "excel_spreadsheets/",
-                                                "WGS pathway tracker_copy_2024-12-16.xlsx"),
+wgs_pathway_tracker <- read_excel(path = paste0(config::get("data_folderpath"),
+                                                "validation/DOC6791_chromosome_arms/",
+                                                "2025-07-16_WGS pathway tracker.xlsx"),
                                   sheet = "Cancer") |> 
   janitor::clean_names()
 
 wgs_pathway_tracker_dna_no_df <- wgs_pathway_tracker |> 
   filter(!is.na(mol_db_number)) |> 
   mutate(labno = str_extract(string = mol_db_number,
-                             pattern = "\\d{8}"))
+                             pattern = "\\d{8}"),
+         nhsno = str_replace_all(string = nhs_number,
+                                 pattern = " ",
+                                 replacement = ""))
 
 wgs_labnos <- wgs_pathway_tracker_dna_no_df$mol_db_number
 
@@ -77,7 +116,40 @@ all_samples_from_wgs_patients_df <-  sample_tbl |>
   collect()
 
 wgs_samples_tested_on_pansolid <- pansolid_worksheet_samples |> 
-  filter(labno %in% all_samples_from_wgs_patients_df$labno)
+  filter(labno %in% all_samples_from_wgs_patients_df$labno) |> 
+  left_join(pansolid_sample_info |> 
+              filter(!is.na(nhsno)),
+            by = "labno") |> 
+  left_join(wgs_pathway_tracker_dna_no_df |> 
+              rename(wgs_labno = labno) |> 
+              select(wgs_labno, nhsno, clinical_indication_code_m_code) |> 
+              filter(!is.na(nhsno)),
+            by = "nhsno") |> 
+  filter(!duplicated(labno)) |> 
+  arrange(pcrid)
+
+write_csv(wgs_samples_tested_on_pansolid,
+          "wgs_samples_tested_on_pansolid.csv")
+
+wgs_samples_tested_on_pansolid |> 
+  group_by(clinical_indication_code_m_code) |> 
+  count() |> 
+  arrange(desc(n)) |> view()
+
+mlpa_samples_tested_on_pansolid <- pansolid_worksheet_samples |> 
+  filter(labno %in% mlpa_worksheet_samples$labno) |> 
+  left_join(mlpa_worksheet_samples,
+            by = "labno") |> 
+  left_join
+  filter(!duplicated(labno)) |> 
+  mutate(mlpa_kit = str_extract(string = description,
+                                pattern = "P\\d{3}"))
+
+mlpa_samples_tested_on_pansolid |> 
+  group_by(mlpa_kit) |> 
+  count() |> 
+  arrange(desc(n)) |>  view()
+
 
 ## Find WGS samples with QIAsymphony extractions ------------------------------------
 

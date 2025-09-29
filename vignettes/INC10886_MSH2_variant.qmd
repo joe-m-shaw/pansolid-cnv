@@ -14,18 +14,17 @@ library(readxl)
 library(here)
 
 source(here("functions/pansolid_cnv_excel_functions.R"))
-
-ws_folder <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/"
+source(here("functions/chromosome_arm_functions.R"))
 
 ```
 
 # Background
 
-Sample 25038352 had a potentially pathogenic MSH2 variant, a `r str_length("CTTCGTTCTGACTTCTCCAAGTTTCAGGAAATGAT")`bp deletion in exon 9, detected on WS155167 (G02) which then disappeared on WS155702 (F02).
+Sample 25038352 had a potentially pathogenic MSH2 variant, a `r str_length("CTTCGTTCTGACTTCTCCAAGTTTCAGGAAATGAT")`bp deletion in exon 9, detected on WS155167 (G02) which then disappeared on WS155702 (F02) and WS156308 (G02).
 
-Variant: MSH2 c.1327_1361delCTTCGTTCTGACTTCTCCAAGTTTCAGGAAATGAT p.(Leu443fs) 25%
+Variant: MSH2 c.1327_1361delCTTCGTTCTGACTTCTCCAAGTTTCAGGAAATGAT p.(Leu443fs) 25% 80 out of 323 reads on WS155167
 
-80 out of 323 reads on WS155167
+Panel: v2bM1_tLYNCH_PS
 
 Chromosome region: 47445598..47445632
 
@@ -33,61 +32,49 @@ Target: chr2 47445543..47445662, target number 637, which is 120bp long.
 
 Worksheets: WS155167 CP24008; WS155702 CP24129; WS156308
 
-# Troubleshooting
-
-Potential causes:
-
-Contamination None of the other CRC or tLynch samples on WS155167 have the variant.
-
-The variant is an artefact caused by poor quality
-
-The variant is real but was missed second time for some reason.
-
 ```{r}
 #| label: collate-data
 #| include: FALSE
 #| eval: FALSE
 
-read_targets_merged <- function(filepath, sheetname = "CNV Targets Merged"){
-  
-  output <- read_excel(path = filepath,
-                       sheet = sheetname,
-                       range = "A1:N6175",
-                       col_types = c("text", "text", "text", "text", "text",
-                                     "numeric", "numeric", "numeric", "numeric",
-                                     "numeric", "numeric", "numeric", "numeric",
-                                     "numeric"))
-  
-  x <- add_identifiers(filepath, output) |> 
-    janitor::clean_names()
-  
-  return(x)
-  
-}
-
-ws155167_files <- list.files(path = paste0(ws_folder, "WS155167"), full.names = TRUE,
+WS153211_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
+                                           "WS153211"), full.names = TRUE,
            recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
 
-
-WS156308_files <- list.files(path = paste0(ws_folder, "WS156308"), full.names = TRUE,
+WS154828_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
+                                           "WS154828"), full.names = TRUE,
            recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
 
-ws155702_files <- list.files(path = paste0(ws_folder, "WS155702"), full.names = TRUE,
+WS155167_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
+                                           "WS155167"), full.names = TRUE,
+           recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
+
+WS156308_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
+                                           "WS156308"), full.names = TRUE,
+           recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
+
+WS155702_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
+                                           "WS155702"), full.names = TRUE,
                              recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
 
-ws_files <- c(ws155167_files, WS156308_files)
+WS157371_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
+                                           "WS157371"), full.names = TRUE,
+                             recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
+
+ws_files <- c(WS155167_files, WS156308_files, WS157371_files, 
+              WS153211_files, WS154828_files)
 
 ws_data <- ws_files |> 
   map(\(ws_files) read_targets_merged(filepath = ws_files, 
                                       sheetname = "CNV Targets Merged")) |> 
   list_rbind()
 
-ws155702_data <- ws155702_files |> 
-  map(\(ws155702_files) read_targets_merged(filepath = ws155702_files,
-                                            sheetname = "CNV Targets Merged-1")) |> 
+WS155702_data <- WS155702_files |> 
+  map(\(WS155702_files) read_targets_merged(filepath = WS155702_files, 
+                                      sheetname = "CNV Targets Merged-1")) |> 
   list_rbind()
 
-all_data <- rbind(ws_data, ws155702_data)
+all_data <- rbind(ws_data, WS155702_data)
 
 all_data_mod <- extract_pansolid_cnv_coordinates(all_data, cnv_coord_col = region) |> 
   mutate(chromosome = str_replace(chromosome, "\\.0", ""),
@@ -123,8 +110,8 @@ grouped_by_region <- all_data |>
     min_fc = min(fold_change_adjusted, na.rm = TRUE),
     median_cov = median(case_coverage)) |> 
   mutate(cov_category = case_when(
-    median_cov > 138 ~"low",
-    median_cov <= 138 ~"ok"
+    median_cov >= 138 ~"ok",
+    median_cov < 138 ~"low"
   ))
 
 low_regions_ws155167 <- grouped_by_region |> 
@@ -138,10 +125,10 @@ WS155167 has increased signal-adjusted noise across every sample on the workshee
 There are `r nrow(low_regions_ws155167)` targets on WS155167 which have a median coverage of less than 138X.
 
 ```{r}
-#| label: fig-low-targets
+#| label: all-targets-plot
 #| echo: FALSE
 
-low_target_plot <- ggplot(grouped_by_region, aes(x = target_coord_string, y = median_cov)) +
+all_targets_plot <- ggplot(grouped_by_region, aes(x = target_coord_string, y = median_cov)) +
   geom_point(shape = 21, aes(fill = cov_category))+
   scale_fill_manual(values = c("white", "red")) +
   geom_hline(yintercept = 138, linetype = "dashed") +
@@ -154,13 +141,60 @@ low_target_plot <- ggplot(grouped_by_region, aes(x = target_coord_string, y = me
        title = paste0("There are ",
                       nrow(low_regions_ws155167),
                       " targets with median coverage below 138X on WS155167"),
-       subtitle = "Data shown for all samples on each worksheet") +
+       subtitle = "Data shown for all samples on each worksheet. Target 637 in blue") +
   coord_cartesian(ylim = c(0, 1000)) +
-  scale_y_continuous(breaks = c(0, 138, 500, 750, 1000))
+  scale_y_continuous(breaks = c(0, 138, 500, 750, 1000)) +
+  geom_point(data = grouped_by_region |> 
+               filter(target_coord_string == "chr2_47445543-47445662"), 
+             shape = 21, size = 4, 
+             fill = "blue"
+             )
 
-low_target_plot
+all_targets_plot
 
 ```
+
+```{r}
+
+WS155167_low_targets <- grouped_by_region |> 
+  filter(median_cov < 138 & worksheet== "WS155167") 
+
+WS157371_low_targets <- grouped_by_region |> 
+  filter(median_cov < 138 & worksheet== "WS157371") 
+
+WS153211_low_targets <- grouped_by_region |> 
+  filter(median_cov < 138 & worksheet== "WS153211") 
+
+WS154828_low_targets <- grouped_by_region |> 
+  filter(median_cov < 138 & worksheet== "WS154828") 
+
+low_target_comparison <- list(
+  "WS155167" = WS155167_low_targets$target_coord_string,
+  "WS157371" = WS157371_low_targets$target_coord_string,
+  "WS153211" = WS153211_low_targets$target_coord_string,
+  "WS154828" = WS154828_low_targets$target_coord_string
+)
+
+ggvenn::ggvenn(low_target_comparison,
+               set_name_size = 3,
+               show_percentage = FALSE) +
+  labs(title = "Targets with median coverage below 138X")
+
+grouped_by_region |> 
+  filter(worksheet %in% c("WS153211",
+                          "WS154828",
+                          "WS155167",
+                          "WS157371")) |> 
+  group_by(worksheet, cov_category) |> 
+  count() |> 
+  pivot_wider(id_cols = worksheet,
+              names_from = cov_category,
+              values_from = n) |> 
+  mutate(total = low + ok)
+
+
+```
+
 
 On WS155167 every chromosome is impacted with low coverage targets.
 Enrichment tubes 124-128 were pooled for this worksheet.
@@ -168,7 +202,8 @@ Reagent tubes 234-238 were pooled.
 
 ```{r}
 #| label: fig-WS155167-all-targets
-#| echo: FALSE
+#| eval: FALSE
+#| include: FALSE
 
 all_targets_plot_WS155167 <- all_data |> 
   filter(worksheet == "WS155167") |> 
@@ -193,32 +228,39 @@ all_targets_plot_WS155167
 #| echo: FALSE
 
 target_637_plot <- all_data |> 
-  filter(target_number == 637) |> 
-  ggplot(aes(x = worksheet, y = case_coverage)) +
+  filter(target_number > 620 &
+           target_number < 650) |> 
+  mutate(target_number = as.character(target_number)) |> 
+  ggplot(aes(x = target_number, y = case_coverage)) +
   geom_boxplot() +
   theme_bw() +
-  geom_point(data = all_data 
-             |> filter(labno == "25038352" &
-                         target_number == 637),
+  geom_point(data = all_data |> 
+               filter(labno == "25038352" &
+                         target_number > 620 &
+           target_number < 650) |> 
+             mutate(target_number = as.character(target_number)), 
              shape = 21, size = 4, 
              fill = "red",
              ) +
   labs(x = "", y = "Coverage",
-       title = "Coverage of target 637 in MSH2",
-       subtitle = "Sample 25038352 in red") +
-  scale_y_continuous(limits = c(0, 1200),
-                     breaks = c(seq(0, 1200, by = 500), 138)) +
-  geom_hline(yintercept = 138, linetype = "dashed")
-  
+       title = "Coverage of targets 620-650",
+       subtitle = "Sample 25038352 in red, target 637 highlighted in blue") +
+  facet_wrap(~worksheet, ncol = 1) +
+   annotate('rect', xmin = "636", xmax = "638", ymin = 0, 
+             ymax = 3000, fill= "blue", alpha = 0.2) +
+  coord_cartesian(ylim = c(0, 2500))
+
 target_637_plot
 
 ```
 
 ## GC content: primers
 
+There does not seem to be a relationship between primer GC content and median coverage on WS155167.
+
 ```{r}
 #| label: gc-content-primers
-#| include: FALSE
+#| echo: FALSE
 
 primer_target_df <- read_csv(paste0(config::get("data_folderpath"),
                                     "validation/DOC6791_chromosome_arms/",
@@ -262,59 +304,6 @@ grouped_by_region_with_primer_gc |>
 
 ```
 
-```{r}
-
-primers_per_target <- primer_target_df |> 
-  group_by(target_coord_str) |> 
-  count() |> 
-  rename(primers_for_target = n)
-
-grouped_by_region |> 
-  left_join(primers_per_target, join_by(target_coord_string == target_coord_str)) |>  
-  filter(worksheet == "WS155167") |> 
-  ggplot(aes(x = primers_for_target, y = median_cov)) +
-  geom_point(shape = 21) +
-  geom_hline(yintercept = 138, linetype = "dashed") +
-  theme_bw()
-
-
-
-```
-
-```{r}
-
-pooled_worksheets <- c("WS155944", # jbrca
-                       "WS155263", # jbrca
-                       "WS155167", # ffpe
-                       "WS151577", # jbrca
-                       "WS152271", # ffpe
-                       "WS151018"	, # jbrca
-                       "WS151283", # jbrca
-                       "WS151461"	, # jbrca
-                       "WS149712", # ffpe
-                       "WS149013" # jbrca
-                       "WS144391" # ffpe
-                       "WS148421", # jbrca
-                       "WS148316",	# jbrca
-                       "WS147899",	# jbrca
-                       "WS148012",	# jbrca
-                       "WS148421"	# jbrca
-)
-
-
-stdev_live <- read_csv(paste0(config::get("data_folderpath"),
-                              "live_service/collated/",
-                              "stdev_live.csv"))
-
-stdev_live |> 
-  filter(worksheet %in% c(pooled_worksheets)) |> 
-  ggplot(aes(x = worksheet, y = stdev_noise)) +
-  geom_boxplot()
-
-
-
-```
-
 ## GC content: target regions of interest
 
 ```{r}
@@ -334,29 +323,13 @@ ps_grch38_fasta_mod <- ps_grch38_fasta |>
                                 pattern = "G|C"),
          gc_content = (gc_count / target_length) * 100,
          start_plus_one = start +1,
-         target_region = str_c(chrom, " ",
-                               start_plus_one, "..", stop))
+         target_region = str_c(chrom, "_",
+                               start_plus_one, "-", stop))
 
 grouped_by_region_gc <- grouped_by_region |> 
   left_join(ps_grch38_fasta_mod,
-            by = "target_region",
+            join_by("target_coord_string" == "target_region"),
             relationship = "many-to-one")
-
-ggplot(ps_grch38_fasta_mod, aes(x = target_length, y = )) +
-  geom_histogram(binwidth = 10) +
-  coord_cartesian(xlim = c(0, 500))
-
-ps_grch38_fasta_mod |> 
-  filter(target_length > 11) |> 
-  ggplot(aes(x = gc_content, y = )) +
-  geom_histogram(binwidth = 1)
-
-grouped_by_region_gc |> 
-  filter(worksheet == "WS155167") |> 
-  ggplot(aes(x = target_length, y = median_cov)) +
-  geom_point(shape = 21)+
-  coord_cartesian(xlim = c(0, 1000)) +
-  geom_hline(yintercept = 138, linetype = "dashed")
 
 grouped_by_region_gc |> 
   filter(worksheet == "WS155167" & !is.na(gc_content)) |> 
@@ -462,12 +435,12 @@ compare_vars <- function(df1, df2) {
 ```{r}
 #| include: FALSE
 
-WS155167_25038352 <- read_subpanel_vars(paste0(ws_folder,
+WS155167_25038352 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
                           "WS155167/",
                           "v2bM1_tLYNCH_PS/",
                           "Annotated_v2bM1_tLYNCH_PS_WS155167_25038352_S38.xlsx"))
 
-WS155702_25038352 <- read_subpanel_vars(paste0(ws_folder,
+WS155702_25038352 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
                           "WS155702/",
                           "v2bM1_tLYNCH_PS/",
                           "Annotated_v2bM1_tLYNCH_PS_WS155702_25038352_S30.xlsx"))
@@ -483,12 +456,12 @@ comp_25038352 <- compare_vars(WS155167_25038352, WS155702_25038352)
 ```{r}
 #| include: FALSE
 
-WS155167_25039159 <- read_subpanel_vars(paste0(ws_folder,
+WS155167_25039159 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
                           "WS155167/",
                           "v2bCNS_PS/",
                           "Annotated_v2bCNS_PS_WS155167_25039159_S25.xlsx"))
 
-WS155407_25039159 <- read_subpanel_vars(paste0(ws_folder,
+WS155407_25039159 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
                           "WS155407/",
                           "v2bCNS_PS/",
                           "Annotated_v2bCNS_PS_WS155407_25039159_S27.xlsx"))
@@ -499,19 +472,17 @@ comp_25039159 <- compare_vars(WS155167_25039159, WS155407_25039159)
 
 `r nrow(comp_25039159)` variants don't match.
 
-The LZTR1 c.1209C\>T variant is visible in the BAM file for WS155167_25039159, so why wasn't it called?
-
 ## 25039150
 
 ```{r}
 #| include: FALSE
 
-WS155167_25039150 <- read_subpanel_vars(paste0(ws_folder,
+WS155167_25039150 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
                           "WS155167/",
                           "v2bCNS_PS/",
                           "Annotated_v2bCNS_PS_WS155167_25039150_S19.xlsx"))
 
-WS155407_25039150 <- read_subpanel_vars(paste0(ws_folder,
+WS155407_25039150 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
                           "WS155407/",
                           "v2bCNS_PS/",
                           "Annotated_v2bCNS_PS_WS155407_25039150_S21.xlsx"))
@@ -527,12 +498,12 @@ comp_25039150 <- compare_vars(WS155167_25039150, WS155407_25039150)
 ```{r}
 #| include: FALSE
 
-WS155167_25039145 <- read_subpanel_vars(paste0(ws_folder,
+WS155167_25039145 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
                           "WS155167/",
                           "v2bCNS_PS/",
                           "Annotated_v2bCNS_PS_WS155167_25039145_S13.xlsx"))
 
-WS155407_25039145 <- read_subpanel_vars(paste0(ws_folder,
+WS155407_25039145 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
                           "WS155407/",
                           "v2bCNS_PS/",
                           "Annotated_v2bCNS_PS_WS155407_25039145_S15.xlsx"))
@@ -548,12 +519,12 @@ comp_25039145 <- compare_vars(WS155167_25039145, WS155407_25039145)
 ```{r}
 #| include: FALSE
 
-WS155167_25039141 <- read_subpanel_vars(paste0(ws_folder,
+WS155167_25039141 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
                           "WS155167/",
                           "v2bCNS_PS/",
                           "Annotated_v2bCNS_PS_WS155167_25039141_S7.xlsx"))
 
-WS155407_25039141 <- read_subpanel_vars(paste0(ws_folder,
+WS155407_25039141 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
                           "WS155407/",
                           "v2bCNS_PS/",
                           "Annotated_v2bCNS_PS_WS155407_25039141_S9.xlsx"))
