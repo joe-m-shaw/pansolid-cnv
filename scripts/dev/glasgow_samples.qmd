@@ -1,0 +1,363 @@
+---
+title: "Glasgow Samples"
+author: "Joe Shaw (CS20980)"
+format: pdf
+editor: visual
+---
+
+# Introduction
+
+Colleagues at the Glasgow genetics laboratory would like clinical samples to validate their solid tumour next generation sequencing workflow.
+
+Their specifications are: 
+
+- DNA extracted from formalin-fixed paraffin embedded tissue 
+
+- DNA concentration: 25 µL at 10 ng/µL(measured by Qubit) 
+
+- 250ng DNA total 
+
+- Samples from central nervous system, melanoma and thyroid tumours 
+
+- Samples with a variety of variants (SNVs, deletions, amplifications)
+
+# Methods
+
+```{r}
+#| include: FALSE
+
+source(here::here("scripts/connect_to_dna_db.R"))
+source(here::here("functions/pansolid_cnv_excel_functions.R"))
+
+```
+
+The first step is to find a list of PanSolid worksheets from DNA Database.
+
+```{r}
+#| include: FALSE
+
+all_worksheets <- dna_db_worksheets |> 
+  select(pcrid, date, description) |> 
+  collect() |> 
+  mutate(worksheet = paste0("WS", pcrid))
+
+stopifnot(nrow(all_worksheets) > 0)
+
+ps_string_vars <- paste(c("pansolid",
+                          "pan-solid", 
+                          "pan_solid", 
+                          "pan\\ssolid", 
+                          "PnaSolid", 
+                          "Pandolid", 
+                          "PamSolid"), collapse = "|")
+
+ps_ws_info <- all_worksheets |> 
+  filter(grepl(pattern = ps_string_vars, 
+               x = description,
+               ignore.case = TRUE)) |> 
+  filter(!grepl(pattern = c("Limit of detection|cobas|ddpcr|confs|RNA"),
+                x = description,
+                ignore.case = TRUE)) |> 
+  mutate(ps_category = case_when(
+    grepl(pattern = "jBRCA|j_BRCA|j-BRCA|jew",
+          x = description,
+          ignore.case = TRUE) ~"PanSolid Jewish BRCA",
+    TRUE ~"PanSolid FFPE"
+  ))
+
+stopifnot(anyNA.data.frame(ps_ws_info) == FALSE)
+
+pws_ws_del_loh <- ps_ws_info |> 
+  # New CNV Excel layout started with WS152758
+  filter(pcrid >= 152758)
+
+ps_worksheets <- unique(pws_ws_del_loh$worksheet)
+
+```
+
+There are `r length(ps_worksheets)` worksheets I can use.
+
+Then I will search for PanSolid Excel files on the S drive for those worksheets.
+
+I will make sure that none of the filepaths contain "\$" because that identifies a temporary file created when the Excel file is opened.
+These files cannot be read into R.
+
+```{r}
+#| include: FALSE
+
+annotated_file_regex <- "Annotated_.*_WS\\d{6}_\\d{8}.*.xlsx"
+
+ps_filepaths_annotated <- ps_worksheets |> 
+  map(\(ps_worksheets) get_worksheet_filepaths(worksheet = ps_worksheets,
+                                               file_regex = annotated_file_regex)) |> 
+  flatten()
+
+ps_filepaths_annotated_closed_only <- ps_filepaths_annotated[grepl(
+  pattern = "^(?!.*~\\$).*\\.xlsx$",
+  x = ps_filepaths_annotated,
+  perl = TRUE)]
+
+stopifnot(any(grepl(pattern = "~\\$", x = ps_filepaths_annotated_closed_only)) == FALSE)
+
+```
+
+The next step is to identify CNS, melanoma and thyroid cancers using the panel name within the filename.
+
+```{r}
+#| include: FALSE
+
+ps_filepath_df_annotated <- tibble(
+  filepath = unlist(ps_filepaths_annotated_closed_only)) |> 
+  mutate(filename = basename(filepath))
+
+ps_df_tumours <- ps_filepath_df_annotated |> 
+  mutate(labno = str_extract(string = filename,
+                             pattern = "(WS\\d{6})_(\\d{8})_.*",
+                             group = 2),
+         worksheet = str_extract(string = filename,
+                                 pattern = "(WS\\d{6})_(\\d{8})_.*",
+                                 group = 1)) |> 
+  mutate(type = case_when(
+    grepl(pattern = "CNS", x = filepath) ~"CNS",
+    grepl(pattern = "MELA", x = filepath) ~"Melanoma",
+    grepl(pattern = "THYRO", x = filepath) ~"Thyroid",
+    TRUE ~"Other"
+  )) |> 
+  filter(type %in% c("CNS", "Melanoma", "Thyroid"))
+
+```
+
+Then I can pull DNA concentration information from DNA Database.
+
+```{r}
+#| include: FALSE
+
+ps_labnos <- unique(ps_df_tumours$labno)
+
+ps_sample_info <- sample_tbl |> 
+  filter(labno %in% ps_labnos) |> 
+  select(labno, i_gene_r_no, concentration, tissue) |> 
+  collect() |> 
+  mutate(concentration = as.numeric(concentration),
+         tissue = as.numeric(tissue)) |> 
+  left_join(tissue_types |> 
+              select(tissue_type_id, tissue_type), 
+            join_by("tissue" == "tissue_type_id"))
+
+```
+
+I also want to be able to filter by quality, so I will load the signal-adjusted noise and percent coverage at 138X data.
+
+```{r}
+#| include: FALSE
+
+percent_138x_live <- read_csv(paste0(config::get("data_folderpath"),
+                                     "live_service/collated/",
+                                     "percent_138x_live.csv"),
+                              col_types = "ccccccccd")
+
+stdev_live <- read_csv(paste0(config::get("data_folderpath"),
+                                     "live_service/collated/",
+                                     "stdev_live.csv"),
+                       col_types = "ccccccccd")
+
+sig_cnvs_live <- read_csv(paste0(config::get("data_folderpath"),
+                                     "live_service/collated/",
+                                     "sig_cnvs_live.csv"))
+
+sig_cnvs_live_mod <- sig_cnvs_live |> 
+  filter(fold_change >= 4 |
+           fold_change <= -3)
+
+```
+
+I can join all these dataframes together for easy filtering.
+
+```{r}
+#| include: FALSE
+
+ps_df_join <- ps_df_tumours |> 
+  filter(!duplicated(labno)) |> 
+  inner_join(ps_sample_info, by = "labno") |> 
+  inner_join(percent_138x_live |> 
+               select(labno, worksheet, percent_138x),
+             join_by("labno" == "labno",
+                     "worksheet" == "worksheet")) |> 
+  inner_join(stdev_live |> 
+               select(labno, worksheet, stdev_noise),
+             join_by("labno" == "labno",
+                     "worksheet" == "worksheet"))
+
+```
+
+I will now create a function to read the panel variants tab of the PanSolid Excels.
+
+```{r}
+#| include: FALSE
+
+read_subpanel_variant_sheet <- function(filepath, sheetname) {
+  
+  df <- readxl::read_excel(path = filepath,
+                         sheet = sheetname,
+                         range = readxl::cell_cols("A:G"),
+                         col_types = c(
+                           "text", "text", "text", "text", "text",
+                           "text", "text"
+                         )) |> 
+  janitor::clean_names() 
+  
+  if(nrow(df) == 0) {
+    
+    df <- data.frame(
+      "chromosome" = "",
+      "gr_ch38_region" = "",
+      "transcript" = "",
+      "variant_nomenclature" = "no variants",
+      "additional_transcripts" = "",
+      "check_1" = "",
+      "check_2" = ""
+    )
+  
+  }
+  
+  output <- add_identifiers(filepath, df)
+  
+  return(output)
+  
+}
+
+
+```
+
+This lets me collate all the variants for the samples we're interested in.
+
+```{r}
+#| include: FALSE
+
+filepaths_to_collate <- ps_df_join$filepath
+
+# Check that no Excels are open
+stopifnot(any(grepl(pattern = "\\$", x = filepaths_to_collate)) == FALSE)
+
+collated_variants <- filepaths_to_collate |> 
+  map(\(filepaths_to_collate) read_subpanel_variant_sheet(filepath = filepaths_to_collate,
+                                                   sheetname = get_sheetname(filepath = filepaths_to_collate,
+                                                                             sheet_regex ="Subpanel_Variants_.*"))) |> 
+  list_rbind()
+
+```
+
+I can use the "check 1" comments to identify pathogenic variants.
+
+```{r}
+#| include: FALSE
+
+check_1_comments <- paste(c("oncogenic",
+                            "c4",
+                            "c5",
+                            "known\\svariant",
+                            "canon",
+                            "Hotspot",
+                            "pathogen",
+                            "\\slp", # Likely pathogenic
+                            "\\slo"), # Likely oncogenic
+                          collapse = "|")
+
+```
+
+Then we can add the variants to our dataframe and filter based on the criteria provided by Glasgow.
+
+```{r}
+#| include: FALSE
+
+glasgow_samples_good_quality <- ps_df_join |> 
+  filter(stdev_noise < 0.4 &
+           percent_138x > 90 &
+           concentration > 50)
+
+```
+
+To filter more easily I can create multiple filtered dataframes for patients with pathogenic SNV and CNVs.
+
+```{r}
+#| include: FALSE
+
+glasgow_samples_cnvs <- glasgow_samples_good_quality |> 
+  left_join(sig_cnvs_live_mod |> 
+              select(filename, gene, consequence, fold_change), by = "filename") |> 
+  filter(!is.na(gene)) |> 
+  select(-filepath) |> 
+  arrange(consequence)
+
+glasgow_samples_snvs <- glasgow_samples_good_quality |> 
+  left_join(collated_variants |> 
+              select(-c(labno, worksheet)),
+            by = "filepath") |> 
+  filter(grepl(pattern = check_1_comments,
+                 x = check_1,
+                 ignore.case = TRUE))
+
+glasgow_samples_low_snvs <- glasgow_samples_snvs |> 
+  filter(grepl(pattern = ".*\\s\\d{1}%$",
+                 x = variant_nomenclature))
+
+glasgow_samples_snvs_and_cnvs <- glasgow_samples_snvs |> 
+  filter(filename %in% glasgow_samples_cnvs$filename)
+
+```
+
+# Results
+
+From doing this I made a selection of samples to send.
+
+```{r}
+#| include: FALSE
+
+sample_selection <- read_csv(paste0(config::get("data_folderpath"),
+                                       "live_service/samples_for_glasgow/",
+                                       "sample_selection.csv"),
+                             col_types = "ccc")
+
+glasgow_samples_export_full <- glasgow_samples_good_quality |> 
+  filter(!duplicated(labno)) |> 
+  select(type, i_gene_r_no, labno, worksheet, tissue_type,
+         concentration, stdev_noise, percent_138x) |> 
+  arrange(type, 
+          desc(concentration))
+
+glasgow_samples_export_filtered <- glasgow_samples_export_full |> 
+  inner_join(sample_selection,
+             by = "labno")
+
+```
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(glasgow_samples_export_filtered |> 
+               select(type, i_gene_r_no, labno, worksheet, tissue_type,
+         concentration))
+
+```
+
+I can then select the key columns and export for future reference.
+
+```{r}
+#| include: FALSE
+
+export_folder <- paste0(config::get("data_folderpath"),
+                        "live_service/samples_for_glasgow/")
+
+write_csv(glasgow_samples_export_full,
+          file = paste0(export_folder,
+                        "glasgow_samples_export_full.csv"))
+
+write_csv(glasgow_samples_export_filtered,
+          file = paste0(export_folder,
+                        "glasgow_samples_export_filtered.csv"))
+
+```
+
+# Conclusion
+
+I have selected `r nrow(sample_selection)` samples meeting the criteria of the Glasgow laboratory.
