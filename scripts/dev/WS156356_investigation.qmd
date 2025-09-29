@@ -39,11 +39,11 @@ WS156356_snp_data <- WS156356_files |>
 
 ```
 
-# 25047626 
+# 25047626
 
 25047626 appears to have contamination, but comparing the SNP profile to the SNP profiles in 25047573 and 25047631 does not show clear evidence that either is the contaminating sample.
 Both 25047573 and 25047631 are poor quality with low numbers of SNPs identified, which could impact the accuracy of this method.
-I have checked the SNP profile of 25047626 against every other sample on WS156356 and can't find a clear match. 
+I have checked the SNP profile of 25047626 against every other sample on WS156356 and can't find a clear match.
 For context, a clear match would look like solid bands of colour on the plots.
 SNPs which are heterozygous in the contaminating sample should be present in the intermediate ranges in the contaminated sample.
 
