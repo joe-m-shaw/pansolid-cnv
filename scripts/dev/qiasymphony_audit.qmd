@@ -30,7 +30,7 @@ source(here::here("functions/dna_db_functions.R"))
 #| include: FALSE
 
 qiasymphony_batch_tbl <- extraction_batch_tbl |> 
-  filter(extraction_method_fk == 33 &
+  filter(extraction_method_fk %in% c(33, 34) &
           run_date > "2024-03-31 00:00:00") |> 
   collect()
 
@@ -42,4 +42,56 @@ qiasymphony_samples <- extraction_tbl |>
 
 ```
 
-There have been `r length(unique(qiasymphony_samples$lab_no))` samples extracted by QiaSymphony so far.
+```{r}
+#| label: qs-plot
+#| echo: FALSE
+
+samples_per_batch <- qiasymphony_samples |> 
+  group_by(extraction_batch_fk) |> 
+  summarise(number_of_samples = n())
+
+qiasymphony_batch_tbl_mod <- qiasymphony_batch_tbl |> 
+  select(extraction_batch_id, extraction_method_fk, run_date) |> 
+  left_join(samples_per_batch,
+            join_by("extraction_batch_id" == "extraction_batch_fk")) |> 
+  filter(!is.na(number_of_samples)) |> 
+  mutate(week = floor_date(run_date, unit = "week")) |> 
+  mutate(extraction_type = case_when(
+    extraction_method_fk == 33 ~"FFPE DNA",
+    extraction_method_fk == 34 ~"FFPE RNA"
+  ))
+
+qiasymphony_dna_ffpe <- qiasymphony_batch_tbl_mod |> 
+  filter(extraction_type == "FFPE DNA") |> 
+  arrange(week) |> 
+  mutate(cumulative_samples = cumsum(number_of_samples))
+
+qiasymphony_rna_ffpe <- qiasymphony_batch_tbl_mod |> 
+  filter(extraction_type == "FFPE RNA") |> 
+  arrange(week) |> 
+  mutate(cumulative_samples = cumsum(number_of_samples))
+
+qs_samples_per_week <- qiasymphony_batch_tbl_mod |> 
+  group_by(week) |> 
+  summarise(total_samples = sum(number_of_samples))
+
+qs_data <- rbind(qiasymphony_dna_ffpe, qiasymphony_rna_ffpe)
+
+qs_plot <- ggplot(qs_data, aes(x = week,
+                               y = cumulative_samples)) +
+  geom_line(aes(colour = extraction_type)) +
+  theme_bw() +
+  scale_x_datetime(date_breaks = "1 month",
+                   date_labels = "%b-%Y") +
+  scale_y_continuous(limits = c(0, 20000),
+                     breaks = seq(0, 20000, by = 1000)) +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom") +
+  labs(x = "", y = "Cumulative samples",
+       title = "QIAsymphony extractions over time",
+       subtitle = paste0("Total extractions: ", length(unique(qiasymphony_samples$lab_no))),
+       colour = "") 
+
+qs_plot
+
+```
