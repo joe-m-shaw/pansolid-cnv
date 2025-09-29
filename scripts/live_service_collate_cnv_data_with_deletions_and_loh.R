@@ -55,7 +55,8 @@ if(length(ps_worksheets) == 0) {
 # Note: WS155944 is a Jewish BRCA run but is described 
 # as "NGS DNA QIAseq PanSolid"
 
-write_csv(ps_ws_info,
+write_csv(ps_ws_info |> 
+            arrange(pcrid),
           paste0(config::get("data_folderpath"),
                  "live_service/collated/",
                  "pansolid_worksheet_info.csv"))
@@ -150,7 +151,8 @@ files_without_cnv_tabs <- c("WS152872_25022765",
                             "WS153275_25018558",
                             "WS153275_25018545",
                             "WS152828_25018508",
-                            "WS156308_25001622")
+                            "WS156308_25001622",
+                            "WS157340_25052875")
 
 # Identify annotated files not already collated ---------------------------
 
@@ -256,7 +258,7 @@ stdev_new <- map(cnv_new, ~ .x[["stdev"]]) |>
   relocate(filename, .after = filepath) |> 
   # Specify columns to remove any random columns added by scientists
   select(worksheet, labno,	suffix, patient_name, labno_suffix, 
-         labno_suffix_worksheet,	filepath,	filename,	stdev_noise)
+         labno_suffix_worksheet,	filepath,	filename,	stdev_noise) 
 
 percent_138x_new <- map(cnv_new, ~ .x[["percent_138x"]]) |> 
   list_rbind()|>
@@ -264,7 +266,7 @@ percent_138x_new <- map(cnv_new, ~ .x[["percent_138x"]]) |>
                                 pattern = annotated_filename_regex)) |> 
   relocate(filename, .after = filepath) |> 
   select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
-         labno_suffix_worksheet,	filepath,	filename,	percent_138x)
+         labno_suffix_worksheet,	filepath,	filename,	percent_138x) 
 
 pred_ncc_new <-  map(cnv_new, ~ .x[["pred_ncc"]]) |> 
   list_rbind()|>
@@ -272,7 +274,7 @@ pred_ncc_new <-  map(cnv_new, ~ .x[["pred_ncc"]]) |>
                                 pattern = annotated_filename_regex)) |> 
   relocate(filename, .after = filepath) |> 
   select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
-         labno_suffix_worksheet,	filepath,	filename,	pred_ncc)
+         labno_suffix_worksheet,	filepath,	filename,	pred_ncc) 
 
 sig_cnvs_new <- map(cnv_new, ~ .x[["sig_cnvs"]]) |> 
   list_rbind()|>
@@ -283,7 +285,7 @@ sig_cnvs_new <- map(cnv_new, ~ .x[["sig_cnvs"]]) |>
          labno_suffix_worksheet,	filepath,	filename,	gene,
          chromosome,	cnv_co_ordinates,	cnv_length,	consequence,
          fold_change,	p_value,	no_targets,	check_1,	check_2,
-         copy_number,	start,	end)
+         copy_number,	start,	end) 
 
 amp_genes_new <- map(cnv_new, ~ .x[["amp_genes"]]) |> 
   list_rbind()|>
@@ -292,7 +294,7 @@ amp_genes_new <- map(cnv_new, ~ .x[["amp_genes"]]) |>
   relocate(filename, .after = filepath) |> 
   select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
          labno_suffix_worksheet,	filepath,	filename,	gene,
-         max_region_fold_change,	min_region_fold_change)
+         max_region_fold_change,	min_region_fold_change) 
 
 del_genes_new <-  map(cnv_new, ~ .x[["del_genes"]]) |> 
   list_rbind()|>
@@ -301,8 +303,7 @@ del_genes_new <-  map(cnv_new, ~ .x[["del_genes"]]) |>
   relocate(filename, .after = filepath) |> 
   select(worksheet,	labno,	suffix,	patient_name,	labno_suffix,
          labno_suffix_worksheet,	filepath,	filename,	gene,
-         max_region_fold_change,	min_region_fold_change)
-
+         max_region_fold_change,	min_region_fold_change) 
 
 # Collate data from new unannotated files ---------------------------------
 
@@ -399,14 +400,6 @@ stopifnot(length(setdiff(stdev_new$filepath, unique(loh_new$filepath))) == 0)
 
 stopifnot(anyNA.data.frame(number_ploidy_regions_new) == FALSE)
 
-# There should be a minimum of 41 ploidy regions
-# 1 ploidy region per chromosome arm
-# 17 autosomes with p and q arms targeted
-# 1 X chromosome with p and q arms targeted
-# 5 autosomes with only q arms targeted
-# (18*2)+5 = 41
-stopifnot(min(number_ploidy_regions_new$number_ploidy_regions) >= 41)
-
 # There are 6174 targets on PanSolid v2, so this is a very liberal maximum
 # threshold
 stopifnot(max(number_ploidy_regions_new$number_ploidy_regions) <= 6174)
@@ -435,6 +428,16 @@ loh_df <- rbind(loh_live, loh_new)
 
 number_ploidy_regions_df <- rbind(number_ploidy_regions_live,
                                   number_ploidy_regions_new)
+
+# Checks ------------------------------------------------------------------
+
+# There should be a minimum of 39 ploidy regions
+# 1 ploidy region per chromosome arm
+# 17 autosomes with p and q arms targeted
+# 5 autosomes with only q arms targeted
+# (17*2)+5 = 39
+# Ploidy regions not returned for X chromosome
+stopifnot(min(number_ploidy_regions_new$number_ploidy_regions) >= 39)
 
 # Export collated data ----------------------------------------------------
 
