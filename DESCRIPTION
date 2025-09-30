@@ -19,7 +19,12 @@ Imports:
   patchwork,
   plyr,
   tibble,
-  tidyr
+  tidyr,
+  rvest,
+  epiR,
+  odbc,
+  ggpubr,
+  purrr
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

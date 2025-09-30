@@ -416,7 +416,7 @@ make_cnv_triptych_plot <- function(input_plot) {
                               chromosome = {{ chromosome }})
   
   triptych <- (main_plot / primer_plot / exon_plot) +
-    plot_layout(
+    patchwork::plot_layout(
       heights = c(6, 1, 2)
     )
   
