@@ -1,6 +1,6 @@
 read_ensembl_exon_table <- function(filepath) {
   
-  transcript_regex <- regex(
+  transcript_regex <- stringr::regex(
     r"(
     .+
     (ENST\d{11})
@@ -9,18 +9,18 @@ read_ensembl_exon_table <- function(filepath) {
     comments = TRUE
   )
   
-  transcript_id <- str_extract(string = filepath, 
+  transcript_id <- stringr::str_extract(string = filepath, 
                                pattern = transcript_regex,
                                group = 1)
   
-  table <- read_csv(file = filepath,
+  table <- readr::read_csv(file = filepath,
                     show_col_types = FALSE) |> 
     janitor::clean_names() |> 
-    filter(!is.na(no)) |> 
-    rename(exon = no) |> 
-    mutate(transcript = transcript_id) |> 
-    relocate(transcript) |> 
-    select(-sequence)
+    dplyr::filter(!is.na(no)) |> 
+    dplyr::rename(exon = no) |> 
+    dplyr::mutate(transcript = transcript_id) |> 
+    dplyr::relocate(transcript) |> 
+    dplyr::select(-sequence)
   
   return(table)
   

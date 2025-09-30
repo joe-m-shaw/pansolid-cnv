@@ -1,9 +1,12 @@
-library(testthat)
-
-test_datapath <- paste0(config::get("data_folderpath"),
-                        "validation/DOC6567_deletions/test_data/")
-
 # parse_filename
+
+config_file <- file.path("..", "..", "config.yml")
+
+data_folderpath <- config::get(file = config_file,
+                               config = "data_folderpath")
+
+test_datapath <- paste0(data_folderpath,
+                          "validation/DOC6567_deletions/test_data/")
 
 test_that("parse_filename handles original filename format",{
   

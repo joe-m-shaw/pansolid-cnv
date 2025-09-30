@@ -6,8 +6,9 @@ parse_wgs_html_header <- function(html_filepath) {
   #'
   #' @return The header identifiers as a data-frame
   #'
-  #' @examples patient_ids <- parse_wgs_html_header(html_filepath)
-  
+  #' @export
+  #'
+
   html <- rvest::read_html(x = html_filepath)
   
   header <- html |> 
@@ -52,7 +53,8 @@ parse_wgs_html_pid_text <- function(html_filepath) {
   #' genome sequencing HTML. The referral ID table itself needs to be parsed
   #' using the parse_wgs_html_table_by_number function.
   #'
-  #' @examples pid_df <- parse_wgs_html_pid_text(html_filepath)
+  #' @export
+
   
   html <- rvest::read_html(x = html_filepath)
   
@@ -112,8 +114,8 @@ parse_wgs_html_table_by_div_id <- function(html_filepath,
   #' "d_svcnv_tier1" (Tier 1 structural and copy number variants,later versions
   #'  than v2.28)
   #'
-  #' @examples parse_wgs_html_table_by_div_id(filepath, "t_tumour_details")
-  
+  #' @export
+
   html <- rvest::read_html(x = html_filepath)
   
   output_table <- html |> 
@@ -141,13 +143,15 @@ parse_wgs_html_table_by_number <- function(html_filepath,
   #'
   #' @return Returns the table from the HTML as a tibble with column names 
   #' in snake-case.
+  #' 
   #' @note This function is a less specific version of 
   #' parse_wgs_html_table_by_div_id.
   #' It can be used for cases where the table does not have a div_id available.
   #' This is specifically relevant to the patient details table - see example.
   #' 
-  #' @examples patient_ids <- parse_wgs_html_table_by_number(filepath, 1)
-  
+  #' @export
+  #' 
+
   html <- rvest::read_html(x = html_filepath)
   
   html_tables <- html |> 
@@ -174,6 +178,7 @@ wgs_html_variant_type_regex <- function() {
   #' (example format: LOH(2); GAIN(3)).
   #' This output is then used for later functions for extracting different 
   #' parts of the regex.
+  #' 
   #' @export
   
   wgs_html_variant_type_regex <- stringr::regex(
@@ -201,9 +206,8 @@ parse_wgs_cnv_class <- function(x) {
   #' Examples: "LOH(2)", "GAIN(3)", "INV"
   #'
   #' @return The CNV class (examples: "LOH", "GAIN", "INV") as a string
+  #' 
   #' @export
-  #'
-  #' @examples cnv_class <- parse_wgs_cnv_class("LOH (2)")
   
   wgs_cnv_class <- stringr::str_extract(string = x,
                                pattern = wgs_html_variant_type_regex(),
@@ -223,9 +227,8 @@ parse_wgs_cnv_copy_number <- function(x) {
   #' Examples: "LOH(2)", "GAIN(3)", "INV"
   #'
   #' @return The CNV copy number as a number
+  #' 
   #' @export
-  #'
-  #' @examples cnv_number <- parse_wgs_cnv_copy_number("LOH (2)")
   
   wgs_cnv_copy_number <- readr::parse_number(stringr::str_extract(
                                                   string = x,
@@ -244,6 +247,7 @@ wgs_html_grch38_coordinates_regex <- function() {
   #' column in the WGS HTML file.
   #' The format gives the chromosome, start coordinate and end coordinate for a CNV.
   #' Example: "7:60912080-159335569"
+  #' 
   #' @export
   
   wgs_html_grch38_coordinates_regex <- stringr::regex(
@@ -272,10 +276,8 @@ parse_wgs_html_grch38_coordinates <- function(x, group) {
   #' 2 for "first coordinate" or 4 for "second coordinate".
   #'
   #' @return The selected regex group as a string.
+  #' 
   #' @export
-  #'
-  #' @examples cnv_chromosome <- parse_wgs_html_grch38_coordinates(x = "7:60912080-159335569",
-  #' group = 1)
   
   output <- stringr::str_extract(string = x,
                         pattern = wgs_html_grch38_coordinates_regex(),

@@ -1,5 +1,3 @@
-library(here)
-
 data_folder <- config::get("data_filepath")
 
 spreadsheet_folder <- paste0(data_folder,
@@ -19,39 +17,36 @@ join_pansolid_submission_sheets <- function() {
   #' 
   #' The sample_id field has some surprises. Example: 23024772 has a degree sign (°)
   #' entered after it which is invisible in Excel and R.
-  #'
-  #' @examples pansolid_sheets <- join_pansolid_submission_sheets()
   #' 
-  #' sample_info <- pansolid_sheets |> filter(labno == "12345678")
-  
+
   pansolid_submission_2023 <- readxl::read_excel(path = paste0(spreadsheet_folder, 
                                                        "DNA PanSolid QIAseq Submission Sheet 2023.xlsx")) |> 
     janitor::clean_names() |> 
-    rename(stock_qubit = stock_qubit_ng_m_l) |> 
-    mutate(submission_sheet = "2023",
+    dplyr::rename(stock_qubit = stock_qubit_ng_m_l) |> 
+    dplyr::mutate(submission_sheet = "2023",
            labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
-    select(date_submitted, labno, sample_name,
+    dplyr::select(date_submitted, labno, sample_name,
            panel, enrichment, stock_qubit, submission_sheet)
   
   pansolid_submission_2024 <- readxl::read_excel(path = paste0(spreadsheet_folder, 
                                                        "PanSolid Submission sheet 2024.xlsx"),
                                          sheet = "PanSolid samples") |> 
     janitor::clean_names()  |> 
-    rename(stock_qubit = stock_qubit_ng_m_l) |> 
-    mutate(submission_sheet = "2024",
+    dplyr::rename(stock_qubit = stock_qubit_ng_m_l) |> 
+    dplyr::mutate(submission_sheet = "2024",
            labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
-    select(date_submitted, labno, sample_name,
+    dplyr::select(date_submitted, labno, sample_name,
            panel, enrichment, stock_qubit, submission_sheet)
   
   # Pansolid began in 2022 so the initial runs were recorded on the Qiaseq spreadsheet
   pansolid_submission_2022 <- readxl::read_excel(path = paste0(spreadsheet_folder, 
                                                        "QIAseq DNA PanSolid Sample Submission 2022.xlsx")) |> 
     janitor::clean_names() |> 
-    rename(date_submitted = date_sample_submitted,
+    dplyr::rename(date_submitted = date_sample_submitted,
            stock_qubit = stock_qubit_ng_m_l) |> 
-    mutate(submission_sheet = "2022",
+    dplyr::mutate(submission_sheet = "2022",
            labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
-    select(date_submitted, labno, sample_name,
+    dplyr::select(date_submitted, labno, sample_name,
            panel, enrichment, stock_qubit, submission_sheet)
   
   output <- rbind(pansolid_submission_2024,
@@ -68,23 +63,23 @@ join_qiaseq_core_submission_sheets <- function() {
                                                                 "DNA QIAseq Submission Sheet 2023.xlsx"),
                                                   sheet = "QIAseq samples") |> 
   janitor::clean_names() |> 
-  mutate(submission_sheet = "2023",
+    dplyr::mutate(submission_sheet = "2023",
          worksheet = paste0("WS", qi_aseq),
          labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
-  filter(!is.na(labno)) |> 
-  select(date_submitted, labno, sample_name,
+    dplyr::filter(!is.na(labno)) |> 
+    dplyr::select(date_submitted, labno, sample_name,
          panel, enrichment, stock_qubit, worksheet, submission_sheet)
 
   core_qiaseq_submission_2024 <- readxl::read_excel(path = paste0(spreadsheet_folder,
                                                                   "DNA QIAseq Submission Sheet 2024.xlsx"),
                                                     sheet = "QIAseq samples") |> 
     janitor::clean_names() |> 
-    rename(stock_qubit = stock_qubit_ng_m_l) |> 
-    mutate(submission_sheet = "2024",
+    dplyr::rename(stock_qubit = stock_qubit_ng_m_l) |> 
+    dplyr::mutate(submission_sheet = "2024",
            worksheet = paste0("WS", qi_aseq_worksheet),
            labno = str_extract(string = sample_id, pattern = "\\d{8}")) |> 
-    filter(!is.na(labno)) |> 
-    select(date_submitted, labno, sample_name,
+    dplyr::filter(!is.na(labno)) |> 
+    dplyr::select(date_submitted, labno, sample_name,
            panel, enrichment, stock_qubit, worksheet, submission_sheet)
   
   output <- rbind(core_qiaseq_submission_2023,

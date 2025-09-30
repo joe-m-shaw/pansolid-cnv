@@ -79,7 +79,7 @@ get_sample_nhs_no <- function(sample_vector) {
   
 }
 
-ncc_regex <- regex(
+ncc_regex <- stringr::regex(
   r"[
   (>\d{2}% | \d{2}-\d{2}%)
   ]",

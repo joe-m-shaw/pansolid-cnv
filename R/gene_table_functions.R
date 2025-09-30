@@ -5,10 +5,9 @@ load_pansolid_gene_table <- function(cnv_type) {
   #' @param cnv_type The type of copy number variant, which must be "Deletions" or "Amplifications"
   #'
   #' @return Returns a dataframe of the current gene list.
+  #' 
   #' @export
-  #'
-  #' @examples amp_list <- load_gene_table("Amplifications")
-  
+
   if(!cnv_type %in% c("Deletions", "Amplifications")) {
     stop("cnv_type must be Deletions or Amplifications")
   }

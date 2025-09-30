@@ -1,10 +1,5 @@
 # INC10994 Contamination Functions
 
-source(here::here("scripts/connect_to_dna_db.R"))
-source(here::here("functions/dna_db_functions.R"))
-
-library(patchwork)
-
 compare_snp_results <- function(s1_df,
                                 s2_df,
                                 s1_id,
@@ -15,22 +10,22 @@ compare_snp_results <- function(s1_df,
                                 hom_vaf_lower_threshold = 10) {
   
   sample1 <- s1_df |> 
-    filter(labno_suffix_worksheet == s1_id &
+    dplyr::filter(labno_suffix_worksheet == s1_id &
              type == "SNV") |> 
-    select(chromosome, region, type, reference, reference_allele, 
+    dplyr::select(chromosome, region, type, reference, reference_allele, 
            allele, frequency, cumulative_region_coordinate) |> 
-    rename(sample1_frequency = frequency)
+    dplyr::rename(sample1_frequency = frequency)
   
   sample2 <- s2_df |> 
-    filter(labno_suffix_worksheet == s2_id &
+    dplyr::filter(labno_suffix_worksheet == s2_id &
              type == "SNV") |> 
-    select(chromosome, region, type, 
+    dplyr::select(chromosome, region, type, 
            reference, reference_allele,
            allele, frequency) |> 
-    rename(sample2_frequency = frequency)
+    dplyr::rename(sample2_frequency = frequency)
   
   comparison_df <- sample1 |> 
-    left_join(sample2,
+    dplyr::left_join(sample2,
               join_by(chromosome, region, type, 
                       reference, reference_allele,
                       allele)) |> 
@@ -91,11 +86,11 @@ read_formatted_snp_data <- function(file, sheetname = "Artefacts_removed_GIAB_fi
     janitor::clean_names() |> 
     format_chromosome_decimals(col = chromosome) |> 
     factorise_chromosome(col = chromosome_char) |> 
-    filter(!is.na(region)) |> 
-    left_join(pansolid_chr_cumulative_coordinates |> 
+    dplyr::filter(!is.na(region)) |> 
+    dplyr::left_join(pansolid_chr_cumulative_coordinates |> 
                 select(chromosome_fct, cumulative_chr_coordinate),
               by = "chromosome_fct") |> 
-    mutate(cumulative_region_coordinate = region + cumulative_chr_coordinate)
+    dplyr::mutate(cumulative_region_coordinate = region + cumulative_chr_coordinate)
   
   output_df <- add_identifiers(file = file,
                                tbl = snp_data)
@@ -130,7 +125,7 @@ check_hom_snps <- function(s1_df,
                                 s2_id = s2_id) 
   
   high_snps <- compdf |> 
-    filter(sample1_frequency > 98)
+    dplyr::filter(sample1_frequency > 98)
   
   above90 <- high_snps[high_snps$sample2_frequency_category == "Above 90%",]
   
@@ -150,21 +145,21 @@ check_hom_snps <- function(s1_df,
 search_for_contaminant <- function(df, s1_id) {
   
   query_df <- df |> 
-    filter(labno_suffix_worksheet != s1_id)
+    dplyr::filter(labno_suffix_worksheet != s1_id)
   
   query_ids <- unique(query_df$labno_suffix_worksheet)
   
   final_df <- query_ids |> 
-    map(\(query_ids) check_hom_snps(s1_df = df,
+    purrr::map(\(query_ids) check_hom_snps(s1_df = df,
                                     s1_id = s1_id,
                                     s2_df = df,
                                     s2_id = query_ids)) |> 
-    list_rbind() |> 
-    arrange(desc(proportion_matching_hom_snps))
+    purrr::list_rbind() |> 
+    dplyr::arrange(desc(proportion_matching_hom_snps))
   
   return(final_df)
   
-  arr}
+}
 
 make_contamination_snp_plot <- function(s1_df,
                                         s1_id,
@@ -188,7 +183,7 @@ make_contamination_snp_plot <- function(s1_df,
     dplyr::filter(!is.na(sample2_frequency))
   
   s1_plot <- comparison_df |> 
-    filter(reference_allele == "No") |> 
+    dplyr::filter(reference_allele == "No") |> 
     ggplot2::ggplot(aes(x = cumulative_region_coordinate, y = sample1_frequency)) +
     geom_point(shape = 21, aes(fill = sample2_frequency_category),
                alpha = 0.8) +
@@ -211,7 +206,7 @@ make_contamination_snp_plot <- function(s1_df,
          caption = paste0(nrow(comparison_df_no_na), " SNPs match"))
   
   s2_plot <- comparison_df |> 
-    filter(reference_allele == "No") |> 
+    dplyr::filter(reference_allele == "No") |> 
     ggplot2::ggplot(aes(x = cumulative_region_coordinate, y = sample2_frequency)) +
     geom_point(shape = 21, aes(fill = sample2_frequency_category),
                alpha = 0.8) +
@@ -238,11 +233,10 @@ make_contamination_snp_plot <- function(s1_df,
 
 # DNA Database Functions
 
-
 define_pansolid_worksheets <- function() {
   
   all_worksheets <- dna_db_worksheets |> 
-    select(pcrid, date, description) |> 
+    dplyr::select(pcrid, date, description) |> 
     collect() |> 
     mutate(worksheet = paste0("WS", pcrid))
   

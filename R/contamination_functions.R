@@ -22,10 +22,7 @@ make_contamination_snp_plot <- function(df,
   #' @returns A plot of the SNP comparisons.
   #' @export
   #'
-  #' @examples contamination_plot <- make_contamination_snp_plot(
-  #' df = all_snp_data, "WS150465", "24026628b",
-  #' "WS150529", "24053299")
-  
+
   sample1_df <- df |> 
     dplyr::filter(worksheet == sample1_ws &
              labno_suffix == sample1_labno)
@@ -100,27 +97,6 @@ make_contamination_snp_plotlist <- function(df,
   #' local directory.
   #' @export
   #'
-  #' @examples 
-  #' 
-  #' # Here is an example of using the function to investigate potential 
-  #' # contamination of sample 25048537 on WS156496
-  #' 
-  #' WS156496_files <- list.files(path = paste0("S:/central shared/",
-  #'                               "Genetics/Repository/",
-  #'                                "WorksheetAnalysedData/",
-  #'                                 "WS156496"),
-  #'                                 pattern = "Results_SNVs_Indels.*.xlsx",
-  #'                                 full.names = TRUE,
-  #'                                 recursive = TRUE)
-  #'                                 
-  #' WS156496_snp_data <- WS156496_files |> 
-  #'   map(\(WS156496_files) read_snp_sheet(WS156496_files)) |> 
-  #'   list_rbind()
-  #'   
-  #' make_contamination_snp_plotlist(df = WS156496_snp_data,
-  #'                                 sample1_labno = "25048537",
-  #'                                 ws = "WS156496",
-  #'                                 plotlist_title = "WS156496_plots_25048537.pdf")
 
   query_sample_df <- df |> 
     dplyr::filter(labno != sample1_labno)

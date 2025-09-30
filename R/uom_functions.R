@@ -16,8 +16,7 @@ group_sd <- function(df, group_variable1, group_variable2, measurement_variable)
   #' @return A grouped data frame showing standard deviation
   #' @export
   #'
-  #' @examples group_sd(repeat_data_fold_change_range, labno, gene, fold_change_for_uom)
-  
+
   if(is.data.frame(df) == FALSE){
     stop("df must be a data frame")
   }
@@ -27,7 +26,7 @@ group_sd <- function(df, group_variable1, group_variable2, measurement_variable)
   }
   
   output_df <- df |> 
-    group_by( {{ group_variable1 }}, {{ group_variable2 }} ) |> 
+    dplyr::group_by( {{ group_variable1 }}, {{ group_variable2 }} ) |> 
     dplyr::summarise(sd = sd( {{ measurement_variable }} ),
               n = n(),
               n_minus_1 = n-1,
@@ -46,8 +45,6 @@ pool_sd <- function(df) {
   #' @return The pooled standard deviation value
   #' @export
   #'
-  #' @examples pool_sd(df = group_sd(repeat_data_fold_change_range, labno, gene, fold_change_for_uom))
-  
   pooled_sd <- sqrt(sum(df$z) / (sum(df$n_minus_1)))
   
   return(pooled_sd)
