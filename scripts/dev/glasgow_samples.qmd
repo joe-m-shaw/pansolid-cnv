@@ -1,7 +1,10 @@
 ---
 title: "Glasgow Samples"
 author: "Joe Shaw (CS20980)"
-format: pdf
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
 editor: visual
 ---
 
@@ -9,32 +12,35 @@ editor: visual
 
 Colleagues at the Glasgow genetics laboratory would like clinical samples to validate their solid tumour next generation sequencing workflow.
 
-Their specifications are: 
+Their specifications are:
 
-- DNA extracted from formalin-fixed paraffin embedded tissue 
+-   DNA extracted from formalin-fixed paraffin embedded tissue
 
-- DNA concentration: 25 µL at 10 ng/µL(measured by Qubit) 
+-   DNA concentration: 25 µL at 10 ng/µL(measured by Qubit)
 
-- 250ng DNA total 
+-   250ng DNA total
 
-- Samples from central nervous system, melanoma and thyroid tumours 
+-   Samples from central nervous system, melanoma and thyroid tumours
 
-- Samples with a variety of variants (SNVs, deletions, amplifications)
+-   Samples with a variety of variants (SNVs, deletions, amplifications)
 
 # Methods
 
 ```{r}
-#| include: FALSE
+#| message: FALSE
+#| warning: FALSE
 
 source(here::here("scripts/connect_to_dna_db.R"))
 source(here::here("functions/pansolid_cnv_excel_functions.R"))
+
+glasgow_sample_folder <- paste0(config::get("data_folderpath"),
+                        "live_service/samples_for_glasgow/")
 
 ```
 
 The first step is to find a list of PanSolid worksheets from DNA Database.
 
 ```{r}
-#| include: FALSE
 
 all_worksheets <- dna_db_worksheets |> 
   select(pcrid, date, description) |> 
@@ -83,7 +89,6 @@ I will make sure that none of the filepaths contain "\$" because that identifies
 These files cannot be read into R.
 
 ```{r}
-#| include: FALSE
 
 annotated_file_regex <- "Annotated_.*_WS\\d{6}_\\d{8}.*.xlsx"
 
@@ -104,7 +109,6 @@ stopifnot(any(grepl(pattern = "~\\$", x = ps_filepaths_annotated_closed_only)) =
 The next step is to identify CNS, melanoma and thyroid cancers using the panel name within the filename.
 
 ```{r}
-#| include: FALSE
 
 ps_filepath_df_annotated <- tibble(
   filepath = unlist(ps_filepaths_annotated_closed_only)) |> 
@@ -127,16 +131,16 @@ ps_df_tumours <- ps_filepath_df_annotated |>
 
 ```
 
-Then I can pull DNA concentration information from DNA Database.
+Then I can pull stock DNA concentration information from DNA Database.
 
 ```{r}
-#| include: FALSE
 
 ps_labnos <- unique(ps_df_tumours$labno)
 
 ps_sample_info <- sample_tbl |> 
   filter(labno %in% ps_labnos) |> 
-  select(labno, i_gene_r_no, concentration, tissue) |> 
+  select(labno, i_gene_r_no, firstname, surname,
+         concentration, tissue) |> 
   collect() |> 
   mutate(concentration = as.numeric(concentration),
          tissue = as.numeric(tissue)) |> 
@@ -149,7 +153,6 @@ ps_sample_info <- sample_tbl |>
 I also want to be able to filter by quality, so I will load the signal-adjusted noise and percent coverage at 138X data.
 
 ```{r}
-#| include: FALSE
 
 percent_138x_live <- read_csv(paste0(config::get("data_folderpath"),
                                      "live_service/collated/",
@@ -174,7 +177,6 @@ sig_cnvs_live_mod <- sig_cnvs_live |>
 I can join all these dataframes together for easy filtering.
 
 ```{r}
-#| include: FALSE
 
 ps_df_join <- ps_df_tumours |> 
   filter(!duplicated(labno)) |> 
@@ -193,7 +195,6 @@ ps_df_join <- ps_df_tumours |>
 I will now create a function to read the panel variants tab of the PanSolid Excels.
 
 ```{r}
-#| include: FALSE
 
 read_subpanel_variant_sheet <- function(filepath, sheetname) {
   
@@ -232,7 +233,7 @@ read_subpanel_variant_sheet <- function(filepath, sheetname) {
 This lets me collate all the variants for the samples we're interested in.
 
 ```{r}
-#| include: FALSE
+#| eval: FALSE
 
 filepaths_to_collate <- ps_df_join$filepath
 
@@ -247,10 +248,10 @@ collated_variants <- filepaths_to_collate |>
 
 ```
 
-I can use the "check 1" comments to identify pathogenic variants.
+This is a lengthy process which returns a dataframe with over 1,000,000 rows.
+To filter the results down, I can use the "check 1" comments to identify pathogenic variants.
 
 ```{r}
-#| include: FALSE
 
 check_1_comments <- paste(c("oncogenic",
                             "c4",
@@ -265,10 +266,36 @@ check_1_comments <- paste(c("oncogenic",
 
 ```
 
+```{r}
+#| eval: FALSE
+
+pathogenic_variants <- collated_variants |> 
+  filter(grepl(pattern = check_1_comments,
+                 x = check_1,
+                 ignore.case = TRUE))
+
+write_csv(pathogenic_variants |> 
+  select(worksheet, labno, suffix, patient_name,
+         labno_suffix, labno_suffix_worksheet,
+         filepath, chromosome, gr_ch38_region, transcript,
+         variant_nomenclature, additional_transcripts,
+         check_1, check_2),
+  paste0(glasgow_sample_folder, "pathogenic_variants.csv"))
+
+```
+
+```{r}
+
+pathogenic_variants <- read_csv(paste0(glasgow_sample_folder,
+                                       "pathogenic_variants.csv"),
+                                col_types = "cccccccccccccc")
+
+
+```
+
 Then we can add the variants to our dataframe and filter based on the criteria provided by Glasgow.
 
 ```{r}
-#| include: FALSE
 
 glasgow_samples_good_quality <- ps_df_join |> 
   filter(stdev_noise < 0.4 &
@@ -280,7 +307,6 @@ glasgow_samples_good_quality <- ps_df_join |>
 To filter more easily I can create multiple filtered dataframes for patients with pathogenic SNV and CNVs.
 
 ```{r}
-#| include: FALSE
 
 glasgow_samples_cnvs <- glasgow_samples_good_quality |> 
   left_join(sig_cnvs_live_mod |> 
@@ -290,13 +316,10 @@ glasgow_samples_cnvs <- glasgow_samples_good_quality |>
   arrange(consequence)
 
 glasgow_samples_snvs <- glasgow_samples_good_quality |> 
-  left_join(collated_variants |> 
+  left_join(pathogenic_variants |> 
               select(-c(labno, worksheet)),
-            by = "filepath") |> 
-  filter(grepl(pattern = check_1_comments,
-                 x = check_1,
-                 ignore.case = TRUE))
-
+            by = "filepath") 
+  
 glasgow_samples_low_snvs <- glasgow_samples_snvs |> 
   filter(grepl(pattern = ".*\\s\\d{1}%$",
                  x = variant_nomenclature))
@@ -311,49 +334,94 @@ glasgow_samples_snvs_and_cnvs <- glasgow_samples_snvs |>
 From doing this I made a selection of samples to send.
 
 ```{r}
-#| include: FALSE
 
-sample_selection <- read_csv(paste0(config::get("data_folderpath"),
-                                       "live_service/samples_for_glasgow/",
+sample_selection <- read_csv(paste0(glasgow_sample_folder,
                                        "sample_selection.csv"),
                              col_types = "ccc")
 
+```
+
+The technical team then checked the DNA volumes of these samples.
+
+```{r}
+
+sample_volumes <- read_csv(paste0(glasgow_sample_folder,
+                                  "sample_volumes.csv"),
+                           col_types = "cd")
+
+```
+
+```{r}
+
 glasgow_samples_export_full <- glasgow_samples_good_quality |> 
   filter(!duplicated(labno)) |> 
-  select(type, i_gene_r_no, labno, worksheet, tissue_type,
+  select(type, i_gene_r_no, labno, firstname, surname, worksheet, tissue_type,
          concentration, stdev_noise, percent_138x) |> 
   arrange(type, 
           desc(concentration))
 
 glasgow_samples_export_filtered <- glasgow_samples_export_full |> 
   inner_join(sample_selection,
-             by = "labno")
+             by = "labno") |> 
+  inner_join(sample_volumes,
+             by = "labno") |> 
+  rename(stock_volume = volume_ul,
+         stock_concentration = concentration)
+
+```
+
+We can then calculate exactly how much DNA we can afford to send.
+
+```{r}
+
+glasgow_sample_dna_volumes <- glasgow_samples_export_filtered |> 
+  mutate(send_dna_volume = case_when(
+    stock_volume > 30 ~15,
+    stock_volume <= 30 ~7.5),
+  send_water_volume = case_when(
+    stock_volume > 30 ~15,
+    stock_volume <= 30 ~22.5),
+  send_volume = send_dna_volume + send_water_volume,
+  remaining_volume = stock_volume - send_dna_volume,
+  send_concentration = (send_dna_volume * stock_concentration) / send_volume,
+  send_dna_ng = send_concentration * send_volume) |> 
+  select(labno, stock_volume, stock_concentration,
+         send_dna_volume, send_water_volume,
+         send_volume,
+         remaining_volume,
+         send_concentration,
+         send_dna_ng)
 
 ```
 
 ```{r}
 #| echo: FALSE
 
+knitr::kable(glasgow_sample_dna_volumes)
+
+```
+
+Using this information, we can decide on how much is practical to send to the Glasgow lab.
+
+```{r}
+#| echo: FALSE
+
 knitr::kable(glasgow_samples_export_filtered |> 
-               select(type, i_gene_r_no, labno, worksheet, tissue_type,
-         concentration))
+               select(type, i_gene_r_no, labno, tissue_type,
+         stock_concentration, stock_volume))
 
 ```
 
 I can then select the key columns and export for future reference.
 
 ```{r}
-#| include: FALSE
-
-export_folder <- paste0(config::get("data_folderpath"),
-                        "live_service/samples_for_glasgow/")
 
 write_csv(glasgow_samples_export_full,
-          file = paste0(export_folder,
+          file = paste0(glasgow_sample_folder,
                         "glasgow_samples_export_full.csv"))
 
 write_csv(glasgow_samples_export_filtered,
-          file = paste0(export_folder,
+          file = paste0(glasgow_sample_folder,
                         "glasgow_samples_export_filtered.csv"))
 
 ```
