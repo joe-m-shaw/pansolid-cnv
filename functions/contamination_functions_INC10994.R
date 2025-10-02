@@ -164,7 +164,7 @@ search_for_contaminant <- function(df, s1_id) {
   
   return(final_df)
   
-  arr}
+  }
 
 make_contamination_snp_plot <- function(s1_df,
                                         s1_id,
@@ -237,7 +237,6 @@ make_contamination_snp_plot <- function(s1_df,
 }
 
 # DNA Database Functions
-
 
 define_pansolid_worksheets <- function() {
   
@@ -382,7 +381,12 @@ make_contamination_summary_table <- function(labno, worksheet, input_text) {
     rename(qs_batch = extraction_batch_fk,
            qs_pos = sort_order.x)
   
-  output <- cbind(pansolid_df, extraction_df)
+  path_lab_df <- sample_tbl |> 
+    filter(labno ==  {{ labno }}) |> 
+    select(consultant_address) |> 
+    collect()
+  
+  output <- cbind(pansolid_df, extraction_df, path_lab_df)
   
   return(output)
   

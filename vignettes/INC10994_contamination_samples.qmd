@@ -1,0 +1,1332 @@
+---
+title: "INC10994: Contamination Samples"
+author: "Joe Shaw (CS20980)"
+toc: true
+format:
+  html:
+    embed-resources: true
+editor: visual
+---
+
+```{r}
+#| label: packages
+#| include: FALSE
+
+library(tidyverse)
+library(patchwork)
+library(readxl)
+
+source(here::here("scripts/connect_to_dna_db.R"))
+source(here::here("functions/pansolid_cnv_excel_functions.R"))
+source(here::here("functions/chromosome_arm_functions.R"))
+source(here::here("functions/contamination_functions_INC10994.R"))
+
+plot_folder <- paste0(config::get("data_folderpath"),
+                      "live_service/INC10994_contamination/contamination_plots/")
+
+```
+
+## Is there evidence of which sample is the source of the contamination?
+
+There are 24 samples per QIAsymphony batch.
+
+There are 48 samples per PanSolid worksheet.
+
+DNA extractions are performed on the left QIAsymphony (GEN-0516).
+
+Therefore to investigate cross-contamination we need to look at a few different PanSolid worksheets around the time that the sample was extracted.
+
+Multiple QIAsymphony batches may be processed on the QIAsymphony instrument at a time.
+
+Not all the samples on a QIAsymphony batch will necessarily be tested on PanSolid NGS, and PanSolid NGS is required to identify contamination.
+Therefore in some cases it is not possible to exclude that the contamination has originated from within a QIAsymphony batch.
+
+I have approached this by quantifying the number of homozygous SNPs which are shared between the two samples.
+This provides an objective metric of similarity, rather than subjective judgement based on plots.
+
+## A case of known contamination
+
+```{r}
+#| label: sample-24026628b
+#| include: FALSE
+#| eval: FALSE
+
+WS150465_data <- collate_snp_data("WS150465")
+
+WS150529_data <- collate_snp_data("WS150529")
+
+all_data_24026628 <- rbind(WS150465_data, WS150529_data) 
+
+results_24026628 <- search_for_contaminant(all_data_24026628,
+                       "24026628b_WS150465")
+
+plot_24026628_match <- make_contamination_snp_plot(all_data_24026628,
+                            "24026628b_WS150465",
+                            all_data_24026628,
+                            "24053299_WS150529")
+
+plot_24026628_no_match <- make_contamination_snp_plot(all_data_24026628,
+                            "24026628b_WS150465",
+                            all_data_24026628,
+                            "25008693_WS150465")
+
+ggsave(plot = plot_24026628_match,
+       filename = paste0(plot_folder,
+                         "plot_24026628_match.png"))
+
+ggsave(plot = plot_24026628_no_match,
+       filename =  paste0(plot_folder,
+                          "plot_24026628_no_match.png"))
+
+```
+
+To show that this approach works, here are the results for a case where I deliberately mixed DNA together.
+
+Sample 24026628b on WS150465.
+
+![Sample plot](`r paste0(plot_folder, "plot_24026628_no_match.png")`)
+
+![Sample plot](`r paste0(plot_folder, "plot_24026628_match.png")`)
+
+## 25024438
+
+```{r}
+#| include: FALSE
+#| eval: FALSE
+
+WS152914_data <- collate_snp_data("WS152914")
+
+WS152872_data <- collate_snp_data("WS152872")
+
+WS152973_data <- collate_snp_data("WS152973")
+
+all_data_25024438 <- rbind(WS152914_data, WS152872_data, WS152973_data)
+
+results_25024438 <- search_for_contaminant(all_data_25024438, "25024438_WS152914")
+
+plot_25024438 <- make_contamination_snp_plot(s1_df = all_data_25024438,
+                         s1_id = "25024438_WS152914",
+                         s2_df = all_data_25024438,
+                         s2_id = "25024440_WS152973")
+
+ggsave(plot = plot_25024438,
+       filename = paste0(plot_folder, "plot_25024438.png"))
+
+```
+
+![Sample plot](`r paste0(plot_folder, "plot_25024438.png")`)
+
+```{r}
+#| eval: FALSE
+
+summary_25024438 <- rbind(make_contamination_summary_table("25024438", "WS152914",
+                                       "contaminated"),
+      make_contamination_summary_table("25024440", "WS152973",
+                                       "contaminant"))
+
+knitr::kable(summary_25024438)
+
+```
+
+```{r}
+
+inc10994_summary_tbl <- data.frame(
+  labno = c("25024438"),
+  status = c("contaminant found"),
+  likely_source = c("pathology lab")
+)
+
+```
+
+## 25024565
+
+```{r}
+#| eval: FALSE
+
+results_25024565 <- search_for_contaminant(all_data_25024438,
+                                           "25024565_WS152973")
+
+```
+
+```{r}
+
+knitr::kable(ps_samples_per_qs_batch("92552"))
+
+```
+
+```{r}
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25024565", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25026341
+
+```{r}
+#| include: FALSE
+#| eval: FALSE
+
+WS153211_data <- collate_snp_data("WS153211")
+
+WS153248_all_files <- get_worksheet_filepaths(worksheet = "WS153248",
+                                          file_regex = "Results_SNVs_Indels.*.xlsx")
+
+WS153248_file_df <- data.frame(
+  "filepath" = c(WS153248_all_files)) |> 
+  filter(grepl(pattern = "Unannotated_Files",
+               x = filepath))
+
+WS153248_files <- WS153248_file_df$filepath
+
+WS153248_data <- WS153248_files |> 
+  map(\(WS153248_files) read_snp_sheet(WS153248_files)) |> 
+  list_rbind()
+
+WS153325_data <- collate_snp_data("WS153325")
+
+WS153386_data <- collate_snp_data("WS153386") 
+
+WS153389_data <- collate_snp_data("WS153389")
+
+WS153445_data <- collate_snp_data("WS153445")
+
+all_data_25026341 <- rbind(WS153211_data, WS153248_data,
+                  WS153386_data, WS153389_data,
+                  WS153445_data, WS153325_data)
+
+results_25026341 <- search_for_contaminant(all_data_25026341,
+                                           "25026341_WS153248")
+
+```
+
+```{r}
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25026341", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+## 25026815
+
+```{r}
+#| include: FALSE
+#| eval: FALSE
+
+WS153325_data <- collate_snp_data("WS153325")
+
+WS153318_data <- collate_snp_data("WS153318")
+
+WS153147_data <- collate_snp_data("WS153147")
+
+all_data_25026815 <- rbind(WS153325_data, 
+                           WS153318_data,
+                           WS153147_data,
+                           WS153386_data,
+                           WS153248_data)
+
+results_25026815 <- search_for_contaminant(all_data_25026815, 
+                                           "25026815_WS153325")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25026815", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25026850
+
+```{r}
+#| include: FALSE
+#| eval: FALSE
+
+results_25026850 <- search_for_contaminant(all_data_25026815, 
+                                           "25026850_WS153325")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25026850", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25027112
+
+```{r}
+#| include: FALSE
+#| eval: FALSE
+
+WS153386_data <- collate_snp_data("WS153386")
+
+WS153389_data <- collate_snp_data("WS153389")
+
+WS153445_data <- collate_snp_data("WS153445")
+
+all_data_25027112 <- rbind(WS153386_data,
+                           WS153389_data,
+                           WS153445_data,
+                           WS153325_data,
+                           WS153503_data)
+
+results_25027112 <- search_for_contaminant(all_data_25027112,
+                                           "25027112_WS153389")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25027112", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25028039
+
+```{r}
+#| include: FALSE
+#| eval: FALSE
+
+all_data_25028039 <- rbind(WS153445_data,
+                           WS153503_data,
+                           WS153552_data)
+
+results_25028039 <- search_for_contaminant(all_data_25028039,
+                                           "25028039_WS153503")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25028039", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25028207
+
+```{r}
+#| include: FALSE
+#| eval: FALSE
+
+WS153634_data <- collate_snp_data("WS153634")
+
+WS153503_data <- collate_snp_data("WS153503")
+
+WS153552_data <- collate_snp_data("WS153552")
+
+all_data_25028207 <- rbind(WS153634_data,
+                           WS153503_data,
+                           WS153552_data)
+
+results_25028207 <- search_for_contaminant(all_data_25028207,
+                                           "25028207_WS153552")
+
+plot_25028207 <- make_contamination_snp_plot(all_data_25028207,
+                            "25028207_WS153552",
+                            all_data_25028207,
+                            "25028293_WS153552",
+                            het_vaf_upper_threshold = 80,
+                            het_vaf_lower_threshold = 20)
+
+ggsave(plot = plot_25028207,
+       filename = paste0(plot_folder,
+                         "plot_25028207.png"))
+
+
+```
+
+![Sample plot](`r paste0(plot_folder, "plot_25028207.png")`)
+
+```{r}
+#| eval: FALSE
+
+rbind(make_contamination_summary_table("25028207", "WS153552",
+                                       "contaminated"),
+      make_contamination_summary_table("25028293", "WS153552",
+                                       "contaminant"))
+
+```
+
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25028207", 
+        status = "contaminant found", 
+        likely_source = "PanSolid setup or QIAsymphony extraction")
+
+```
+
+## 25028781
+
+```{r}
+#| label: sample-25028781
+#| include: FALSE
+#| eval: FALSE
+
+WS153692_data <- collate_snp_data("WS153692")
+
+WS153693_data <- collate_snp_data("WS153693")
+
+WS153752_data <- collate_snp_data("WS153752")
+
+all_data_25028781 <- rbind(WS153692_data,
+                           WS153693_data,
+                           WS153752_data)
+
+results_25028781 <- search_for_contaminant(all_data_25028781,
+                                           "25028781_WS153693")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25028781", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25028039
+
+```{r}
+#| label: sample-25028039
+#| include: FALSE
+#| eval: FALSE
+
+
+WS153806_data <- collate_snp_data("WS153806")
+
+all_data_25028039 <- rbind(WS153752_data,
+                           WS153693_data,
+                           WS153806_data)
+
+results_25028039 <- search_for_contaminant(all_data_25028039,
+                                           "25028039_WS153752")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25028039", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25028766
+
+```{r}
+#| label: sample-25028766
+#| include: FALSE
+#| eval: FALSE
+
+WS153887_data <- collate_snp_data("WS153887")
+
+WS153962_data <- collate_snp_data("WS153962")
+
+all_data_25028766 <- rbind(WS153806_data, WS153887_data, WS153962_data)
+
+results_25028766 <- search_for_contaminant(all_data_25028766,
+                                           "25028766_WS153887")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25028766", 
+        status = "contaminant not found", 
+        likely_source = "Newcastle lab?")
+
+```
+
+## 25030208
+
+```{r}
+#| label: sample-25030208
+#| include: FALSE
+#| eval: FALSE
+
+results_25030208 <- search_for_contaminant(all_data_25028766,
+                                           "25030208_WS153887")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25030208", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25031248
+
+```{r}
+#| label: sample-25031248
+#| include: FALSE
+#| eval: FALSE
+
+WS154119_data <- collate_snp_data("WS154119")
+
+all_data_25031248 <- rbind(WS153994_data,
+                           WS154037_data,
+                           WS154119_data)
+
+results_25031248 <- search_for_contaminant(all_data_25031248,
+                                           "25031248_WS154037")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25031248", 
+        status = "contaminant not found", 
+        likely_source = "Cambridge lab?")
+
+```
+
+## 25031305
+
+```{r}
+#| label: sample-25031305
+#| include: FALSE
+#| eval: FALSE
+
+results_25031305 <- search_for_contaminant(all_data_25031248,
+                                           "25031305_WS154037")
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25031305", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25034585
+
+```{r}
+#| label: sample-25034585
+#| include: FALSE
+#| eval: FALSE
+
+WS154392_data <- collate_snp_data("WS154392")
+
+WS154503_data <- collate_snp_data("WS154503")
+
+WS154544_data <- collate_snp_data("WS154544")
+
+all_data_25034585 <- rbind(WS154392_data,
+                           WS154503_data,
+                           WS154544_data)
+
+results_25034585 <- search_for_contaminant(all_data_25034585,
+                                           "25034585_WS154503")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25034585", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25035495
+
+```{r}
+#| label: sample-25035495
+#| include: FALSE
+#| eval: FALSE
+
+WS154624_data <- collate_snp_data("WS154624")
+
+WS154675_data <- collate_snp_data("WS154675")
+
+all_data_25035495 <- rbind(WS154624_data, WS154675_data)
+
+results_25035495 <- search_for_contaminant(all_data_25035495,
+                                           "25035495_WS154624")
+
+plot_25035495 <- make_contamination_snp_plot(all_data_25035495,
+                            "25035495_WS154624",
+                            all_data_25035495,
+                            "25035560_WS154675",
+                            het_vaf_upper_threshold = 70,
+                            het_vaf_lower_threshold = 30)
+
+ggsave(plot = plot_25035495,
+       filename = paste0(plot_folder,
+                         "plot_25035495.png"))
+
+```
+
+![Sample plot](`r paste0(plot_folder, "plot_25035495.png")`)
+
+Different PanSolid worksheet, different QIAsymphony batch. 
+Both from the Clatterbridge centre.
+
+```{r}
+#| eval: FALSE
+
+rbind(make_contamination_summary_table("25035495", "WS154624",
+                                       "contaminated"),
+      make_contamination_summary_table("25035560", "WS154675",
+                                       "contaminant"))
+
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25035495", 
+        status = "contaminant found", 
+        likely_source = "pathology lab")
+
+```
+
+## 25035635
+
+```{r}
+#| label: sample-25035635
+#| include: FALSE
+#| eval: FALSE
+
+results_25035635 <- search_for_contaminant(WS154675_data,
+                                           "25035635_WS154675")
+
+plot_25035635 <- make_contamination_snp_plot(WS154675_data,
+                            "25035635_WS154675",
+                            WS154675_data,
+                            "25035862_WS154675",
+                            het_vaf_upper_threshold = 85,
+                            het_vaf_lower_threshold = 15)
+
+ggsave(plot = plot_25035635,
+       filename = paste0(plot_folder,
+                         "plot_25035635.png"))
+
+
+```
+
+![Sample plot](`r paste0(plot_folder, "plot_25035635.png")`)
+
+```{r}
+#| eval: FALSE
+
+rbind(make_contamination_summary_table("25035635", "WS154675",
+                                       "contaminated"),
+      make_contamination_summary_table("25035862", "WS154675",
+                                       "contaminant"))
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25035635", 
+        status = "contaminant found", 
+        likely_source = "QIAsymphony extraction")
+
+```
+
+## 25036241
+
+```{r}
+#| label: sample-25036241
+#| include: FALSE
+#| eval: FALSE
+
+WS154716_data <- collate_snp_data("WS154716")
+
+results_25036241 <- search_for_contaminant(WS154716_data,
+                                           "25036241_WS154716")
+
+plot_25036241 <- make_contamination_snp_plot(WS154716_data,
+                            "25036241_WS154716",
+                            WS154716_data,
+                            "25036234_WS154716")
+
+ggsave(plot = plot_25036241,
+       filename = paste0(plot_folder,
+                         "plot_25036241.png"))
+
+```
+
+![Sample plot](`r paste0(plot_folder, "plot_25036241.png")`)
+
+```{r}
+#| eval: FALSE
+
+rbind(make_contamination_summary_table("25036241", "WS154716",
+                                 "contaminated"),
+      make_contamination_summary_table("25036234", "WS154716",
+                                       "contaminant"))
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25036241", 
+        status = "contaminant found", 
+        likely_source = "PanSolid setup or QIAsymphony extraction")
+
+```
+
+## 25038540
+
+```{r}
+#| label: sample-25038540
+#| include: FALSE
+#| eval: FALSE
+
+WS155071_data <- collate_snp_data("WS155071")
+
+results_25038540 <- search_for_contaminant(WS155071_data,
+                                           "25038540_WS155071")
+
+plot_25038540 <- make_contamination_snp_plot(WS155071_data,
+                            "25038540_WS155071",
+                            WS155071_data,
+                            "25038464_WS155071")
+
+ggsave(plot = plot_25038540,
+       filename = paste0(plot_folder,
+                         "plot_25038540.png"))
+
+```
+
+![Sample plot](`r paste0(plot_folder, "plot_25038540.png")`)
+
+```{r}
+#| eval: FALSE
+
+rbind(make_contamination_summary_table("25038540", "WS155071",
+                                 "contaminated"),
+      make_contamination_summary_table("25038464", "WS155071",
+                                 "contaminant"))
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25038540", 
+        status = "contaminant found", 
+        likely_source = "QIAsymphony extraction")
+
+```
+
+## 25039656
+
+```{r}
+#| eval: FALSE
+#| include: FALSE
+
+WS155167_data <- collate_snp_data("WS155167")
+
+WS155212_data <- collate_snp_data("WS155212")
+
+WS155317_data <- collate_snp_data("WS155317")
+
+all_data_25039656 <- rbind(WS155167_data, WS155212_data, WS155317_data)
+
+results_25039656 <- search_for_contaminant(all_data_25039656,
+                                           "25039656_WS155212")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25039656", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25040187
+
+```{r}
+#| label: sample-25040187
+#| include: FALSE
+#| eval: FALSE
+
+WS155212_data <- collate_snp_data("WS155212")
+
+WS155317_data <- collate_snp_data("WS155317")
+
+WS155338_data <- collate_snp_data("WS155338")
+
+all_data_25040187 <- rbind(WS155212_data, WS155317_data,
+                          WS155338_data)
+
+results_25040187 <- search_for_contaminant(all_data_25040187,
+                                           "25040187_WS155317")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25040187", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25041888
+
+```{r}
+#| label: sample-25041888
+#| include: FALSE
+#| eval: FALSE
+
+WS155586_data <- collate_snp_data("WS155586")
+
+WS155587_data <- collate_snp_data("WS155587")
+
+WS155626_data <- collate_snp_data("WS155626")
+
+all_data_25041888 <- rbind(WS155586_data, 
+                           WS155587_data,
+                           WS155626_data)
+
+results_25041888 <- search_for_contaminant(all_data_25041888,
+                                           "25041888_WS155587")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25041888", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25042695
+
+```{r}
+#| label: sample-25042695
+#| include: FALSE
+#| eval: FALSE
+
+WS155626_data
+
+WS155702_data <- collate_snp_data("WS155702")
+
+WS155788_data <- collate_snp_data("WS155788")
+
+WS155798_data <- collate_snp_data("WS155798")
+
+all_data_25042695 <- rbind(WS155626_data, WS155702_data,
+                           WS155788_data, WS155798_data)
+
+results_25042695 <- search_for_contaminant(all_data_25042695,
+                                           "25042695_WS155702")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25042695", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25045055
+
+```{r}
+#| label: sample-25045055
+#| include: FALSE
+#| eval: FALSE
+
+WS156025_data <- collate_snp_data("WS156025")
+
+
+results_25045055 <- search_for_contaminant(WS156025_data, 
+                                            "25045055_WS156025")
+
+plot_25045055 <- make_contamination_snp_plot(WS156025_data,
+                            "25045055_WS156025",
+                            WS156025_data,
+                            "25045186_WS156025",
+                            het_vaf_upper_threshold = 70,
+                            het_vaf_lower_threshold = 30)
+
+ggsave(plot = plot_25045055,
+       filename = paste0(plot_folder,
+                         "plot_25045055.png"))
+
+```
+
+![Sample plot](`r paste0(plot_folder, "plot_25045055.png")`)
+
+
+```{r}
+#| eval: FALSE
+
+rbind(make_contamination_summary_table("25045055", "WS156025",
+                                       "contaminated"),
+      make_contamination_summary_table("25045186", "WS156025",
+                                       "contaminant"))
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25045055", 
+        status = "contaminant found", 
+        likely_source = "PanSolid setup or QIAsymphony extraction")
+
+```
+
+## 25045248
+
+This sample has hits for two other samples.
+
+```{r}
+#| label: sample-25045248
+#| include: FALSE
+#| eval: FALSE
+
+results_25045248 <- search_for_contaminant(WS156025_data,
+                                           "25045248_WS156025")
+
+plot_25045248 <- make_contamination_snp_plot(WS156025_data,
+                            "25045248_WS156025",
+                            WS156025_data,
+                            "25045186_WS156025",
+                            het_vaf_upper_threshold = 70,
+                            het_vaf_lower_threshold = 30)
+
+ggsave(plot = plot_25045248,
+       filename = paste0(plot_folder,
+                         "plot_25045248.png"))
+
+```
+
+![Sample plot](`r paste0(plot_folder, "plot_25045248.png")`)
+
+```{r}
+#| eval: TRUE
+
+rbind(make_contamination_summary_table("25045248", "WS156025",
+                                       "contaminated"),
+      make_contamination_summary_table("25045186", "WS156025",
+                                       "contaminant"))
+
+
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25045248", 
+        status = "contaminant found", 
+        likely_source = "PanSolid setup")
+
+```
+
+## 25045270
+
+```{r}
+#| label: sample-25045270
+#| include: FALSE
+#| eval: FALSE
+
+plot_25045270 <- make_contamination_snp_plot(WS156025_data,
+                            "25045270_WS156025",
+                            WS156025_data,
+                            "25045186_WS156025",
+                            het_vaf_upper_threshold = 70,
+                            het_vaf_lower_threshold = 30)
+
+ggsave(plot = plot_25045270,
+       filename = paste0(plot_folder,
+                         "plot_25045270.png"))
+
+```
+
+![Sample plot](`r paste0(plot_folder, "plot_25045270.png")`)
+
+```{r}
+#| eval: FALSE
+
+rbind(make_contamination_summary_table("25045270", "WS156025",
+                                       "contaminated"),
+      make_contamination_summary_table("25045186", "WS156025",
+                                       "contaminant"))
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25045270", 
+        status = "contaminant found", 
+        likely_source = "PanSolid setup")
+
+```
+
+## 25047626
+
+```{r}
+#| label: sample-25047626
+#| include: FALSE
+#| eval: FALSE
+
+WS156356_data <- collate_snp_data("WS156356")
+
+results_25047626 <- search_for_contaminant(WS156356_data,
+                                           "25047626_WS156356")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25047626", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25048537
+
+```{r}
+#| label: sample-25048537
+#| include: FALSE
+#| eval: FALSE
+
+WS156454_data <- collate_snp_data("WS156454")
+
+WS156496_data <- collate_snp_data("WS156496")
+
+WS156563_data <- collate_snp_data("WS156563")
+
+all_data_25048537 <- rbind(WS156454_data, WS156496_data,
+                          WS156563_data)
+
+results_25048537 <- search_for_contaminant(all_data_25048537,
+                                          "25048537_WS156496")
+
+```
+
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25048537", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25048829
+
+```{r}
+#| label: sample-25048829
+#| include: FALSE
+#| eval: FALSE
+
+results_25048829 <- search_for_contaminant(all_data_25048537,
+                                           "25048829_WS156496")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25048829", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25051800
+
+```{r}
+#| eval: FALSE
+#| include: FALSE
+
+WS156990_data <- collate_snp_data("WS156990")
+
+results_25051800 <- search_for_contaminant(WS156990_data,
+                       "25051800_WS156990")
+
+plot_25051800 <- make_contamination_snp_plot(WS156990_data,
+                            "25051800_WS156990",
+                            WS156990_data,
+                            "25051808_WS156990",
+                            het_vaf_upper_threshold = 70,
+                            het_vaf_lower_threshold = 30)
+
+ggsave(plot = plot_25051800,
+       filename =  paste0(plot_folder,
+                          "plot_25051800.png"))
+
+```
+
+![Sample plot](`r paste0(plot_folder, "plot_25051800.png")`)
+
+```{r}
+#| eval: FALSE
+#| include: FALSE
+
+rbind(make_contamination_summary_table("25051800", "WS156990",
+                                       "contaminant"),
+      make_contamination_summary_table("25051808", "WS156990",
+                                       "contaminant"))
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25051800", 
+        status = "contaminant found", 
+        likely_source = "PanSolid setup or QIAsymphony extraction")
+
+```
+
+## 25052084
+
+```{r}
+#| eval: FALSE
+#| include: FALSE
+
+WS156903_data <- collate_snp_data("WS156903")
+
+WS157059_data <- collate_snp_data("WS157059")
+
+all_data_25052084 <- rbind(WS156990_data, WS156903_data, WS157059_data)
+
+results_25052084 <- search_for_contaminant(all_data_25052084,
+                                           "25052084_WS156990")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25052084", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25052591
+
+```{r}
+#| eval: FALSE
+#| include: FALSE
+
+WS157130_data <- collate_snp_data("WS157130")
+
+WS157102_data <- collate_snp_data("WS157102")
+
+all_data_25052591 <- rbind(WS157059_data,
+                           WS157130_data,
+                           WS157102_data)
+
+results_25052591 <- search_for_contaminant(all_data_25052591,
+                                           "25052591_WS157102")
+
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25052591", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+## 25053859
+
+```{r}
+#| eval: FALSE
+#| include: FALSE
+
+WS157146_data <- collate_snp_data("WS157146")
+
+WS157218_data <- collate_snp_data("WS157218")
+
+WS157283_data <- collate_snp_data("WS157283")
+
+all_data_25053859 <- rbind(WS157146_data,
+                           WS157218_data,
+                           WS157283_data)
+
+results_25053859 <- search_for_contaminant(all_data_25053859,
+                                           "25053859_WS157218")
+
+```
+
+## 25055138
+
+```{r}
+#| eval: FALSE
+#| include: FALSE
+
+WS157478_data <- collate_snp_data("WS157478")
+
+WS157464_data <- collate_snp_data("WS157464")
+
+all_data_25055138 <- rbind(WS157478_data, WS157464_data)
+
+results_25055138 <- search_for_contaminant(all_data_25055138,
+                                           "25055138_WS157464")
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25055138", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+# 25054809
+
+```{r}
+#| include: FALSE
+#| eval: FALSE
+
+WS157554_data <- collate_snp_data("WS157554")
+
+all_data_25054809 <- rbind(WS157554_data,
+                           WS157464_data,
+                           WS157478_data)
+
+results_25054809 <- search_for_contaminant(all_data_25054809,
+                                           "25054809_WS157478")
+```
+
+```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25054809", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+
+# Overall results
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(inc10994_summary_tbl)
+
+```
+
+```{r}
+#| echo: FALSE
+
+knitr::kable(inc10994_summary_tbl |> 
+               group_by(status) |> 
+               count() |> 
+               janitor::adorn_totals())
+
+```
+
+# Percentage on PanSolid
+
+```{r}
+#| echo: FALSE
+
+ps_batch_table <- rbind(
+  ps_samples_per_qs_batch("92969"),
+      ps_samples_per_qs_batch("92907"),
+      ps_samples_per_qs_batch("92552"),
+      ps_samples_per_qs_batch("93027"),
+      ps_samples_per_qs_batch("93040"),
+      ps_samples_per_qs_batch("93162"),
+      ps_samples_per_qs_batch("93314"),
+      ps_samples_per_qs_batch("93162"),
+      ps_samples_per_qs_batch("93577"),
+      ps_samples_per_qs_batch("93750"),
+      ps_samples_per_qs_batch("94344"),
+      ps_samples_per_qs_batch("95540"),
+      ps_samples_per_qs_batch("95674"),
+      ps_samples_per_qs_batch("96448"),
+  ps_samples_per_qs_batch("96604"),
+  ps_samples_per_qs_batch("96651"),
+  ps_samples_per_qs_batch("97180"),
+  ps_samples_per_qs_batch("97292"),
+  ps_samples_per_qs_batch("97472"),
+  ps_samples_per_qs_batch("97677"),
+  ps_samples_per_qs_batch("97616"))
+
+knitr::kable(ps_batch_table)
+
+```
+

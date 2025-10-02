@@ -1,7 +1,9 @@
 ---
 title: "INC10994: Contamination Investigation"
 author: "Joe Shaw (CS20980)"
-format: pdf
+format:
+  html:
+    embed-resources: true
 editor: visual
 ---
 
@@ -11,6 +13,7 @@ editor: visual
 
 library(tidyverse)
 library(patchwork)
+library(readxl)
 
 source(here::here("scripts/connect_to_dna_db.R"))
 source(here::here("functions/pansolid_cnv_excel_functions.R"))
@@ -48,14 +51,27 @@ number_ploidy_regions_live <- read_csv(paste0(config::get("data_folderpath"),
   mutate(ws_number = as.numeric(str_extract(string = worksheet,
                                  pattern = "WS(\\d{6})",
                                  group = 1)),
-         ws_fct = factor(worksheet, levels = unique(worksheet)))
+         ws_fct = factor(worksheet, levels = unique(worksheet)),
+         labno_suffix_worksheet = paste0(labno, "_", worksheet))
+
+percent_138x_live <- read_csv(paste0(config::get("data_folderpath"),
+                 "live_service/INC10994_contamination/",
+                 "percent_138x_live.csv"),
+                 col_types = "ccccccccd") |> 
+  mutate(panel = str_extract(string = filename,
+                             pattern = "^Annotated_(.*)_WS\\d{6}.*.xlsx$",
+                             group = 1))
+
+stopifnot(anyNA(percent_138x_live$panel) == FALSE)
+
+stdev_live <- read_csv(paste0(config::get("data_folderpath"),
+                 "live_service/INC10994_contamination/",
+                 "stdev_live.csv"),
+                 col_types = "ccccccccd")
 
 ```
 
 Data from `r nrow(number_ploidy_regions_live)` samples from `r length(unique(number_ploidy_regions_live$worksheet))` worksheets (WS`r min(number_ploidy_regions_live$ws_number)` to WS`r max(number_ploidy_regions_live$ws_number)`) was collated.
-
-This data goes from 28/04/2025 to 10/09/2025.
-4 months.
 
 {{< pagebreak >}}
 
@@ -64,10 +80,63 @@ This data goes from 28/04/2025 to 10/09/2025.
 ## Can we use number of ploidy regions to detect potential contamination?
 
 ```{r}
+
+number_ploidy_regions_live_qc <- number_ploidy_regions_live |> 
+  left_join(stdev_live |> 
+              filter(!duplicated(labno_suffix_worksheet)) |> 
+              select(labno_suffix_worksheet, stdev_noise),
+            by = "labno_suffix_worksheet",
+            relationship = "one-to-one") |> 
+  left_join(percent_138x_live |> 
+              filter(!duplicated(labno_suffix_worksheet)) |>
+              select(labno_suffix_worksheet, percent_138x, panel),
+            by = "labno_suffix_worksheet",
+            relationship = "one-to-one")
+
+potential_contamination_cases <- number_ploidy_regions_live_qc |> 
+  filter(stdev_noise < 0.7 &
+           percent_138x > 75 &
+           number_ploidy_regions >= 150)
+
+potential_contamination_labnos <- potential_contamination_cases$labno
+
+potential_contamination_names <- sample_tbl |> 
+  filter(labno %in% potential_contamination_labnos) |> 
+  select(labno, firstname, surname) |> 
+  collect()
+
+write_csv(potential_contamination_cases |> 
+            left_join(potential_contamination_names,
+                      by = "labno",
+                      # Some samples have been tested mutliple times
+                      relationship = "many-to-one") |> 
+            arrange(worksheet) |> 
+            select(labno_suffix_worksheet, worksheet, panel,
+                   labno, firstname, surname,
+                   number_ploidy_regions),
+          paste0(config::get("data_folderpath"),
+                 "live_service/INC10994_contamination/",
+                 "potential_contamination_cases.csv"))
+
+```
+
+```{r}
+
+potential_contamination_cases_reviewed <- read_excel(
+  paste0(config::get("data_folderpath"),
+         "live_service/INC10994_contamination/",
+         "potential_contamination_cases_reviewed.xlsx"),
+  col_types = c("text", "text", "text", "text",
+                "text", "text", "numeric", "text"))
+
+```
+
+
+```{r}
 #| label: all-worksheets
 #| echo: FALSE
 
-ggplot(number_ploidy_regions_live, aes(x = worksheet,
+ggplot(number_ploidy_regions_live_qc, aes(x = worksheet,
                                        y = number_ploidy_regions)) +
   geom_boxplot() +
   geom_hline(yintercept = 150,linetype = "dashed") +
@@ -84,22 +153,21 @@ All cases with over 150 ploidy regions were reviewed.
 #| label: load-reviewed-data
 #| include: FALSE
 
-potential_contamination_cases_reviewed <- read_csv(
-  paste0(config::get("data_folderpath"),
-         "live_service/INC10994_contamination/",
-         "potential_contamination_cases_reviewed.csv"),
-  col_types = "ccccdc")
-
-number_ploidy_regions_mod <- number_ploidy_regions_live |> 
+number_ploidy_regions_mod <- number_ploidy_regions_live_qc |> 
   left_join(potential_contamination_cases_reviewed |> 
-               select(filepath, visual_inspection),
-             by = "filepath") |> 
+               select(labno_suffix_worksheet, visual_inspection),
+             by = "labno_suffix_worksheet") |> 
   mutate(category = case_when(
-    visual_inspection == "potential_contamination" ~"potential_contamination",
-    TRUE ~"no_contamination"
+    visual_inspection == "potential contamination" ~"potential contamination",
+    TRUE ~"no contamination"
   ),
-  category = factor(category, levels = c("potential_contamination",
-                                         "no_contamination")))
+  category = factor(category, levels = c("potential contamination",
+                                         "no contamination")),
+  visual_inspection = factor(visual_inspection,
+                             levels = c("disordered genome",
+                                        "potential contamination",
+                                        "reference material",
+                                        "bone marrow transplant")))
 
 ```
 
@@ -112,14 +180,13 @@ However, without confirmatory testing, interpretation of contamination from VAF 
 #| echo: FALSE
 
 number_ploidy_regions_mod |> 
-  filter(number_ploidy_regions >= 150) |> 
-  filter(!visual_inspection %in% c("high_noise", "low_coverage")) |> 
+  filter(!is.na(visual_inspection)) |> 
   ggplot(aes(x = visual_inspection,
                y = number_ploidy_regions)) +
   geom_jitter(shape = 21, width = 0.1) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Sample", y = "Number of ploidy regions") +
+  theme(axis.text.x = element_text()) +
+  labs(x = "", y = "Number of ploidy regions") +
   geom_hline(yintercept = 200, linetype = "dashed")
 
 ```
@@ -131,8 +198,9 @@ Despite this, a ploidy region count of 200 is an adequate threshold for detectin
 #| echo: FALSE
 
 number_ploidy_regions_mod |> 
-  filter(number_ploidy_regions >= 200) |> 
-  filter(!visual_inspection %in% c("low_coverage", "high_noise")) |> 
+  filter(number_ploidy_regions >= 200 &
+           stdev_noise < 0.7 &
+           percent_138x >= 75) |> 
   group_by(visual_inspection) |> 
   summarise(n = n()) |> 
   arrange(desc(n)) |> 
@@ -165,7 +233,7 @@ knitr::kable(tbl_contamination_rate)
 #| include: FALSE
 
 contamination_df <- number_ploidy_regions_mod |> 
-  filter(category == "potential_contamination")
+  filter(category == "potential contamination")
 
 contamination_labnos <- unique(contamination_df$labno)
 
@@ -197,7 +265,7 @@ contaminated_samples_per_batch <- contaminated_extraction_df |>
 plot_contamination_ps_ws <- number_ploidy_regions_mod |> 
   group_by(ws_fct, category, .drop = FALSE) |> 
   count() |> 
-  filter(category == "potential_contamination") |> 
+  filter(category == "potential contamination") |> 
   ggplot(aes(x = ws_fct, y = n)) +
   geom_col(colour = "black", fill = "white", position = "stack") +
   theme_bw() +
@@ -272,12 +340,16 @@ qiasymphony_positions <- data.frame(
   "y_coordinate" = rep(1:4, times = 6)
 )
 
-qiasymphony_layout_df <- contaminated_extraction_df |> 
+contaminated_extraction_df_positions <- contaminated_extraction_df |> 
+  left_join(qiasymphony_positions,
+            join_by("sort_order" == "sort_order"))
+
+qiasymphony_layout_df <- contaminated_extraction_df_positions |> 
   group_by(sort_order, .drop = FALSE) |> 
   count() |> 
   left_join(qiasymphony_positions,
             join_by("sort_order" == "sort_order"))
-
+  
 plot_qiasymphony_positions <- ggplot(qiasymphony_layout_df, 
                                      aes(x = x_coordinate, y = y_coordinate)) +
   geom_point(aes(size = n)) +
@@ -305,6 +377,8 @@ contamination_pansolid_df <- dna_db_pcr_records |>
   filter(sample %in% contamination_labnos) |> 
   select(sample, pcrid, position) |> 
   collect() 
+
+pansolid_plate_coordinates <- define_plate_coordinates_96()
 
 contamination_pansolid_df_mod <- contamination_pansolid_df |> 
   left_join(pansolid_plate_coordinates,
@@ -339,890 +413,48 @@ plot_qiasymphony_positions +
 
 ```
 
+```{r}
+
+qiasymphony_layout_tbl <- qiasymphony_layout_df |> 
+  group_by(y_coordinate) |> 
+  summarise(total_contaminated = sum(n))
+
+knitr::kable(qiasymphony_layout_tbl)
+
+```
+
+```{r}
+#| eval: FALSE
+#| include: FALSE
+
+contaminated_extraction_df_positions |> 
+  left_join(qs_extraction_df |> 
+              select(extraction_batch_id, run_date),
+            join_by("extraction_batch_fk" == "extraction_batch_id")) |> 
+  ggplot(aes(x = run_date, y = y_coordinate)) +
+  geom_jitter(height = 0.1, shape = 21)
+
+```
+
 {{< pagebreak >}}
 
-## Is there a correlation with QIAsymphony maintenance?
-
-## Is there evidence of which sample is the source of the contamination?
+## Do contaminated samples come from the same pathology lab?
 
 ```{r}
-
-
-incident_data_folder <- paste0(config::get("data_folderpath"),
-                               "live_service/INC10994_contamination/")
-
-collated_snp_data1 <- read_csv(paste0(incident_data_folder,
-                                      "collated_snp_data1.csv"))
-
-collated_snp_data2 <- read_csv(paste0(incident_data_folder,
-                                      "collated_snp_data2.csv"))
-
-collated_snp_data3 <- read_csv(paste0(incident_data_folder,
-                                      "collated_snp_data3.csv"))
-
-collated_snp_data4 <- read_csv(paste0(incident_data_folder,
-                                      "collated_snp_data4.csv"))
-
-collated_snp_data5 <- read_csv(paste0(incident_data_folder,
-                                      "collated_snp_data5.csv"))
-
-all_snp_data <- rbind(collated_snp_data1,
-                      collated_snp_data2,
-                      collated_snp_data3,
-                      collated_snp_data4,
-                      collated_snp_data5)
-
-results_25026341 <- search_for_contaminant(all_snp_data,
-                       "25026341_WS153248")
-
-```
-
-There are 24 samples per QIAsymphony batch.
-
-There are 48 samples per PanSolid worksheet.
-
-DNA extractions are performed on the left QIAsymphony (GEN-0516).
-
-Therefore to investigate cross-contamination we need to look at a few different PanSolid worksheets around the time that the sample was extracted.
-
-Multiple QIAsymphony batches may be processed on the QIAsymphony instrument at a time.
-
-Not all the samples on a QIAsymphony batch will necessarily be tested on PanSolid NGS, and PanSolid NGS is required to identify contamination.
-Therefore in some cases it is not possible to exclude that the contamination has originated from within a QIAsymphony batch.
-
-I have approached this by quantifying the number of homozygous SNPs which are shared between the two samples.
-This provides an objective metric of similarity, rather than subjective judgement based on plots.
-
-### A case of known contamination
-
-```{r}
-#| label: sample-24026628b
-#| include: FALSE
-
-WS150465_data <- collate_snp_data("WS150465")
-
-WS150529_data <- collate_snp_data("WS150529")
-
-all_data_24026628 <- rbind(WS150465_data, WS150529_data) 
-
-results_24026628 <- search_for_contaminant(all_data_24026628,
-                       "24026628b_WS150465")
-
-plot_24026628_match <- make_contamination_snp_plot(all_data_24026628,
-                            "24026628b_WS150465",
-                            all_data_24026628,
-                            "24053299_WS150529")
-
-plot_24026628_no_match <- make_contamination_snp_plot(all_data_24026628,
-                            "24026628b_WS150465",
-                            all_data_24026628,
-                            "25008693_WS150465")
-
-```
-
-To show that this approach works, here are the results for a case where I deliberately mixed DNA together.
-
-Sample 24026628b on WS150465.
-
-```{r}
-
-head(results_24026628 |> 
-       filter(!sample2 %in% c("24026628a_WS150465",
-                              "24026628c_WS150465",
-                              "24026628d_WS150465")) |> 
-       select(-sample1), n = 5)
-
-```
-
-```{r}
-
-
-plot_24026628_no_match
-
-
-```
-
-```{r}
-
-
-plot_24026628_match
-
-
-```
-
-### Cases with a likely contaminant
-
-#### 25051800
-
-```{r}
-#| label: sample-25051800
-#| include: FALSE
-
-WS156990_data <- collate_snp_data("WS156990")
-
-results_25051800 <- search_for_contaminant(WS156990_data,
-                                           "25051800_WS156990")
-
-```
-
-```{r}
-
-make_contamination_snp_plot(WS156990_data,
-                            "25051800_WS156990",
-                            WS156990_data,
-                            "25051808_WS156990",
-                            het_vaf_upper_threshold = 80,
-                            het_vaf_lower_threshold = 20)
-
-```
-
-```{r}
-
-rbind(make_contamination_summary_table("25051800", "WS156990",
-                                       "contaminated"),
-      make_contamination_summary_table("25051808", "WS156990",
-                                       "contaminant"))
-
-```
-
-#### 25024438
-
-```{r}
-#| include: FALSE
 #| eval: FALSE
-
-WS152914_data <- collate_snp_data("WS152914")
-
-WS152872_data <- collate_snp_data("WS152872")
-
-WS152973_data <- collate_snp_data("WS152973")
-
-all_data_25024438 <- rbind(WS152914_data, WS152872_data, WS152973_data)
-
-results_25024438 <- search_for_contaminant(all_data_25024438, "25024438_WS152914")
-
-```
-
-```{r}
-#| label: plot-25024438
-#| echo: FALSE
-
-make_contamination_snp_plot(s1_df = all_data_25024438,
-                         s1_id = "25024438_WS152914",
-                         s2_df = all_data_25024438,
-                         s2_id = "25024440_WS152973")
-
-```
-
-```{r}
-
-
-rbind(make_contamination_summary_table("25024438", "WS152914",
-                                       "contaminated"),
-      make_contamination_summary_table("25024440", "WS152973",
-                                       "contaminant"))
-
-```
-
-#### 25028207
-
-```{r}
 #| include: FALSE
-#| eval: FALSE
 
-WS153634_data <- collate_snp_data("WS153634")
+all_labnos <- unique(number_ploidy_regions_mod$labno)
 
-WS153503_data <- collate_snp_data("WS153503")
+sample_path_labs <- sample_tbl |> 
+  filter(labno %in% all_labnos) |> 
+  select(labno, consultant_address) |> 
+  collect()
 
-WS153552_data <- collate_snp_data("WS153552")
-
-all_data_25028207 <- rbind(WS153634_data,
-                           WS153503_data,
-                           WS153552_data)
-
-results_25028207 <- search_for_contaminant(all_data_25028207,
-                                           "25028207_WS153552")
-
-make_contamination_snp_plot(all_data_25028207,
-                            "25028207_WS153552",
-                            all_data_25028207,
-                            "25028293_WS153552",
-                            het_vaf_upper_threshold = 80,
-                            het_vaf_lower_threshold = 20)
-
-```
-
-```{r}
-
-rbind(make_contamination_summary_table("25028207", "WS153552",
-                                       "contaminated"),
-      make_contamination_summary_table("25028293", "WS153552",
-                                       "contaminant"))
-
-```
-
-### Cases without a likely contaminant
-
-Have a table of all the samples without a likely contaminant, with the percentage of samples tested on pansolid included.
-
-25024438_WS152914 (QS92552, position 16) appears to be contaminated with 25024440_WS152973 (QS92616, position 1).
-Both samples came from Oldham pathology department.
-
-### 25026341
-
-Can't find a contaminant for this sample.
-
-There is a significant match with 25026342, but this is a sample from the same patient.
-
-```{r}
-#| include: FALSE
-#| eval: FALSE
-
-WS153211_data <- collate_snp_data("WS153211")
-
-WS153248_all_files <- get_worksheet_filepaths(worksheet = "WS153248",
-                                          file_regex = "Results_SNVs_Indels.*.xlsx")
-
-WS153248_file_df <- data.frame(
-  "filepath" = c(WS153248_all_files)) |> 
-  filter(grepl(pattern = "Unannotated_Files",
-               x = filepath))
-
-WS153248_files <- WS153248_file_df$filepath
-
-WS153248_data <- WS153248_files |> 
-  map(\(WS153248_files) read_snp_sheet(WS153248_files)) |> 
-  list_rbind()
-
-WS153325_data <- collate_snp_data("WS153325")
-
-WS153386_data <- collate_snp_data("WS153386") 
-
-WS153389_data <- collate_snp_data("WS153389")
-
-WS153445_data <- collate_snp_data("WS153445")
-
-all_data_25026341 <- rbind(WS153211_data, WS153248_data,
-                  WS153386_data, WS153389_data,
-                  WS153445_data, WS153325_data)
-
-results_25026341 <- search_for_contaminant(all_data_25026341,
-                                           "25026341_WS153248")
-
-```
-
-25026341 was on QIAsymphony batch 92907.
-
-```{r}
-#| label: checking-qs-batches-25026341
-#| include: FALSE
-#| eval: FALSE
-
-
-
-ps_samples_per_qs_batch("92907")
-
-ps_samples_per_qs_batch("92870")
-
-```
-
-### 25026815
-
-Can't find a contaminant for this sample.
-
-```{r}
-#| include: FALSE
-#| eval: FALSE
-
-WS153325_data <- collate_snp_data("WS153325")
-
-WS153318_data <- collate_snp_data("WS153318")
-
-WS153147_data <- collate_snp_data("WS153147")
-
-all_data_25026815 <- rbind(WS153325_data, 
-                           WS153318_data,
-                           WS153147_data,
-                           WS153386_data,
-                           WS153248_data)
-
-results_25026815 <- search_for_contaminant(all_data_25026815, 
-                                           "25026815_WS153325")
-
-```
-
-### 25026850
-
-Can't find a contaminant for this sample.
-
-```{r}
-#| include: FALSE
-#| eval: FALSE
-
-results_25026850 <- search_for_contaminant(all_data_25026815, 
-                                           "25026850_WS153325")
-
-ps_samples_per_qs_batch("93027")
-
-
-```
-
-### 25027112
-
-Can't find a contaminant for this sample.
-
-```{r}
-#| include: FALSE
-#| eval: FALSE
-
-WS153386_data <- collate_snp_data("WS153386")
-
-WS153389_data <- collate_snp_data("WS153389")
-
-WS153445_data <- collate_snp_data("WS153445")
-
-all_data_25027112 <- rbind(WS153386_data,
-                           WS153389_data,
-                           WS153445_data,
-                           WS153325_data,
-                           WS153503_data)
-
-results_25027112 <- search_for_contaminant(all_data_25027112,
-                                           "25027112_WS153389")
-
-ps_samples_per_qs_batch("93040")
-
-```
-
-### 25028039
-
-Can't find a contaminant for this sample.
-
-```{r}
-#| include: FALSE
-#| eval: FALSE
-
-
-
-all_data_25028039 <- rbind(WS153445_data,
-                           WS153503_data,
-                           WS153552_data)
-
-results_25028039 <- search_for_contaminant(all_data_25028039,
-                                           "25028039_WS153503")
-
-```
-
-### 25028307
-
-This sample is probably impacted by poor coverage, not contamination.
-
-```{r}
-#| include: FALSE
-#| eval: FALSE
-
-results_25028307 <- search_for_contaminant(all_data_25028207,
-                                           "25028307_WS153552")
-
-```
-
-### 25028781
-
-```{r}
-#| label: sample-25028781
-#| include: FALSE
-#| eval: FALSE
-
-WS153692_data <- collate_snp_data("WS153692")
-
-WS153693_data <- collate_snp_data("WS153693")
-
-WS153752_data <- collate_snp_data("WS153752")
-
-all_data_25028781 <- rbind(WS153692_data,
-                           WS153693_data,
-                           WS153752_data)
-
-results_25028781 <- search_for_contaminant(all_data_25028781,
-                                           "25028781_WS153693")
-
-```
-
-### 25028039
-
-```{r}
-#| label: sample-25028039
-#| include: FALSE
-#| eval: FALSE
-
-
-WS153806_data <- collate_snp_data("WS153806")
-
-all_data_25028039 <- rbind(WS153752_data,
-                           WS153693_data,
-                           WS153806_data)
-
-results_25028039 <- search_for_contaminant(all_data_25028039,
-                                           "25028039_WS153752")
-
-```
-
-### 25028766
-
-```{r}
-#| label: sample-25028766
-#| include: FALSE
-#| eval: FALSE
-
-WS153887_data <- collate_snp_data("WS153887")
-
-WS153962_data <- collate_snp_data("WS153962")
-
-all_data_25028766 <- rbind(WS153806_data, WS153887_data, WS153962_data)
-
-results_25028766 <- search_for_contaminant(all_data_25028766,
-                                           "25028766_WS153887")
-
-```
-
-### 25030208
-
-```{r}
-#| label: sample-25030208
-#| include: FALSE
-#| eval: FALSE
-
-results_25030208 <- search_for_contaminant(all_data_25028766,
-                                           "25030208_WS153887")
-
-```
-
-### 25031313 - solved
-
-25031313_WS153994 (QS93750 position 18) appears to be contaminated with 25031095_WS154037 (QS93715 position 15).
-
-```{r}
-#| label: sample-25031313
-#| include: FALSE
-#| eval: FALSE
-
-WS153994_data <- collate_snp_data("WS153994")
-
-WS153987_data <- collate_snp_data("WS153987")
-
-WS154037_data <- collate_snp_data("WS154037")
-
-all_data_25031313 <- rbind(WS153994_data, WS153987_data, WS154037_data)
-
-results_25031313 <- search_for_contaminant(all_data_25031313,
-                                           "25031313_WS153994")
-
-make_contamination_snp_plot(all_data_25031313,
-                            "25031313_WS153994",
-                            all_data_25031313,
-                            "25031095_WS154037")
-```
-
-### 25031317
-
-```{r}
-#| label: sample-25031317
-#| include: FALSE
-#| eval: FALSE
-
-results_25031317 <- search_for_contaminant(all_data_25031313,
-                                           "25031317_WS153994")
-
-make_contamination_snp_plot(all_data_25031313,
-                            "25031317_WS153994",
-                            all_data_25031313,
-                            "25031095_WS154037")
-
-```
-
-### 25031248
-
-```{r}
-#| label: sample-25031248
-#| include: FALSE
-#| eval: FALSE
-
-WS154119_data <- collate_snp_data("WS154119")
-
-all_data_25031248 <- rbind(WS153994_data,
-                           WS154037_data,
-                           WS154119_data)
-
-results_25031248 <- search_for_contaminant(all_data_25031248,
-                                           "25031248_WS154037")
-
-```
-
-### 25031305
-
-```{r}
-#| label: sample-25031305
-#| include: FALSE
-#| eval: FALSE
-
-results_25031305 <- search_for_contaminant(all_data_25031248,
-                                           "25031305_WS154037")
-```
-
-### 25034585
-
-```{r}
-#| label: sample-25034585
-#| include: FALSE
-#| eval: FALSE
-
-WS154392_data <- collate_snp_data("WS154392")
-
-WS154503_data <- collate_snp_data("WS154503")
-
-WS154544_data <- collate_snp_data("WS154544")
-
-all_data_25034585 <- rbind(WS154392_data,
-                           WS154503_data,
-                           WS154544_data)
-
-results_25034585 <- search_for_contaminant(all_data_25034585,
-                                           "25034585_WS154503")
-
-```
-
-### 25035495 - solved
-
-25035495_WS154624 (QS94525 position 9) appears to be contaminated with 25035560_WS154675 (QS94564 position 6).
-Both samples are from the Clatterbridge centre.
-
-```{r}
-#| label: sample-25035495
-#| include: FALSE
-#| eval: FALSE
-
-WS154544_data <- collate_snp_data("WS154544")
-
-WS154584_data <- collate_snp_data("WS154584")
-
-WS154624_data <- collate_snp_data("WS154624")
-
-WS154675_data <- collate_snp_data("WS154675")
-
-all_data_25035495 <- rbind(WS154544_data, WS154584_data, WS154624_data,
-                           WS154675_data)
-
-results_25035495 <- search_for_contaminant(all_data_25035495,
-                                           "25035495_WS154624")
-
-make_contamination_snp_plot(all_data_25035495,
-                            "25035495_WS154624",
-                            all_data_25035495,
-                            "25035560_WS154675")
-
-```
-
-### 25035635 - solved
-
-25035635_WS154675 (QS94564 position 17, PanSolid well B05) appears to be contaminated with 25035862_WS154675 (QS94564 position 1, PanSolid well G01).
-
-```{r}
-#| label: sample-25035635
-#| include: FALSE
-#| eval: FALSE
-
-WS154716_data <- collate_snp_data("WS154716")
-
-all_data_25035635 <- rbind(WS154675_data,
-                           WS154624_data,
-                           WS154716_data)
-
-results_25035635 <- search_for_contaminant(all_data_25035635,
-                                           "25035635_WS154675")
-
-make_contamination_snp_plot(all_data_25035635,
-                            "25035635_WS154675",
-                            all_data_25035635,
-                            "25035862_WS154675")
-```
-
-### 25036241 - solved
-
-25036241_WS154716 (QS94604 position 3, PanSolid well B06) appears to be contaminated with 25036234_WS154716 (QS94604 position 2, PanSolid well A06).
-
-```{r}
-#| label: sample-25036241
-#| include: FALSE
-#| eval: FALSE
-
-WS154763_data <- collate_snp_data("WS154763")
-
-WS154770_data <- collate_snp_data("WS154770")
-
-WS154716_data <- collate_snp_data("WS154716")
-
-all_data_25036241 <- rbind(WS154716_data,
-                           WS154763_data,
-                           WS154770_data)
-
-results_25036241 <- search_for_contaminant(all_data_25036241,
-                                           "25036241_WS154716")
-
-make_contamination_snp_plot(all_data_25036241,
-                            "25036241_WS154716",
-                            all_data_25036241,
-                            "25036234_WS154716")
-
-```
-
-### 25038540 - solved
-
-25038540_WS155071 (H01, QS94987 position 16) appears to be contaminated by 25038464_WS155071 (D04, QS94987 position 8).
-
-```{r}
-#| label: sample-25038540
-#| include: FALSE
-#| eval: FALSE
-
-WS155070_data <- collate_snp_data("WS155070")
-
-WS155071_data <- collate_snp_data("WS155071")
-
-WS155091_data <- collate_snp_data("WS155091")
-
-all_data_25038540 <- rbind(WS155070_data, WS155071_data, WS155091_data)
-
-results_25038540 <- search_for_contaminant(all_data_25038540,
-                                           "25038540_WS155071")
-
-make_contamination_snp_plot(all_data_25038540,
-                            "25038540_WS155071",
-                            all_data_25038540,
-                            "25038464_WS155071")
-
-```
-
-### 25040187
-
-```{r}
-#| label: sample-25040187
-#| include: FALSE
-#| eval: FALSE
-
-WS155212_data <- collate_snp_data("WS155212")
-
-WS155317_data <- collate_snp_data("WS155317")
-
-WS155338_data <- collate_snp_data("WS155338")
-
-all_data_25040187 <- rbind(WS155212_data, WS155317_data,
-                          WS155338_data)
-
-results_25040187 <- search_for_contaminant(all_data_25040187,
-                                           "25040187_WS155317")
-
-```
-
-### 25041888
-
-```{r}
-#| label: sample-25041888
-#| include: FALSE
-#| eval: FALSE
-
-WS155586_data <- collate_snp_data("WS155586")
-
-WS155587_data <- collate_snp_data("WS155587")
-
-WS155626_data <- collate_snp_data("WS155626")
-
-all_data_25041888 <- rbind(WS155586_data, 
-                           WS155587_data,
-                           WS155626_data)
-
-results_25041888 <- search_for_contaminant(all_data_25041888,
-                                           "25041888_WS155587")
-
-```
-
-### 25042695
-
-```{r}
-#| label: sample-25042695
-#| include: FALSE
-#| eval: FALSE
-
-WS155626_data
-
-WS155702_data <- collate_snp_data("WS155702")
-
-WS155788_data <- collate_snp_data("WS155788")
-
-WS155798_data <- collate_snp_data("WS155798")
-
-all_data_25042695 <- rbind(WS155626_data, WS155702_data,
-                           WS155788_data, WS155798_data)
-
-results_25042695 <- search_for_contaminant(all_data_25042695,
-                                           "25042695_WS155702")
-
-```
-
-### 25045055 - solved
-
-25045055_WS156025 (C06, QS96041 position 4) appears to be contaminated by 25045186_WS156025 (C05, 96041 position 24).
-
-```{r}
-#| label: sample-25045055
-#| include: FALSE
-#| eval: FALSE
-
-make_contamination_snp_plot(WS156025_data,
-                            "25045055_WS156025",
-                            WS156025_data,
-                            "25045186_WS156025")
-```
-
-### 25045248 - solved
-
-25045248_WS156025 (h04, QS96072 position 12) appears to be contaminated by 25045186_WS156025 (C05, QS96128 position 8) and 25045055_WS156025 (C06, QS96041 position 4).
-
-```{r}
-#| label: sample-25045248
-#| include: FALSE
-#| eval: FALSE
-
-make_contamination_snp_plot(WS156025_data,
-                            "25045248_WS156025",
-                            WS156025_data,
-                            "25045186_WS156025")
-
-make_contamination_snp_plot(WS156025_data,
-                            "25045248_WS156025",
-                            WS156025_data,
-                            "25045055_WS156025")
-
-```
-
-### 25045270 - solved
-
-25045270_WS156025 (PanSolid A03, QS96072 position 4) appears to be contaminated by 25045186_WS156025 (PanSolid C05, QS96128 position 8).
-
-```{r}
-#| label: sample-25045270
-#| include: FALSE
-#| eval: FALSE
-
-make_contamination_snp_plot(WS156025_data,
-                            "25045270_WS156025",
-                            WS156025_data,
-                            "25045186_WS156025")
-
-
-```
-
-### 25045596
-
-```{r}
-#| label: sample-25045596
-#| include: FALSE
-#| eval: FALSE
-
-WS156025_data <- collate_snp_data("WS156025")
-
-WS156171_data <- collate_snp_data("WS156171")
-
-WS156142_data <- collate_snp_data("WS156142")
-
-WS156206_data <- collate_snp_data("WS156206")
-
-WS156215_data <- collate_snp_data("WS156215")
-
-all_data_25045596 <- rbind(WS156171_data, WS156142_data, 
-                           WS156206_data, WS156025_data,
-                           WS156215_data)
-
-results_25045596 <- search_for_contaminant(all_data_25045596,
-                                           "25045596_WS156171")
-
-```
-
-### 25047558
-
-```{r}
-#| label: sample-25047558
-#| include: FALSE
-#| eval: FALSE
-
-WS156308_files <- get_worksheet_filepaths(worksheet = "WS156308",
-                                   file_regex  = "Results_SNVs_Indels.*.xlsx")
-  
-WS156308_output <- WS156308_files |> 
-    map(\(files) read_formatted_snp_data(file = WS156308_files)) |> 
-    list_rbind()
-
-WS156356_data <- collate_snp_data("WS156356")
-
-WS156428_data <- collate_snp_data("WS156428")
-
-
-WS156428_files <- get_worksheet_filepaths(worksheet = "WS156428",
-                                   file_regex  = "Results_SNVs_Indels.*.xlsx")
-  
-WS156428_output <- files[-44] |> 
-    map(\(files) read_formatted_snp_data(file = files[-44])) |> 
-    list_rbind()
-
-all_data_25047558 <- rbind(WS156308_data, WS156356_data,
-                           WS156428_output)
-
-results_25047558 <- search_for_contaminant(WS156356_data,
-                                           "25047558_WS156356")
-
-```
-
-### 25047626
-
-```{r}
-#| label: sample-25047626
-#| include: FALSE
-#| eval: FALSE
-
-results_25047626 <- search_for_contaminant(all_data_25047558,
-                                           "25047626_WS156356")
-
-```
-
-### 25048537
-
-```{r}
-#| label: sample-25048537
-#| include: FALSE
-#| eval: FALSE
-
-WS156454_data <- collate_snp_data("WS156454")
-
-WS156496_data <- collate_snp_data("WS156496")
-
-WS156563_data <- collate_snp_data("WS156563")
-
-all_data_25048537 <- rbind(WS156454_data, WS156496_data,
-                          WS156563_data)
-
-results_25048537 <- search_for_contaminant(all_data_25048537,
-                                          "25048537_WS156496")
-
-```
-
-### 25048829
-
-```{r}
-#| label: sample-25048829
-#| include: FALSE
-#| eval: FALSE
-
-results_25048829 <- search_for_contaminant(all_data_25048537,
-                                           "25048829_WS156496")
+number_ploidy_regions_path_lab <- number_ploidy_regions_mod |> 
+  left_join(sample_path_labs,
+            by = "labno",
+            relationship = "many-to-one")
 
 ```
 
