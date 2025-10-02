@@ -1,6 +1,7 @@
 ---
 title: "INC10994: Contamination Investigation"
 author: "Joe Shaw (CS20980)"
+toc: true
 format:
   html:
     embed-resources: true
@@ -24,17 +25,7 @@ source(here::here("functions/contamination_functions_INC10994.R"))
 
 # Introduction
 
-Possible causes of contamination
-
-Patient: - Bone marrow transplant - Reference material made of mixed samples
-
-Pathology lab
-
-DNA extraction
-
-DNA dilutions
-
-Library preparation (DNA mixed prior to indexing)
+This is an investigation into the rate and source of contamination identified in PanSolid next generation sequencing at the North West Genomic Laboratory Hub (GLH).
 
 # Methods
 
@@ -71,7 +62,7 @@ stdev_live <- read_csv(paste0(config::get("data_folderpath"),
 
 ```
 
-Data from `r nrow(number_ploidy_regions_live)` samples from `r length(unique(number_ploidy_regions_live$worksheet))` worksheets (WS`r min(number_ploidy_regions_live$ws_number)` to WS`r max(number_ploidy_regions_live$ws_number)`) was collated.
+Data from `r nrow(number_ploidy_regions_live)` samples from `r length(unique(number_ploidy_regions_live$worksheet))` worksheets (WS`r as.character(min(number_ploidy_regions_live$ws_number))` to WS`r as.character(max(number_ploidy_regions_live$ws_number))`) was collated and reviewed.
 
 {{< pagebreak >}}
 
@@ -80,6 +71,8 @@ Data from `r nrow(number_ploidy_regions_live)` samples from `r length(unique(num
 ## Can we use number of ploidy regions to detect potential contamination?
 
 ```{r}
+#| label: identify-potential-contamination-cases
+#| include: FALSE
 
 number_ploidy_regions_live_qc <- number_ploidy_regions_live |> 
   left_join(stdev_live |> 
@@ -108,7 +101,7 @@ potential_contamination_names <- sample_tbl |>
 write_csv(potential_contamination_cases |> 
             left_join(potential_contamination_names,
                       by = "labno",
-                      # Some samples have been tested mutliple times
+                      # Some samples have been tested multiple times
                       relationship = "many-to-one") |> 
             arrange(worksheet) |> 
             select(labno_suffix_worksheet, worksheet, panel,
@@ -121,6 +114,8 @@ write_csv(potential_contamination_cases |>
 ```
 
 ```{r}
+#| label: load-reviewed-data
+#| include: FALSE
 
 potential_contamination_cases_reviewed <- read_excel(
   paste0(config::get("data_folderpath"),
@@ -131,25 +126,12 @@ potential_contamination_cases_reviewed <- read_excel(
 
 ```
 
-```{r}
-#| label: all-worksheets
-#| echo: FALSE
-
-ggplot(number_ploidy_regions_live_qc, aes(x = worksheet,
-                                       y = number_ploidy_regions)) +
-  geom_boxplot() +
-  geom_hline(yintercept = 150,linetype = "dashed") +
-  theme_bw() +
-  theme(axis.text.x = element_blank()) +
-  scale_y_continuous(limits = c(0, 500),
-                     breaks = c(seq(0, 500, by = 100), 150))
-
-```
-
-All cases with over 150 ploidy regions were reviewed.
+I have manually reviewed 
+`r nrow(potential_contamination_cases_reviewed)`
+cases which had over 150 ploidy regions and also passed the percent coverage at 138X and signal-adjusted noise quality metrics.
 
 ```{r}
-#| label: load-reviewed-data
+#| label: label-reviewed-data
 #| include: FALSE
 
 number_ploidy_regions_mod <- number_ploidy_regions_live_qc |> 
@@ -170,9 +152,9 @@ number_ploidy_regions_mod <- number_ploidy_regions_live_qc |>
 
 ```
 
-Cases which seem to be genuine contamination tend to have over 200 regions, whilst samples with disordered genomes (such as ovarian cancer samples) tend to have below 200.
-Other possible causes of high ploidy region counts are reference materials with mixed DNA and samples with poor quality metrics (high noise and low coverage).
-However, without confirmatory testing, interpretation of contamination from VAF plots is subjective.
+Cases which seem to be genuine contamination tend to have over 200 ploidy regions, whilst samples with disordered genomes (such as ovarian cancer samples) tend to have below 200.
+Other possible causes of high ploidy region counts are reference materials with mixed DNA.
+However, without confirmatory testing, the interpretation of contamination from VAF plots is subjective.
 
 ```{r}
 #| label: fig-ploidy-regions-over-150
@@ -190,13 +172,13 @@ number_ploidy_regions_mod |>
 
 ```
 
-Despite this, a ploidy region count of 200 is an adequate threshold for detecting potentially contaminated samples.
+Despite this, a ploidy region count of 200 appears to be an adequate threshold for detecting potentially contaminated samples.
 
 ```{r}
 #| label: tbl-visual-inspection-summary
 #| echo: FALSE
 
-number_ploidy_regions_mod |> 
+tbl_visual_inspection_summary <- number_ploidy_regions_mod |> 
   filter(number_ploidy_regions >= 200 &
            stdev_noise < 0.7 &
            percent_138x >= 75) |> 
@@ -205,9 +187,13 @@ number_ploidy_regions_mod |>
   arrange(desc(n)) |> 
   mutate(percent = round((n/sum(n))*100, 1))
 
+knitr::kable(tbl_visual_inspection_summary)
+
 ```
 
 ## What is the rate of contaminated samples?
+
+Overall the rate of contaminated samples is less than 1%, which is lower than the largest published study in the literature.
 
 ```{r}
 #| label: tbl-contamination-rate
@@ -311,6 +297,9 @@ plot_contamination_over_time <- qs_extraction_df_with_contaminated_count |>
 
 ```
 
+@fig-contamination-monitoring shows the rate of contaminated samples over time.
+In general, contamination does not appear to cluster on particular PanSolid worksheets or QIAsymphony batches, except for a peak on 1st August.
+
 ```{r}
 #| label: fig-contamination-monitoring
 #| fig-cap: "Contamination over time"
@@ -400,6 +389,9 @@ plot_pansolid_positions <- contamination_pansolid_df_mod |>
 
 ```
 
+There does not appear to be a consistent pattern for where contaminated samples are located on PanSolid worksheets.
+However, it is notable that samples in the 4th row of QIAsymphony runs are more likely to be impacted by contamination.
+
 ```{r}
 #| label: fig-positions
 #| echo: FALSE
@@ -413,25 +405,14 @@ plot_qiasymphony_positions +
 ```
 
 ```{r}
+#| label: tbl-qiasymphony-positions
+#| echo: FALSE
 
 qiasymphony_layout_tbl <- qiasymphony_layout_df |> 
   group_by(y_coordinate) |> 
   summarise(total_contaminated = sum(n))
 
 knitr::kable(qiasymphony_layout_tbl)
-
-```
-
-```{r}
-#| eval: FALSE
-#| include: FALSE
-
-contaminated_extraction_df_positions |> 
-  left_join(qs_extraction_df |> 
-              select(extraction_batch_id, run_date),
-            join_by("extraction_batch_fk" == "extraction_batch_id")) |> 
-  ggplot(aes(x = run_date, y = y_coordinate)) +
-  geom_jitter(height = 0.1, shape = 21)
 
 ```
 
@@ -458,10 +439,11 @@ number_ploidy_regions_path_lab <- number_ploidy_regions_mod |>
 ```
 
 ```{r}
+#| label: plot-folder
+#| include: FALSE
 
 plot_folder <- paste0(config::get("data_folderpath"),
                       "live_service/INC10994_contamination/contamination_plots/")
-
 
 ```
 
@@ -470,8 +452,6 @@ plot_folder <- paste0(config::get("data_folderpath"),
 There are 24 samples per QIAsymphony batch.
 
 There are 48 samples per PanSolid worksheet.
-
-DNA extractions are performed on the left QIAsymphony (GEN-0516).
 
 Therefore to investigate cross-contamination we need to look at a few different PanSolid worksheets around the time that the sample was extracted.
 
