@@ -463,7 +463,7 @@ Therefore in some cases it is not possible to exclude that the contamination has
 I have approached this by quantifying the number of homozygous SNPs which are shared between the two samples.
 This provides an objective metric of similarity, rather than subjective judgement based on plots.
 
-## A case of known contamination
+The only issue is that comparing thousands of SNPs for hundreds of samples is computationally quite intensive - hence I've had to specify certain code chunks not to evaluate, otherwise this report does not render and RStudio crashes.
 
 ```{r}
 #| label: sample-24026628b
@@ -503,13 +503,12 @@ To show that this approach works, here are the results for a case where I delibe
 
 Sample 24026628b on WS150465.
 
-![Sample plot](`r paste0(plot_folder, "plot_24026628_no_match.png")`)
+![Example of samples which weren't mixed](`r paste0(plot_folder, "plot_24026628_no_match.png")`)
 
-![Sample plot](`r paste0(plot_folder, "plot_24026628_match.png")`)
-
-## 25024438
+![Example of mixed samples](`r paste0(plot_folder, "plot_24026628_match.png")`)
 
 ```{r}
+#| label: sample-25024438
 #| include: FALSE
 #| eval: FALSE
 
@@ -533,10 +532,10 @@ ggsave(plot = plot_25024438,
 
 ```
 
-![Sample plot](`r paste0(plot_folder, "plot_25024438.png")`)
-
 ```{r}
+#| label: summary-25024438
 #| eval: FALSE
+#| include: FALSE
 
 summary_25024438 <- rbind(make_contamination_summary_table("25024438", "WS152914",
                                        "contaminated"),
@@ -548,6 +547,8 @@ knitr::kable(summary_25024438)
 ```
 
 ```{r}
+#| include: FALSE
+#| label: summary-tbl-initial
 
 inc10994_summary_tbl <- data.frame(
   labno = c("25024438"),
@@ -557,10 +558,10 @@ inc10994_summary_tbl <- data.frame(
 
 ```
 
-## 25024565
-
 ```{r}
 #| eval: FALSE
+#| include: FALSE
+#| label: sample-25024565
 
 results_25024565 <- search_for_contaminant(all_data_25024438,
                                            "25024565_WS152973")
@@ -568,12 +569,7 @@ results_25024565 <- search_for_contaminant(all_data_25024438,
 ```
 
 ```{r}
-
-knitr::kable(ps_samples_per_qs_batch("92552"))
-
-```
-
-```{r}
+#| include: FALSE
 
 inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         labno = "25024565", 
@@ -582,11 +578,10 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25026341
-
 ```{r}
 #| include: FALSE
 #| eval: FALSE
+#| label: sample-25026341
 
 WS153211_data <- collate_snp_data("WS153211")
 
@@ -622,6 +617,7 @@ results_25026341 <- search_for_contaminant(all_data_25026341,
 ```
 
 ```{r}
+#| include: FALSE
 
 inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         labno = "25026341", 
@@ -629,11 +625,11 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "")
 
 ```
-## 25026815
 
 ```{r}
 #| include: FALSE
 #| eval: FALSE
+#| label: sample-25026815
 
 WS153325_data <- collate_snp_data("WS153325")
 
@@ -662,11 +658,10 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25026850
-
 ```{r}
 #| include: FALSE
 #| eval: FALSE
+#| label: sample-25026850
 
 results_25026850 <- search_for_contaminant(all_data_25026815, 
                                            "25026850_WS153325")
@@ -683,11 +678,10 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25027112
-
 ```{r}
 #| include: FALSE
 #| eval: FALSE
+#| label: sample-25027112
 
 WS153386_data <- collate_snp_data("WS153386")
 
@@ -716,36 +710,10 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25028039
-
 ```{r}
 #| include: FALSE
 #| eval: FALSE
-
-all_data_25028039 <- rbind(WS153445_data,
-                           WS153503_data,
-                           WS153552_data)
-
-results_25028039 <- search_for_contaminant(all_data_25028039,
-                                           "25028039_WS153503")
-
-```
-
-```{r}
-#| include: FALSE
-
-inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
-        labno = "25028039", 
-        status = "contaminant not found", 
-        likely_source = "")
-
-```
-
-## 25028207
-
-```{r}
-#| include: FALSE
-#| eval: FALSE
+#| label: sample-25028207
 
 WS153634_data <- collate_snp_data("WS153634")
 
@@ -774,10 +742,10 @@ ggsave(plot = plot_25028207,
 
 ```
 
-![Sample plot](`r paste0(plot_folder, "plot_25028207.png")`)
-
 ```{r}
+#| label: summary-25028207
 #| eval: FALSE
+#| include: FALSE
 
 rbind(make_contamination_summary_table("25028207", "WS153552",
                                        "contaminated"),
@@ -785,7 +753,6 @@ rbind(make_contamination_summary_table("25028207", "WS153552",
                                        "contaminant"))
 
 ```
-
 
 ```{r}
 #| include: FALSE
@@ -796,8 +763,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "PanSolid setup or QIAsymphony extraction")
 
 ```
-
-## 25028781
 
 ```{r}
 #| label: sample-25028781
@@ -829,13 +794,10 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25028039
-
 ```{r}
 #| label: sample-25028039
 #| include: FALSE
 #| eval: FALSE
-
 
 WS153806_data <- collate_snp_data("WS153806")
 
@@ -857,8 +819,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "")
 
 ```
-
-## 25028766
 
 ```{r}
 #| label: sample-25028766
@@ -886,8 +846,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25030208
-
 ```{r}
 #| label: sample-25030208
 #| include: FALSE
@@ -907,8 +865,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "")
 
 ```
-
-## 25031248
 
 ```{r}
 #| label: sample-25031248
@@ -936,8 +892,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25031305
-
 ```{r}
 #| label: sample-25031305
 #| include: FALSE
@@ -956,8 +910,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "")
 
 ```
-
-## 25034585
 
 ```{r}
 #| label: sample-25034585
@@ -989,8 +941,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25035495
-
 ```{r}
 #| label: sample-25035495
 #| include: FALSE
@@ -1018,19 +968,15 @@ ggsave(plot = plot_25035495,
 
 ```
 
-![Sample plot](`r paste0(plot_folder, "plot_25035495.png")`)
-
-Different PanSolid worksheet, different QIAsymphony batch. 
-Both from the Clatterbridge centre.
-
 ```{r}
 #| eval: FALSE
+#| include: FALSE
+#| label: summary-25035495
 
 rbind(make_contamination_summary_table("25035495", "WS154624",
                                        "contaminated"),
       make_contamination_summary_table("25035560", "WS154675",
                                        "contaminant"))
-
 
 ```
 
@@ -1043,8 +989,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "pathology lab")
 
 ```
-
-## 25035635
 
 ```{r}
 #| label: sample-25035635
@@ -1068,10 +1012,10 @@ ggsave(plot = plot_25035635,
 
 ```
 
-![Sample plot](`r paste0(plot_folder, "plot_25035635.png")`)
-
 ```{r}
 #| eval: FALSE
+#| include: FALSE
+#| label: summary-25035635
 
 rbind(make_contamination_summary_table("25035635", "WS154675",
                                        "contaminated"),
@@ -1088,8 +1032,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "QIAsymphony extraction")
 
 ```
-
-## 25036241
 
 ```{r}
 #| label: sample-25036241
@@ -1112,10 +1054,10 @@ ggsave(plot = plot_25036241,
 
 ```
 
-![Sample plot](`r paste0(plot_folder, "plot_25036241.png")`)
-
 ```{r}
 #| eval: FALSE
+#| include: FALSE
+#| label: summary-25036241
 
 rbind(make_contamination_summary_table("25036241", "WS154716",
                                  "contaminated"),
@@ -1132,8 +1074,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "PanSolid setup or QIAsymphony extraction")
 
 ```
-
-## 25038540
 
 ```{r}
 #| label: sample-25038540
@@ -1156,10 +1096,10 @@ ggsave(plot = plot_25038540,
 
 ```
 
-![Sample plot](`r paste0(plot_folder, "plot_25038540.png")`)
-
 ```{r}
 #| eval: FALSE
+#| include: FALSE
+#| label: summary-25038540
 
 rbind(make_contamination_summary_table("25038540", "WS155071",
                                  "contaminated"),
@@ -1178,9 +1118,8 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25039656
-
 ```{r}
+#| label: sample-25039656
 #| eval: FALSE
 #| include: FALSE
 
@@ -1206,8 +1145,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "")
 
 ```
-
-## 25040187
 
 ```{r}
 #| label: sample-25040187
@@ -1238,8 +1175,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25041888
-
 ```{r}
 #| label: sample-25041888
 #| include: FALSE
@@ -1269,8 +1204,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "")
 
 ```
-
-## 25042695
 
 ```{r}
 #| label: sample-25042695
@@ -1303,8 +1236,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25045055
-
 ```{r}
 #| label: sample-25045055
 #| include: FALSE
@@ -1329,11 +1260,10 @@ ggsave(plot = plot_25045055,
 
 ```
 
-![Sample plot](`r paste0(plot_folder, "plot_25045055.png")`)
-
-
 ```{r}
 #| eval: FALSE
+#| label: summary-25045055
+#| include: FALSE
 
 rbind(make_contamination_summary_table("25045055", "WS156025",
                                        "contaminated"),
@@ -1351,10 +1281,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "PanSolid setup or QIAsymphony extraction")
 
 ```
-
-## 25045248
-
-This sample has hits for two other samples.
 
 ```{r}
 #| label: sample-25045248
@@ -1377,18 +1303,15 @@ ggsave(plot = plot_25045248,
 
 ```
 
-![Sample plot](`r paste0(plot_folder, "plot_25045248.png")`)
-
 ```{r}
-#| eval: TRUE
+#| eval: FALSE
+#| include: FALSE
+#| label: summary-25045248
 
 rbind(make_contamination_summary_table("25045248", "WS156025",
                                        "contaminated"),
       make_contamination_summary_table("25045186", "WS156025",
                                        "contaminant"))
-
-
-
 ```
 
 ```{r}
@@ -1400,8 +1323,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "PanSolid setup")
 
 ```
-
-## 25045270
 
 ```{r}
 #| label: sample-25045270
@@ -1421,10 +1342,10 @@ ggsave(plot = plot_25045270,
 
 ```
 
-![Sample plot](`r paste0(plot_folder, "plot_25045270.png")`)
-
 ```{r}
 #| eval: FALSE
+#| include: FALSE
+#| label: summary-25045270
 
 rbind(make_contamination_summary_table("25045270", "WS156025",
                                        "contaminated"),
@@ -1442,8 +1363,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "PanSolid setup")
 
 ```
-
-## 25047626
 
 ```{r}
 #| label: sample-25047626
@@ -1467,8 +1386,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25048537
-
 ```{r}
 #| label: sample-25048537
 #| include: FALSE
@@ -1488,7 +1405,6 @@ results_25048537 <- search_for_contaminant(all_data_25048537,
 
 ```
 
-
 ```{r}
 #| include: FALSE
 
@@ -1498,8 +1414,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "")
 
 ```
-
-## 25048829
 
 ```{r}
 #| label: sample-25048829
@@ -1521,9 +1435,8 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25051800
-
 ```{r}
+#| label: sample-25051800
 #| eval: FALSE
 #| include: FALSE
 
@@ -1545,11 +1458,10 @@ ggsave(plot = plot_25051800,
 
 ```
 
-![Sample plot](`r paste0(plot_folder, "plot_25051800.png")`)
-
 ```{r}
 #| eval: FALSE
 #| include: FALSE
+#| label: summary-25051800
 
 rbind(make_contamination_summary_table("25051800", "WS156990",
                                        "contaminant"),
@@ -1567,8 +1479,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "PanSolid setup or QIAsymphony extraction")
 
 ```
-
-## 25052084
 
 ```{r}
 #| eval: FALSE
@@ -1594,8 +1504,6 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         likely_source = "")
 
 ```
-
-## 25052591
 
 ```{r}
 #| eval: FALSE
@@ -1624,9 +1532,8 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-## 25053859
-
 ```{r}
+#| label: sample-25053859
 #| eval: FALSE
 #| include: FALSE
 
@@ -1645,9 +1552,8 @@ results_25053859 <- search_for_contaminant(all_data_25053859,
 
 ```
 
-## 25055138
-
 ```{r}
+#| label: sample-25055138
 #| eval: FALSE
 #| include: FALSE
 
@@ -1671,9 +1577,8 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-# 25054809
-
 ```{r}
+#| label: sample-25054809
 #| include: FALSE
 #| eval: FALSE
 
@@ -1697,8 +1602,7 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 
 ```
 
-
-# Overall results
+Here is a summary table of all the samples that I have checked using this method.
 
 ```{r}
 #| echo: FALSE
@@ -1706,6 +1610,8 @@ inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
 knitr::kable(inc10994_summary_tbl)
 
 ```
+
+And here is a breakdown of the overall results.
 
 ```{r}
 #| echo: FALSE
@@ -1717,9 +1623,11 @@ knitr::kable(inc10994_summary_tbl |>
 
 ```
 
-# Percentage on PanSolid
+Here is a list of QIAsymphony batches on which there were samples with apparent contamination and where I could not find a the contaminant via SNP checking.
+For each batch, I have included the percentage of samples which were tested on PanSolid NGS.
 
 ```{r}
+#| label: tbl-qiasymphony-batch-tested-on-pansolid
 #| echo: FALSE
 
 ps_batch_table <- rbind(
@@ -1749,5 +1657,12 @@ knitr::kable(ps_batch_table)
 
 ```
 
-
 # Conclusion
+
+From this investigation I have drawn these conclusions:
+
+- Contamination can be automatically screened for by counting the number of ploidy regions.
+
+- The rate of contamination is below 1%, which is lower than published reports.
+
+- There is no consistent source of the contamination, although there was a spike of 3 contaminated samples all extracted on 1st August.
