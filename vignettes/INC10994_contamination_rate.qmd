@@ -421,7 +421,7 @@ knitr::kable(qiasymphony_layout_tbl)
 ## Do contaminated samples come from the same pathology lab?
 
 ```{r}
-#| eval: FALSE
+#| label: sample-path-labs
 #| include: FALSE
 
 all_labnos <- unique(number_ploidy_regions_mod$labno)
@@ -434,7 +434,32 @@ sample_path_labs <- sample_tbl |>
 number_ploidy_regions_path_lab <- number_ploidy_regions_mod |> 
   left_join(sample_path_labs,
             by = "labno",
-            relationship = "many-to-one")
+            relationship = "many-to-one") |> 
+  mutate(path_lab = str_extract(string = consultant_address,
+                                pattern = "^(.{20}).*"))
+
+path_lab_summary <- number_ploidy_regions_path_lab |> 
+  group_by(path_lab, category) |> 
+  count() |> 
+  pivot_wider(id_cols = path_lab,
+              names_from = category,
+              values_from = n,
+              values_fill = 0) |> 
+  arrange(desc(`no contamination`)) |> 
+  # filter(!path_lab %in% c("", "Unknown", NA)) |> 
+  mutate(contamination_rate = 
+           round(`potential contamination` / (`potential contamination` + 
+                                          `no contamination`)*100,1)) 
+
+```
+
+There is no evidence that a particular pathology lab is sending the majority of contaminated samples.
+
+```{r}
+#| label: tbl-path-lab-summary
+#| echo: FALSE
+
+knitr::kable(path_lab_summary)
 
 ```
 
