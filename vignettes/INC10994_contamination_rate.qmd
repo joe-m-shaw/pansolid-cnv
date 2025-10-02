@@ -1648,6 +1648,30 @@ knitr::kable(inc10994_summary_tbl |>
 
 ```
 
+### Contamination spike
+
+One interesting finding is that 3 samples on WS156025 all appear to be contaminated with the same sample: 25045186.
+
+All these samples were in the 4th row on two QIAsymphony batches which were processed on the same day, which indicates that this could be contamination occurring across QIAsymphony extractions.
+
+```{r}
+#| label: tbl-WS156025
+#| echo: FALSE
+
+rbind(make_contamination_summary_table("25045186", "WS156025",
+                                       "contaminant"),
+      make_contamination_summary_table("25045055", "WS156025",
+                                       "contaminated"),
+      make_contamination_summary_table("25045248", "WS156025",
+                                       "contaminated"),
+      make_contamination_summary_table("25045270", "WS156025",
+                                       "contaminated")) |> 
+  select(-consultant_address)
+
+```
+
+### PanSolid samples per QIAsymphony batch
+
 Here is a list of QIAsymphony batches on which there were samples with apparent contamination and where I could not find a the contaminant via SNP checking.
 For each batch, I have included the percentage of samples which were tested on PanSolid NGS.
 
