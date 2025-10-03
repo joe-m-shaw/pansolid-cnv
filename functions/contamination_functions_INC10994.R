@@ -14,6 +14,31 @@ compare_snp_results <- function(s1_df,
                                 het_vaf_lower_threshold = 40,
                                 hom_vaf_lower_threshold = 10) {
   
+  #' Compare SNP results between two PanSolid NGS samples
+  #' 
+  #' Variant allele frequency (VAF)
+  #' 
+  #' @param s1_df The dataframe containing SNP frequency information for sample 1
+  #' @param s2_df The dataframe containing SNP frequency information for sample 2.
+  #' s2_df can be the same dataframe as s1_df.
+  #' @param s1_id The labno_suffix_worksheet of sample 1, which should be the sample
+  #' suspected of being contaminated.
+  #' @param s2_id The labno_suffix_worksheet of sample 2, which should be the samples
+  #' suspected of contaminating sample 1.
+  #' @param hom_vaf_upper_threshold The VAF threshold for classifying SNPs as 
+  #' homozygous for the variant allele
+  #' @param het_vaf_upper_threshold The upper VAF threshold for classifying SNPs
+  #' as heterozygous
+  #' @param het_vaf_lower_threshold The lower VAF threshold for classifying SNPs
+  #' as heterozygous
+  #' @param hom_vaf_lower_threshold The lower VAF threshold for classifying SNPs
+  #' as homozygous for the reference allele
+  #'
+  #' @returns A dataframe of the SNP VAFs in sample 1, with their corresponding
+  #' VAFs and statuses (based on the supplied thresholds) in sample 2
+  #' 
+  #' @export
+  
   sample1 <- s1_df |> 
     filter(labno_suffix_worksheet == s1_id &
              type == "SNV") |> 
@@ -34,17 +59,17 @@ compare_snp_results <- function(s1_df,
               join_by(chromosome, region, type, 
                       reference, reference_allele,
                       allele)) |> 
-    dplyr::mutate(sample2_frequency_category = case_when(
-      # Above 90
+    mutate(sample2_frequency_category = case_when(
+      # Hom var
       sample2_frequency >= hom_vaf_upper_threshold ~paste0("Above ", hom_vaf_upper_threshold, "%"),
-      # 40-60
+      # Het
       sample2_frequency <= het_vaf_upper_threshold & 
         sample2_frequency >= het_vaf_lower_threshold ~paste0("Between ",
                                                              het_vaf_lower_threshold,
                                                              "-",
                                                              het_vaf_upper_threshold,
                                                              "%"),
-      # Below 10
+      # Hom ref
       sample2_frequency <= 10 ~paste0("Lower than ",
                                       hom_vaf_lower_threshold,
                                       "%"),
@@ -72,40 +97,15 @@ compare_snp_results <- function(s1_df,
   
 }
 
-read_formatted_snp_data <- function(file, sheetname = "Artefacts_removed_GIAB_filt...") {
-  
-  pansolid_chr_cumulative_coordinates <- readr::read_csv(paste0(config::get("data_folderpath"),
-                                                                "validation/DOC6791_chromosome_arms/",
-                                                                "bed_files/",
-                                                                "pansolid_chr_cumulative_coordinates.csv"),
-                                                         col_types = "ccdd")
-  
-  snp_data <- readxl::read_excel(path = file,
-                                 sheet = sheetname,
-                                 range = readxl::cell_cols("A:L"),
-                                 col_types = c(
-                                   "text", "numeric", "text", "text", "text", 
-                                   "text", "numeric", "text", "text",
-                                   "numeric", "numeric", "numeric"
-                                 )) |> 
-    janitor::clean_names() |> 
-    format_chromosome_decimals(col = chromosome) |> 
-    factorise_chromosome(col = chromosome_char) |> 
-    filter(!is.na(region)) |> 
-    left_join(pansolid_chr_cumulative_coordinates |> 
-                select(chromosome_fct, cumulative_chr_coordinate),
-              by = "chromosome_fct") |> 
-    mutate(cumulative_region_coordinate = region + cumulative_chr_coordinate)
-  
-  output_df <- add_identifiers(file = file,
-                               tbl = snp_data)
-  
-  return(output_df)
-  
-}
-
 collate_snp_data <- function(worksheet) {
   
+  #' Collate SNP VAF data for a PanSolid worksheet
+  #'
+  #' @param worksheet The worksheet to collate data for (format "WS123456")
+  #'
+  #' @returns A dataframe of SNP VAFs for all samples
+  #' @export
+
   files <- get_worksheet_filepaths(worksheet = worksheet,
                                    file_regex  = "Results_SNVs_Indels.*.xlsx")
   
@@ -122,15 +122,33 @@ collate_snp_data <- function(worksheet) {
 check_hom_snps <- function(s1_df,
                            s2_df,
                            s1_id,
-                           s2_id) {
+                           s2_id,
+                           high_snp_threshold = 98) {
   
+  #' Check for matching homozygous SNPs between two samples
+  #'
+  #' @param s1_df The dataframe containing SNP frequency information for sample 1
+  #' @param s2_df The dataframe containing SNP frequency information for sample 2.
+  #' s2_df can be the same dataframe as s1_df.
+  #' @param s1_id The labno_suffix_worksheet of sample 1, which should be the sample
+  #' suspected of being contaminated.
+  #' @param s2_id The labno_suffix_worksheet of sample 2, which should be the samples
+  #' suspected of contaminating sample 1.
+  #' @param high_snp_threshold The threshold which will define SNPs as having a 
+  #' very high VAF, which defaults to 98%.
+  #'
+  #' @returns A tibble of one row including the proportion and number of matching
+  #' homozygous SNPs.
+  #' 
+  #' @export
+
   compdf <- compare_snp_results(s1_df = s1_df,
                                 s2_df = s2_df,
                                 s1_id = s1_id,
                                 s2_id = s2_id) 
   
   high_snps <- compdf |> 
-    filter(sample1_frequency > 98)
+    filter(sample1_frequency > high_snp_threshold)
   
   above90 <- high_snps[high_snps$sample2_frequency_category == "Above 90%",]
   
@@ -149,6 +167,19 @@ check_hom_snps <- function(s1_df,
 
 search_for_contaminant <- function(df, s1_id) {
   
+  #' Cross reference sample SNP data to identify a potential contaminant
+  #'
+  #' @param df A dataframe containing the SNP VAF data for the sample under 
+  #' suspicion of being contaminated, and the SNP VAF data for the samples
+  #' under suspicion of being the contaminant.
+  #' @param s1_id The labno_suffix_worksheet of the sample under suspicion of 
+  #' being contaminated.
+  #'
+  #' @returns A dataframe showing the proportion of matching homozygous SNPs
+  #' for each sample comparison with sample 1.
+  #' @export
+  #' 
+
   query_df <- df |> 
     filter(labno_suffix_worksheet != s1_id)
   
@@ -175,6 +206,28 @@ make_contamination_snp_plot <- function(s1_df,
                                         het_vaf_lower_threshold = 40,
                                         hom_vaf_lower_threshold = 10) {
   
+  #' Make a SNP plot showing the comparison of SNP frequencies between two
+  #' samples
+  #'
+  #' @param s1_df The dataframe containing SNP frequency information for sample 1
+  #' @param s2_df The dataframe containing SNP frequency information for sample 2.
+  #' s2_df can be the same dataframe as s1_df.
+  #' @param s1_id The labno_suffix_worksheet of sample 1, which should be the sample
+  #' suspected of being contaminated.
+  #' @param s2_id The labno_suffix_worksheet of sample 2, which should be the samples
+  #' suspected of contaminating sample 1.
+  #' @param hom_vaf_upper_threshold The VAF threshold for classifying SNPs as 
+  #' homozygous for the variant allele
+  #' @param het_vaf_upper_threshold The upper VAF threshold for classifying SNPs
+  #' as heterozygous
+  #' @param het_vaf_lower_threshold The lower VAF threshold for classifying SNPs
+  #' as heterozygous
+  #' @param hom_vaf_lower_threshold The lower VAF threshold for classifying SNPs
+  #' as homozygous for the reference allele
+  #'
+  #' @returns A patchwork plot showing the SNP VAFs for each sample side by side
+  #' @export
+
   comparison_df <- compare_snp_results(s1_df = s1_df,
                                        s1_id = s1_id,
                                        s2_df = s2_df,
@@ -391,3 +444,36 @@ make_contamination_summary_table <- function(labno, worksheet, input_text) {
   return(output)
   
 }
+
+read_formatted_snp_data <- function(file, sheetname = "Artefacts_removed_GIAB_filt...") {
+  
+  pansolid_chr_cumulative_coordinates <- readr::read_csv(paste0(config::get("data_folderpath"),
+                                                                "validation/DOC6791_chromosome_arms/",
+                                                                "bed_files/",
+                                                                "pansolid_chr_cumulative_coordinates.csv"),
+                                                         col_types = "ccdd")
+  
+  snp_data <- readxl::read_excel(path = file,
+                                 sheet = sheetname,
+                                 range = readxl::cell_cols("A:L"),
+                                 col_types = c(
+                                   "text", "numeric", "text", "text", "text", 
+                                   "text", "numeric", "text", "text",
+                                   "numeric", "numeric", "numeric"
+                                 )) |> 
+    janitor::clean_names() |> 
+    format_chromosome_decimals(col = chromosome) |> 
+    factorise_chromosome(col = chromosome_char) |> 
+    filter(!is.na(region)) |> 
+    left_join(pansolid_chr_cumulative_coordinates |> 
+                select(chromosome_fct, cumulative_chr_coordinate),
+              by = "chromosome_fct") |> 
+    mutate(cumulative_region_coordinate = region + cumulative_chr_coordinate)
+  
+  output_df <- add_identifiers(file = file,
+                               tbl = snp_data)
+  
+  return(output_df)
+  
+}
+
