@@ -289,6 +289,80 @@ make_contamination_snp_plot <- function(s1_df,
   
 }
 
+
+ps_samples_per_qs_batch <- function(qs_batch) {
+  
+  #' Check how many samples on a QIAsymphony batch were tested on PanSolid
+  #'
+  #' @param qs_batch The QIAsymphony batch to check
+  #'
+  #' @returns A dataframe with the QIAsymphony batch, the number of samples
+  #' tested on PanSolid worksheets and the PanSolid worksheets
+  #' @export
+  
+  all_ps_samples <- define_pansolid_samples()
+  
+  qs_batch_df <- extraction_tbl |> 
+    filter(extraction_batch_fk %in% qs_batch) |> 
+    collect()
+  
+  tested_on_pansolid <- qs_batch_df |> 
+    filter(lab_no %in% all_ps_samples$sample)
+  
+  qs_ps_samples <- all_ps_samples |> 
+    filter(sample %in% tested_on_pansolid$lab_no)
+  
+  output <- data.frame(
+    "qs_batch" = c(qs_batch),
+    "qs_batch_total_samples" = c(nrow(qs_batch_df)),
+    "qs_batch_samples_on_ps" = c(nrow(tested_on_pansolid)),
+    "ps_worksheets" = c(paste(unique(qs_ps_samples$pcrid), collapse = ","))
+  ) |> 
+    mutate(percent_on_ps = round((qs_batch_samples_on_ps / qs_batch_total_samples)*100, 1))
+  
+  return(output)
+  
+}
+
+
+make_contamination_summary_table <- function(labno, worksheet, input_text) {
+  
+  #' Make a summary table for contamination investigation
+  #'
+  #' @param labno The DNA number (labno) of a sample
+  #' @param worksheet The PanSolid worksheet the sample was tested on
+  #' @param input_text Free-type input text (i.e "contaminated" or "contaminant")
+  #'
+  #' @returns A dataframe with PanSolid, QIAsymphony and pathology lab information
+  #' @export
+  
+  pansolid_df <- get_plate_location(labno = labno, worksheet = worksheet) |> 
+    select(sample, pcrid, coordinate_string) |> 
+    rename(labno = sample,
+           ps_ws = pcrid,
+           ps_pos = coordinate_string) |> 
+    mutate(category = input_text) |> 
+    relocate(category, .before = labno)
+  
+  extraction_df <- get_extraction_method(c(labno)) |>  
+    select(extraction_batch_fk, sort_order.x) |> 
+    rename(qs_batch = extraction_batch_fk,
+           qs_pos = sort_order.x)
+  
+  path_lab_df <- sample_tbl |> 
+    filter(labno ==  {{ labno }}) |> 
+    select(consultant_address) |> 
+    collect()
+  
+  output <- cbind(pansolid_df, extraction_df, path_lab_df) |> 
+    mutate(path_lab = str_extract(string = consultant_address,
+                                  pattern = "^(.{20}).*")) |> 
+    select(-consultant_address)
+  
+  return(output)
+  
+}
+
 # DNA Database Functions
 
 define_pansolid_worksheets <- function() {
@@ -387,59 +461,6 @@ get_plate_location <- function(labno, worksheet) {
   
   output <- location_df |> 
     left_join(plate_coordinates_96, by = "position")
-  
-  return(output)
-  
-}
-
-
-ps_samples_per_qs_batch <- function(qs_batch) {
-  
-  all_ps_samples <- define_pansolid_samples()
-  
-  qs_batch_df <- extraction_tbl |> 
-    filter(extraction_batch_fk %in% qs_batch) |> 
-    collect()
-  
-  tested_on_pansolid <- qs_batch_df |> 
-    filter(lab_no %in% all_ps_samples$sample)
-  
-  qs_ps_samples <- all_ps_samples |> 
-    filter(sample %in% tested_on_pansolid$lab_no)
-  
-  output <- data.frame(
-    "qs_batch" = c(qs_batch),
-    "qs_batch_total_samples" = c(nrow(qs_batch_df)),
-    "qs_batch_samples_on_ps" = c(nrow(tested_on_pansolid)),
-    "ps_worksheets" = c(paste(unique(qs_ps_samples$pcrid), collapse = ","))
-  ) |> 
-    mutate(percent_on_ps = round((qs_batch_samples_on_ps / qs_batch_total_samples)*100, 1))
-  
-  return(output)
-  
-}
-
-make_contamination_summary_table <- function(labno, worksheet, input_text) {
-  
-  pansolid_df <- get_plate_location(labno = labno, worksheet = worksheet) |> 
-    select(sample, pcrid, coordinate_string) |> 
-    rename(labno = sample,
-           ps_ws = pcrid,
-           ps_pos = coordinate_string) |> 
-    mutate(category = input_text) |> 
-    relocate(category, .before = labno)
-  
-  extraction_df <- get_extraction_method(c(labno)) |>  
-    select(extraction_batch_fk, sort_order.x) |> 
-    rename(qs_batch = extraction_batch_fk,
-           qs_pos = sort_order.x)
-  
-  path_lab_df <- sample_tbl |> 
-    filter(labno ==  {{ labno }}) |> 
-    select(consultant_address) |> 
-    collect()
-  
-  output <- cbind(pansolid_df, extraction_df, path_lab_df)
   
   return(output)
   

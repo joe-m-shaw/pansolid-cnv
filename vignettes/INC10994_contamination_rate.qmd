@@ -2,6 +2,8 @@
 title: "INC10994: Contamination Investigation"
 author: "Joe Shaw (CS20980)"
 toc: true
+bibliography: pansolid_cnv_references.bib
+csl: harvard-manchester-metropolitan-university.csl
 format:
   html:
     embed-resources: true
@@ -15,6 +17,7 @@ editor: visual
 library(tidyverse)
 library(patchwork)
 library(readxl)
+library(NHSRplotthedots)
 
 source(here::here("scripts/connect_to_dna_db.R"))
 source(here::here("functions/pansolid_cnv_excel_functions.R"))
@@ -25,11 +28,18 @@ source(here::here("functions/contamination_functions_INC10994.R"))
 
 # Introduction
 
-This is an investigation into the rate and source of contamination identified in PanSolid next generation sequencing at the North West Genomic Laboratory Hub (GLH).
+This is an investigation into the rate and source of contamination identified in PanSolid next generation sequencing (NGS) at the North West Genomic Laboratory Hub (GLH).
+Contamination can originate at multiple stages of the testing pathway:
+
+- Bone marrow transplant
+
+- Pathology lab
+
+- DNA extraction (QIAsymphony extraction)
+
+- NGS library preparation (PanSolid NGS)
 
 # Methods
-
-The number of ploidy regions for a sample can be used as marker for contamination.
 
 ```{r}
 #| label: load-data
@@ -62,9 +72,12 @@ stdev_live <- read_csv(paste0(config::get("data_folderpath"),
 
 ```
 
-Data from `r nrow(number_ploidy_regions_live)` samples from `r length(unique(number_ploidy_regions_live$worksheet))` worksheets (WS`r as.character(min(number_ploidy_regions_live$ws_number))` to WS`r as.character(max(number_ploidy_regions_live$ws_number))`) was collated and reviewed.
-
-{{< pagebreak >}}
+`r nrow(number_ploidy_regions_live)` PanSolid NGS results from
+`r length(unique(number_ploidy_regions_live$labno))` DNA samples were reviewed.
+These samples were tested on 
+`r length(unique(number_ploidy_regions_live$worksheet))` worksheets 
+(WS`r as.character(min(number_ploidy_regions_live$ws_number))` to 
+WS`r as.character(max(number_ploidy_regions_live$ws_number))`).
 
 # Results
 
@@ -126,9 +139,13 @@ potential_contamination_cases_reviewed <- read_excel(
 
 ```
 
-I have manually reviewed 
-`r nrow(potential_contamination_cases_reviewed)`
-cases which had over 150 ploidy regions and also passed the percent coverage at 138X and signal-adjusted noise quality metrics.
+I have checked for results which had over 150 ploidy regions and also passed the percent coverage at 138X and signal-adjusted noise quality metrics.
+
+There were 
+`r nrow(potential_contamination_cases)` results from
+`r length(unique(potential_contamination_cases$labno))` DNA samples which met these criteria.
+I have manually reviewed these
+`r nrow(potential_contamination_cases_reviewed)` results to check if the VAF plots indicated contamination was present.
 
 ```{r}
 #| label: label-reviewed-data
@@ -148,26 +165,32 @@ number_ploidy_regions_mod <- number_ploidy_regions_live_qc |>
                              levels = c("disordered genome",
                                         "potential contamination",
                                         "reference material",
-                                        "bone marrow transplant")))
+                                        "bone marrow transplant")),
+  ploidy_region_category = case_when(
+    number_ploidy_regions >= 200 ~"Over 200",
+    number_ploidy_regions < 200 ~"Below 200"))
 
 ```
 
-Cases which seem to be genuine contamination tend to have over 200 ploidy regions, whilst samples with disordered genomes (such as ovarian cancer samples) tend to have below 200.
+Cases which seem to be genuinely contaminated tend to have over 200 ploidy regions, whilst samples with disordered genomes (such as ovarian cancer samples) tend to have below 200.
 Other possible causes of high ploidy region counts are reference materials with mixed DNA.
-However, without confirmatory testing, the interpretation of contamination from VAF plots is subjective.
+However, it is worth noting that without confirmatory testing, the interpretation of contamination from VAF plots is subjective.
 
 ```{r}
 #| label: fig-ploidy-regions-over-150
+#| fig-cap: "Results for samples with over 150 ploidy regions"
 #| echo: FALSE
 
 number_ploidy_regions_mod |> 
   filter(!is.na(visual_inspection)) |> 
   ggplot(aes(x = visual_inspection,
                y = number_ploidy_regions)) +
-  geom_jitter(shape = 21, width = 0.1) +
+  geom_jitter(shape = 21, size = 2, width = 0.1,
+              fill = "blue") +
   theme_bw() +
   theme(axis.text.x = element_text()) +
-  labs(x = "", y = "Number of ploidy regions") +
+  labs(x = "", y = "Number of ploidy regions",
+       title = "200 ploidy regions is an appropriate threshold for identifying contamination") +
   geom_hline(yintercept = 200, linetype = "dashed")
 
 ```
@@ -175,7 +198,8 @@ number_ploidy_regions_mod |>
 Despite this, a ploidy region count of 200 appears to be an adequate threshold for detecting potentially contaminated samples.
 
 ```{r}
-#| label: tbl-visual-inspection-summary
+#| label: tbl-visual-inspection-summary-over-200
+#| tbl-cap: "Results for samples with over 200 ploidy regions"
 #| echo: FALSE
 
 tbl_visual_inspection_summary <- number_ploidy_regions_mod |> 
@@ -185,7 +209,8 @@ tbl_visual_inspection_summary <- number_ploidy_regions_mod |>
   group_by(visual_inspection) |> 
   summarise(n = n()) |> 
   arrange(desc(n)) |> 
-  mutate(percent = round((n/sum(n))*100, 1))
+  mutate(percent = round((n/sum(n))*100, 1)) |> 
+  rename(samples = n)
 
 knitr::kable(tbl_visual_inspection_summary)
 
@@ -193,7 +218,25 @@ knitr::kable(tbl_visual_inspection_summary)
 
 ## What is the rate of contaminated samples?
 
-Overall the rate of contaminated samples is less than 1%, which is lower than the largest published study in the literature.
+The percentage of samples with over 200 ploidy regions is slightly higher than 1%, however not all of these appear to be genuinely contaminated.
+
+```{r}
+#| label: tbl-cover-200-rate
+#| tbl-cap: "Frequency of samples with over 200 ploidy regions"
+#| echo: FALSE
+
+tbl_contamination_rate <- number_ploidy_regions_mod |> 
+  group_by(ploidy_region_category) |> 
+  summarise(n = n()) |> 
+  mutate(percent = round((n/sum(n))*100, 1)) |> 
+  rename(samples = n) |> 
+  janitor::adorn_totals()
+
+knitr::kable(tbl_contamination_rate)
+
+```
+
+Overall the rate of samples which appear contaminated after visual inspection is less than 1%, which is lower than the largest published study in the literature [@sehn2015].
 
 ```{r}
 #| label: tbl-contamination-rate
@@ -203,13 +246,12 @@ tbl_contamination_rate <- number_ploidy_regions_mod |>
   group_by(category) |> 
   summarise(n = n()) |> 
   mutate(percent = round((n/sum(n))*100, 1)) |> 
+  rename(samples = n) |> 
   janitor::adorn_totals()
 
 knitr::kable(tbl_contamination_rate)
 
 ```
-
-{{< pagebreak >}}
 
 ## Do contaminated samples cluster on particular worksheets or batches?
 
@@ -314,7 +356,46 @@ plot_contamination_ps_ws +
 
 ```
 
-{{< pagebreak >}}
+For an extra bit of fun, I can use the NHS R community's "plot the dots" package to investigate the contamination rate using a concept called statistical process control (SPC).
+
+```{r}
+#| label: contamination-spc-calculations
+#| include: FALSE
+
+pansolid_worksheet_info <- read_csv(paste0(config::get("data_folderpath"),
+                "live_service/INC10994_contamination/",
+                "pansolid_worksheet_info.csv"),
+                col_types = "dTccc")
+
+number_ploidy_regions_date <- number_ploidy_regions_mod |> 
+  left_join(pansolid_worksheet_info |> 
+              select(worksheet, date),
+            by = "worksheet")
+
+number_ploidy_regions_date_group <- number_ploidy_regions_date |> 
+  group_by(date, category) |> 
+  filter(!is.na(date)) |> 
+  count(.drop = FALSE) |> 
+  pivot_wider(id_cols = date,
+              names_from = category,
+              values_from = n,
+              values_fill = 0)
+
+contamination_ptd_plot <- ptd_spc(number_ploidy_regions_date_group,
+        value_field = `potential contamination`,
+        date_field = date,
+        improvement_direction = "decrease")
+
+```
+
+```{r}
+#| label: contamination-spc-chart
+#| echo: FALSE
+
+contamination_ptd_plot |> 
+  plot(x_axis_breaks = "1 month")
+
+```
 
 ## Are contaminated samples always in the same area of a worksheet?
 
@@ -410,13 +491,13 @@ plot_qiasymphony_positions +
 
 qiasymphony_layout_tbl <- qiasymphony_layout_df |> 
   group_by(y_coordinate) |> 
-  summarise(total_contaminated = sum(n))
+  summarise(total_contaminated = sum(n)) |> 
+  rename(`QAIsymphony row` = y_coordinate,
+         `Number of contaminated samples` = total_contaminated)
 
 knitr::kable(qiasymphony_layout_tbl)
 
 ```
-
-{{< pagebreak >}}
 
 ## Do contaminated samples come from the same pathology lab?
 
@@ -453,13 +534,15 @@ path_lab_summary <- number_ploidy_regions_path_lab |>
 
 ```
 
-There is no evidence that a particular pathology lab is sending the majority of contaminated samples.
+I have used the "consultant address" field on DNA database to evaluate whether certain pathology labs are more likely than others to send contaminated samples.
+Overall there is no evidence that a particular pathology lab is sending the majority of contaminated samples.
+The table below shows the results for the top 20 pathology labs that send the most samples.
 
 ```{r}
 #| label: tbl-path-lab-summary
 #| echo: FALSE
 
-knitr::kable(path_lab_summary)
+knitr::kable(head(path_lab_summary, n = 20))
 
 ```
 
@@ -474,21 +557,35 @@ plot_folder <- paste0(config::get("data_folderpath"),
 
 ## Is there evidence of which sample is the source of the contamination?
 
-There are 24 samples per QIAsymphony batch.
+### SNP comparison approach
 
-There are 48 samples per PanSolid worksheet.
+One way to identify the source of the contamination is to compare the SNP variant allele frequencies between samples.
 
-Therefore to investigate cross-contamination we need to look at a few different PanSolid worksheets around the time that the sample was extracted.
+However there are some things to consider:
 
-Multiple QIAsymphony batches may be processed on the QIAsymphony instrument at a time.
+- There are 24 samples per QIAsymphony batch.
 
-Not all the samples on a QIAsymphony batch will necessarily be tested on PanSolid NGS, and PanSolid NGS is required to identify contamination.
-Therefore in some cases it is not possible to exclude that the contamination has originated from within a QIAsymphony batch.
+- There are 48 samples per PanSolid worksheet.
 
-I have approached this by quantifying the number of homozygous SNPs which are shared between the two samples.
-This provides an objective metric of similarity, rather than subjective judgement based on plots.
+- Not all the samples on a QIAsymphony batch will necessarily be tested on PanSolid NGS, and PanSolid NGS is required to identify contamination.
 
-The only issue is that comparing thousands of SNPs for hundreds of samples is computationally quite intensive - hence I've had to specify certain code chunks not to evaluate, otherwise this report does not render and RStudio crashes.
+- Multiple QIAsymphony batches may be processed on the QIAsymphony instrument at a time.
+
+Therefore this leads to the following caveats:
+
+- To investigate cross-contamination I will need to look at a few different PanSolid worksheets around the time that the contaminated sample was extracted.
+
+- In some cases it won't be possible to exclude that the contamination has originated from within a QIAsymphony batch, because not all the samples will have been tested on PanSolid.
+
+- Even if I can find the contaminant, this does not identify *where* in the workflow the contamination occured. For example, two samples may have been sent from the same pathology lab, extracted on the same QIAsymphony batch and tested on the same PanSolid worksheet.
+
+Accepting these caveats, I have approached this task by quantifying the number of homozygous SNPs which are shared between the two samples.
+One way to visualise this is to colour each SNP in the contaminated sample with the frequency of the same SNP in the sample suspected of being the contaminant.
+
+### Example
+
+Here is an example for where one sample is not contaminating the other. 
+In the right side plot, there is no pattern of colour - the frequency of a SNP in one sample does not seem to be linked to the frequency in the other sample.
 
 ```{r}
 #| label: sample-24026628b
@@ -524,13 +621,37 @@ ggsave(plot = plot_24026628_no_match,
 
 ```
 
-To show that this approach works, here are the results for a case where I deliberately mixed DNA together.
-
-Sample 24026628b on WS150465.
-
 ![Example of samples which weren't mixed](`r paste0(plot_folder, "plot_24026628_no_match.png")`)
 
+By contrast, here is the plot when sample 24026628b is compared to the sample which is genuinely contaminating it. 
+I know that 25008693 is the contaminating sample because I deliberately mixed these two DNAs together for a limit of detection experiment.
+Notice that there is a clear colour pattern in the right-side plot.
+
 ![Example of mixed samples](`r paste0(plot_folder, "plot_24026628_match.png")`)
+
+Looking at these plots is helpful, but not automated or scalable. 
+So I created a metric of similarity which is the proportion of SNPs which have a high (over 98%) VAF in the contaminated sample which also have a high VAF in the sample which is the suspected contaminant.
+Put more simply, this metric looks at how many blue dots there are in the top band of the right-hand side plot.
+The only issue is that comparing thousands of SNPs for hundreds of samples is computationally quite intensive - hence I've had to specify certain code chunks not to evaluate, otherwise this report does not render and RStudio crashes.
+
+### Investigation results
+
+```{r}
+#| include: FALSE
+
+cases_over_200 <- potential_contamination_cases_reviewed |> 
+  filter(number_ploidy_regions >= 200)
+
+cases_to_review <- potential_contamination_cases_reviewed |> 
+  filter(visual_inspection == "potential contamination" &
+           labno != "25038343")
+
+```
+
+Sample 25038343 was excluded because it had a SNP profile that looks more like poor coverage than contamination.
+This left
+`r nrow(cases_to_review)` results from
+`r length(unique(cases_to_review$labno))` DNA samples to review.
 
 ```{r}
 #| label: sample-25024438
@@ -559,10 +680,9 @@ ggsave(plot = plot_25024438,
 
 ```{r}
 #| label: summary-25024438
-#| eval: FALSE
 #| include: FALSE
 
-summary_25024438 <- rbind(make_contamination_summary_table("25024438", "WS152914",
+summary_25024438 <- cbind(make_contamination_summary_table("25024438", "WS152914",
                                        "contaminated"),
       make_contamination_summary_table("25024440", "WS152973",
                                        "contaminant"))
@@ -769,10 +889,9 @@ ggsave(plot = plot_25028207,
 
 ```{r}
 #| label: summary-25028207
-#| eval: FALSE
 #| include: FALSE
 
-rbind(make_contamination_summary_table("25028207", "WS153552",
+summary_25028207 <- cbind(make_contamination_summary_table("25028207", "WS153552",
                                        "contaminated"),
       make_contamination_summary_table("25028293", "WS153552",
                                        "contaminant"))
@@ -867,7 +986,7 @@ results_25028766 <- search_for_contaminant(all_data_25028766,
 inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         labno = "25028766", 
         status = "contaminant not found", 
-        likely_source = "Newcastle lab?")
+        likely_source = "")
 
 ```
 
@@ -913,7 +1032,7 @@ results_25031248 <- search_for_contaminant(all_data_25031248,
 inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         labno = "25031248", 
         status = "contaminant not found", 
-        likely_source = "Cambridge lab?")
+        likely_source = "")
 
 ```
 
@@ -994,11 +1113,10 @@ ggsave(plot = plot_25035495,
 ```
 
 ```{r}
-#| eval: FALSE
 #| include: FALSE
 #| label: summary-25035495
 
-rbind(make_contamination_summary_table("25035495", "WS154624",
+summary_25035495 <- cbind(make_contamination_summary_table("25035495", "WS154624",
                                        "contaminated"),
       make_contamination_summary_table("25035560", "WS154675",
                                        "contaminant"))
@@ -1038,11 +1156,10 @@ ggsave(plot = plot_25035635,
 ```
 
 ```{r}
-#| eval: FALSE
 #| include: FALSE
 #| label: summary-25035635
 
-rbind(make_contamination_summary_table("25035635", "WS154675",
+summary_25035635 <- cbind(make_contamination_summary_table("25035635", "WS154675",
                                        "contaminated"),
       make_contamination_summary_table("25035862", "WS154675",
                                        "contaminant"))
@@ -1080,11 +1197,10 @@ ggsave(plot = plot_25036241,
 ```
 
 ```{r}
-#| eval: FALSE
 #| include: FALSE
 #| label: summary-25036241
 
-rbind(make_contamination_summary_table("25036241", "WS154716",
+summary_25036241 <- cbind(make_contamination_summary_table("25036241", "WS154716",
                                  "contaminated"),
       make_contamination_summary_table("25036234", "WS154716",
                                        "contaminant"))
@@ -1122,11 +1238,10 @@ ggsave(plot = plot_25038540,
 ```
 
 ```{r}
-#| eval: FALSE
 #| include: FALSE
 #| label: summary-25038540
 
-rbind(make_contamination_summary_table("25038540", "WS155071",
+summary_25038540 <- cbind(make_contamination_summary_table("25038540", "WS155071",
                                  "contaminated"),
       make_contamination_summary_table("25038464", "WS155071",
                                  "contaminant"))
@@ -1286,11 +1401,10 @@ ggsave(plot = plot_25045055,
 ```
 
 ```{r}
-#| eval: FALSE
 #| label: summary-25045055
 #| include: FALSE
 
-rbind(make_contamination_summary_table("25045055", "WS156025",
+summary_25045055 <- cbind(make_contamination_summary_table("25045055", "WS156025",
                                        "contaminated"),
       make_contamination_summary_table("25045186", "WS156025",
                                        "contaminant"))
@@ -1303,7 +1417,7 @@ rbind(make_contamination_summary_table("25045055", "WS156025",
 inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         labno = "25045055", 
         status = "contaminant found", 
-        likely_source = "PanSolid setup or QIAsymphony extraction")
+        likely_source = "QIAsymphony extraction")
 
 ```
 
@@ -1329,11 +1443,10 @@ ggsave(plot = plot_25045248,
 ```
 
 ```{r}
-#| eval: FALSE
 #| include: FALSE
 #| label: summary-25045248
 
-rbind(make_contamination_summary_table("25045248", "WS156025",
+summary_25045248 <- cbind(make_contamination_summary_table("25045248", "WS156025",
                                        "contaminated"),
       make_contamination_summary_table("25045186", "WS156025",
                                        "contaminant"))
@@ -1345,7 +1458,7 @@ rbind(make_contamination_summary_table("25045248", "WS156025",
 inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         labno = "25045248", 
         status = "contaminant found", 
-        likely_source = "PanSolid setup")
+        likely_source = "QIAsymphony extraction")
 
 ```
 
@@ -1368,11 +1481,10 @@ ggsave(plot = plot_25045270,
 ```
 
 ```{r}
-#| eval: FALSE
 #| include: FALSE
 #| label: summary-25045270
 
-rbind(make_contamination_summary_table("25045270", "WS156025",
+summary_25045270 <- cbind(make_contamination_summary_table("25045270", "WS156025",
                                        "contaminated"),
       make_contamination_summary_table("25045186", "WS156025",
                                        "contaminant"))
@@ -1385,7 +1497,7 @@ rbind(make_contamination_summary_table("25045270", "WS156025",
 inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
         labno = "25045270", 
         status = "contaminant found", 
-        likely_source = "PanSolid setup")
+        likely_source = "QIAsymphony extraction")
 
 ```
 
@@ -1484,11 +1596,10 @@ ggsave(plot = plot_25051800,
 ```
 
 ```{r}
-#| eval: FALSE
 #| include: FALSE
 #| label: summary-25051800
 
-rbind(make_contamination_summary_table("25051800", "WS156990",
+summary_25051800 <- cbind(make_contamination_summary_table("25051800", "WS156990",
                                        "contaminant"),
       make_contamination_summary_table("25051808", "WS156990",
                                        "contaminant"))
@@ -1578,6 +1689,16 @@ results_25053859 <- search_for_contaminant(all_data_25053859,
 ```
 
 ```{r}
+#| include: FALSE
+
+inc10994_summary_tbl <- add_row(inc10994_summary_tbl,
+        labno = "25053859", 
+        status = "contaminant not found", 
+        likely_source = "")
+
+```
+
+```{r}
 #| label: sample-25055138
 #| eval: FALSE
 #| include: FALSE
@@ -1648,59 +1769,127 @@ knitr::kable(inc10994_summary_tbl |>
 
 ```
 
+Here are the details of the samples where I found a contaminant (scroll across for all the columns).
+
+```{r}
+#| label: tbl-sample-contaminant-details
+#| tbl-cap: "Details of contaminating samples"
+#| echo: FALSE
+
+sample_contaminant_details <- rbind(summary_25024438,
+                                    summary_25028207,
+                                    summary_25035495,
+                                    summary_25035635,
+                                    summary_25036241,
+                                    summary_25038540,
+                                    summary_25045055,
+                                    summary_25045248,
+                                    summary_25045270,
+                                    summary_25051800)
+
+knitr::kable(sample_contaminant_details)
+
+```
+
 ### Contamination spike
 
 One interesting finding is that 3 samples on WS156025 all appear to be contaminated with the same sample: 25045186.
-
+These samples all came from different pathology labs.
 All these samples were in the 4th row on two QIAsymphony batches which were processed on the same day, which indicates that this could be contamination occurring across QIAsymphony extractions.
 
 ```{r}
-#| label: tbl-WS156025
+#| label: tbl-contamination-spike
+#| tbl-cap: "Details of samples impacted by contamination spike"
 #| echo: FALSE
 
-rbind(make_contamination_summary_table("25045186", "WS156025",
+contamination_spike_table <- rbind(make_contamination_summary_table("25045186", "WS156025",
                                        "contaminant"),
       make_contamination_summary_table("25045055", "WS156025",
                                        "contaminated"),
       make_contamination_summary_table("25045248", "WS156025",
                                        "contaminated"),
       make_contamination_summary_table("25045270", "WS156025",
-                                       "contaminated")) |> 
-  select(-consultant_address)
+                                       "contaminated"))
+
+knitr::kable(contamination_spike_table)
 
 ```
 
 ### PanSolid samples per QIAsymphony batch
 
-Here is a list of QIAsymphony batches on which there were samples with apparent contamination and where I could not find a the contaminant via SNP checking.
-For each batch, I have included the percentage of samples which were tested on PanSolid NGS.
-
 ```{r}
-#| label: tbl-qiasymphony-batch-tested-on-pansolid
-#| echo: FALSE
+#| label: qiasymphony-batch-tested-on-pansolid
+#| include: FALSE
+
+add_labno_to_qs_table <- function(tbl, labno) {
+  
+  output <- tbl |> 
+    mutate(labno = labno) |> 
+    relocate(labno)
+  
+  return(output)
+  
+}
 
 ps_batch_table <- rbind(
-  ps_samples_per_qs_batch("92969"),
-      ps_samples_per_qs_batch("92907"),
-      ps_samples_per_qs_batch("92552"),
-      ps_samples_per_qs_batch("93027"),
-      ps_samples_per_qs_batch("93040"),
-      ps_samples_per_qs_batch("93162"),
-      ps_samples_per_qs_batch("93314"),
-      ps_samples_per_qs_batch("93162"),
-      ps_samples_per_qs_batch("93577"),
-      ps_samples_per_qs_batch("93750"),
-      ps_samples_per_qs_batch("94344"),
-      ps_samples_per_qs_batch("95540"),
-      ps_samples_per_qs_batch("95674"),
-      ps_samples_per_qs_batch("96448"),
-  ps_samples_per_qs_batch("96604"),
-  ps_samples_per_qs_batch("96651"),
-  ps_samples_per_qs_batch("97180"),
-  ps_samples_per_qs_batch("97292"),
-  ps_samples_per_qs_batch("97472"),
-  ps_samples_per_qs_batch("97677"),
-  ps_samples_per_qs_batch("97616"))
+  add_labno_to_qs_table(ps_samples_per_qs_batch("92552"),
+                      "25024565"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("92907"),
+                      "25026341"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("92969"),
+                      "25026815"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("92970"),
+                      "25026850"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("93040"),
+                      "25027112"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("93314"),
+                      "25028781"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("93162"),
+                      "25028039"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("93577"),
+                      "25030208"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("93750"),
+                      "25031305"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("94344"),
+                      "25034585"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("95182"),
+                      "25039656"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("95291"),
+                      "25040187"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("95540"),
+                      "25041888"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("95674"),
+                      "25042695"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("96448"),
+                      "25047626"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("96604"),
+                      "25048537"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("96651"),
+                      "25048829"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("97180"),
+                      "25052084"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("97292"),
+                      "25052591"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("97472"),
+                      "25053859"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("97677"),
+                      "25055138"),
+  add_labno_to_qs_table(ps_samples_per_qs_batch("97616"),
+                      "25054809")
+  )
+
+```
+
+Here is a list of QIAsymphony batches for the
+`r nrow(ps_batch_table)`
+samples with apparent contamination where I could not find a the contaminant via SNP checking.
+For each batch, I have included the percentage of samples which were tested on PanSolid NGS.
+For two samples (25028766 and 25031248) DNA was extracted by another lab, so they are not in this list.
+
+```{r}
+#| echo: FALSE
+#| label: tbl-qs-batch-ps
+#| tbl-cap: ""
 
 knitr::kable(ps_batch_table)
 
@@ -1715,3 +1904,8 @@ From this investigation I have drawn these conclusions:
 - The rate of contamination is below 1%, which is lower than published reports.
 
 - There is no consistent source of the contamination, although there was a spike of 3 contaminated samples all extracted on 1st August.
+
+# References
+
+::: {#refs}
+:::
