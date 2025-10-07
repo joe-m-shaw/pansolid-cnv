@@ -387,7 +387,7 @@ glasgow_samples_export_filtered <- glasgow_samples_export_full |>
 ```
 
 We can then calculate exactly how much DNA we can afford to send.
-For context, the PanSolid NGS workflow requires ~100ng of DNA.
+For context, the PanSolid NGS workflow requires \~100ng of DNA.
 
 ```{r}
 
@@ -459,3 +459,54 @@ write_csv(glasgow_sample_dna_volumes |>
 # Conclusion
 
 I have selected `r nrow(sample_selection)` samples meeting the criteria of the Glasgow laboratory.
+
+# Appendix
+
+Here is some data for Ben McAllister to practice on.
+
+```{r}
+
+data_for_ben <- ps_df_join |> 
+  rename(id = labno,
+         tumour_type = type,
+         dna_conc = concentration,
+         quality1 = percent_138x,
+         quality2 = stdev_noise) |> 
+  select(id, tumour_type, dna_conc,
+         tissue_type, quality1, quality2)
+
+write_csv(data_for_ben,
+          paste0(glasgow_sample_folder,
+                 "data_for_ben.csv"))
+
+```
+
+```{r}
+#| eval: FALSE
+#| include: FALSE
+
+# Some plots you can draw with the data
+
+ggplot(data_for_ben, aes(x = tumour_type,
+                         y = dna_conc)) +
+  geom_boxplot()
+
+ggplot(data_for_ben, aes(x = quality1,
+                         y = quality2)) +
+  geom_point(shape = 21) 
+
+ggplot(data_for_ben, aes(x = quality1,
+                         y = quality2)) +
+  geom_point(shape = 21) +
+  facet_wrap(~tumour_type)
+
+ggplot(data_for_ben, aes(x = tissue_type,
+                         y = dna_conc)) +
+  geom_boxplot()
+
+ggplot(data_for_ben, aes(x = quality1,
+                         y = dna_conc)) +
+  geom_point(shape = 21)
+
+```
+
