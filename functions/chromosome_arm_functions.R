@@ -347,4 +347,35 @@ read_targets_merged <- function(filepath, sheetname = "CNV Targets Merged"){
   
 }
 
+read_subpanel_variant_sheet <- function(filepath, sheetname) {
+  
+  df <- readxl::read_excel(path = filepath,
+                           sheet = sheetname,
+                           range = readxl::cell_cols("A:G"),
+                           col_types = c(
+                             "text", "text", "text", "text", "text",
+                             "text", "text"
+                           )) |> 
+    janitor::clean_names() 
+  
+  if(nrow(df) == 0) {
+    
+    df <- data.frame(
+      "chromosome" = "",
+      "gr_ch38_region" = "",
+      "transcript" = "",
+      "variant_nomenclature" = "no variants",
+      "additional_transcripts" = "",
+      "check_1" = "",
+      "check_2" = ""
+    )
+    
+  }
+  
+  output <- add_identifiers(filepath, df)
+  
+  return(output)
+  
+}
+
 source(here::here("tests/test_chromosome_arm_functions.R"))

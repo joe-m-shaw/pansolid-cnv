@@ -1,0 +1,183 @@
+---
+title: "Finding TERT promoter samples for Chris Kershaw"
+author: "Joe Shaw (CS20980)"
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+    embed-resources: true
+editor: visual
+---
+
+```{r}
+#| warning: FALSE
+#| include: FALSE
+
+library(tidyverse)
+
+source(here::here("scripts/connect_to_dna_db.R"))
+source(here::here("functions/pansolid_cnv_excel_functions.R"))
+source(here::here("functions/chromosome_arm_functions.R"))
+
+```
+
+# Introduction
+
+Chris Kershaw wants some samples with TERT -124C>T and -146 C>T promoter variants to test the QIAcuity instrument on.
+
+# Methods
+
+The first step is to find the PanSolid Excel files for every PanSolid sample processed since May 2025.
+
+```{r}
+#| eval: FALSE
+
+pansolid_worksheet_info <- read_csv(file = paste0(config::get("data_folderpath"),
+                                                  "live_service/collated/",
+                                                  "pansolid_worksheet_info.csv"))
+pws_ws_del_loh <- pansolid_worksheet_info |> 
+  # New CNV Excel layout started with WS152758
+  filter(pcrid >= 152758)
+
+ps_worksheets <- unique(pws_ws_del_loh$worksheet)
+
+annotated_file_regex <- "Annotated_.*_WS\\d{6}_\\d{8}.*.xlsx"
+
+ps_filepaths_annotated <- ps_worksheets |> 
+  map(\(ps_worksheets) get_worksheet_filepaths(worksheet = ps_worksheets,
+                                               file_regex = annotated_file_regex)) |> 
+  flatten()
+
+ps_filepaths_annotated_closed_only <- ps_filepaths_annotated[grepl(
+  pattern = "^(?!.*~\\$).*\\.xlsx$",
+  x = ps_filepaths_annotated,
+  perl = TRUE)]
+
+stopifnot(any(grepl(pattern = "~\\$", x = ps_filepaths_annotated_closed_only)) == FALSE)
+
+```
+
+The next step is to collate the "Subpanel_Variants" tab from each Excel together.
+
+There are many files so this takes a little time, and I have exported the collated data to speed this up in future.
+
+```{r}
+#| eval: FALSE
+
+collated_variants <- ps_filepaths_annotated_closed_only |> 
+  map(\(ps_filepaths_annotated_closed_only) read_subpanel_variant_sheet(filepath = ps_filepaths_annotated_closed_only,
+                                                   sheetname = get_sheetname(filepath = ps_filepaths_annotated_closed_only,
+                                                                             sheet_regex ="Subpanel_Variants_.*"))) |> 
+  list_rbind()
+
+collated_variants_mod <- collated_variants |> 
+  select(worksheet, labno, suffix, patient_name, labno_suffix,
+         labno_suffix_worksheet,
+         filepath, chromosome, gr_ch38_region,
+         transcript, variant_nomenclature, additional_transcripts,
+         check_1, check_2) |> 
+  filter(!is.na(chromosome) &
+           !is.na(gr_ch38_region) &
+           !is.na(transcript))
+
+write_csv(x = collated_variants_mod, 
+          file = paste0(config::get("data_folderpath"),
+                        "live_service/collated/",
+                        "subpanel_variants_live.csv"))
+
+```
+
+```{r}
+
+collated_variants_mod <- read_csv(paste0(config::get("data_folderpath"),
+                        "live_service/collated/",
+                        "subpanel_variants_live.csv"),
+                        col_types = "cccccccccccccc")
+
+```
+
+*TERT* is analysed on the central nervous system (CNS) panel, so I will restrict the samples to only those tested on this panel.
+
+```{r}
+
+cns_df <- collated_variants_mod |> 
+  filter(grepl(pattern = "CNS", x = filepath))
+
+```
+
+I will then use the *TERT* variant nomenclature to search for samples with the two canonical variants, and then search for CNS samples which do not have any *TERT* variants detected.
+
+```{r}
+
+tert_variant_df <- cns_df |>
+  filter(grepl(pattern = "TERT",
+               x = variant_nomenclature))
+
+tert_var_regex <- "TERT\\sc.-124C>T|TERT\\sc.-146C>T"
+
+tert_canonical_variant_df <- tert_variant_df |> 
+  filter(grepl(pattern = tert_var_regex,
+               x = variant_nomenclature))
+
+no_tert_variant_df <- cns_df |> 
+  filter(!labno_suffix_worksheet %in% tert_variant_df$labno_suffix_worksheet)
+
+```
+
+Then I will get the DNA concentration for each DNA lab number from the DNA database.
+
+```{r}
+
+labno_vector <- cns_df$labno
+
+labno_df <- sample_tbl |>
+  filter(labno %in% labno_vector) |>
+  select(labno, concentration) |>
+  collect() |> 
+  mutate(dna_concentration = as.numeric(concentration)) |> 
+  select(-concentration)
+
+```
+
+Next I can add on the DNA concentration information and add a column for the variant percentage of the *TERT* variants.
+
+```{r}
+
+tert_canonical_variant_df_conc <- tert_canonical_variant_df |> 
+  filter(!duplicated(labno)) |> 
+  left_join(labno_df, by = "labno",
+            relationship = "many-to-one") |> 
+  select(labno, worksheet, variant_nomenclature, dna_concentration) |> 
+  mutate(variant_percent = str_extract(string = variant_nomenclature,
+                                       pattern = "TERT.*\\s(\\d{1,2})%$",
+                                       group = 1)) |> 
+  rename(pansolid_worksheet = worksheet) |> 
+  arrange(desc(dna_concentration))
+
+no_tert_variant_df_mod <- no_tert_variant_df |> 
+  filter(!duplicated(labno_suffix_worksheet)) |> 
+  left_join(labno_df, by = "labno",
+            relationship = "many-to-one") |> 
+   select(labno, worksheet, dna_concentration) |> 
+  mutate(category = "No TERT variants") |> 
+  relocate(category) |> 
+  rename(pansolid_worksheet = worksheet) |> 
+  arrange(desc(dna_concentration))
+
+```
+
+# Results
+
+I have found `r length(unique(tert_canonical_variant_df_conc$labno))` samples with the canonical *TERT* promoter variants, and 
+`r length(unique(no_tert_variant_df_mod$labno))` samples without *TERT* variants.
+
+```{r}
+
+write_csv(tert_canonical_variant_df_conc,
+          "samples_with_tert_variants.csv")
+
+write_csv(no_tert_variant_df_mod,
+          "samples_without_tert_variants.csv")
+
+
+```

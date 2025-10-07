@@ -652,6 +652,7 @@ Sample 25038343 was excluded because it had a SNP profile that looks more like p
 This left
 `r nrow(cases_to_review)` results from
 `r length(unique(cases_to_review$labno))` DNA samples to review.
+For each sample where I found a likely contaminant, I generated SNP VAF plots which are saved in the subfolder of this incident (I haven't included them in this HTML because the file size gets very large and RStudio runs very slowly).
 
 ```{r}
 #| label: sample-25024438
