@@ -6,6 +6,10 @@ format:
     code-fold: true
     code-summary: "Show the code"
     embed-resources: true
+    code-links:
+      - text: Code link
+        icon: file-code
+        href: https://github.com/joe-m-shaw/pansolid-cnv/blob/main/scripts/dev/chris_tert_promoter_variants.qmd
 editor: visual
 ---
 
@@ -132,7 +136,7 @@ labno_vector <- cns_df$labno
 
 labno_df <- sample_tbl |>
   filter(labno %in% labno_vector) |>
-  select(labno, concentration) |>
+  select(labno, i_gene_r_no, concentration) |>
   collect() |> 
   mutate(dna_concentration = as.numeric(concentration)) |> 
   select(-concentration)
@@ -147,7 +151,8 @@ tert_canonical_variant_df_conc <- tert_canonical_variant_df |>
   filter(!duplicated(labno)) |> 
   left_join(labno_df, by = "labno",
             relationship = "many-to-one") |> 
-  select(labno, worksheet, variant_nomenclature, dna_concentration) |> 
+  select(labno, i_gene_r_no, 
+         worksheet, variant_nomenclature, dna_concentration) |> 
   mutate(variant_percent = str_extract(string = variant_nomenclature,
                                        pattern = "TERT.*\\s(\\d{1,2})%$",
                                        group = 1)) |> 
@@ -158,7 +163,7 @@ no_tert_variant_df_mod <- no_tert_variant_df |>
   filter(!duplicated(labno_suffix_worksheet)) |> 
   left_join(labno_df, by = "labno",
             relationship = "many-to-one") |> 
-   select(labno, worksheet, dna_concentration) |> 
+   select(labno, i_gene_r_no, worksheet, dna_concentration) |> 
   mutate(category = "No TERT variants") |> 
   relocate(category) |> 
   rename(pansolid_worksheet = worksheet) |> 
@@ -178,6 +183,5 @@ write_csv(tert_canonical_variant_df_conc,
 
 write_csv(no_tert_variant_df_mod,
           "samples_without_tert_variants.csv")
-
 
 ```
