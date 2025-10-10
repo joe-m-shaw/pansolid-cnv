@@ -31,13 +31,13 @@ source(here::here("functions/contamination_functions_INC10994.R"))
 This is an investigation into the rate and source of contamination identified in PanSolid next generation sequencing (NGS) at the North West Genomic Laboratory Hub (GLH).
 Contamination can originate at multiple stages of the testing pathway:
 
-- Bone marrow transplant
+-   Bone marrow transplant
 
-- Pathology lab
+-   Pathology lab
 
-- DNA extraction (QIAsymphony extraction)
+-   DNA extraction (QIAsymphony extraction)
 
-- NGS library preparation (PanSolid NGS)
+-   NGS library preparation (PanSolid NGS)
 
 # Methods
 
@@ -72,12 +72,8 @@ stdev_live <- read_csv(paste0(config::get("data_folderpath"),
 
 ```
 
-`r nrow(number_ploidy_regions_live)` PanSolid NGS results from
-`r length(unique(number_ploidy_regions_live$labno))` DNA samples were reviewed.
-These samples were tested on 
-`r length(unique(number_ploidy_regions_live$worksheet))` worksheets 
-(WS`r as.character(min(number_ploidy_regions_live$ws_number))` to 
-WS`r as.character(max(number_ploidy_regions_live$ws_number))`).
+`r nrow(number_ploidy_regions_live)` PanSolid NGS results from `r length(unique(number_ploidy_regions_live$labno))` DNA samples were reviewed.
+These samples were tested on `r length(unique(number_ploidy_regions_live$worksheet))` worksheets (WS`r as.character(min(number_ploidy_regions_live$ws_number))` to WS`r as.character(max(number_ploidy_regions_live$ws_number))`).
 
 # Results
 
@@ -141,11 +137,8 @@ potential_contamination_cases_reviewed <- read_excel(
 
 I have checked for results which had over 150 ploidy regions and also passed the percent coverage at 138X and signal-adjusted noise quality metrics.
 
-There were 
-`r nrow(potential_contamination_cases)` results from
-`r length(unique(potential_contamination_cases$labno))` DNA samples which met these criteria.
-I have manually reviewed these
-`r nrow(potential_contamination_cases_reviewed)` results to check if the VAF plots indicated contamination was present.
+There were `r nrow(potential_contamination_cases)` results from `r length(unique(potential_contamination_cases$labno))` DNA samples which met these criteria.
+I have manually reviewed these `r nrow(potential_contamination_cases_reviewed)` results to check if the VAF plots indicated contamination was present.
 
 ```{r}
 #| label: label-reviewed-data
@@ -240,6 +233,7 @@ Overall the rate of samples which appear contaminated after visual inspection is
 
 ```{r}
 #| label: tbl-contamination-rate
+#| tbl-cap: "Frequency of samples which appear contaminated"
 #| echo: FALSE
 
 tbl_contamination_rate <- number_ploidy_regions_mod |> 
@@ -356,7 +350,7 @@ plot_contamination_ps_ws +
 
 ```
 
-For an extra bit of fun, I can use the NHS R community's "plot the dots" package to investigate the contamination rate using a concept called statistical process control (SPC).
+For extra insight, I can use the [NHS R community's "plot the dots" package](https://nhsrplotthedots.nhsrcommunity.com/) to investigate the contamination rate using a concept called statistical process control (SPC).
 
 ```{r}
 #| label: contamination-spc-calculations
@@ -563,28 +557,29 @@ One way to identify the source of the contamination is to compare the SNP varian
 
 However there are some things to consider:
 
-- There are 24 samples per QIAsymphony batch.
+-   There are 24 samples per QIAsymphony batch.
 
-- There are 48 samples per PanSolid worksheet.
+-   There are 48 samples per PanSolid worksheet.
 
-- Not all the samples on a QIAsymphony batch will necessarily be tested on PanSolid NGS, and PanSolid NGS is required to identify contamination.
+-   Not all the samples on a QIAsymphony batch will necessarily be tested on PanSolid NGS, and PanSolid NGS is required to identify contamination.
 
-- Multiple QIAsymphony batches may be processed on the QIAsymphony instrument at a time.
+-   Multiple QIAsymphony batches may be processed on the QIAsymphony instrument at a time.
 
 Therefore this leads to the following caveats:
 
-- To investigate cross-contamination I will need to look at a few different PanSolid worksheets around the time that the contaminated sample was extracted.
+-   To investigate cross-contamination I will need to look at a few different PanSolid worksheets around the time that the contaminated sample was extracted.
 
-- In some cases it won't be possible to exclude that the contamination has originated from within a QIAsymphony batch, because not all the samples will have been tested on PanSolid.
+-   In some cases it won't be possible to exclude that the contamination has originated from within a QIAsymphony batch, because not all the samples will have been tested on PanSolid.
 
-- Even if I can find the contaminant, this does not identify *where* in the workflow the contamination occured. For example, two samples may have been sent from the same pathology lab, extracted on the same QIAsymphony batch and tested on the same PanSolid worksheet.
+-   Even if I can find the contaminant, this does not identify [*where*]{.underline} in the workflow the contamination occurred.
+    For example, two samples may have been sent from the same pathology lab, extracted on the same QIAsymphony batch and tested on the same PanSolid worksheet.
 
 Accepting these caveats, I have approached this task by quantifying the number of homozygous SNPs which are shared between the two samples.
 One way to visualise this is to colour each SNP in the contaminated sample with the frequency of the same SNP in the sample suspected of being the contaminant.
 
 ### Example
 
-Here is an example for where one sample is not contaminating the other. 
+Here is an example for where one sample is not contaminating the other.
 In the right side plot, there is no pattern of colour - the frequency of a SNP in one sample does not seem to be linked to the frequency in the other sample.
 
 ```{r}
@@ -623,13 +618,13 @@ ggsave(plot = plot_24026628_no_match,
 
 ![Example of samples which weren't mixed](`r paste0(plot_folder, "plot_24026628_no_match.png")`)
 
-By contrast, here is the plot when sample 24026628b is compared to the sample which is genuinely contaminating it. 
+By contrast, here is the plot when sample 24026628b is compared to the sample which is genuinely contaminating it.
 I know that 25008693 is the contaminating sample because I deliberately mixed these two DNAs together for a limit of detection experiment.
 Notice that there is a clear colour pattern in the right-side plot.
 
 ![Example of mixed samples](`r paste0(plot_folder, "plot_24026628_match.png")`)
 
-Looking at these plots is helpful, but not automated or scalable. 
+Looking at these plots is helpful, but not automated or scalable.
 So I created a metric of similarity which is the proportion of SNPs which have a high (over 98%) VAF in the contaminated sample which also have a high VAF in the sample which is the suspected contaminant.
 Put more simply, this metric looks at how many blue dots there are in the top band of the right-hand side plot.
 The only issue is that comparing thousands of SNPs for hundreds of samples is computationally quite intensive - hence I've had to specify certain code chunks not to evaluate, otherwise this report does not render and RStudio crashes.
@@ -649,9 +644,7 @@ cases_to_review <- potential_contamination_cases_reviewed |>
 ```
 
 Sample 25038343 was excluded because it had a SNP profile that looks more like poor coverage than contamination.
-This left
-`r nrow(cases_to_review)` results from
-`r length(unique(cases_to_review$labno))` DNA samples to review.
+This left `r nrow(cases_to_review)` results from `r length(unique(cases_to_review$labno))` DNA samples to review.
 For each sample where I found a likely contaminant, I generated SNP VAF plots which are saved in the subfolder of this incident (I haven't included them in this HTML because the file size gets very large and RStudio runs very slowly).
 
 ```{r}
@@ -1881,11 +1874,8 @@ ps_batch_table <- rbind(
 
 ```
 
-Here is a list of QIAsymphony batches for the
-`r nrow(ps_batch_table)`
-samples with apparent contamination where I could not find a the contaminant via SNP checking.
-For each batch, I have included the percentage of samples which were tested on PanSolid NGS.
-For two samples (25028766 and 25031248) DNA was extracted by another lab, so they are not in this list.
+Here is a list of QIAsymphony batches for the `r nrow(ps_batch_table)` samples with apparent contamination where I could not find a the contaminant via SNP checking.
+For each batch, I have included the percentage of samples which were tested on PanSolid NGS. For two samples (25028766 and 25031248) DNA was extracted by another lab, so they are not in this list.
 
 ```{r}
 #| echo: FALSE
@@ -1900,11 +1890,11 @@ knitr::kable(ps_batch_table)
 
 From this investigation I have drawn these conclusions:
 
-- Contamination can be automatically screened for by counting the number of ploidy regions.
+-   Contamination can be automatically screened for by counting the number of ploidy regions.
 
-- The rate of contamination is below 1%, which is lower than published reports.
+-   The rate of contamination is below 1%, which is lower than published reports.
 
-- There is no consistent source of the contamination, although there was a spike of 3 contaminated samples all extracted on 1st August.
+-   There is no consistent source of the contamination, although there was a spike of 3 contaminated samples all extracted on 1st August.
 
 # References
 
