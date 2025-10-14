@@ -119,69 +119,69 @@ add_chromosome_arms <- function(df, chrom_col = chromosome_char,
     dplyr::filter(!{{ chrom_col }} %in% c("X", "Y")) |> 
     dplyr::mutate(chromosome_arm = dplyr::case_when(
       # chr1
-      {{ chrom_col }} == "1" & end < 122026459 ~"1p",
-      {{ chrom_col }} == "1" & start >= 124932724 ~"1q",
+      {{ chrom_col }} == "1" & {{ end_col }} < 122026459 ~"1p",
+      {{ chrom_col }} == "1" & {{ start_col }} >= 124932724 ~"1q",
       # chr2
-      {{ chrom_col }} == "2" & end < 92188145 ~"2p",
-      {{ chrom_col }} == "2" & start >= 94090557 ~"2q",
+      {{ chrom_col }} == "2" & {{ end_col }} < 92188145 ~"2p",
+      {{ chrom_col }} == "2" & {{ start_col }} >= 94090557 ~"2q",
       # chr3
-      {{ chrom_col }} == "3" & end < 90772458 ~"3p",
-      {{ chrom_col }} == "3" & start >= 93655574 ~"3q",
+      {{ chrom_col }} == "3" & {{ end_col }} < 90772458 ~"3p",
+      {{ chrom_col }} == "3" & {{ start_col }} >= 93655574 ~"3q",
       # chr4
-      {{ chrom_col }} == "4" & end < 49712061 ~"4p",
-      {{ chrom_col }} == "4" & start >= 51743951 ~"4q",
+      {{ chrom_col }} == "4" & {{ end_col }} < 49712061 ~"4p",
+      {{ chrom_col }} == "4" & {{ start_col }} >= 51743951 ~"4q",
       # chr5
-      {{ chrom_col }} == "5" & end < 46485900 ~"5p",
-      {{ chrom_col }} == "5" & start >= 50059807 ~"5q",
+      {{ chrom_col }} == "5" & {{ end_col }} < 46485900 ~"5p",
+      {{ chrom_col }} == "5" & {{ start_col }} >= 50059807 ~"5q",
       # chr6
-      {{ chrom_col }} == "6" & end < 58553888 ~"6p",
-      {{ chrom_col }} == "6" & start >= 59829934 ~"6q",
+      {{ chrom_col }} == "6" & {{ end_col }} < 58553888 ~"6p",
+      {{ chrom_col }} == "6" & {{ start_col }} >= 59829934 ~"6q",
       # chr7
-      {{ chrom_col }} == "7" & end < 58169653 ~"7p",
+      {{ chrom_col }} == "7" & {{ end_col }} < 58169653 ~"7p",
       # Coordinate change to reflect PanSolid coordinate
-      {{ chrom_col }} == "7" & start >= 61091465 ~"7q",
+      {{ chrom_col }} == "7" & {{ start_col }} >= 61091465 ~"7q",
       # chr8
-      {{ chrom_col }} == "8" & end < 44033744 ~"8p",
-      {{ chrom_col }} == "8" & start >= 45877265 ~"8q",
+      {{ chrom_col }} == "8" & {{ end_col }} < 44033744 ~"8p",
+      {{ chrom_col }} == "8" & {{ start_col }} >= 45877265 ~"8q",
       # chr9
-      {{ chrom_col }} == "9" & end < 43389635 ~"9p",
-      {{ chrom_col }} == "9" & start >= 45518558 ~"9q",
+      {{ chrom_col }} == "9" & {{ end_col }} < 43389635 ~"9p",
+      {{ chrom_col }} == "9" & {{ start_col }} >= 45518558 ~"9q",
       # chr10
-      {{ chrom_col }} == "10" & end < 39686682 ~"10p",
-      {{ chrom_col }} == "10" & start >= 41593521 ~"10q",
+      {{ chrom_col }} == "10" & {{ end_col }} < 39686682 ~"10p",
+      {{ chrom_col }} == "10" & {{ start_col }} >= 41593521 ~"10q",
       # chr11
-      {{ chrom_col }} == "11" & end < 51078348 ~"11p",
-      {{ chrom_col }} == "11" & start >= 54425074 ~"11q",
+      {{ chrom_col }} == "11" & {{ end_col }} < 51078348 ~"11p",
+      {{ chrom_col }} == "11" & {{ start_col }} >= 54425074 ~"11q",
       # chr12
-      {{ chrom_col }} == "12" & end < 34769407 ~"12p",
-      {{ chrom_col }} == "12" & start >= 37185252 ~"12q",
+      {{ chrom_col }} == "12" & {{ end_col }} < 34769407 ~"12p",
+      {{ chrom_col }} == "12" & {{ start_col }} >= 37185252 ~"12q",
       # chr 13
-      {{ chrom_col }} == "13" & start >= 18051248 ~"13q",
+      {{ chrom_col }} == "13" & {{ start_col }} >= 18051248 ~"13q",
       # chr14
-      {{ chrom_col }} == "14" & start >= 18173523 ~"14q",
+      {{ chrom_col }} == "14" & {{ start_col }} >= 18173523 ~"14q",
       # chr15
-      {{ chrom_col }} == "15" & start >= 19725254 ~"15q",
+      {{ chrom_col }} == "15" & {{ start_col }} >= 19725254 ~"15q",
       # chr16
-      {{ chrom_col }} == "16" & end < 36311158 ~"16p",
-      {{ chrom_col }} == "16" & start >= 36334460 ~"16q",
+      {{ chrom_col }} == "16" & {{ end_col }} < 36311158 ~"16p",
+      {{ chrom_col }} == "16" & {{ start_col }} >= 36334460 ~"16q",
       # chr17
-      {{ chrom_col }} == "17" & end < 22813679 ~"17p",
-      {{ chrom_col }} == "17" & start >= 26566633 ~"17q",
+      {{ chrom_col }} == "17" & {{ end_col }} < 22813679 ~"17p",
+      {{ chrom_col }} == "17" & {{ start_col }} >= 26566633 ~"17q",
       # chr18
-      {{ chrom_col }} == "18" & end < 15460899 ~"18p",
-      {{ chrom_col }} == "18" & start >= 20861206 ~"18q",
+      {{ chrom_col }} == "18" & {{ end_col }} < 15460899 ~"18p",
+      {{ chrom_col }} == "18" & {{ start_col }} >= 20861206 ~"18q",
       # chr19
-      {{ chrom_col }} == "19" & end < 24498980 ~"19p",
-      {{ chrom_col }} == "19" & start >= 27190874 ~"19q",
+      {{ chrom_col }} == "19" & {{ end_col }} < 24498980 ~"19p",
+      {{ chrom_col }} == "19" & {{ start_col }} >= 27190874 ~"19q",
       # chr20
-      {{ chrom_col }} == "20" & end < 26436232 ~"20p",
-      {{ chrom_col }} == "20" & start >= 30038348 ~"20q",
+      {{ chrom_col }} == "20" & {{ end_col }} < 26436232 ~"20p",
+      {{ chrom_col }} == "20" & {{ start_col }} >= 30038348 ~"20q",
       # chr21
-      {{ chrom_col }} == "21" & end < 10864560 ~"21p",
-      {{ chrom_col }} == "21" & start >= 12915808 ~"21q",
+      {{ chrom_col }} == "21" & {{ end_col }} < 10864560 ~"21p",
+      {{ chrom_col }} == "21" & {{ start_col }} >= 12915808 ~"21q",
       # chr22
-      {{ chrom_col }} == "22" & end < 12954788 ~"22p",
-      {{ chrom_col }} == "22" & start >= 15054318 ~"22q"
+      {{ chrom_col }} == "22" & {{ end_col }} < 12954788 ~"22p",
+      {{ chrom_col }} == "22" & {{ start_col }} >= 15054318 ~"22q"
     ))
   
   if(anyNA.data.frame(output) == TRUE) {
