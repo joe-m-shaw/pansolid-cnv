@@ -1,0 +1,89 @@
+---
+title: "Sample check for Rhys Owen"
+author: "Joe Shaw (CS20980)"
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+    embed-resources: true
+editor: visual
+---
+
+Rhys wants to check that two samples from the same patient have matching SNP results.
+
+```{r}
+#| include: FALSE
+
+library(tidyverse)
+library(patchwork)
+library(readxl)
+
+source(here::here("scripts/connect_to_dna_db.R"))
+source(here::here("functions/pansolid_cnv_excel_functions.R"))
+source(here::here("functions/chromosome_arm_functions.R"))
+source(here::here("functions/contamination_functions_INC10994.R"))
+
+```
+
+```{r}
+
+WS156308_data <- collate_snp_data("WS156308")
+
+WS156626_data <- collate_snp_data("WS156626")
+
+all_data_25042104 <- rbind(WS156308_data, WS156626_data)
+
+results_25048164 <- search_for_contaminant(all_data_25042104,
+                                           "25048164_WS156626")
+
+plot_25042104_25048164 <- make_contamination_snp_plot(all_data_25042104,
+                            "25048164_WS156626",
+                            all_data_25042104,
+                            "25042104_WS156308",
+                            hom_vaf_upper_threshold = 95,
+                            het_vaf_upper_threshold = 90,
+                            het_vaf_lower_threshold = 10,
+                            hom_vaf_lower_threshold = 4)
+
+```
+
+Here is a plot of the two samples.
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+
+plot_25042104_25048164
+
+```
+
+Export heterozygous SNPs in both samples.
+
+```{r}
+
+snp_tbl <- compare_snp_results(s1_df = all_data_25042104,
+                    s2_df = all_data_25042104,
+                    s1_id = "25048164_WS156626",
+                    s2_id = "25042104_WS156308",
+                    hom_vaf_upper_threshold = 95,
+                            het_vaf_upper_threshold = 90,
+                            het_vaf_lower_threshold = 10,
+                            hom_vaf_lower_threshold = 4)
+
+snp_export <- snp_tbl |> 
+  filter(reference_allele == "No") |> 
+  filter(sample1_frequency > 40 &
+           sample1_frequency < 60) |>
+  filter(sample2_frequency > 40 &
+           sample2_frequency < 60) |>
+  select(chromosome, region, type, reference, reference_allele,
+         allele, sample1_frequency, 
+         sample2_frequency) |>  
+  rename(frequency_25048164 = sample1_frequency,
+         frequency_25042104 = sample2_frequency) |> 
+  filter(!grepl(pattern = "E",
+                x = region))
+
+write_csv(snp_export, "snp_export.csv")
+
+```
