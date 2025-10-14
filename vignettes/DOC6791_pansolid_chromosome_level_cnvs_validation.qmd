@@ -28,6 +28,7 @@ library(patchwork)
 source(here("functions/extract_pansolid_cnv_coordinates.R"))
 source(here("functions/pansolid_cnv_excel_functions.R"))
 source(here("functions/chromosome_arm_functions.R"))
+source(here("functions/wgs_html_functions.R"))
 
 ```
 
@@ -69,6 +70,8 @@ to CNS Tumour taxonomy-Not Official WHO
 
 **MGMT**: O6-Methylguanine-DNA methyltransferase
 
+**MLPA:** Multiplex ligation-dependent probe amplification
+
 **NCC**: Neoplastic Cell Content
 
 **NGS**: Next Generation Sequencing
@@ -103,8 +106,11 @@ with a specific focus on neurological tumours, malignant melanoma and renal cell
 
 ## Chromosome-level copy number variants
 
-Large - impacting a whole chromosome or whole chromosome arm.
-However CNVs can have any length ranging from a single base pair to a whole genome.
+Previous validations of CNV detection on the PanSolid enrichment have focussed on copy number changes at the gene level for amplifications 
+[DOC6283]{custom-style="Strong"}
+and deletions 
+([DOC6567]{custom-style="Strong"}).
+This validation will instead focus on CNVs which impact entire chromosomes or entire chromosome arms, which will be referred to as "chromosome-level" CNVs and which are diagnostically and prognostically significant in a range of tumour types.
 
 ### Neurological tumours
 
@@ -113,10 +119,10 @@ In the most recent update of the cIMPACT-NOW guidelines for meningiomas,
 whole chromosome copy number analysis is recommended for tumour grading,
 with at least two losses of chromosomes 6, 10, 14 or 18 sufficient to
 categorise a tumour as molecular high-risk [@sahm2025].
-Similarly, in the 2021 edition of the World Health Organisation Guidelines of Tumors of the Central Nervous System,
-the detection of deletions of chromosome arms 1p and 19q, referred to as a 1p19 codeletion is required for classification of a tumour
+Similarly, in the 2021 edition of the World Health Organisation Guidelines of Tumours of the Central Nervous System,
+the detection of deletions of chromosome arms 1p and 19q, referred to as a 1p19 co-deletion is required for classification of a tumour
 as "Oligodendroglioma, IDH-mutant, and 1p/19q-codeleted" [@louis2021].
-Critically, 1p19q codeletion is a key biomarker for distinguishing
+Critically, 1p19q co-deletion is a key biomarker for distinguishing
 between oligodendrogliomas, which contain the codeletion, and
 astrocytomas, which do not [@masui2016].
 
@@ -194,7 +200,6 @@ targets_per_chromosome <- target_df_coordinates |>
 ```
 
 There are `r nrow(target_df)` targets on the PanSolid enrichment which are spread across all autosomes and the X chromosome.
-1q, 9q and 16q
 
 ```{r}
 #| label: fig-targets-per-chromosome
@@ -243,7 +248,7 @@ The requirements for this new method are as follows:
     or chromosome arm is impacted by a gain or loss.
 -   The combined analysis of the PanSolid CLC pipeline with manual
     review by a clinical scientist should sensitivity and specificity
-    values above 90% when compared with orthogonal testing.
+    values above 90% when compared with orthogonal testing for a cohort of formalin-fixed paraffin-embedded samples
 -   The test must have clear quality metric thresholds for deciding
     sample quality
 
@@ -262,12 +267,14 @@ val_cohort <- read_excel(path = paste0(config::get("data_folderpath"),
 
 A cohort of 
 `r length(unique(val_cohort$pansolid_labno))`
-different samples was assembled for this validation.
+different samples was assembled for this validation. 
+All included samples had results for specific chromosome-level CNVs from orthogonal testing methods.
 
 ## Next generation sequencing
 
 Next generation sequencing on the PanSolid v2 enrichment was performed
 for all samples.
+Sequencing was performed on z worksheets between x and y date.
 
 ## PanSolid CLC bioinformatics pipeline
 
@@ -293,7 +300,7 @@ The ploidy state regions detected for each sample were processed via the followi
 #| label: chr-arm-percent-threshold
 #| include: FALSE
 
-chr_arm_percent_threshold <- 75
+chr_arm_percent_threshold <- 90
 
 ```
 
@@ -304,14 +311,14 @@ The threshold for flagging a chromosome arm level CNV event was set at
 
 ### Karyotype analysis
 
-Karyotype analysis was performed at the North West GLH (Liverpool site).
+Karyotype analysis by G-banding for acute lymphoblastic leukaemia samples was performed at the North West GLH (Liverpool site).
 
 ### Fluorescence In-Situ Hybridisation
 
 Fluorescence In-Situ Hybridisation (FISH) analysis was performed at the
 North West GLH (Liverpool site) using the Zytolight 1p36/1q25 and 19q13/19p13 dual
 colour probes (ZytoVision). 
-These probes target genomic regions which are several hundred kilobases in size on chromosome 1 and 19 (@tbl-fish-probe-coordinates). Whilst the FISH probe regions are within regions targetted by the PanSolid enrichment, there is no direct overlap between them ().
+These probes target genomic regions which are several hundred kilobases in size on chromosome 1 and 19 (@tbl-fish-probe-coordinates). Whilst the FISH probe regions are within regions targeted by the PanSolid enrichment, there is no direct overlap between them (@fig-fish-probe-pansolid-targets).
 
 ```{r}
 #| label: fish-probe-locations
@@ -451,8 +458,107 @@ fig_fish_probe_pansolid_targets
 ### Whole genome sequencing
 
 Whole genome sequencing (WGS) was performed by Illumina Laboratory
-Services in Cambridge. Further details are provided in
+Services in Cambridge as part of the NHS Genomic Medicine Service. 
+Further details are provided in
 [DOC6567]{custom-style="Strong"}.
+
+```{r}
+#| label: collate-wgs-results
+#| include: FALSE
+
+wgs_folder <- paste0(config::get("data_folderpath"),
+                     "validation/DOC6791_chromosome_arms/raw/wgs/")
+
+wgs_files <- list.files(wgs_folder, pattern = ".*supplementary.html",
+           full.names = TRUE)
+
+read_wgs_html_svs <- function(html_filepath, div_id) {
+  
+  sv_table <- parse_wgs_html_table_by_div_id(html_filepath = {{ html_filepath }},
+                                             div_id = {{ div_id }})
+  
+  output <- sv_table |> 
+    select(gr_ch38_coordinates, chromosomal_bands,
+           type, size, confidence_support, filepath) |> 
+    mutate(size = as.numeric(size))
+  
+  return(output)
+  
+}
+
+wgs_tier1 <- wgs_files |> 
+  map(\(wgs_files) read_wgs_html_svs(html_filepath = wgs_files,
+                               div_id = "d_svcnv_subset_tier1")) |> 
+  list_rbind() |> 
+  mutate(tier = 1)
+
+wgs_tier2 <- wgs_files |> 
+  map(\(wgs_files) read_wgs_html_svs(html_filepath = wgs_files,
+                               div_id = "d_svcnv_subset_tier2")) |> 
+  list_rbind() |> 
+  mutate(tier = 2)
+
+wgs_tier3 <- wgs_files |> 
+  map(\(wgs_files) read_wgs_html_svs(html_filepath = wgs_files,
+                               div_id = "d_svcnv_subset_tier3")) |> 
+  list_rbind() |> 
+  mutate(tier = 3)
+
+wgs_results <- rbind(wgs_tier1, wgs_tier2, wgs_tier3) |> 
+  mutate(cnv_class = parse_wgs_cnv_class(x = type),
+         
+         cnv_copy_number = parse_wgs_cnv_copy_number(x = type),
+         
+         chromosome = parse_wgs_html_grch38_coordinates(x = gr_ch38_coordinates,
+                                                        group = 1),
+         
+         cnv_start = as.numeric(parse_wgs_html_grch38_coordinates(x = gr_ch38_coordinates,
+                                                                  group = 2)),
+         
+         cnv_end = as.numeric(parse_wgs_html_grch38_coordinates(x = gr_ch38_coordinates,
+                                                                group = 4)))
+
+chromosome_arm_positions_grch38 <- readr::read_delim(file = paste0(config::get("data_folderpath"),
+                                                                     "validation/",
+                                                                     "DOC6791_chromosome_arms/",
+                                                                     "bed_files/",                                                                   "chromosome_arm_positions_grch38.txt")) |> 
+    janitor::clean_names()
+
+wgs_results_canvas <- wgs_results |> 
+  filter(cnv_class %in% c("LOSS", "GAIN", "LOH") &
+           !chromosome %in% c("X", "Y")) |> 
+  mutate(chromosome_arm = str_extract(string = chromosomal_bands,
+                                      pattern = "^(\\d{1,2}p|\\d{1,2}q).*",
+                                      group = 1)) |> 
+  left_join(chromosome_arm_positions_grch38 |> 
+              select(-chromosome),
+            by = "chromosome_arm") |> 
+  mutate(percent_chr_arm = (size / arm_length) * 100)
+
+stopifnot(anyNA(wgs_results_canvas$chromosome_arm) == FALSE)
+
+stopifnot(anyNA(wgs_results_canvas$arm_length) == FALSE)
+
+wgs_results_canvas_large <- wgs_results_canvas |> 
+  filter(percent_chr_arm >= chr_arm_percent_threshold)
+
+```
+
+`r length(wgs_files)` WGS results were included in this analysis.
+In tiers 1, 2 and 3 there were a total of 
+`r nrow(wgs_results)`
+structural variants reported by Manta and Canvas.
+Results on X and Y chromosomes were excluded.
+There were 
+`r nrow(wgs_results_canvas_large)`
+results impacting greater than
+`r chr_arm_percent_threshold`% of a chromosome arm.
+
+### Multiplex ligation-dependent probe amplification
+
+Multiplex ligation-dependent probe amplification (MLPA) was performed at the North West GLH (Manchester site) using the P027 kit (MRC Holland) and results were analysed in the Coffalyser software using genome build hg18 (GRCh36).
+MLPA results were generated on WS156278 and PanSolid results were generated on WS156626.
+Sample 25045538 failed MLPA analysis.
 
 ## Validation analysis
 
@@ -634,6 +740,12 @@ One result does not agree because 1p and 19q are a mixture of LOH and deletion c
 
 ## Comparison to whole genome sequencing
 
+Results from WGS were extracted from the supplementary information HTML files.
+
+Only CNVs which impacted greater than 90% of a chromosome were included in the comparison.
+
+Out of the x CNVs reported from WGS, y (z%) impacted greater than 90% of a chromosome arm.
+
 ### 1q19p gain: sample 23001331
 
 Sample 23001331 was tested. 
@@ -757,6 +869,10 @@ path_fish_24038436 <- paste0(image_folderpath, "fish_sample_24038436.png")
 ![Sample 24038436](`r path_fish_24038436`){#fig-fish-24038436 width=6in}
 
 {{< pagebreak >}}
+
+## Comparison to MLPA
+
+4 samples had MLPA results.
 
 ## Repeat testing
 
