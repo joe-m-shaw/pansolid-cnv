@@ -1835,3 +1835,115 @@ plot_timestamp(input_plot = qc_plot_combined,
                                "outputs/plots/"))
 
 ```
+
+# Service monitoring
+
+```{r}
+#| label: erbb2-monitoring-data
+#| include: FALSE
+
+live_service_amp_genes <- read_csv(paste0(config::get("data_folderpath"),
+                                          "live_service/",
+                                          "collated/",
+                                          "pansolid_amplifications_live_service/",
+                                          "live_service_amp_gene_results_collated.csv")) |> 
+  mutate(filename = basename(filepath))
+
+# Load panel information separately (for samples from 2024, panel information
+# was not included in filename)
+live_service_panels <- read_csv(paste0(config::get("data_folderpath"),
+                                          "live_service/",
+                                          "collated/",
+                                          "pansolid_amplifications_live_service/",
+                                       "pansolidv2_sample_worksheet_panel_information.csv"))
+
+live_service_stdev <- read_csv(paste0(config::get("data_folderpath"),
+                                          "live_service/",
+                                          "collated/",
+                                          "pansolid_amplifications_live_service/",
+                                       "live_service_std_dev_results_collated.csv")) |> 
+  mutate(filename = basename(filepath))
+
+```
+
+```{r}
+#| label: erbb2-monitoring-join-data
+#| include: FALSE
+
+crc_panels <- live_service_panels |> 
+  filter(grepl(pattern = "CRC", 
+               x = panel))
+
+amp_genes_crc <- live_service_amp_genes |> 
+  filter(gene == "ERBB2") |> 
+  filter(!duplicated(labno)) |> 
+  # Remove worksheet as collated data contains some NA values, due to the
+  # filename structure changing during the monitoring period
+  select(-worksheet) |> 
+  inner_join(crc_panels |> 
+              select(filename, worksheet, panel),
+            by = "filename",
+            relationship = "one-to-one") |> 
+  left_join(live_service_stdev |> 
+              select(filename, st_dev_signal_adjusted_log2_ratios),
+            by = "filename",
+            relationship = "one-to-one") |> 
+  mutate(quality_category = case_when(
+    st_dev_signal_adjusted_log2_ratios >= 1 ~"fail",
+    st_dev_signal_adjusted_log2_ratios < 1 ~"pass"
+  ),
+  erbb2_category = case_when(
+    max_region_fold_change >= 2.8 ~"amplification",
+    max_region_fold_change < 2.8 ~"no amplification"
+  ),
+  worksheet_number = parse_number(worksheet))
+
+stopifnot(anyNA(amp_genes_crc$worksheet_number) == FALSE)
+
+stopifnot(anyNA(amp_genes_crc$erbb2_category) == FALSE)
+
+stopifnot(anyNA(amp_genes_crc$quality_category) == FALSE)
+
+```
+
+Data were reviewed for `r length(unique(amp_genes_crc$labno))` samples tested on
+`r length(unique(amp_genes_crc$worksheet))` worksheets between April 2024
+(worksheet WS`r as.character(min(amp_genes_crc$worksheet_number))`) 
+and April 2025 (worksheet WS`r as.character(max(amp_genes_crc$worksheet_number))`).
+
+```{r}
+#| label: erbb2-monitoring-quality
+#| echo: FALSE
+
+erbb2_monitoring_quality <- amp_genes_crc |> 
+  group_by(quality_category) |> 
+  summarise(total = n()) |> 
+  mutate(percent = round((total/sum(total))*100, 1)) |> 
+  janitor::adorn_totals()
+
+knitr::kable(erbb2_monitoring_quality)
+
+csv_timestamp(table = erbb2_monitoring_quality, 
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
+
+```
+
+```{r}
+#| label: erbb2-monitoring-amplifications
+#| echo: FALSE
+
+erbb2_monitoring_amplifications <- amp_genes_crc |> 
+  filter(quality_category == "pass") |> 
+  group_by(erbb2_category) |> 
+  summarise(total = n()) |> 
+  mutate(percent = round((total/sum(total))*100, 1)) |> 
+  janitor::adorn_totals()
+
+knitr::kable(erbb2_monitoring_amplifications)
+
+csv_timestamp(table = erbb2_monitoring_amplifications,
+              folder = paste0(erbb2_data_folder,
+                              "outputs/tables/"))
+
+```
