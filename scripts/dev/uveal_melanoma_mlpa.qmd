@@ -1,0 +1,334 @@
+---
+title: "MLPA and PanSolid NGS for uveal melanoma"
+author: "Joe Shaw"
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+    embed-resources: true
+editor: visual
+---
+
+# Introduction
+
+```{r}
+#| label: packages
+#| include: FALSE
+
+library(foldchanger)
+library(plotly)
+library(tidyverse)
+library(readxl)
+library(htmlwidgets)
+
+source(here::here("functions/pansolid_cnv_excel_functions.R"))
+source(here::here("functions/chromosome_arm_functions.R"))
+
+```
+
+Multiplex ligation-dependent probe amplification (MLPA) was performed at the North West GLH (Manchester site) using the P027 kit (MRC Holland) for 4 uveal melanoma samples.
+The MLPA results were analysed in the Coffalyser software .
+MLPA results were generated on WS156278.
+These samples were also tested on PanSolid next generation sequencing on WS156626.
+
+# Methods
+
+```{r}
+#| label: mlpa-coordinates
+
+mlpa_probe_coordinates <- read_csv(file = paste0(config::get("data_folderpath"),
+                                                 "validation/",
+                                                 "DOC6791_chromosome_arms/",
+                                                 "raw/mlpa/",
+                                                 "mlpa_p027_probe_coordinates.csv"),
+                                   col_types = "cccc")
+
+```
+
+The P027 kit targets 
+`r nrow(mlpa_probe_coordinates)` genomic regions on
+`r length(unique(mlpa_probe_coordinates$chromosome))` chromosomes.
+The coordinates for each probe are provided in genome build hg18 (GRCh36) which is now deprecated.
+The product manual provides a partial sequence for each probe, including the 24 nucleotides surrounding the ligation site.
+To allow me to compare the MLPA data with PanSolid data, I found the GRCh38 coordinates for each partial MLPA probe sequence using Alamut Visual Plus (v1.5.1).
+
+```{r}
+#| label: mlpa-data
+
+mlpa_files <- list.files(paste0(config::get("data_folderpath"),
+                                "validation/DOC6791_chromosome_arms/",
+                                "raw/mlpa/"),
+                         pattern = "^WS\\d{6}_\\d{8}_QsM.xlsx$",
+                         full.names = TRUE)
+
+read_mlpa_data <- function(filepath) {
+  
+  output <- read_excel(path = filepath) |> 
+    janitor::clean_names() |> 
+    mutate(filepath = filepath,
+           labno = str_extract(string = filepath,
+                               pattern = ".WS\\d{6}_(\\d{8})_QsM.xlsx",
+                               group = 1)) |> 
+    filter(!gene_exon %in% c(NA, "Median values"))
+  
+  # Remove first column
+  return(output[, -1])
+  
+}
+
+mlpa_data <- mlpa_files |> 
+  map(\(mlpa_files) read_mlpa_data(mlpa_files)) |> 
+  list_rbind()
+
+stopifnot(anyNA.data.frame(mlpa_data) == FALSE)
+
+```
+
+I then added the GRCh38 coordinates to the MLPA data, and then added the cumulative GRCh38 coordinate to allow plotting data from all chromosomes on a single axis.
+
+```{r}
+#| label: mlpa-add-coordinates
+
+mlpa_data_coord <- mlpa_data |> 
+  left_join(mlpa_probe_coordinates,
+            by = "gene_exon") |> 
+  factorise_chromosome(col = chromosome) |> 
+  add_cumulative_chr_coordinates(col = "chromosome_fct") |> 
+  mutate(start = as.numeric(str_extract(string = grch38_coordinates,
+                             pattern = "(\\d{1,10}):(\\d{1,10})",
+                             group = 1)),
+         cumulative_region_coordinate = start + cumulative_chr_coordinate,
+         mlpa_call = case_when(
+           ref_pop == "Equal" ~"MLPA Equal",
+           ref_pop %in% c("Decreased2StdDev",
+                          "Decreased2StdDevBelowArbitraryBorder") ~"MLPA Loss",
+           ref_pop == "Increased2StdDevAboveArbitraryBorder" ~"MLPA Gain"
+           
+         ),
+         mlpa_call = factor(mlpa_call,
+                          levels = c("MLPA Gain",
+                                     "MLPA Equal",
+                                     "MLPA Loss")))
+
+```
+
+I took PanSolid data from the "Unannotated" Excel file for each sample.
+
+```{r}
+#| label: pansolid-data
+
+uveal_labnos <- c("25045534", "25045535", "25045536", "25045537")
+
+ps_unannotated_files <- list.files(path = 
+                                     paste0(config::get("data_folderpath"),
+                                              "validation/DOC6791_chromosome_arms/",
+                                                 "raw/pansolid_ngs/",
+                                                 "unannotated/"),
+                                   pattern = "Results_SNVs_Indels.*.xlsx",
+                                   full.names = TRUE)
+
+uveal_ps_files <- grep(x = ps_unannotated_files, 
+                       pattern = paste(uveal_labnos, collapse = "|"),
+                       value = TRUE)
+
+uveal_targets <- uveal_ps_files |> 
+  map(\(uveal_ps_files) read_targets_merged(filepath = uveal_ps_files)) |> 
+  list_rbind() |> 
+  format_chromosome_decimals(col = chromosome) |> 
+  factorise_chromosome(col = chromosome_char) |> 
+  extract_pansolid_cnv_coordinates(cnv_coord_col = region) |> 
+  add_cumulative_chr_coordinates(col = chromosome_fct) |> 
+  filter(chromosome_fct != "X") |> 
+  mutate(cumulative_region_coordinate = start + cumulative_chr_coordinate,
+         log2r = foldchanger::calc_log2r(obs = case_coverage,
+                                         exp = baseline_coverage))
+
+uveal_snps <- uveal_ps_files |> 
+  map(\(uveal_ps_files) read_snp_sheet(filepath = uveal_ps_files)) |> 
+  list_rbind() |> 
+  format_snp_sheet_data()
+
+```
+
+I then made a series of plotting functions using `plotly` which is a package for making interactive graphics.
+
+```{r}
+#| label: plotly-functions
+
+make_target_plotly <- function(labno) {
+  
+  target_plotly <- uveal_targets |> 
+    filter(labno == {{ labno }}) |> 
+    plot_ly(x = ~cumulative_region_coordinate,
+            y = ~log2r,
+            type = "scatter",
+            mode = "markers",
+            marker = list(color = "#FFFFFF",
+                          line = list(color = "#000000",
+                                      width = 1)),
+            showlegend = FALSE,
+            text = ~paste("Chromosome: ", chromosome_fct,
+                          "<br>Coordinate (chr): ", start,
+                          "<br>Coordinate (cumulative): ", cumulative_region_coordinate,
+                          "<br>Log2r: ", log2r)) |> 
+    layout(title = "PanSolid target data",
+           yaxis = list(range = c(-2.5, 2.5),
+                        title = "Log2R"),
+           xaxis = list(title = ""))
+  
+  return(target_plotly)
+  
+}
+
+make_snp_plotly <- function(labno) {
+  
+  snp_plotly <- uveal_snps |> 
+    filter(labno == {{ labno }} &
+             reference_allele == "No") |> 
+    plot_ly(x = ~cumulative_region_coordinate,
+            y = ~frequency,
+            showlegend = FALSE,
+            type = "scatter",
+            mode = "markers",
+            marker = list(color = "#FFFFFF",
+                          line = list(color = "#000000",
+                                      width = 1)),
+            text = ~paste("Chromosome: ", chromosome_fct,
+                          "<br>Coordinate (chr): ", region_numeric,
+                          "<br>Coordinate (cumulative): ", cumulative_region_coordinate,
+                          "<br>Frequency: ", frequency)) |> 
+    layout(title = "PanSolid SNP data",
+           yaxis = list(title = "VAF"),
+           xaxis = list(title = ""))
+  
+  return(snp_plotly)
+  
+}
+
+make_mlpa_plotly <- function(labno) {
+  
+  mlpa_plotly <- mlpa_data_coord |> 
+    filter(labno == {{ labno }}) |> 
+    plot_ly(x = ~cumulative_region_coordinate,
+            y = ~final_ratio,
+            color = ~mlpa_call,
+            colors = c("#3399FF", "#000000", "#FF6666"),
+            type = "scatter",
+            mode = "markers",
+            text = ~paste(
+              "Locus: ", gene_exon,
+              "<br>Chromosome: ", chromosome_fct,
+              "<br>Coordinate (chr): ", start,
+              "<br>Coordinate (cumulative): ", cumulative_region_coordinate,
+               "<br>Ratio: ", final_ratio)) |> 
+    layout(yaxis = list(range = c(0, 2.5),
+                        title = "MLPA ratio"))
+  
+  return(mlpa_plotly)
+  
+}
+
+make_combined_plotly <- function(labno) {
+  
+  target_plotly <- make_target_plotly({{ labno }})
+
+  snp_plotly <- make_snp_plotly({{ labno }})
+  
+  mlpa_plotly <- make_mlpa_plotly({{ labno }})
+  
+  combined_plotly <- plotly::subplot(
+    target_plotly,
+    snp_plotly,
+    mlpa_plotly,
+    nrows = 3,
+    shareX = TRUE,
+    shareY = FALSE,
+    titleY = TRUE, 
+    titleX = TRUE) |> 
+    layout(xaxis = list(range = c(0, 2.9e+09),
+                        title = "GRCh38 Coordinate",
+                        showticklabels = FALSE,
+                        showgrid = FALSE),
+           title = paste0("PanSolid and MLPA results for: ", {{ labno }}),
+           legend = list(x = 100, y = 0.1))
+  
+  return(combined_plotly)
+  
+}
+
+```
+
+# Results
+
+I can now present the MLPA data and the PanSolid data together.
+
+```{r}
+#| label: fig-plot-25045534
+#| fig-cap: "Sample 25045534"
+#| echo: FALSE
+
+plot_25045534 <- make_combined_plotly("25045534")
+
+plot_25045534
+
+```
+
+```{r}
+#| label: fig-plot-25045535
+#| echo: FALSE
+#| fig-cap: "Sample 25045535"
+
+plot_25045535 <- make_combined_plotly("25045535")
+
+plot_25045535
+
+```
+
+```{r}
+#| label: fig-plot-25045536
+#| echo: FALSE
+#| fig-cap: "Sample 25045536"
+
+plot_25045536 <- make_combined_plotly("25045536")
+
+plot_25045536
+
+```
+
+```{r}
+#| label: fig-plot-25045537
+#| echo: FALSE
+#| fig-cap: "Sample 25045537"
+
+plot_25045537 <- make_combined_plotly("25045537")
+
+plot_25045537
+
+```
+
+I can then export the plots as interactive HTMLs.
+
+```{r}
+#| label: export-plots
+
+saveWidget(widget = plot_25045534,
+           file = paste0(config::get("data_folderpath"),
+                         "validation/DOC6791_chromosome_arms/",
+                         "plot_25045534.html"))
+
+saveWidget(widget = plot_25045535,
+           file = paste0(config::get("data_folderpath"),
+                         "validation/DOC6791_chromosome_arms/",
+                         "plot_25045535.html"))
+
+saveWidget(widget = plot_25045536,
+           file = paste0(config::get("data_folderpath"),
+                         "validation/DOC6791_chromosome_arms/",
+                         "25045536_plot.html"))
+
+saveWidget(widget = plot_25045537,
+           file = paste0(config::get("data_folderpath"),
+                         "validation/DOC6791_chromosome_arms/",
+                         "plot_25045537.html"))
+
+```
