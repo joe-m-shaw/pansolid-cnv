@@ -265,14 +265,30 @@ add_chr_arm_ps_target_region_percent <- function(df,
 
 add_cumulative_chr_coordinates <- function(df, col) {
   
-  pansolid_chr_cumulative_coordinates <- readr::read_csv(paste0(config::get("data_folderpath"),
-                                                                "validation/DOC6791_chromosome_arms/",
-                                                                "bed_files/",
-                                                                "pansolid_chr_cumulative_coordinates.csv"),
-                                                         col_types = "ccdd")
+  chromosome_arm_positions_grch38 <- readr::read_delim(file = paste0(config::get("data_folderpath"),
+                                                                     "validation/DOC6791_chromosome_arms/",
+                                                                     "bed_files/",
+                                                                     "chromosome_arm_positions_grch38.txt"),
+                                                       col_types = "ccddd") |> 
+    janitor::clean_names() 
+  
+  
+  # Prepare chromosome coordinates
+  chromosome_cumulative_coords <- chromosome_arm_positions_grch38 |> 
+    mutate(arm = str_extract(string = chromosome_arm,
+                             pattern = "p|q")) |>  
+    select(chromosome, arm, arm_start, arm_end) |> 
+    mutate(new_col = case_when(
+      arm == "p" ~arm_start,
+      arm == "q" ~arm_end
+    ),
+    cumulative_chr_coordinate = cumsum(new_col)) |>  
+    filter(arm == "p") |>  
+    mutate(chromosome_char = as.character(chromosome)) |> 
+    factorise_chromosome(col = chromosome_char)
   
   output <- df |> 
-    left_join(pansolid_chr_cumulative_coordinates |> 
+    left_join(chromosome_cumulative_coords |> 
               select(chromosome_fct, cumulative_chr_coordinate),
             join_by({{ col }} == "chromosome_fct")) 
   
