@@ -1,11 +1,13 @@
 ---
 title: "INC10378"
 author: "Joe Shaw (CS20980)"
-format: pdf
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+    embed-resources: true
 editor: visual
 ---
-
-
 
 ```{r}
 #| label: packages-and-functions
@@ -16,30 +18,35 @@ library(readxl)
 library(janitor)
 
 source(here::here("functions/pansolid_cnv_excel_functions.R"))
-source(here::here("functions/contamination_functions.R"))
+source(here::here("functions/chromosome_arm_functions.R"))
+source(here::here("functions/contamination_functions_INC10994.R"))
 
 ```
+
+# Introduction
+
+Index contamination was seen on WS151383 for well C3 (25015163 - Endometrial cancer) and well C4 (25014769 - Lung cancer).
+
+On the same worksheet, sample 25015130 was also noted to have a SNP profile consistent with contamination.
+
+# Methods
+
+SNP data from PanSolid WS151383 was reviewed.
 
 ```{r}
 #| label: load-data
-#| include: FALSE
 
-WS151383_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/WS151383/"
-
-WS151383_files <- list.files(WS151383_path, 
-                             pattern = "Results_SNVs_Indels-WS151383_\\d{8}.*.xlsx",
-                             recursive = TRUE,
-                             full.names = TRUE)
-
-WS151383_snp_data <- WS151383_files |> 
-  map(\(WS151383_files) read_snp_sheet(WS151383_files)) |> 
-  list_rbind()
+WS151383_data <- collate_snp_data("WS151383")
 
 ```
 
-# WS151383
+MSI testing was performed on WS155852.
+
+# Results
 
 ## 25014769
+
+### Was 25014769 contaminated with 25015163?
 
 Sample 25014769 (lung) was suspected to be contaminated at the indexing stage with sample 25015163 (endometrial).
 The plot below shows that this is likely the case.
@@ -49,22 +56,25 @@ The plot below shows that this is likely the case.
 #| echo: FALSE
 #| fig-width: 6
 #| fig-height: 6
+#| warning: FALSE
 
-lung_plot <- make_contamination_snp_plot(df = WS151383_snp_data,
-                                         "WS151383", "25014769",
-                                         "WS151383", "25015163")[1]
-
-lung_plot
+make_contamination_snp_plot(WS151383_data,
+                            "25014769_WS151383",
+                           WS151383_data,
+                           "25015163_WS151383",
+                           het_vaf_upper_threshold = 80,
+                           het_vaf_lower_threshold = 20)
 
 ```
 
-This sample was also tested using the Genexus.
+### What were the SNP results on Genexus testing?
+
+25014769 was also tested using the Genexus.
 We can compare the SNP frequencies for SNPs detected on Genexus against those detected on PanSolid.
 In order to do this we have to convert the Genexus SNP data from GRCh37 from GRCh38 using the [Ensembl Assembly Converter](https://grch37.ensembl.org/Homo_sapiens/Tools/AssemblyConverter).
 
 ```{r}
 #| label: genexus-pansolid-snps
-#| include: FALSE
 
 snp_25014769 <- read_excel(path = paste0(
   "S:/central shared/Genetics/Repository/",
@@ -74,11 +84,12 @@ snp_25014769 <- read_excel(path = paste0(
   sheet = "Artefacts_removed_GIAB_filt...",
   range = cell_cols("A:L"),
   col_types = c(
-               "numeric", "numeric", "text", "text", "text", 
+               "numeric", "text", "text", "text", "text", 
                "text", "numeric", "text", "text",
                "numeric", "numeric", "numeric")) |>  
   janitor::clean_names() |> 
-  filter(type == "SNV")
+  filter(type == "SNV") |> 
+  mutate(region = as.numeric(region))
 
 # Export from Genexus software
 genexus_data <- read_excel(path = paste0(config::get("data_folderpath"),
@@ -102,7 +113,8 @@ write_csv(genexus_bed, "genexus_bed.csv")
 genexus_grch38 <- read_tsv(file = paste0(config::get("data_folderpath"),
                            "live_service/INC10378_indexes/",
                            "Em3KLKrw7mCzZvKG.txt"),
-         col_names = c("chrom", "start", "end")) |> 
+         col_names = c("chrom", "start", "end"),
+         show_col_types = FALSE) |> 
   mutate(grch38_locus = paste0(chrom, ":", start))
 
 genexus_mod <- genexus_data |> 
@@ -124,6 +136,13 @@ genexus_ps_join <- snp_25014769 |>
 
 ```
 
+There are only `r nrow(genexus_ps_join)` SNPs for comparison between the Genexus and PanSolid.
+The frequencies of each SNP are broadly similar on each method, however due to the low numbers of SNPs this is a limited comparison, and it is unlikely that the Genexus data is also contaminated with 25015163.
+
+These samples were on different QIAsymphony extraction batches (25015163, QS90979; 25014769 QS90925) on different days, and were sent from different pathology labs (25015163 Manchester Royal Infirmary; 25014769 Wythenshawe Hospital).
+Therefore the likelihood of contamination in the stock DNA is very low.
+MSI testing on WS155852 showed no evidence of contamination for either 25014769 or 25015163.
+
 ```{r}
 #| label: genexus-pansolid-plot
 #| echo: FALSE
@@ -144,29 +163,57 @@ genexus_ps_plot
 
 ## 25015130
 
-I have checked through all the sample combinations with 25015130 on this worksheet and cannot find a sample which is a likely source of the contamination.
+### Where did the contamination for 25015130 come from?
 
-# WS155702
+MSI testing on WS155852 showed that the stock DNA for 25015130 is contaminated.
+The source of contamination for 25015130 was investigated using the SNP-matching method described in INC10994.
+All samples on worksheets WS151383 and WS151504 were checked.
+No sample had greater than 90% matching homozygous SNPs with 25015130, which is used as a threshold for likely contamination. 
 
 ```{r}
-#| label: load-data
-#| include: FALSE
+#| label: contaminant-search-25015130
+#| echo: FALSE
 
-WS155702_path <- "S:/central shared/Genetics/Repository/WorksheetAnalysedData/WS155702/"
+WS151504_data <- collate_snp_data("WS151504")
 
-WS155702_files <- list.files(WS155702_path, 
-                             pattern = "Results_SNVs_Indels-WS155702_\\d{8}.*.xlsx",
-                             recursive = TRUE,
-                             full.names = TRUE)
+all_data_25015130 <- rbind(WS151383_data,
+                           WS151504_data)
 
-WS155702_snp_data <- WS155702_files |> 
-  map(\(WS155702_files) read_snp_sheet(WS155702_files)) |> 
-  list_rbind()
-
-make_contamination_snp_plot(df = WS155702_snp_data,
-                                         "WS155702", "25042695",
-                                         "WS155702", 
-                            # this one
-                            "25042492")[1]
+results_25015130 <- search_for_contaminant(all_data_25015130,
+                                           "25015130_WS151383")
 
 ```
+
+Sample 25015130 was extracted on QIAsymphony batch 90956. 
+Not all samples on this extraction batch were tested with PanSolid NGS, so excluding that the contamination arose at DNA extraction is not possible.
+
+```{r}
+#| label: qs-batch-90956
+#| echo: FALSE
+
+knitr::kable(ps_samples_per_qs_batch("90956"))
+
+```
+
+Therefore the source of the contamination is unknown, and is unlikely to be from the PanSolid library preparation.
+For context, a source of contamination could not be found for 24/34 contaminated samples investigated for INC10994.
+This is likely due to the fact that contamination may occur during the preparation stage at a referring pathology lab, and the contaminating sample is not also sent to our lab for NGS testing.
+
+### Should scientists have spotted contamination for 25015130?
+
+WS151383 was run on 18th March. INC10288 was raised on 27th February.
+
+DOC6261 revision 2 was the CNV SOP at the time: “The whole-genome HTML file (Figure 21) is an analysis aid provided to assist with interpretation of complex cases – it does not need to be opened for every sample.”
+
+The first email sent by me to summarise the ongoing contamination investigation was on 4th April.
+
+My notes from contamination meeting on 18th March state: “Adding a DNA contamination check can be introduced at the same time as the new CNV format, to make training simpler”
+
+Therefore scientists were not expected to be checking for contamination at this stage.
+
+# Conclusion
+
+The PanSolid results for sample 25014769 are contaminated with sample 25015163.
+This contamination occurred at the indexing stage of library preparation on PanSolid WS151383. 
+
+The source of contamination for sample 25015130 is unknown. Scientists were not informed to check PanSolid HTML outputs for contamination at the time 25015130 was tested, although this has since been introduced.
