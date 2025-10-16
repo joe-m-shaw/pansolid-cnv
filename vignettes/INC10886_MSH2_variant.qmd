@@ -1,7 +1,11 @@
 ---
-title: "MSH2 variant case"
+title: "INC10886: MSH2 variant case"
 author: "Joe Shaw (CS20980)"
-format: pdf
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+    embed-resources: true
 editor: visual
 ---
 
@@ -18,7 +22,7 @@ source(here("functions/chromosome_arm_functions.R"))
 
 ```
 
-# Background
+# Introduction
 
 Sample 25038352 had a potentially pathogenic MSH2 variant, a `r str_length("CTTCGTTCTGACTTCTCCAAGTTTCAGGAAATGAT")`bp deletion in exon 9, detected on WS155167 (G02) which then disappeared on WS155702 (F02) and WS156308 (G02).
 
@@ -30,39 +34,31 @@ Chromosome region: 47445598..47445632
 
 Target: chr2 47445543..47445662, target number 637, which is 120bp long.
 
-Worksheets: WS155167 CP24008; WS155702 CP24129; WS156308
+# Methods
+
+Target level data for every sample on each worksheet (WS155167, WS155702 and WS156308) was collated.
+This step was computationally quite intensive so I have exported the collated data into the incident folder for future reference.
 
 ```{r}
 #| label: collate-data
-#| include: FALSE
 #| eval: FALSE
 
-WS153211_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
-                                           "WS153211"), full.names = TRUE,
-           recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
-
-WS154828_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
-                                           "WS154828"), full.names = TRUE,
-           recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
-
+# Variant detected
 WS155167_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
                                            "WS155167"), full.names = TRUE,
            recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
 
+# Variant not detected
 WS156308_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
                                            "WS156308"), full.names = TRUE,
            recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
 
+# Variant not detected
 WS155702_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
                                            "WS155702"), full.names = TRUE,
                              recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
 
-WS157371_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
-                                           "WS157371"), full.names = TRUE,
-                             recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
-
-ws_files <- c(WS155167_files, WS156308_files, WS157371_files, 
-              WS153211_files, WS154828_files)
+ws_files <- c(WS155167_files, WS156308_files)
 
 ws_data <- ws_files |> 
   map(\(ws_files) read_targets_merged(filepath = ws_files, 
@@ -76,7 +72,8 @@ WS155702_data <- WS155702_files |>
 
 all_data <- rbind(ws_data, WS155702_data)
 
-all_data_mod <- extract_pansolid_cnv_coordinates(all_data, cnv_coord_col = region) |> 
+all_data_mod <- extract_pansolid_cnv_coordinates(all_data, 
+                                                 cnv_coord_col = region) |> 
   mutate(chromosome = str_replace(chromosome, "\\.0", ""),
          chromosome = str_c("chr", chromosome),
          target_coord_string = str_c(chromosome, "_",
@@ -90,17 +87,23 @@ write_csv(all_data_mod, paste0(config::get("data_folderpath"),
 
 ```{r}
 #| label: load-data
-#| include: FALSE
 
 all_data <- read_csv(file = paste0(config::get("data_folderpath"),
                            "live_service/INC10886_MSH2_variant/",
-                           "collated_target_data.csv"))
+                           "collated_target_data.csv"),
+                     show_col_types = FALSE)
 
 ```
 
+The collated dataset was `r nrow(all_data)` rows, representing the coverage and fold change for each of `r length(unique(all_data$target_coord_string))` targets in `r length(unique(all_data$filepath))` samples.
+
+# Results
+
+## WS155167 quality
+
 ```{r}
 #| label: identify-low-regions
-#| include: FALSE
+#| message: FALSE
 
 grouped_by_region <- all_data |> 
   group_by(worksheet, chromosome, target_coord_string) |> 
@@ -119,10 +122,11 @@ low_regions_ws155167 <- grouped_by_region |>
 
 ```
 
-# WS155167 quality
-
 WS155167 has increased signal-adjusted noise across every sample on the worksheet.
 There are `r nrow(low_regions_ws155167)` targets on WS155167 which have a median coverage of less than 138X.
+The root cause of why certain targets would have consistently lower coverage for all samples is not clear.
+It was hypothesised that lower coverage for the target overlapping the *MSH2* variant (target number 637) on WS155167 could have somehow caused the variant to be detected.
+However, the median coverage of target 637 on WS155167was not low in comparison to other targets on WS155167 or in comparison to the same target on WS155702 and WS156308.
 
 ```{r}
 #| label: all-targets-plot
@@ -130,7 +134,7 @@ There are `r nrow(low_regions_ws155167)` targets on WS155167 which have a median
 
 all_targets_plot <- ggplot(grouped_by_region, aes(x = target_coord_string, y = median_cov)) +
   geom_point(shape = 21, aes(fill = cov_category))+
-  scale_fill_manual(values = c("white", "red")) +
+  scale_fill_manual(values = c( "red", "white")) +
   geom_hline(yintercept = 138, linetype = "dashed") +
   theme_bw() +
   theme(axis.text.x = element_blank(),
@@ -141,7 +145,8 @@ all_targets_plot <- ggplot(grouped_by_region, aes(x = target_coord_string, y = m
        title = paste0("There are ",
                       nrow(low_regions_ws155167),
                       " targets with median coverage below 138X on WS155167"),
-       subtitle = "Data shown for all samples on each worksheet. Target 637 in blue") +
+       subtitle = "Data shown for all samples on each worksheet. Target 637 in blue",
+       caption = "Each dot represents a median value across all samples") +
   coord_cartesian(ylim = c(0, 1000)) +
   scale_y_continuous(breaks = c(0, 138, 500, 750, 1000)) +
   geom_point(data = grouped_by_region |> 
@@ -154,77 +159,11 @@ all_targets_plot
 
 ```
 
-```{r}
-
-WS155167_low_targets <- grouped_by_region |> 
-  filter(median_cov < 138 & worksheet== "WS155167") 
-
-WS157371_low_targets <- grouped_by_region |> 
-  filter(median_cov < 138 & worksheet== "WS157371") 
-
-WS153211_low_targets <- grouped_by_region |> 
-  filter(median_cov < 138 & worksheet== "WS153211") 
-
-WS154828_low_targets <- grouped_by_region |> 
-  filter(median_cov < 138 & worksheet== "WS154828") 
-
-low_target_comparison <- list(
-  "WS155167" = WS155167_low_targets$target_coord_string,
-  "WS157371" = WS157371_low_targets$target_coord_string,
-  "WS153211" = WS153211_low_targets$target_coord_string,
-  "WS154828" = WS154828_low_targets$target_coord_string
-)
-
-ggvenn::ggvenn(low_target_comparison,
-               set_name_size = 3,
-               show_percentage = FALSE) +
-  labs(title = "Targets with median coverage below 138X")
-
-grouped_by_region |> 
-  filter(worksheet %in% c("WS153211",
-                          "WS154828",
-                          "WS155167",
-                          "WS157371")) |> 
-  group_by(worksheet, cov_category) |> 
-  count() |> 
-  pivot_wider(id_cols = worksheet,
-              names_from = cov_category,
-              values_from = n) |> 
-  mutate(total = low + ok)
-
-
-```
-
-
-On WS155167 every chromosome is impacted with low coverage targets.
-Enrichment tubes 124-128 were pooled for this worksheet.
-Reagent tubes 234-238 were pooled.
+It was then hypothesised that, whilst the median coverage of target 637 was not low, the coverage in sample 25038352 on worksheet WS155167 was low.
+However, whilst the general coverage pattern for 25038352 seems to be in the lower range of samples on WS155167, target 637 is not particularly impacted.
 
 ```{r}
-#| label: fig-WS155167-all-targets
-#| eval: FALSE
-#| include: FALSE
-
-all_targets_plot_WS155167 <- all_data |> 
-  filter(worksheet == "WS155167") |> 
-  filter(target_coord_string %in% low_regions_ws155167$target_coord_string) |> 
-  mutate(target_number = as.character(target_number)) |> 
-  ggplot(aes(x = target_number, y = case_coverage)) +
-  geom_boxplot(outliers = FALSE) +
-  theme_bw() +
-  theme(axis.text.x = element_blank(),
-        axis.ticks.x = element_blank()) +
-  labs(x = "Target number", y = "Coverage",
-       title = "All targets on WS155167 with median coverage below 138X",
-       fill = "Target chromosome") +
-  geom_hline(yintercept = 138, linetype = "dashed")
-
-all_targets_plot_WS155167
-
-```
-
-```{r}
-#| label: fig-target-637
+#| label: target-637
 #| echo: FALSE
 
 target_637_plot <- all_data |> 
@@ -256,7 +195,9 @@ target_637_plot
 
 ## GC content: primers
 
-There does not seem to be a relationship between primer GC content and median coverage on WS155167.
+The cause of certain targets having poor coverage across all samples on WS155167 was then investigated.
+It was hypothesised that primer GC content could impact coverage, potentially due to a sub-optimal thermocycling step.
+However, there does not seem to be a relationship between primer GC content and median coverage on WS155167.
 
 ```{r}
 #| label: gc-content-primers
@@ -265,12 +206,14 @@ There does not seem to be a relationship between primer GC content and median co
 primer_target_df <- read_csv(paste0(config::get("data_folderpath"),
                                     "validation/DOC6791_chromosome_arms/",
                                     "primers_and_targets/",
-                                    "primer_target_df.csv"))
+                                    "primer_target_df.csv"),
+                             show_col_types = FALSE)
 
 ps_primers_grch38 <- read_csv(paste0(config::get("data_folderpath"),
                                     "validation/DOC6791_chromosome_arms/",
                                     "primers_and_targets/",
-                                    "ps_primers_grch38.csv"))
+                                    "ps_primers_grch38.csv"),
+                              show_col_types = FALSE)
 
 primer_target_df_gc <- primer_target_df |> 
   left_join(ps_primers_grch38, by = "primer_coord_str")
@@ -297,17 +240,22 @@ grouped_by_region_with_primer_gc |>
   )) |> 
   ggplot(aes(x = median_primer_gc, y = )) +
   geom_histogram(aes(fill = cov_category),
+                 colour = "black",
                  binwidth = 1) +
   labs(x = "Median primer GC percent",
-       y = "Number of targets") +
+       y = "Number of targets",
+       fill = "Median coverage") +
   theme_bw()
 
 ```
 
 ## GC content: target regions of interest
 
-```{r}
+The same relationship was hypothesised for the target regions, however there is no evidence that target GC percent infleunces the median coverage of a target.
 
+```{r}
+#| label: gc-content-targets
+#| echo: FALSE
 
 ps_grch38_fasta <- read_delim(file = paste0(config::get("data_folderpath"),
                                             "validation/DOC6791_chromosome_arms/",
@@ -315,7 +263,8 @@ ps_grch38_fasta <- read_delim(file = paste0(config::get("data_folderpath"),
                                             "QIAseq_DNA_panel.CDHS-48608Z-11752.roi_GRCh38_fasta.bed"),
                               delim = "\t",
                               col_names = c("chrom", "start", "stop",
-                                            "name", "sequence"))
+                                            "name", "sequence"),
+                              show_col_types = FALSE)
 
 ps_grch38_fasta_mod <- ps_grch38_fasta |> 
   mutate(target_length = str_length(sequence),
@@ -333,291 +282,23 @@ grouped_by_region_gc <- grouped_by_region |>
 
 grouped_by_region_gc |> 
   filter(worksheet == "WS155167" & !is.na(gc_content)) |> 
-  ggplot(aes(x = gc_content, y = median_cov)) +
-  geom_point(shape = 21)+
-  geom_hline(yintercept = 138, linetype = "dashed") +
-  xlim(0, 100) +
-  #facet_wrap(~worksheet) +
-  coord_cartesian(ylim = c(0, 1000)) +
-  labs(x = "GC percent", y = "Median coverage of target",
-       title = "Median coverage of targets on WS155167")
+  filter(target_length > 11) |> 
+  mutate(cov_category = case_when(
+    median_cov < 138 ~"Below 138X",
+    median_cov >= 138 ~"Above 138X"
+  )) |> 
+  ggplot(aes(x = gc_content, y = )) +
+  geom_histogram(aes(fill = cov_category),
+                 colour = "black",
+                 binwidth = 1) +
+  labs(x = "Median target GC percent",
+       y = "Number of targets",
+       fill = "Median coverage") +
+  theme_bw()
 
 ```
 
-# Other samples on WS155167
+# Conclusion
 
-Have other samples from WS155167 been repeated?
-Do they also show discrepancies between the variants identified?
-
-```{r}
-#| include: FALSE
-
-source(here::here("scripts/connect_to_dna_db.R"))
-
-WS155167_df <- all_data |> 
-  filter(worksheet == "WS155167")
-
-WS155167_labnos <- unique(as.character(WS155167_df$labno))
-
-all_worksheets <- dna_db_worksheets |> 
-  select(pcrid, date, description) |> 
-  collect() |> 
-  mutate(worksheet = paste0("WS", pcrid))
-
-ps_ws_info <- all_worksheets |> 
-  # New CNV Excel layout started with WS152758
-  filter(pcrid >= 152758) |> 
-  filter(grepl(pattern = "pansolid|pan-solid|pan_solid|pan solid", 
-               x = description,
-               ignore.case = TRUE)) |> 
-  mutate(ps_category = case_when(
-    grepl(pattern = "jBRCA|j_BRCA|j-BRCA|jew",
-      x = description,
-      ignore.case = TRUE) ~"PanSolid Jewish BRCA",
-    TRUE ~"PanSolid FFPE"
-  ))
-
-ps_ffpe_ws_info <- ps_ws_info |> 
-  filter(ps_category == "PanSolid FFPE")
-
-ps_ws_vector <- c(ps_ffpe_ws_info$pcrid)
-
-tbl_to_check <- dna_db_pcr_records |> 
-  select(pcrid, sample) |> 
-  filter(pcrid %in% ps_ws_vector &
-           sample %in% WS155167_labnos) |> 
-  filter(pcrid != 155167) |> 
-  collect() |> 
-  arrange(sample)
-
-```
-
-Yes there are `r nrow(tbl_to_check)` samples, including 25038352 with results from WS155167 and other PanSolid worksheets.
-
-```{r}
-#| include: FALSE
-
-read_subpanel_vars <- function(filepath) {
-  
-  output <- read_excel(path = filepath,
-                       sheet = 2) |> 
-    janitor::clean_names()
-  
-  tbl <- add_identifiers(filepath, output)
-  
-  return(tbl)
-  
-}
-
-compare_vars <- function(df1, df2) {
-  
-  output <- df1 |> 
-    filter(!is.na(coding_region_change)) |> 
-    full_join(df2 |> 
-              filter(!is.na(coding_region_change)),
-              by = "coding_region_change") |> 
-    select(worksheet.x, variant_nomenclature.x, count.x, coverage.x, check_1.x,
-           coding_region_change,
-           variant_nomenclature.y, count.y, coverage.y, check_1.y,
-           worksheet.y) 
-    #filter(is.na(worksheet.x) |
-            #is.na(worksheet.y)) |> 
-    #filter(!(is.na(worksheet.x) & is.na(worksheet.y)))
-  
-  return(output)
-  
-}
-
-```
-
-## 25038352
-
-```{r}
-#| include: FALSE
-
-WS155167_25038352 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
-                          "WS155167/",
-                          "v2bM1_tLYNCH_PS/",
-                          "Annotated_v2bM1_tLYNCH_PS_WS155167_25038352_S38.xlsx"))
-
-WS155702_25038352 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
-                          "WS155702/",
-                          "v2bM1_tLYNCH_PS/",
-                          "Annotated_v2bM1_tLYNCH_PS_WS155702_25038352_S30.xlsx"))
-
-comp_25038352 <- compare_vars(WS155167_25038352, WS155702_25038352)
-
-```
-
-`r nrow(comp_25038352)` variants don't match.
-
-## 25039159
-
-```{r}
-#| include: FALSE
-
-WS155167_25039159 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
-                          "WS155167/",
-                          "v2bCNS_PS/",
-                          "Annotated_v2bCNS_PS_WS155167_25039159_S25.xlsx"))
-
-WS155407_25039159 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
-                          "WS155407/",
-                          "v2bCNS_PS/",
-                          "Annotated_v2bCNS_PS_WS155407_25039159_S27.xlsx"))
-
-comp_25039159 <- compare_vars(WS155167_25039159, WS155407_25039159)
-
-```
-
-`r nrow(comp_25039159)` variants don't match.
-
-## 25039150
-
-```{r}
-#| include: FALSE
-
-WS155167_25039150 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
-                          "WS155167/",
-                          "v2bCNS_PS/",
-                          "Annotated_v2bCNS_PS_WS155167_25039150_S19.xlsx"))
-
-WS155407_25039150 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
-                          "WS155407/",
-                          "v2bCNS_PS/",
-                          "Annotated_v2bCNS_PS_WS155407_25039150_S21.xlsx"))
-
-comp_25039150 <- compare_vars(WS155167_25039150, WS155407_25039150)
-
-```
-
-`r nrow(comp_25039150)` variants don't match.
-
-## 25039145
-
-```{r}
-#| include: FALSE
-
-WS155167_25039145 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
-                          "WS155167/",
-                          "v2bCNS_PS/",
-                          "Annotated_v2bCNS_PS_WS155167_25039145_S13.xlsx"))
-
-WS155407_25039145 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
-                          "WS155407/",
-                          "v2bCNS_PS/",
-                          "Annotated_v2bCNS_PS_WS155407_25039145_S15.xlsx"))
-
-comp_25039145 <- compare_vars(WS155167_25039145, WS155407_25039145)
-
-```
-
-`r nrow(comp_25039145)` variants don't match.
-
-## 25039141
-
-```{r}
-#| include: FALSE
-
-WS155167_25039141 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
-                          "WS155167/",
-                          "v2bCNS_PS/",
-                          "Annotated_v2bCNS_PS_WS155167_25039141_S7.xlsx"))
-
-WS155407_25039141 <- read_subpanel_vars(paste0(config::get("worksheet_folderpath"),
-                          "WS155407/",
-                          "v2bCNS_PS/",
-                          "Annotated_v2bCNS_PS_WS155407_25039141_S9.xlsx"))
-
-comp_25039141 <- compare_vars(WS155167_25039141, WS155407_25039141)
-
-```
-
-PTEN oncogenic variant not detected on WS155167
-
-`r nrow(comp_25039141)` variants don't match.
-
-## 25039126
-
-```{r}
-#| include: FALSE
-
-WS155167_25039126 <- read_subpanel_vars(paste0(ws_folder,
-                          "WS155167/",
-                          "v2bCNS_PS/",
-                          "Annotated_v2bCNS_PS_WS155167_25039126_S1.xlsx"))
-
-WS155407_25039126 <- read_subpanel_vars(paste0(ws_folder,
-                          "WS155407/",
-                          "v2bCNS_PS/",
-                          "Annotated_v2bCNS_PS_WS155407_25039126_S3.xlsx"))
-
-comp_25039126 <- compare_vars(WS155167_25039126, WS155407_25039126)
-
-
-```
-
-`r nrow(comp_25039126)` variants don't match.
-
-## 25038340
-
-```{r}
-#| include: FALSE
-
-WS155167_25038340 <- read_subpanel_vars(paste0(ws_folder,
-                          "WS155167/",
-                          "v2bM1_tLYNCH_PS/",
-                          "Annotated_v2bM1_tLYNCH_PS_WS155167_25038340_S32.xlsx"))
-
-WS155702_25038340 <- read_subpanel_vars(paste0(ws_folder,
-                          "WS155702/",
-                          "v2bM1_tLYNCH_PS/",
-                          "Annotated_v2bM1_tLYNCH_PS_WS155702_25038340_S25.xlsx"))
-
-comp_25038340 <- compare_vars(WS155167_25038340, WS155702_25038340)
-
-```
-
-`r nrow(comp_25038340)` variants don't match.
-
-## 25037823
-
-```{r}
-#| include: FALSE
-
-WS155167_25037823 <- read_subpanel_vars(paste0(ws_folder,
-                          "WS155167/",
-                          "v2bM1_tLYNCH_PS/",
-                          "Annotated_v2bM1_tLYNCH_PS_WS155167_25037823_S26.xlsx"))
-
-WS155702_25037823 <- read_subpanel_vars(paste0(ws_folder,
-                          "WS155702/",
-                          "v2bM1_tLYNCH_PS/",
-                          "Annotated_v2bM1_tLYNCH_PS_WS155702_25037823_S20.xlsx"))
-
-comp_25037823 <- compare_vars(WS155167_25037823, WS155702_25037823)
-
-```
-
-`r nrow(comp_25037823)` variants don't match.
-
-## 25035140
-
-```{r}
-#| include: FALSE
-
-WS155167_25035140 <- read_subpanel_vars(paste0(ws_folder,
-                          "WS155167/",
-                          "v2bM2_tBRCA_PS/",
-                          "Annotated_v2bM2_tBRCA_PS_WS155167_25035140_S48.xlsx"))
-
-WS154624_25035140 <- read_subpanel_vars(paste0(ws_folder,
-                          "WS154624/",
-                          "v2bM2_tBRCA_PS/",
-                          "Annotated_v2bM2_tBRCA_PS_WS154624_25035140_S17.xlsx"))
-
-comp_25035140 <- compare_vars(WS155167_25035140, WS154624_25035140)
-
-```
-
-`r nrow(comp_25035140)` variants don't match.
+The cause of the reduced coverage for `r nrow(low_regions_ws155167)` targets on WS155167 has not been found.
+The cause of the MSH2 c.1327_1361delCTTCGTTCTGACTTCTCCAAGTTTCAGGAAATGAT being detected for sample 25038352 on WS155167 but not on WS155702 and WS156308 has not been found.
