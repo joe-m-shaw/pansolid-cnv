@@ -324,7 +324,7 @@ saveWidget(widget = plot_25045535,
 saveWidget(widget = plot_25045536,
            file = paste0(config::get("data_folderpath"),
                          "validation/DOC6791_chromosome_arms/",
-                         "25045536_plot.html"))
+                         "plot_25045536.html"))
 
 saveWidget(widget = plot_25045537,
            file = paste0(config::get("data_folderpath"),
