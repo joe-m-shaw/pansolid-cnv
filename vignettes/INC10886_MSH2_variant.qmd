@@ -43,7 +43,7 @@ This step was computationally quite intensive so I have exported the collated da
 #| label: collate-data
 #| eval: FALSE
 
-# Variant detected
+# Worksheet where MSH2 c.1327_1361del variant was detected
 WS155167_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
                                            "WS155167"), full.names = TRUE,
            recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
@@ -58,7 +58,35 @@ WS155702_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
                                            "WS155702"), full.names = TRUE,
                              recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
 
-ws_files <- c(WS155167_files, WS156308_files)
+# Worksheets with high signal-adjusted noise - for later analysis
+WS153211_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
+                                           "WS153211"), full.names = TRUE,
+                             recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
+
+WS154828_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
+                                           "WS154828"), full.names = TRUE,
+                             recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
+
+WS157371_files <- list.files(path = paste0(config::get("worksheet_folderpath"),
+                                           # Use the original run data only
+                                           "WS157371/old"), full.names = TRUE,
+                             recursive = TRUE, pattern = "Results_SNVs_Indels.*.xlsx")
+
+ws_files <- c(WS155167_files, 
+              WS156308_files, 
+              WS153211_files, 
+              WS154828_files, 
+              WS157371_files)
+
+# Remove any temporary files created when the Excels are opened
+ws_files <-  ws_files[grepl(
+  pattern = "^(?!.*~\\$).*\\.xlsx$",
+  x = ws_files,
+  perl = TRUE)]
+
+# Each worksheet should only have ~48 files
+# Make sure original and rerun data are not accidentally collated together
+stopifnot(length(ws_files) / 5 < 50)
 
 ws_data <- ws_files |> 
   map(\(ws_files) read_targets_merged(filepath = ws_files, 
@@ -95,8 +123,6 @@ all_data <- read_csv(file = paste0(config::get("data_folderpath"),
 
 ```
 
-The collated dataset was `r nrow(all_data)` rows, representing the coverage and fold change for each of `r length(unique(all_data$target_coord_string))` targets in `r length(unique(all_data$filepath))` samples.
-
 # Results
 
 ## WS155167 quality
@@ -132,7 +158,11 @@ However, the median coverage of target 637 on WS155167was not low in comparison 
 #| label: all-targets-plot
 #| echo: FALSE
 
-all_targets_plot <- ggplot(grouped_by_region, aes(x = target_coord_string, y = median_cov)) +
+all_targets_plot <- grouped_by_region |> 
+                             filter(worksheet %in% c("WS155167", 
+                                                     "WS155702", 
+                                                     "WS156308")) |> 
+  ggplot(aes(x = target_coord_string, y = median_cov)) +
   geom_point(shape = 21, aes(fill = cov_category))+
   scale_fill_manual(values = c( "red", "white")) +
   geom_hline(yintercept = 138, linetype = "dashed") +
@@ -150,6 +180,9 @@ all_targets_plot <- ggplot(grouped_by_region, aes(x = target_coord_string, y = m
   coord_cartesian(ylim = c(0, 1000)) +
   scale_y_continuous(breaks = c(0, 138, 500, 750, 1000)) +
   geom_point(data = grouped_by_region |> 
+               filter(worksheet %in% c("WS155167", 
+                                       "WS155702", 
+                                       "WS156308")) |> 
                filter(target_coord_string == "chr2_47445543-47445662"), 
              shape = 21, size = 4, 
              fill = "blue"
@@ -169,6 +202,9 @@ However, whilst the general coverage pattern for 25038352 seems to be in the low
 target_637_plot <- all_data |> 
   filter(target_number > 620 &
            target_number < 650) |> 
+  filter(worksheet %in% c("WS155167", 
+                          "WS155702", 
+                          "WS156308")) |> 
   mutate(target_number = as.character(target_number)) |> 
   ggplot(aes(x = target_number, y = case_coverage)) +
   geom_boxplot() +
@@ -244,7 +280,8 @@ grouped_by_region_with_primer_gc |>
                  binwidth = 1) +
   labs(x = "Median primer GC percent",
        y = "Number of targets",
-       fill = "Median coverage") +
+       fill = "Median coverage",
+       title = "Primer GC content and coverage on WS155167") +
   theme_bw()
 
 ```
@@ -293,8 +330,65 @@ grouped_by_region_gc |>
                  binwidth = 1) +
   labs(x = "Median target GC percent",
        y = "Number of targets",
-       fill = "Median coverage") +
+       fill = "Median coverage",
+       title = "Target GC content and coverage on WS155167") +
   theme_bw()
+
+```
+
+## Targets on other worksheets with high signal-adjusted noise
+
+We then investigated whether the targets impacted by low coverage in every sample on WS155167 were also impacted on 3 other worksheets with high signal-adjusted noise: WS157371, WS153211 and WS154828.
+
+```{r}
+#| label: tbl-worksheet-notes
+#| echo: FALSE
+
+worksheet_notes <- tribble(
+  ~"Worksheet", ~"Noise", ~"Sample 25038352 result", ~"Was the sequencing repeated?",
+  "WS155167", "High", "MSH2 c.1327_1361del variant detected ", "No",
+  "WS156308", "Low", "MSH2 c.1327_1361del variant NOT detected", "No",
+  "WS155702", "Low", "MSH2 c.1327_1361del variant NOT detected", "No",
+  "WS157371", "High", "Not tested", "Yes",
+  "WS154828", "High", "Not tested", "No",
+  "WS153211", "High", "Not tested", "Yes"
+)
+
+knitr::kable(worksheet_notes)
+
+```
+
+There were only 37 targets which had consistently low coverage across the 4 worksheets. 
+It was noted that there was a strong overlap of targets between WS155167 and WS157371, and a strong overlap between WS154828 and WS153211.
+
+```{r}
+#| label: target-venn-diagram
+#| echo: FALSE
+
+WS155167_low_targets <- grouped_by_region |> 
+  filter(median_cov < 138 & worksheet== "WS155167") 
+
+WS157371_low_targets <- grouped_by_region |> 
+  filter(median_cov < 138 & worksheet== "WS157371") 
+
+WS153211_low_targets <- grouped_by_region |> 
+  filter(median_cov < 138 & worksheet== "WS153211") 
+
+WS154828_low_targets <- grouped_by_region |> 
+  filter(median_cov < 138 & worksheet== "WS154828")
+
+low_target_comparison <- list(
+  "WS155167" = WS155167_low_targets$target_coord_string,
+  "WS157371" = WS157371_low_targets$target_coord_string,
+  "WS153211" = WS153211_low_targets$target_coord_string,
+  "WS154828" = WS154828_low_targets$target_coord_string
+)
+
+ggvenn::ggvenn(low_target_comparison,
+               set_name_size = 3,
+               show_percentage = FALSE) +
+  labs(title = "Targets with median coverage below 138X",
+       subtitle = "On worksheets with high signal-adjusted noise")
 
 ```
 
