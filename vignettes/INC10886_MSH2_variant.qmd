@@ -24,7 +24,7 @@ source(here("functions/chromosome_arm_functions.R"))
 
 # Introduction
 
-Sample 25038352 had a potentially pathogenic MSH2 variant, a `r str_length("CTTCGTTCTGACTTCTCCAAGTTTCAGGAAATGAT")`bp deletion in exon 9, detected on WS155167 (G02) which then disappeared on WS155702 (F02) and WS156308 (G02).
+Sample 25038352 had a potentially pathogenic MSH2 variant, a `r str_length("CTTCGTTCTGACTTCTCCAAGTTTCAGGAAATGAT")`bp deletion in exon 9, detected on WS155167 (G02) which then was not detected on WS155702 (F02) or WS156308 (G02).
 
 Variant: MSH2 c.1327_1361delCTTCGTTCTGACTTCTCCAAGTTTCAGGAAATGAT p.(Leu443fs) 25% 80 out of 323 reads on WS155167
 
@@ -93,6 +93,7 @@ ws_data <- ws_files |>
                                       sheetname = "CNV Targets Merged")) |> 
   list_rbind()
 
+# Have to collate WS155702 separately as the sheet name is different
 WS155702_data <- WS155702_files |> 
   map(\(WS155702_files) read_targets_merged(filepath = WS155702_files, 
                                       sheetname = "CNV Targets Merged-1")) |> 
@@ -168,7 +169,7 @@ all_targets_plot <- grouped_by_region |>
   geom_hline(yintercept = 138, linetype = "dashed") +
   theme_bw() +
   theme(axis.text.x = element_blank(),
-           axis.ticks.x = element_blank(),
+        axis.ticks.x = element_blank(),
         legend.position = "none") +
   facet_wrap(~worksheet, ncol = 1) +
   labs(y = "Median coverage across samples", x = "Target",
@@ -183,6 +184,7 @@ all_targets_plot <- grouped_by_region |>
                filter(worksheet %in% c("WS155167", 
                                        "WS155702", 
                                        "WS156308")) |> 
+               # Target 637
                filter(target_coord_string == "chr2_47445543-47445662"), 
              shape = 21, size = 4, 
              fill = "blue"
@@ -288,7 +290,7 @@ grouped_by_region_with_primer_gc |>
 
 ## GC content: target regions of interest
 
-The same relationship was hypothesised for the target regions, however there is no evidence that target GC percent infleunces the median coverage of a target.
+The same relationship was hypothesised for the target regions, however there is no evidence that target GC percent influences the median coverage of a target.
 
 ```{r}
 #| label: gc-content-targets
@@ -358,7 +360,7 @@ knitr::kable(worksheet_notes)
 
 ```
 
-There were only 37 targets which had consistently low coverage across the 4 worksheets. 
+There were only 37 targets which had consistently low coverage across the 4 worksheets.
 It was noted that there was a strong overlap of targets between WS155167 and WS157371, and a strong overlap between WS154828 and WS153211.
 
 ```{r}
