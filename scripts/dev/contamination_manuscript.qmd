@@ -1,0 +1,98 @@
+---
+title: "Longitudinal monitoring of specimen contamination in clinical next generation sequencing"
+format: pdf
+editor: visual
+---
+
+# Introduction
+
+Specimen contamination is a serious issue in clinical laboratories, as it can cause patient harm through incorrect results being reported.
+
+This is particularly relevant to somatic genetic testing of tumour samples, in which a low-level variant from a contaminant may be mistaken for a variant from a sub-clone or low tumour fraction.
+
+Contamination can occur at several points in the testing process:
+
+- Allogenic one marrow transplant
+- During pathology preparation: gross dissection, formalin-fixation, paraffin embedding and slide-making (reviewed by @hodgson2020)
+- During DNA extraction and dilution
+- Next generation sequencing library preparation
+
+@sehn2015 reported a contamination rate of 3% (9/296 samples).
+
+However there are no reports on how to detect contamination at scale, or on how to monitor rates of contamination longitudinally.
+
+# Methods
+
+A metric of contamination was developed by counting ploidy regions.
+
+```{r}
+#| label: load-data
+
+library(tidyverse)
+
+collated_data_folder <- paste0(config::get("data_folderpath"), 
+                               "live_service/collated/")
+
+number_ploidy_regions_live <- read_csv(paste0(collated_data_folder,
+                "number_ploidy_regions_live.csv"),
+                col_types = "ccccd") |> 
+  mutate(worksheet_number = parse_number(worksheet))
+
+ps_ws_info <- read_csv(paste0(collated_data_folder,
+                              "pansolid_worksheet_info.csv"),
+                       col_types = "dTccc") |> 
+  rename(ws_type = ps_category)
+
+ploidy_regions_live_grouped <- number_ploidy_regions_live |> 
+  mutate(status = case_when(
+    number_ploidy_regions >= 200 ~"potential contamination",
+    number_ploidy_regions < 200 ~"no contamination"
+  )) |> 
+  left_join(ps_ws_info |> 
+              select(worksheet, date),
+            by = "worksheet") |> 
+  mutate(month = lubridate::floor_date(x = date, unit = "month"))
+
+```
+
+Add limit of detection experiment to demonstrate how sensitive the method is.
+
+Data were collected from May 2025 to end date.
+
+# Results
+
+Our workflow:
+
+- Contamination is automatically detected and flagged to analysts
+- For any instance of contamination, the results are classified as "failed" and a repeat sample is requested
+- Frequency of contamination is monitored longitudinally to check for trends, such as sudden increases which could indicate a new, single source of contamination.
+
+```{r}
+#| label: make-tables
+
+month_table <- ploidy_regions_live_grouped |> 
+  filter(!is.na(month)) |> 
+  group_by(month, status) |> 
+      summarise(n = n()) |> 
+  ungroup() |> 
+  pivot_wider(id_cols = month, 
+              names_from = status,
+              values_from = n,
+              values_fill = 0) |> 
+  janitor::adorn_totals() |>  
+  mutate(percent_contamination = round((`potential contamination` / (`potential contamination` +
+                                                                `no contamination`))*100, 1))
+
+knitr::kable(month_table)
+
+```
+
+# Discussion
+
+At our Genomic Laboratory Hub, we process over 10,000 FFPE specimens for NGS testing per year, and receive specimens from x different pathology departments across the North West region of England.
+
+Clinical laboratories are under tight resource and time constraints, hence investigating the source of every instance of contamination is not feasible.
+
+Instead, our approach preserves patient safety whilst also being practical.
+
+This work will be relevant to other genetic laboratories who are interested in how to monitor contamination at scale and longitudinally.
