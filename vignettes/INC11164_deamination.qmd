@@ -1,0 +1,178 @@
+---
+title: "INC11164"
+author: "Joe Shaw (CS20980)"
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+    embed-resources: true
+editor: visual
+---
+
+```{r}
+#| label: packages-and-functions
+#| include: FALSE
+
+library(tidyverse)
+source(here::here("functions/pansolid_cnv_excel_functions.R"))
+source(here::here("functions/chromosome_arm_functions.R"))
+source(here::here("functions/contamination_functions_INC10994.R"))
+
+```
+
+```{r}
+#| label: functions
+
+modify_snp_data <- function(df) {
+  
+  output <- df |> 
+    filter(reference_allele == "No") |> 
+    filter(allele %in% c("A", "T", "G", "C") &
+             reference %in% c("A", "T", "G", "C")) |> 
+    mutate(base_change = str_c(reference, ">", allele))
+  
+  return(output)
+  
+}
+
+make_base_change_plot <- function(df) {
+  
+  plot <- df |> 
+    group_by(base_change) |> 
+    count() |> 
+    ggplot(aes(x = base_change, y = n)) +
+    geom_col() +
+    labs(x = "Variant", y = "Number of SNPs") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90))
+  
+  return(plot)
+  
+}
+
+load_ws_snp_data <- function(worksheet) {
+  
+  ws_files <- get_worksheet_filepaths(worksheet = {{ worksheet }},
+                                      file_regex = "Results_SNVs_Indels.*.xlsx")
+
+  output <- ws_files |> 
+    map(\(ws_files) read_snp_sheet(ws_files)) |> 
+    list_rbind() |> 
+    modify_snp_data()
+  
+  return(output)
+  
+}
+
+```
+
+```{r}
+#| label: load-snp-data
+#| echo: FALSE
+
+WS158244_snp_data <- load_ws_snp_data("WS158244")
+
+WS152271_snp_data <- load_ws_snp_data("WS152271")
+
+WS158280_snp_data <- load_ws_snp_data("WS158280")
+
+WS158290_snp_data <- load_ws_snp_data("WS158290")
+
+WS158345_snp_data <- load_ws_snp_data("WS158345")
+
+all_snp_data <- rbind(WS158244_snp_data, WS152271_snp_data,
+                      WS158280_snp_data, WS158290_snp_data, WS158345_snp_data)
+
+```
+
+# Sample 25060176
+
+Sample 25060176 has an unusual band of SNPs at approximately 25% across the whole genome.
+
+Notably, C>T and G>A changes are enriched in this SNP population.
+
+```{r}
+#| label: plot-25060176
+
+WS158244_snp_data |> 
+  filter(labno == "25060176") |> 
+  mutate(category = case_when(
+    frequency >= 60 ~"SNP frequency above 60%",
+    frequency < 60 &
+      frequency >= 40 ~"SNP frequency 40-60%",
+    frequency < 40 ~"SNP frequency less than 40%"
+  )) |> 
+ group_by(category, base_change) |> 
+  count() |> 
+  ggplot(aes(x = base_change, y = n)) +
+  geom_col() +
+  facet_wrap(~category) +
+  labs(x = "Variant", y = "Number of SNPs",
+       title = "SNP patterns in 25060176") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90))
+
+```
+
+## Expanded analysis
+
+We can also look at C>T and G>A changes across a larger sample subset, including 25020047 - an EQA sample with a discrepant result.
+
+```{r}
+#| label: add-percent-138x
+#| message: FALSE
+#| warning: FALSE
+
+percent_138x_live <- read_csv(file = paste0(config::get("data_folderpath"),
+                                            "live_service/collated/",
+                                            "percent_138x_live.csv"))
+amp_percent_138x_live <- read_csv(file = paste0(config::get("data_folderpath"),
+                                            "live_service/collated/",
+                                            "pansolid_amplifications_live_service/",
+                                            "live_service_percent_138_results_collated.csv")) |> 
+  rename(percent_138x = percent_whole_panel_covered_at_138x)
+
+percent_138x_bind <- rbind(percent_138x_live |> 
+              select(labno_suffix_worksheet, percent_138x),
+              amp_percent_138x_live|> 
+              select(labno_suffix_worksheet, percent_138x))
+
+all_snp_data_grouped <- all_snp_data |> 
+  mutate(base_change_group = case_when(
+    base_change %in% c("C>T", "G>A") ~"deamination_change",
+    TRUE ~"other_change"
+  )) |> 
+  group_by(labno_suffix_worksheet, base_change_group) |> 
+  summarise(total = n()) |> 
+  pivot_wider(id_cols = labno_suffix_worksheet,
+              names_from = base_change_group,
+              values_from = total) |> 
+  mutate(ratio_deamination = deamination_change/(deamination_change +
+                                                     other_change)) |>
+  left_join(percent_138x_bind,
+            by = "labno_suffix_worksheet") 
+
+```
+
+```{r}
+#| label: fig-ct-ga-low-level
+#| echo: FALSE
+
+ggplot(all_snp_data_grouped, aes(x = ratio_deamination,
+                                      y = percent_138x)) +
+  geom_point(shape = 21) +
+  geom_point(data = all_snp_data_grouped |> 
+               filter(labno_suffix_worksheet == "25020047_WS152271"),
+             shape = 21, size = 2, fill = "red") +
+  geom_point(data = all_snp_data_grouped |> 
+               filter(labno_suffix_worksheet == "25060176_WS158244"),
+             shape = 21, size = 2, fill = "blue") +
+  theme_bw() +
+  labs(x = "Proportion of SNP base changes which are C>T or G>A",
+       y = "Percent coverage over 138X",
+       title = paste0("Results for ",
+                      nrow(all_snp_data_grouped),
+                      " PanSolid samples"),
+       subtitle = "25060176 in blue; 25020047 in red")
+
+```
